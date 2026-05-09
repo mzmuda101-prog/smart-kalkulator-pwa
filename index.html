@@ -383,6 +383,44 @@
             gap: 8px;
         }
 
+        /* [EN] Input with sign toggle — for margin fields on phones */
+        .input-with-sign {
+            display: flex;
+            gap: 6px;
+            align-items: stretch;
+        }
+        .input-with-sign input {
+            flex: 1;
+            min-width: 0; /* [EN] Allow flex shrink below content size */
+        }
+        .sign-toggle {
+            flex-shrink: 0;
+            width: 48px;
+            min-height: 48px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius);
+            background: #f1f5f9;
+            color: var(--text-secondary);
+            font-family: var(--font);
+            font-size: 1.25rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+            /* [EN] Touch target: 48×48 minimum */
+        }
+        .sign-toggle:active {
+            background: var(--primary-light);
+            color: var(--primary);
+            border-color: var(--primary);
+            transform: scale(0.94);
+        }
+
         /* [EN] Unit Toggle */
         .unit-toggle {
             display: flex;
@@ -753,11 +791,17 @@
                 <div class="input-row">
                     <div class="input-group">
                         <label>Margines początkowy</label>
-                        <input type="number" id="engMarginStart" value="0" min="0" step="any" inputmode="decimal" placeholder="np. 5">
+                        <div class="input-with-sign">
+                            <input type="text" id="engMarginStart" value="0" step="any" inputmode="decimal" placeholder="np. 5" autocomplete="off">
+                            <button class="sign-toggle" data-target="engMarginStart" type="button" aria-label="Odwróć znak">±</button>
+                        </div>
                     </div>
                     <div class="input-group">
                         <label>Margines końcowy</label>
-                        <input type="number" id="engMarginEnd" value="0" min="0" step="any" inputmode="decimal" placeholder="np. 5">
+                        <div class="input-with-sign">
+                            <input type="text" id="engMarginEnd" value="0" step="any" inputmode="decimal" placeholder="np. 5" autocomplete="off">
+                            <button class="sign-toggle" data-target="engMarginEnd" type="button" aria-label="Odwróć znak">±</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1702,6 +1746,28 @@
             STATE.eng.axis = btn.getAttribute('data-axis');
             updateEngineering();
             showToast('Widok: ' + (STATE.eng.axis === 'X' ? 'Poziomy ⬌' : 'Pionowy ⬍'), '');
+        });
+
+        /* [EN] Sign toggle buttons for margin inputs */
+        document.addEventListener('click', function(e) {
+            var btn = e.target.closest('.sign-toggle');
+            if (!btn) return;
+            var targetId = btn.getAttribute('data-target');
+            var input = document.getElementById(targetId);
+            if (!input) return;
+            /* [EN] Toggle sign: tap ± to quickly swap between positive and negative */
+            var raw = input.value.trim();
+            if (raw === '' || raw === '-') {
+                input.value = '0';
+            } else if (raw.charAt(0) === '-') {
+                input.value = raw.slice(1);
+            } else {
+                input.value = '-' + raw;
+            }
+            /* [EN] Trigger input event so updateEngineering() fires */
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            /* [EN] Refocus the input so user can keep typing */
+            input.focus();
         });
 
         /* ============================================================
