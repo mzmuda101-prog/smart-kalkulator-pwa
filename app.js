@@ -19,8 +19,10 @@
             eng: {
                 unit: 'cm',
                 axis: 'X',
+                mode: 'between',
                 length: 100,
                 count: 3,
+                spacing: 20,
                 marginStart: 0,
                 marginEnd: 0,
             },
@@ -50,11 +52,18 @@
         const calcGrid = $('#calcGrid');
         const historyList = $('#historyList');
         const clearHistoryBtn = $('#clearHistory');
+        const openHistoryBtn = $('#openHistory');
+        const closeHistoryBtn = $('#closeHistory');
+        const historyBackdrop = $('#historyBackdrop');
+        const historyDrawer = $('#historyDrawer');
+        const historyCount = $('#historyCount');
         const cacheRefreshBtn = $('#cacheRefreshBtn');
+        const installAppBtn = $('#installAppBtn');
 
         // Engineering
         const engLength = $('#engLength');
         const engCount = $('#engCount');
+        const engSpacing = $('#engSpacing');
         const engMarginStart = $('#engMarginStart');
         const engMarginEnd = $('#engMarginEnd');
         const engCanvas = $('#engCanvas');
@@ -62,6 +71,8 @@
         const engResult = $('#engResult');
         const unitToggle = $('#unitToggle');
         const axisToggle = $('#axisToggle');
+        const spacingModeToggle = $('#spacingModeToggle');
+        const fixedSpacingGroup = $('#fixedSpacingGroup');
 
         // Constants
         const constName = $('#constName');
@@ -357,6 +368,9 @@
         }
 
         function renderHistory() {
+            if (historyCount) {
+                historyCount.textContent = String(STATE.history.length);
+            }
             if (STATE.history.length === 0) {
                 // [EN] Safe DOM creation — no innerHTML, no XSS
                 var emptyLi = document.createElement('li');
@@ -398,6 +412,7 @@
                         STATE.calc.expression = '';
                         updateCalcDisplay();
                         switchTab('calculator');
+                        closeHistoryDrawer();
                         showToast('📋 Przywrócono wynik', 'success');
                     }
                 });
@@ -405,11 +420,32 @@
             });
         }
 
+        function openHistoryDrawer() {
+            document.body.classList.add('history-open');
+            if (historyDrawer) historyDrawer.setAttribute('aria-hidden', 'false');
+            if (openHistoryBtn) openHistoryBtn.setAttribute('aria-expanded', 'true');
+        }
+
+        function closeHistoryDrawer() {
+            document.body.classList.remove('history-open');
+            if (historyDrawer) historyDrawer.setAttribute('aria-hidden', 'true');
+            if (openHistoryBtn) openHistoryBtn.setAttribute('aria-expanded', 'false');
+        }
+
         clearHistoryBtn.addEventListener('click', function() {
             STATE.history = [];
             saveHistory();
             renderHistory();
             showToast('🗑️ Historia wyczyszczona', '');
+        });
+
+        if (openHistoryBtn) openHistoryBtn.addEventListener('click', openHistoryDrawer);
+        if (closeHistoryBtn) closeHistoryBtn.addEventListener('click', closeHistoryDrawer);
+        if (historyBackdrop) historyBackdrop.addEventListener('click', closeHistoryDrawer);
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && document.body.classList.contains('history-open')) {
+                closeHistoryDrawer();
+            }
         });
 
         function escapeHTML(str) {
@@ -437,15 +473,18 @@
         function updateEngineering() {
             var L = parseFloat(engLength.value) || 0;
             var n = parseInt(engCount.value, 10) || 0;
+            var fixedSpacing = parseFloat(engSpacing.value) || 0;
             var ms = parseFloat(engMarginStart.value) || 0;
             var me = parseFloat(engMarginEnd.value) || 0;
+            var mode = STATE.eng.mode;
 
             STATE.eng.length = L;
             STATE.eng.count = n;
+            STATE.eng.spacing = fixedSpacing;
             STATE.eng.marginStart = ms;
             STATE.eng.marginEnd = me;
 
-            if (L <= 0 || n <= 0) {
+            if (L <= 0 || (mode !== 'fixed' && n <= 0)) {
                 engResult.textContent = '⚠️ Wprowadź prawidłową długość i liczbę kołków.';
                 drawEmptyCanvas();
                 return;
@@ -458,16 +497,20 @@
                 return;
             }
 
-            var step = usableLength / (n + 1);
-            var positions = [];
-            for (var i = 1; i <= n; i++) {
-                positions.push(ms + step * i);
+            var placement = calculatePegPositions(L, n, ms, me, fixedSpacing, mode);
+            if (placement.error) {
+                engResult.textContent = placement.error;
+                drawEmptyCanvas();
+                return;
             }
+            var step = placement.step;
+            var positions = placement.positions;
 
             // [EN] Build result text
             var unit = getUnitLabel();
             var resultText = '📏 Długość: ' + formatNum(L) + ' ' + unit + '\n';
-            resultText += '📌 Liczba kołków: ' + n + '\n';
+            resultText += '⚙️ Tryb: ' + getPlacementModeLabel(mode) + '\n';
+            resultText += '📌 Liczba kołków: ' + positions.length + (mode === 'fixed' ? ' (wyliczona z odstępu)' : '') + '\n';
             resultText += '📐 Odstęp między środkami: ' + formatNum(step) + ' ' + unit + '\n';
             if (ms > 0 || me > 0) {
                 resultText += '↔️ Marginesy: ' + formatNum(ms) + ' / ' + formatNum(me) + ' ' + unit + '\n';
@@ -478,7 +521,56 @@
             });
 
             engResult.textContent = resultText;
-            drawEngineeringCanvas(L, ms, me, positions, n, step);
+            drawEngineeringCanvas(L, ms, me, positions, positions.length, step);
+        }
+
+        function calculatePegPositions(totalLength, count, marginStart, marginEnd, fixedSpacing, mode) {
+            var usableLength = totalLength - marginStart - marginEnd;
+            var positions = [];
+            var step = 0;
+
+            if (mode === 'fixed') {
+                if (fixedSpacing <= 0) {
+                    return { error: '⚠️ Podaj dodatni stały odstęp między kołkami.' };
+                }
+                var start = marginStart;
+                var end = totalLength - marginEnd;
+                var safety = 0;
+                for (var pos = start; pos <= end + 1e-9 && safety < 100; pos += fixedSpacing) {
+                    positions.push(parseFloat(pos.toFixed(6)));
+                    safety++;
+                }
+                if (positions.length === 0) {
+                    return { error: '⚠️ Stały odstęp nie mieści żadnego kołka w zadanym polu.' };
+                }
+                return { positions: positions, step: fixedSpacing };
+            }
+
+            if (mode === 'edges') {
+                if (count === 1) {
+                    positions.push(marginStart + usableLength / 2);
+                    return { positions: positions, step: usableLength };
+                }
+                step = usableLength / (count - 1);
+                for (var i = 0; i < count; i++) {
+                    positions.push(marginStart + step * i);
+                }
+                return { positions: positions, step: step };
+            }
+
+            step = usableLength / (count + 1);
+            for (var j = 1; j <= count; j++) {
+                positions.push(marginStart + step * j);
+            }
+            return { positions: positions, step: step };
+        }
+
+        function getPlacementModeLabel(mode) {
+            switch (mode) {
+                case 'edges': return 'pierwszy i ostatni na granicach pola';
+                case 'fixed': return 'stały odstęp od marginesu startowego';
+                default: return 'równo wewnątrz pola';
+            }
         }
 
         function formatNum(val) {
@@ -896,6 +988,7 @@
            ============================================================ */
         engLength.addEventListener('input', updateEngineering);
         engCount.addEventListener('input', updateEngineering);
+        engSpacing.addEventListener('input', updateEngineering);
         engMarginStart.addEventListener('input', updateEngineering);
         engMarginEnd.addEventListener('input', updateEngineering);
 
@@ -916,6 +1009,22 @@
             STATE.eng.axis = btn.getAttribute('data-axis');
             updateEngineering();
             showToast('Widok: ' + (STATE.eng.axis === 'X' ? 'Poziomy ⬌' : 'Pionowy ⬍'), '');
+        });
+
+        function updateSpacingModeUI() {
+            var isFixed = STATE.eng.mode === 'fixed';
+            if (fixedSpacingGroup) fixedSpacingGroup.classList.toggle('active', isFixed);
+            if (engCount) engCount.disabled = isFixed;
+        }
+
+        spacingModeToggle.addEventListener('click', function(e) {
+            var btn = e.target.closest('.mode-btn');
+            if (!btn) return;
+            spacingModeToggle.querySelectorAll('.mode-btn').forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            STATE.eng.mode = btn.getAttribute('data-mode');
+            updateSpacingModeUI();
+            updateEngineering();
         });
 
         /* [EN] Sign toggle buttons for margin inputs */
@@ -1019,53 +1128,56 @@
                 constList.appendChild(li);
             });
 
-            // [EN] Quick-calc events — use event delegation
-            constList.addEventListener('input', function(e) {
-                var input = e.target.closest('.quick-mult');
-                if (!input) return;
-                var li = input.closest('.const-item');
-                var useBtn = li.querySelector('.use-const');
-                var idx = parseInt(useBtn.getAttribute('data-idx'), 10);
-                var mult = parseFloat(input.value) || 1;
-                var resultSpan = li.querySelector('.quick-result');
-                if (resultSpan && STATE.constants[idx]) {
-                    var result = STATE.constants[idx].value * mult;
-                    resultSpan.textContent = '= ' + formatNum(result) + ' ' + (STATE.constants[idx].unit || '');
-                }
-            });
-
-            constList.addEventListener('click', function(e) {
-                var delBtn = e.target.closest('.del-const');
-                if (delBtn) {
-                    var idx = parseInt(delBtn.getAttribute('data-idx'), 10);
-                    var name = STATE.constants[idx] ? STATE.constants[idx].name : '';
-                    STATE.constants.splice(idx, 1);
-                    saveConstants();
-                    renderConstants();
-                    showToast('🗑️ Usunięto: ' + (name || 'stałą'), '');
-                    return;
-                }
-
-                var useBtn = e.target.closest('.use-const');
-                if (useBtn) {
-                    var idx2 = parseInt(useBtn.getAttribute('data-idx'), 10);
-                    var c = STATE.constants[idx2];
-                    if (c) {
-                        var li = useBtn.closest('.const-item');
-                        var multInput = li.querySelector('.quick-mult');
-                        var mult = parseFloat(multInput.value) || 1;
-                        var finalVal = c.value * mult;
-                        STATE.calc.currentInput = String(finalVal);
-                        STATE.calc.shouldResetDisplay = true;
-                        STATE.calc.operator = null;
-                        STATE.calc.previousInput = '';
-                        STATE.calc.expression = '';
-                        updateCalcDisplay();
-                        switchTab('calculator');
-                        showToast('📊 ' + escapeHTML(c.name) + ' × ' + mult + ' = ' + formatNum(finalVal), 'success');
+            if (!constList.dataset.bound) {
+                constList.dataset.bound = 'true';
+                // [EN] Quick-calc events — use event delegation once
+                constList.addEventListener('input', function(e) {
+                    var input = e.target.closest('.quick-mult');
+                    if (!input) return;
+                    var li = input.closest('.const-item');
+                    var useBtn = li.querySelector('.use-const');
+                    var idx = parseInt(useBtn.getAttribute('data-idx'), 10);
+                    var mult = parseFloat(input.value) || 1;
+                    var resultSpan = li.querySelector('.quick-result');
+                    if (resultSpan && STATE.constants[idx]) {
+                        var result = STATE.constants[idx].value * mult;
+                        resultSpan.textContent = '= ' + formatNum(result) + ' ' + (STATE.constants[idx].unit || '');
                     }
-                }
-            });
+                });
+
+                constList.addEventListener('click', function(e) {
+                    var delBtn = e.target.closest('.del-const');
+                    if (delBtn) {
+                        var idx = parseInt(delBtn.getAttribute('data-idx'), 10);
+                        var name = STATE.constants[idx] ? STATE.constants[idx].name : '';
+                        STATE.constants.splice(idx, 1);
+                        saveConstants();
+                        renderConstants();
+                        showToast('🗑️ Usunięto: ' + (name || 'stałą'), '');
+                        return;
+                    }
+
+                    var useBtn = e.target.closest('.use-const');
+                    if (useBtn) {
+                        var idx2 = parseInt(useBtn.getAttribute('data-idx'), 10);
+                        var c = STATE.constants[idx2];
+                        if (c) {
+                            var li = useBtn.closest('.const-item');
+                            var multInput = li.querySelector('.quick-mult');
+                            var mult = parseFloat(multInput.value) || 1;
+                            var finalVal = c.value * mult;
+                            STATE.calc.currentInput = String(finalVal);
+                            STATE.calc.shouldResetDisplay = true;
+                            STATE.calc.operator = null;
+                            STATE.calc.previousInput = '';
+                            STATE.calc.expression = '';
+                            updateCalcDisplay();
+                            switchTab('calculator');
+                            showToast('📊 ' + c.name + ' × ' + mult + ' = ' + formatNum(finalVal), 'success');
+                        }
+                    }
+                });
+            }
         }
 
         addConstBtn.addEventListener('click', function() {
@@ -1200,16 +1312,50 @@
            [EN] PWA — Install Prompt (deferred)
            ============================================================ */
         var deferredPrompt = null;
+        function isStandaloneMode() {
+            return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+        }
+
+        function updateInstallButton() {
+            if (!installAppBtn) return;
+            installAppBtn.hidden = isStandaloneMode() || !deferredPrompt;
+        }
+
         window.addEventListener('beforeinstallprompt', function(e) {
             e.preventDefault();
             deferredPrompt = e;
+            updateInstallButton();
             // [EN] Show a subtle hint after 3 seconds
             setTimeout(function() {
                 if (deferredPrompt) {
-                    showToast('📲 Dodaj do ekranu głównego!', 'success');
+                    showToast('📲 Możesz zainstalować aplikację z przycisku w nagłówku', 'success');
                 }
             }, 3000);
         });
+
+        window.addEventListener('appinstalled', function() {
+            deferredPrompt = null;
+            updateInstallButton();
+            showToast('✅ Aplikacja zainstalowana', 'success');
+        });
+
+        if (installAppBtn) {
+            installAppBtn.addEventListener('click', function() {
+                if (!deferredPrompt) {
+                    showToast('W Samsung Internet użyj menu ⋮ i wybierz Dodaj do ekranu głównego', '');
+                    return;
+                }
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then(function(choice) {
+                    if (choice.outcome === 'accepted') {
+                        showToast('✅ Instalowanie aplikacji', 'success');
+                    }
+                    deferredPrompt = null;
+                    updateInstallButton();
+                });
+            });
+            updateInstallButton();
+        }
 
         /* ============================================================
            [EN] Handle canvas resize for HiDPI
@@ -1244,8 +1390,10 @@
             // [EN] Load saved engineering values
             engLength.value = STATE.eng.length;
             engCount.value = STATE.eng.count;
+            engSpacing.value = STATE.eng.spacing;
             engMarginStart.value = STATE.eng.marginStart;
             engMarginEnd.value = STATE.eng.marginEnd;
+            updateSpacingModeUI();
         }
 
         init();
