@@ -143,8 +143,16 @@
             </div>
 
             <div class="card">
-                <div class="card-header"><span class="icon">🎨</span> Wizualizacja</div>
-                <div class="canvas-container">
+                <div class="card-header">
+                    <span class="icon">🎨</span> Wizualizacja
+                    <span class="zoom-controls" id="zoomControls">
+                        <button class="zoom-btn" id="zoomOutBtn" type="button" aria-label="Pomniejsz">−</button>
+                        <span class="zoom-label" id="zoomLabel">100%</span>
+                        <button class="zoom-btn" id="zoomInBtn" type="button" aria-label="Powiększ">+</button>
+                        <button class="zoom-btn zoom-reset" id="zoomResetBtn" type="button" aria-label="Resetuj widok">↺</button>
+                    </span>
+                </div>
+                <div class="canvas-container" id="canvasContainer">
                     <canvas id="engCanvas" width="900" height="450" aria-label="Wizualizacja rozmieszczenia kołków" role="img"></canvas>
                 </div>
                 <div class="eng-result" id="engResult" aria-live="polite"></div>

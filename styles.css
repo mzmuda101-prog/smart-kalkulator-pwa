@@ -262,8 +262,61 @@
             display: flex;
             align-items: center;
             gap: 8px;
+            flex-wrap: wrap;
         }
         .card-header .icon { font-size: 1.2rem; }
+
+        /* [EN] Zoom controls inside card header */
+        .zoom-controls {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-left: auto;
+            background: #f1f5f9;
+            border-radius: var(--radius-sm);
+            padding: 2px;
+        }
+        .zoom-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: calc(var(--radius-sm) - 2px);
+            background: transparent;
+            color: var(--text-secondary);
+            font-family: var(--font);
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition);
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+            line-height: 1;
+        }
+        .zoom-btn:active {
+            background: var(--primary-light);
+            color: var(--primary);
+            transform: scale(0.92);
+        }
+        .zoom-btn.zoom-reset {
+            font-size: 1rem;
+            margin-left: 2px;
+            border-left: 1px solid var(--border);
+            border-radius: 0;
+            padding-left: 6px;
+        }
+        .zoom-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            min-width: 36px;
+            text-align: center;
+            user-select: none;
+            -webkit-user-select: none;
+        }
 
         /* ============================================================
            [EN] Standard Calculator
@@ -727,12 +780,32 @@
             border: 1px solid var(--border);
             overflow: hidden;
             margin-top: 12px;
+            /* [EN] Zoom + pan: canvas is scaled and translated inside */
+            position: relative;
+            touch-action: none; /* [EN] Prevent browser gestures on canvas — we handle pan ourselves */
+            cursor: grab;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .canvas-container.dragging {
+            cursor: grabbing;
+        }
+        /* [EN] Canvas wrapper for CSS transform (zoom + pan) */
+        .canvas-wrapper {
+            display: block;
+            line-height: 0;
+            transform-origin: 0 0;
+            will-change: transform;
+            transition: none;
+        }
+        .canvas-wrapper.animating {
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
         canvas {
             display: block;
             width: 100%;
             height: auto;
-            cursor: default;
+            pointer-events: none; /* [EN] Clicks pass through to container for pan */
         }
 
         /* [EN] Results output */
@@ -918,6 +991,12 @@
             .input-triple { gap: 10px; }
             .tab-btn { font-size: 0.875rem; padding: 12px 16px; }
             .mode-btn { font-size: 0.8125rem; }
+            .zoom-btn {
+                width: 36px;
+                height: 36px;
+                font-size: 1.2rem;
+            }
+            .zoom-label { font-size: 0.8125rem; min-width: 40px; }
         }
 
         @media (min-width: 1024px) {

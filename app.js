@@ -73,6 +73,14 @@
         const axisToggle = $('#axisToggle');
         const spacingModeToggle = $('#spacingModeToggle');
         const fixedSpacingGroup = $('#fixedSpacingGroup');
+        // Zoom / Pan
+        const canvasContainer = $('#canvasContainer');
+        const zoomInBtn = $('#zoomInBtn');
+        const zoomOutBtn = $('#zoomOutBtn');
+        const zoomResetBtn = $('#zoomResetBtn');
+        const zoomLabel = $('#zoomLabel');
+        // [EN] canvasWrapper is created dynamically on init
+        let canvasWrapper = null;
 
         // Constants
         const constName = $('#constName');
@@ -1383,14 +1391,223 @@
         }, { passive: false });
 
         /* ============================================================
+           [EN] Canvas Zoom & Pan
+               Zoom: CSS scale via transform on wrapper
+               Pan: CSS translate via transform on wrapper
+               Canvas always renders at native 900×450
+           ============================================================ */
+        var zoomState = {
+            scale: 1,
+            offsetX: 0,
+            offsetY: 0,
+            minScale: 0.25,
+            maxScale: 4,
+            step: 0.25, // [EN] Zoom step per button click
+        };
+
+        function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+        function applyTransform(animate) {
+            if (!canvasWrapper) return;
+            /* [EN] Clamp offset so canvas stays reachable */
+            var w = canvasContainer.clientWidth;
+            var h = canvasContainer.clientHeight;
+            var cw = engCanvas.width * zoomState.scale; // [EN] Scaled canvas width
+            var ch = engCanvas.height * zoomState.scale; // [EN] Scaled canvas height
+
+            /* [EN] Don't let the image fully escape the viewport */
+            zoomState.offsetX = clamp(zoomState.offsetX, -cw + Math.min(w * 0.3, 80), w - Math.min(w * 0.3, 80));
+            zoomState.offsetY = clamp(zoomState.offsetY, -ch + Math.min(h * 0.3, 60), h - Math.min(h * 0.3, 60));
+
+            if (animate) {
+                canvasWrapper.classList.add('animating');
+                /* [EN] Remove class after transition ends so subsequent drags are instant */
+                clearTimeout(canvasWrapper._animTimer);
+                canvasWrapper._animTimer = setTimeout(function() {
+                    canvasWrapper.classList.remove('animating');
+                }, 260);
+            } else {
+                canvasWrapper.classList.remove('animating');
+            }
+
+            canvasWrapper.style.transform =
+                'translate(' + zoomState.offsetX.toFixed(2) + 'px, ' + zoomState.offsetY.toFixed(2) + 'px) ' +
+                'scale(' + zoomState.scale.toFixed(4) + ')';
+
+            updateZoomLabel();
+        }
+
+        function updateZoomLabel() {
+            if (zoomLabel) {
+                zoomLabel.textContent = String(Math.round(zoomState.scale * 100)) + '%';
+            }
+        }
+
+        function zoomIn() {
+            zoomState.scale = clamp(zoomState.scale + zoomState.step, zoomState.minScale, zoomState.maxScale);
+            applyTransform(true);
+        }
+
+        function zoomOut() {
+            zoomState.scale = clamp(zoomState.scale - zoomState.step, zoomState.minScale, zoomState.maxScale);
+            applyTransform(true);
+        }
+
+        function zoomReset() {
+            zoomState.scale = 1;
+            zoomState.offsetX = 0;
+            zoomState.offsetY = 0;
+            applyTransform(true);
+        }
+
+        /* [EN] Zoom button events */
+        if (zoomInBtn) zoomInBtn.addEventListener('click', zoomIn);
+        if (zoomOutBtn) zoomOutBtn.addEventListener('click', zoomOut);
+        if (zoomResetBtn) zoomResetBtn.addEventListener('click', zoomReset);
+
+        /* ============================================================
+           [EN] Pan — Mouse Drag on canvas container
+           ============================================================ */
+        var isDragging = false;
+        var dragStartX = 0;
+        var dragStartY = 0;
+        var dragOffX = 0;
+        var dragOffY = 0;
+
+        canvasContainer.addEventListener('mousedown', function(e) {
+            /* [EN] Only start drag on left button, skip zoom buttons etc. */
+            if (e.button !== 0) return;
+            isDragging = true;
+            canvasContainer.classList.add('dragging');
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            dragOffX = zoomState.offsetX;
+            dragOffY = zoomState.offsetY;
+            e.preventDefault();
+        });
+
+        window.addEventListener('mousemove', function(e) {
+            if (!isDragging) return;
+            zoomState.offsetX = dragOffX + (e.clientX - dragStartX);
+            zoomState.offsetY = dragOffY + (e.clientY - dragStartY);
+            applyTransform(false);
+        });
+
+        window.addEventListener('mouseup', function() {
+            if (!isDragging) return;
+            isDragging = false;
+            canvasContainer.classList.remove('dragging');
+        });
+
+        /* ============================================================
+           [EN] Pan — Touch drag on canvas container
+           ============================================================ */
+        var touchId = null;
+        var touchStartDist = 0;
+        var touchStartScale = 1;
+        var pinchMidX = 0;
+        var pinchMidY = 0;
+        var pinchOffX = 0;
+        var pinchOffY = 0;
+        var pinchScale = 1;
+
+        canvasContainer.addEventListener('touchstart', function(e) {
+            if (e.touches.length === 1) {
+                /* [EN] Single finger — pan */
+                isDragging = true;
+                canvasContainer.classList.add('dragging');
+                dragStartX = e.touches[0].clientX;
+                dragStartY = e.touches[0].clientY;
+                dragOffX = zoomState.offsetX;
+                dragOffY = zoomState.offsetY;
+                touchId = e.touches[0].identifier;
+                /* [EN] Stop swipe gesture from scrolling panels */
+                e.preventDefault();
+            } else if (e.touches.length === 2) {
+                /* [EN] Two fingers — pinch zoom */
+                isDragging = false;
+                canvasContainer.classList.remove('dragging');
+                var dx = e.touches[1].clientX - e.touches[0].clientX;
+                var dy = e.touches[1].clientY - e.touches[0].clientY;
+                touchStartDist = Math.sqrt(dx * dx + dy * dy);
+                touchStartScale = zoomState.scale;
+                pinchScale = zoomState.scale;
+                /* [EN] Midpoint of the two touches — zoom around this point */
+                pinchMidX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                pinchMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                pinchOffX = zoomState.offsetX;
+                pinchOffY = zoomState.offsetY;
+                touchId = null;
+            }
+        }, { passive: false });
+
+        canvasContainer.addEventListener('touchmove', function(e) {
+            if (e.touches.length === 1 && isDragging) {
+                zoomState.offsetX = dragOffX + (e.touches[0].clientX - dragStartX);
+                zoomState.offsetY = dragOffY + (e.touches[0].clientY - dragStartY);
+                applyTransform(false);
+                e.preventDefault();
+            } else if (e.touches.length === 2) {
+                var dx = e.touches[1].clientX - e.touches[0].clientX;
+                var dy = e.touches[1].clientY - e.touches[0].clientY;
+                var dist = Math.sqrt(dx * dx + dy * dy);
+                if (touchStartDist > 0) {
+                    var newScale = clamp(touchStartScale * (dist / touchStartDist), zoomState.minScale, zoomState.maxScale);
+                    /* [EN] Zoom around the pinch center point */
+                    var scaleRatio = newScale / pinchScale;
+                    zoomState.offsetX = pinchMidX - scaleRatio * (pinchMidX - pinchOffX);
+                    zoomState.offsetY = pinchMidY - scaleRatio * (pinchMidY - pinchOffY);
+                    zoomState.scale = newScale;
+                    pinchScale = newScale;
+                    pinchOffX = zoomState.offsetX;
+                    pinchOffY = zoomState.offsetY;
+                    applyTransform(false);
+                }
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        canvasContainer.addEventListener('touchend', function(e) {
+            /* [EN] Check if our tracked touch ended */
+            var found = false;
+            for (var i = 0; i < e.touches.length; i++) {
+                if (e.touches[i].identifier === touchId) { found = true; break; }
+            }
+            if (!found) {
+                isDragging = false;
+                canvasContainer.classList.remove('dragging');
+                touchId = null;
+                touchStartDist = 0;
+            }
+        });
+
+        /* [EN] Wheel zoom on desktop */
+        canvasContainer.addEventListener('wheel', function(e) {
+            /* [EN] Only zoom when not inside a scrollable panel (let normal scroll pass) */
+            e.preventDefault();
+            var rect = canvasContainer.getBoundingClientRect();
+            /* [EN] Mouse position relative to canvas container */
+            var mx = e.clientX - rect.left;
+            var my = e.clientY - rect.top;
+            /* [EN] Point under cursor in canvas coordinate space */
+            var oldScale = zoomState.scale;
+            var newScale = clamp(
+                oldScale * (e.deltaY < 0 ? 1.1 : 0.9),
+                zoomState.minScale,
+                zoomState.maxScale
+            );
+            /* [EN] Adjust offset so the point under cursor stays put */
+            var ratio = newScale / oldScale;
+            zoomState.offsetX = mx - ratio * (mx - zoomState.offsetX);
+            zoomState.offsetY = my - ratio * (my - zoomState.offsetY);
+            zoomState.scale = newScale;
+            applyTransform(false);
+        }, { passive: false });
+
+        /* ============================================================
            [EN] Handle canvas resize for HiDPI
            ============================================================ */
         function handleCanvasResize() {
-            var container = engCanvas.parentElement;
-            var displayWidth = container.clientWidth;
-            if (displayWidth < 300) displayWidth = 300;
-            // [EN] Keep internal resolution fixed; CSS handles scaling
-            // [EN] Redraw to match new display size
             if (STATE.activeTab === 'engineering') {
                 updateEngineering();
             }
@@ -1405,6 +1622,12 @@
            [EN] Initialization
            ============================================================ */
         function init() {
+            /* [EN] Wrap canvas for CSS zoom/pan */
+            canvasWrapper = document.createElement('div');
+            canvasWrapper.className = 'canvas-wrapper';
+            engCanvas.parentNode.insertBefore(canvasWrapper, engCanvas);
+            canvasWrapper.appendChild(engCanvas);
+
             loadFromStorage();
             buildCalcButtons();
             updateCalcDisplay();
