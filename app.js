@@ -1119,20 +1119,20 @@
             expr = insertImplicitMultiplication(expr);
 
             var allowedNames = {
-                x: 'x',
-                pi: 'Math.PI',
-                e: 'Math.E',
-                sin: 'Math.sin',
-                cos: 'Math.cos',
-                tan: 'Math.tan',
-                sqrt: 'Math.sqrt',
-                abs: 'Math.abs',
-                log: 'Math.log10',
-                ln: 'Math.log',
-                exp: 'Math.exp',
-                floor: 'Math.floor',
-                ceil: 'Math.ceil',
-                round: 'Math.round',
+                x: true,
+                pi: true,
+                e: true,
+                sin: true,
+                cos: true,
+                tan: true,
+                sqrt: true,
+                abs: true,
+                log: true,
+                ln: true,
+                exp: true,
+                floor: true,
+                ceil: true,
+                round: true,
             };
 
             var names = expr.match(/[a-z]+/g) || [];
@@ -1146,12 +1146,156 @@
                 throw new Error('Użyj tylko liczb, x, nawiasów, operatorów i prostych funkcji.');
             }
 
-            expr = expr.replace(/\^/g, '**');
-            expr = expr.replace(/[a-z]+/g, function(name) {
-                return allowedNames[name];
-            });
+            var tokens = tokenizeExpression(expr);
+            var pos = 0;
 
-            return new Function('x', 'return ' + expr + ';');
+            function tokenizeExpression(input) {
+                var t = [];
+                var idx = 0;
+                while (idx < input.length) {
+                    var ch = input[idx];
+                    if (/\s/.test(ch)) {
+                        idx++;
+                        continue;
+                    }
+                    if (/[0-9.]/.test(ch)) {
+                        var match = input.slice(idx).match(/^[0-9]*\.?[0-9]+/);
+                        if (!match) throw new Error('Nieprawidłowa liczba w wyrażeniu.');
+                        t.push({ type: 'number', value: parseFloat(match[0]) });
+                        idx += match[0].length;
+                        continue;
+                    }
+                    if (/[a-z]/.test(ch)) {
+                        var match = input.slice(idx).match(/^[a-z]+/);
+                        t.push({ type: 'name', value: match[0] });
+                        idx += match[0].length;
+                        continue;
+                    }
+                    if ('+-*/^()'.indexOf(ch) !== -1) {
+                        t.push({ type: ch === '(' || ch === ')' ? 'paren' : 'operator', value: ch });
+                        idx++;
+                        continue;
+                    }
+                    throw new Error('Nieprawidłowy znak: ' + ch);
+                }
+                return t;
+            }
+
+            function peek() {
+                return tokens[pos];
+            }
+
+            function consume() {
+                return tokens[pos++];
+            }
+
+            function parseExpression() {
+                var value = parseTerm();
+                while (peek() && peek().type === 'operator' && (peek().value === '+' || peek().value === '-')) {
+                    var op = consume().value;
+                    var rhs = parseTerm();
+                    value = op === '+' ? value + rhs : value - rhs;
+                }
+                return value;
+            }
+
+            function parseTerm() {
+                var value = parseFactor();
+                while (peek() && peek().type === 'operator' && (peek().value === '*' || peek().value === '/')) {
+                    var op = consume().value;
+                    var rhs = parseFactor();
+                    value = op === '*' ? value * rhs : value / rhs;
+                }
+                return value;
+            }
+
+            function parseFactor() {
+                var value = parseUnary();
+                while (peek() && peek().type === 'operator' && peek().value === '^') {
+                    consume();
+                    var rhs = parseFactor();
+                    value = Math.pow(value, rhs);
+                }
+                return value;
+            }
+
+            function parseUnary() {
+                if (peek() && peek().type === 'operator' && (peek().value === '+' || peek().value === '-')) {
+                    var op = consume().value;
+                    var value = parseUnary();
+                    return op === '-' ? -value : value;
+                }
+                return parsePrimary();
+            }
+
+            function parsePrimary() {
+                var token = peek();
+                if (!token) {
+                    throw new Error('Nieprawidłowe wyrażenie.');
+                }
+                if (token.type === 'number') {
+                    consume();
+                    return token.value;
+                }
+                if (token.type === 'name') {
+                    consume();
+                    if (token.value === 'x') {
+                        return x;
+                    }
+                    if (token.value === 'pi') {
+                        return Math.PI;
+                    }
+                    if (token.value === 'e') {
+                        return Math.E;
+                    }
+                    if (peek() && peek().type === 'paren' && peek().value === '(') {
+                        consume();
+                        var arg = parseExpression();
+                        if (!peek() || peek().type !== 'paren' || peek().value !== ')') {
+                            throw new Error('Brak nawiasu kończącego.');
+                        }
+                        consume();
+                        return evaluateFunction(token.value, arg);
+                    }
+                    throw new Error('Funkcja ' + token.value + ' wymaga nawiasów.');
+                }
+                if (token.type === 'paren' && token.value === '(') {
+                    consume();
+                    var value = parseExpression();
+                    if (!peek() || peek().type !== 'paren' || peek().value !== ')') {
+                        throw new Error('Brak nawiasu kończącego.');
+                    }
+                    consume();
+                    return value;
+                }
+                throw new Error('Nieprawidłowe wyrażenie.');
+            }
+
+            function evaluateFunction(name, arg) {
+                switch (name) {
+                    case 'sin': return Math.sin(arg);
+                    case 'cos': return Math.cos(arg);
+                    case 'tan': return Math.tan(arg);
+                    case 'sqrt': return Math.sqrt(arg);
+                    case 'abs': return Math.abs(arg);
+                    case 'log': return Math.log10(arg);
+                    case 'ln': return Math.log(arg);
+                    case 'exp': return Math.exp(arg);
+                    case 'floor': return Math.floor(arg);
+                    case 'ceil': return Math.ceil(arg);
+                    case 'round': return Math.round(arg);
+                    default: throw new Error('Nieznana funkcja: ' + name);
+                }
+            }
+
+            return function(x) {
+                pos = 0;
+                var result = parseExpression();
+                if (pos < tokens.length) {
+                    throw new Error('Nieprawidłowe wyrażenie.');
+                }
+                return result;
+            };
         }
 
         function getGraphBounds() {
@@ -1799,7 +1943,7 @@
                 icon = '▯';
             } else {
                 label = 'Tryb orientacji: automatyczny';
-                icon = '↻';
+                icon = 'Auto';
             }
             orientationBtn.textContent = icon;
             orientationBtn.setAttribute('aria-label', label);
