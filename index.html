@@ -48,6 +48,9 @@
         <button class="tab-btn" data-tab="engineering" role="tab" aria-selected="false">
             <span class="tab-icon">📐</span> Inżynieria
         </button>
+        <button class="tab-btn" data-tab="graph" role="tab" aria-selected="false">
+            <span class="tab-icon">📈</span> Wykresy
+        </button>
         <button class="tab-btn" data-tab="constants" role="tab" aria-selected="false">
             <span class="tab-icon">📊</span> Moje Stałe
         </button>
@@ -156,6 +159,105 @@
                     <canvas id="engCanvas" width="900" height="450" aria-label="Wizualizacja rozmieszczenia podziałów" role="img"></canvas>
                 </div>
                 <div class="eng-result" id="engResult" aria-live="polite"></div>
+            </div>
+        </section>
+
+        <!-- ==================== PANEL: Graph / Easy Math Lines ==================== -->
+        <section id="panel-graph" class="panel" role="tabpanel">
+            <div class="card">
+                <div class="card-header"><span class="icon">📈</span> Wykresy i szybkie podziały</div>
+
+                <div class="input-group">
+                    <label>Komenda albo funkcja</label>
+                    <input type="text" id="graphCommand" value="f(x)=sin(x)" inputmode="text" autocomplete="off" placeholder="np. f(x)=x^2-4 albo podziel 120 na 4 w polu y=-1">
+                </div>
+
+                <div class="graph-examples">
+                    <button class="example-chip" data-command="f(x)=sin(x)" type="button">sin(x)</button>
+                    <button class="example-chip" data-command="f(x)=x^2-4" type="button">x^2 - 4</button>
+                    <button class="example-chip" data-command="podziel 120 na 4 w polu y=-1" type="button">podziel 120 na 4</button>
+                    <button class="example-chip" data-command="od 0 do 120 co 20 y=0" type="button">co 20</button>
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>X od</label>
+                        <input type="number" id="graphXMin" value="-10" step="any" inputmode="decimal">
+                    </div>
+                    <div class="input-group">
+                        <label>X do</label>
+                        <input type="number" id="graphXMax" value="10" step="any" inputmode="decimal">
+                    </div>
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Y od</label>
+                        <input type="number" id="graphYMin" value="-10" step="any" inputmode="decimal">
+                    </div>
+                    <div class="input-group">
+                        <label>Y do</label>
+                        <input type="number" id="graphYMax" value="10" step="any" inputmode="decimal">
+                    </div>
+                </div>
+
+                <button class="btn btn-primary" id="graphDrawBtn" type="button">📈 Rysuj</button>
+            </div>
+
+            <div class="card">
+                <div class="card-header"><span class="icon">✳️</span> Kreator podziału osi X</div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Długość / koniec X</label>
+                        <input type="number" id="graphDivideLength" value="120" min="0" step="any" inputmode="decimal">
+                    </div>
+                    <div class="input-group">
+                        <label>Liczba punktów</label>
+                        <input type="number" id="graphDivideCount" value="4" min="1" max="200" step="1" inputmode="numeric">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Sposób podziału</label>
+                    <div class="mode-toggle" id="graphDivideMode">
+                        <button class="mode-btn active" data-mode="between" type="button">W polu</button>
+                        <button class="mode-btn" data-mode="edges" type="button">Od krańców</button>
+                        <button class="mode-btn" data-mode="fixed" type="button">Stały odstęp</button>
+                    </div>
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Margines start</label>
+                        <input type="number" id="graphDivideStartMargin" value="0" step="any" inputmode="decimal">
+                    </div>
+                    <div class="input-group">
+                        <label>Margines koniec</label>
+                        <input type="number" id="graphDivideEndMargin" value="0" step="any" inputmode="decimal">
+                    </div>
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Stały odstęp</label>
+                        <input type="number" id="graphDivideSpacing" value="20" min="0" step="any" inputmode="decimal">
+                    </div>
+                    <div class="input-group">
+                        <label>Wysokość Y</label>
+                        <input type="number" id="graphDivideY" value="-1" step="any" inputmode="decimal">
+                    </div>
+                </div>
+
+                <button class="btn btn-primary" id="graphBuildDivideBtn" type="button">✳️ Zrób punkty</button>
+            </div>
+
+            <div class="card">
+                <div class="card-header"><span class="icon">🧭</span> Oś X/Y</div>
+                <div class="graph-canvas-wrap">
+                    <canvas id="graphCanvas" width="900" height="520" aria-label="Wykres funkcji i punktów" role="img"></canvas>
+                </div>
+                <div class="eng-result graph-result" id="graphResult" aria-live="polite"></div>
             </div>
         </section>
 

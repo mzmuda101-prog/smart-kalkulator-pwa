@@ -26,6 +26,14 @@
                 marginStart: 0,
                 marginEnd: 0,
             },
+            graph: {
+                command: 'f(x)=sin(x)',
+                xMin: -10,
+                xMax: 10,
+                yMin: -10,
+                yMax: 10,
+                divideMode: 'between',
+            },
             // Constants
             constants: [],
             // History
@@ -43,6 +51,7 @@
         const panels = {
             calculator: $('#panel-calculator'),
             engineering: $('#panel-engineering'),
+            graph: $('#panel-graph'),
             constants: $('#panel-constants'),
         };
 
@@ -81,6 +90,25 @@
         const zoomLabel = $('#zoomLabel');
         // [EN] canvasWrapper is created dynamically on init
         let canvasWrapper = null;
+
+        // Graph
+        const graphCommand = $('#graphCommand');
+        const graphXMin = $('#graphXMin');
+        const graphXMax = $('#graphXMax');
+        const graphYMin = $('#graphYMin');
+        const graphYMax = $('#graphYMax');
+        const graphDrawBtn = $('#graphDrawBtn');
+        const graphCanvas = $('#graphCanvas');
+        const graphCtx = graphCanvas.getContext('2d');
+        const graphResult = $('#graphResult');
+        const graphDivideLength = $('#graphDivideLength');
+        const graphDivideCount = $('#graphDivideCount');
+        const graphDivideMode = $('#graphDivideMode');
+        const graphDivideStartMargin = $('#graphDivideStartMargin');
+        const graphDivideEndMargin = $('#graphDivideEndMargin');
+        const graphDivideSpacing = $('#graphDivideSpacing');
+        const graphDivideY = $('#graphDivideY');
+        const graphBuildDivideBtn = $('#graphBuildDivideBtn');
 
         // Constants
         const constName = $('#constName');
@@ -162,6 +190,9 @@
             if (tabName === 'engineering') {
                 // [EN] Redraw canvas on tab switch (handles any layout shifts)
                 setTimeout(function() { updateEngineering(); }, 50);
+            }
+            if (tabName === 'graph') {
+                setTimeout(function() { updateGraph(); }, 50);
             }
             if (tabName === 'constants') {
                 renderConstants();
@@ -1058,6 +1089,385 @@
         });
 
         /* ============================================================
+           [EN] GRAPH MODULE — functions, commands, and easy X division
+           ============================================================ */
+        function parseGraphNumber(value, fallback) {
+            var n = parseFloat(String(value).replace(',', '.'));
+            return isFinite(n) ? n : fallback;
+        }
+
+        function stripFunctionPrefix(raw) {
+            return String(raw || '')
+                .trim()
+                .replace(/^f\s*\(\s*x\s*\)\s*=/i, '')
+                .replace(/^y\s*=/i, '');
+        }
+
+        function insertImplicitMultiplication(expr) {
+            var names = '(x|pi|e|sin|cos|tan|sqrt|abs|log|ln|exp|floor|ceil|round)';
+            expr = expr.replace(new RegExp('(\\d|\\)|x|pi|e)(?=' + names + '|\\()', 'g'), '$1*');
+            expr = expr.replace(new RegExp('(\\))(?=(\\d|' + names + '))', 'g'), '$1*');
+            return expr;
+        }
+
+        function compileGraphExpression(raw) {
+            var expr = stripFunctionPrefix(raw).toLowerCase();
+            expr = expr.replace(/π/g, 'pi');
+            expr = expr.replace(/(\d),(\d)/g, '$1.$2');
+            expr = expr.replace(/\s+/g, '');
+            expr = insertImplicitMultiplication(expr);
+
+            var allowedNames = {
+                x: 'x',
+                pi: 'Math.PI',
+                e: 'Math.E',
+                sin: 'Math.sin',
+                cos: 'Math.cos',
+                tan: 'Math.tan',
+                sqrt: 'Math.sqrt',
+                abs: 'Math.abs',
+                log: 'Math.log10',
+                ln: 'Math.log',
+                exp: 'Math.exp',
+                floor: 'Math.floor',
+                ceil: 'Math.ceil',
+                round: 'Math.round',
+            };
+
+            var names = expr.match(/[a-z]+/g) || [];
+            for (var i = 0; i < names.length; i++) {
+                if (!Object.prototype.hasOwnProperty.call(allowedNames, names[i])) {
+                    throw new Error('Nieznana nazwa: ' + names[i]);
+                }
+            }
+
+            if (!/^[0-9a-z+\-*/^().]+$/.test(expr)) {
+                throw new Error('Użyj tylko liczb, x, nawiasów, operatorów i prostych funkcji.');
+            }
+
+            expr = expr.replace(/\^/g, '**');
+            expr = expr.replace(/[a-z]+/g, function(name) {
+                return allowedNames[name];
+            });
+
+            return new Function('x', 'return ' + expr + ';');
+        }
+
+        function getGraphBounds() {
+            var xMin = parseGraphNumber(graphXMin.value, -10);
+            var xMax = parseGraphNumber(graphXMax.value, 10);
+            var yMin = parseGraphNumber(graphYMin.value, -10);
+            var yMax = parseGraphNumber(graphYMax.value, 10);
+            if (xMin === xMax) xMax = xMin + 1;
+            if (yMin === yMax) yMax = yMin + 1;
+            if (xMin > xMax) { var tx = xMin; xMin = xMax; xMax = tx; }
+            if (yMin > yMax) { var ty = yMin; yMin = yMax; yMax = ty; }
+            return { xMin: xMin, xMax: xMax, yMin: yMin, yMax: yMax };
+        }
+
+        function graphToScreen(x, y, bounds, w, h, pad) {
+            var sx = pad + ((x - bounds.xMin) / (bounds.xMax - bounds.xMin)) * (w - pad * 2);
+            var sy = h - pad - ((y - bounds.yMin) / (bounds.yMax - bounds.yMin)) * (h - pad * 2);
+            return { x: sx, y: sy };
+        }
+
+        function niceGridStep(range) {
+            var raw = range / 8;
+            var pow = Math.pow(10, Math.floor(Math.log10(raw || 1)));
+            var normalized = raw / pow;
+            if (normalized >= 5) return 5 * pow;
+            if (normalized >= 2) return 2 * pow;
+            return pow;
+        }
+
+        function drawGraphBase(bounds) {
+            var ctx = graphCtx;
+            var w = graphCanvas.width;
+            var h = graphCanvas.height;
+            var pad = 46;
+            ctx.clearRect(0, 0, w, h);
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(0, 0, w, h);
+
+            var xStep = niceGridStep(bounds.xMax - bounds.xMin);
+            var yStep = niceGridStep(bounds.yMax - bounds.yMin);
+
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.fillStyle = '#64748b';
+            ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+
+            var xStart = Math.ceil(bounds.xMin / xStep) * xStep;
+            for (var x = xStart; x <= bounds.xMax + xStep * 0.25; x += xStep) {
+                var xs = graphToScreen(x, 0, bounds, w, h, pad).x;
+                ctx.beginPath();
+                ctx.moveTo(xs, pad);
+                ctx.lineTo(xs, h - pad);
+                ctx.stroke();
+                ctx.fillText(formatNum(x), xs, h - pad + 8);
+            }
+
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            var yStart = Math.ceil(bounds.yMin / yStep) * yStep;
+            for (var y = yStart; y <= bounds.yMax + yStep * 0.25; y += yStep) {
+                var ys = graphToScreen(0, y, bounds, w, h, pad).y;
+                ctx.beginPath();
+                ctx.moveTo(pad, ys);
+                ctx.lineTo(w - pad, ys);
+                ctx.stroke();
+                ctx.fillText(formatNum(y), pad - 8, ys);
+            }
+
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 2;
+            if (bounds.yMin <= 0 && bounds.yMax >= 0) {
+                var axisY = graphToScreen(0, 0, bounds, w, h, pad).y;
+                ctx.beginPath();
+                ctx.moveTo(pad, axisY);
+                ctx.lineTo(w - pad, axisY);
+                ctx.stroke();
+            }
+            if (bounds.xMin <= 0 && bounds.xMax >= 0) {
+                var axisX = graphToScreen(0, 0, bounds, w, h, pad).x;
+                ctx.beginPath();
+                ctx.moveTo(axisX, pad);
+                ctx.lineTo(axisX, h - pad);
+                ctx.stroke();
+            }
+
+            return pad;
+        }
+
+        function drawFunction(command, bounds) {
+            var fn = compileGraphExpression(command);
+            var ctx = graphCtx;
+            var w = graphCanvas.width;
+            var h = graphCanvas.height;
+            var pad = drawGraphBase(bounds);
+            var started = false;
+            var samples = Math.max(300, w - pad * 2);
+            var validCount = 0;
+
+            ctx.strokeStyle = '#2563eb';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+
+            for (var i = 0; i <= samples; i++) {
+                var x = bounds.xMin + (i / samples) * (bounds.xMax - bounds.xMin);
+                var y = fn(x);
+                if (!isFinite(y) || Math.abs(y) > 1e8) {
+                    started = false;
+                    continue;
+                }
+                var p = graphToScreen(x, y, bounds, w, h, pad);
+                if (!started) {
+                    ctx.moveTo(p.x, p.y);
+                    started = true;
+                } else {
+                    ctx.lineTo(p.x, p.y);
+                }
+                validCount++;
+            }
+            ctx.stroke();
+            return validCount;
+        }
+
+        function drawPoints(points, bounds, labelPrefix) {
+            var ctx = graphCtx;
+            var w = graphCanvas.width;
+            var h = graphCanvas.height;
+            var pad = drawGraphBase(bounds);
+
+            ctx.fillStyle = '#dc2626';
+            ctx.strokeStyle = '#991b1b';
+            ctx.lineWidth = 2;
+            ctx.font = '700 12px ' + getComputedStyle(document.body).fontFamily;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+
+            points.forEach(function(pt, idx) {
+                var p = graphToScreen(pt.x, pt.y, bounds, w, h, pad);
+                if (p.x < pad || p.x > w - pad || p.y < pad || p.y > h - pad) return;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.fillStyle = '#0f172a';
+                ctx.fillText((labelPrefix || 'P') + (idx + 1), p.x, p.y - 10);
+                ctx.fillStyle = '#dc2626';
+            });
+        }
+
+        function parseDivisionCommand(command) {
+            var text = String(command || '').toLowerCase().replace(/,/g, '.');
+            var yMatch = text.match(/\by\s*=\s*(-?\d+(?:\.\d+)?)/);
+            var y = yMatch ? parseFloat(yMatch[1]) : 0;
+
+            var fixed = text.match(/od\s+(-?\d+(?:\.\d+)?)\s+do\s+(-?\d+(?:\.\d+)?)\s+co\s+(\d+(?:\.\d+)?)/);
+            if (fixed) {
+                return {
+                    start: parseFloat(fixed[1]),
+                    length: parseFloat(fixed[2]) - parseFloat(fixed[1]),
+                    spacing: parseFloat(fixed[3]),
+                    mode: 'fixed',
+                    y: y,
+                };
+            }
+
+            var split = text.match(/podziel\s+(\d+(?:\.\d+)?)\s+na\s+(\d+)/);
+            if (!split) return null;
+
+            var mode = 'between';
+            if (text.indexOf('kranc') !== -1 || text.indexOf('krańc') !== -1 || text.indexOf('od kraw') !== -1) mode = 'edges';
+            if (text.indexOf('co ') !== -1 || text.indexOf('staly') !== -1 || text.indexOf('stały') !== -1) mode = 'fixed';
+
+            var spacingMatch = text.match(/\bco\s+(\d+(?:\.\d+)?)/);
+            return {
+                start: 0,
+                length: parseFloat(split[1]),
+                count: parseInt(split[2], 10),
+                spacing: spacingMatch ? parseFloat(spacingMatch[1]) : 0,
+                mode: mode,
+                y: y,
+            };
+        }
+
+        function buildDivisionPoints(config) {
+            var length = Math.abs(config.length || 0);
+            var start = config.start || 0;
+            var y = config.y || 0;
+            var positions;
+
+            if (config.mode === 'fixed') {
+                var spacing = config.spacing || parseGraphNumber(graphDivideSpacing.value, 0);
+                var placement = calculatePegPositions(length, 1, 0, 0, spacing, 'fixed');
+                if (placement.error) throw new Error(placement.error.replace('⚠️ ', ''));
+                positions = placement.positions;
+            } else {
+                var count = config.count || parseInt(graphDivideCount.value, 10) || 1;
+                var placement2 = calculatePegPositions(length, count, 0, 0, 0, config.mode || 'between');
+                if (placement2.error) throw new Error(placement2.error.replace('⚠️ ', ''));
+                positions = placement2.positions;
+            }
+
+            return positions.map(function(pos) {
+                return { x: start + pos, y: y };
+            });
+        }
+
+        function updateGraph() {
+            var command = graphCommand.value.trim();
+            var bounds = getGraphBounds();
+            STATE.graph.command = command;
+            STATE.graph.xMin = bounds.xMin;
+            STATE.graph.xMax = bounds.xMax;
+            STATE.graph.yMin = bounds.yMin;
+            STATE.graph.yMax = bounds.yMax;
+
+            try {
+                var division = parseDivisionCommand(command);
+                if (division) {
+                    var points = buildDivisionPoints(division);
+                    if (points.length) {
+                        var px = points.map(function(p) { return p.x; });
+                        var py = points.map(function(p) { return p.y; });
+                        var minX = Math.min.apply(Math, px);
+                        var maxX = Math.max.apply(Math, px);
+                        var minY = Math.min.apply(Math, py);
+                        var maxY = Math.max.apply(Math, py);
+                        if (minX < bounds.xMin || maxX > bounds.xMax) {
+                            graphXMin.value = formatNum(Math.min(0, minX));
+                            graphXMax.value = formatNum(maxX + Math.max(1, (maxX - minX) * 0.08));
+                        }
+                        if (minY <= bounds.yMin || maxY >= bounds.yMax) {
+                            graphYMin.value = formatNum(minY - 4);
+                            graphYMax.value = formatNum(maxY + 4);
+                        }
+                        bounds = getGraphBounds();
+                    }
+                    drawPoints(points, bounds, 'P');
+                    graphResult.textContent = 'Punkty: ' + points.map(function(p, idx) {
+                        return 'P' + (idx + 1) + '=(' + formatNum(p.x) + ', ' + formatNum(p.y) + ')';
+                    }).join('\n');
+                    return;
+                }
+
+                var validCount = drawFunction(command, bounds);
+                graphResult.textContent = 'Rysuję: ' + stripFunctionPrefix(command) + '\nZakres X: ' + formatNum(bounds.xMin) + ' do ' + formatNum(bounds.xMax) + '\nPróbki poprawne: ' + validCount;
+            } catch (err) {
+                drawGraphBase(bounds);
+                graphResult.textContent = '⚠️ ' + err.message + '\nPrzykłady: f(x)=sin(x), f(x)=x^2-4, podziel 120 na 4 w polu y=-1';
+            }
+        }
+
+        function buildGraphDivisionFromForm() {
+            var active = graphDivideMode.querySelector('.mode-btn.active');
+            var mode = active ? active.getAttribute('data-mode') : 'between';
+            var length = parseGraphNumber(graphDivideLength.value, 120);
+            var count = parseInt(graphDivideCount.value, 10) || 1;
+            var ms = parseGraphNumber(graphDivideStartMargin.value, 0);
+            var me = parseGraphNumber(graphDivideEndMargin.value, 0);
+            var spacing = parseGraphNumber(graphDivideSpacing.value, 20);
+            var y = parseGraphNumber(graphDivideY.value, -1);
+            var placement = calculatePegPositions(length, count, ms, me, spacing, mode);
+
+            if (placement.error) {
+                graphResult.textContent = placement.error;
+                return;
+            }
+
+            var points = placement.positions.map(function(pos) {
+                return { x: pos, y: y };
+            });
+            graphCommand.value = mode === 'fixed'
+                ? 'od ' + formatNum(ms) + ' do ' + formatNum(length - me) + ' co ' + formatNum(spacing) + ' y=' + formatNum(y)
+                : 'podziel ' + formatNum(length) + ' na ' + count + (mode === 'edges' ? ' od krańców' : ' w polu') + ' y=' + formatNum(y);
+
+            var bounds = getGraphBounds();
+            if (length > bounds.xMax || 0 < bounds.xMin) {
+                graphXMin.value = '0';
+                graphXMax.value = formatNum(length);
+                bounds = getGraphBounds();
+            }
+            if (y <= bounds.yMin || y >= bounds.yMax) {
+                graphYMin.value = formatNum(y - 5);
+                graphYMax.value = formatNum(y + 5);
+                bounds = getGraphBounds();
+            }
+            drawPoints(points, bounds, 'P');
+            graphResult.textContent = 'Punkty z kreatora:\n' + points.map(function(p, idx) {
+                return 'P' + (idx + 1) + '=(' + formatNum(p.x) + ', ' + formatNum(p.y) + ')';
+            }).join('\n');
+        }
+
+        graphDrawBtn.addEventListener('click', updateGraph);
+        graphCommand.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                updateGraph();
+            }
+        });
+        [graphXMin, graphXMax, graphYMin, graphYMax].forEach(function(input) {
+            input.addEventListener('input', updateGraph);
+        });
+        document.addEventListener('click', function(e) {
+            var chip = e.target.closest('.example-chip');
+            if (!chip) return;
+            graphCommand.value = chip.getAttribute('data-command') || '';
+            updateGraph();
+        });
+        graphDivideMode.addEventListener('click', function(e) {
+            var btn = e.target.closest('.mode-btn');
+            if (!btn) return;
+            graphDivideMode.querySelectorAll('.mode-btn').forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            STATE.graph.divideMode = btn.getAttribute('data-mode');
+        });
+        graphBuildDivideBtn.addEventListener('click', buildGraphDivisionFromForm);
+
+        /* ============================================================
            [EN] CONSTANTS MODULE
            ============================================================ */
         function renderConstants() {
@@ -1664,6 +2074,9 @@
             if (STATE.activeTab === 'engineering') {
                 updateEngineering();
             }
+            if (STATE.activeTab === 'graph') {
+                updateGraph();
+            }
         }
 
         window.addEventListener('resize', function() {
@@ -1686,6 +2099,7 @@
             updateCalcDisplay();
             renderHistory();
             updateEngineering();
+            updateGraph();
             renderConstants();
 
             // [EN] Load saved engineering values
@@ -1707,6 +2121,7 @@
                 state: STATE,
                 switchTab: switchTab,
                 updateEngineering: updateEngineering,
+                updateGraph: updateGraph,
                 renderConstants: renderConstants,
                 renderHistory: renderHistory,
             };
