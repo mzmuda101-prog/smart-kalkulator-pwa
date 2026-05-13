@@ -231,6 +231,15 @@
             .tab-icon { font-size: 1rem; }
         }
 
+        @media (max-width: 480px) {
+            .command-row {
+                grid-template-columns: 1fr;
+            }
+            .command-btn {
+                width: 100%;
+            }
+        }
+
         /* ============================================================
            [EN] Main Content Panels
            ============================================================ */
@@ -370,6 +379,7 @@
             text-align: right;
             width: 100%;
             transition: font-size 0.15s;
+            cursor: pointer;
         }
         .calc-result.small { font-size: 1.75rem; }
         .calc-result.xsmall { font-size: 1.25rem; }
@@ -657,6 +667,118 @@
             grid-template-columns: 1fr 1fr 1fr;
             gap: 8px;
         }
+        .command-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 8px;
+            align-items: stretch;
+        }
+        .command-row input {
+            min-width: 0;
+        }
+        .command-btn {
+            min-height: 48px;
+            padding: 0 14px;
+            white-space: nowrap;
+        }
+        .command-panel {
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: #f8fafc;
+            padding: 0 12px;
+            margin-bottom: 14px;
+        }
+        .command-panel summary {
+            min-height: 48px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-weight: 800;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .command-panel[open] {
+            padding-bottom: 12px;
+            background: #fff;
+        }
+        .help-open-btn {
+            width: 100%;
+            min-height: 42px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: #f8fafc;
+            color: var(--primary);
+            font-family: var(--font);
+            font-size: 0.875rem;
+            font-weight: 800;
+            cursor: pointer;
+        }
+        .help-open-btn:active {
+            background: var(--primary-light);
+            transform: scale(0.98);
+        }
+        .help-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.36);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity var(--transition);
+            z-index: 310;
+        }
+        body.help-open .help-backdrop {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .command-help-drawer {
+            position: fixed;
+            left: 50%;
+            bottom: 0;
+            width: min(100%, 680px);
+            max-height: min(82dvh, 680px);
+            display: flex;
+            flex-direction: column;
+            padding: 10px 16px calc(16px + var(--safe-bottom));
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-bottom: none;
+            border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+            box-shadow: 0 -20px 50px rgba(15, 23, 42, 0.18);
+            transform: translate(-50%, calc(100% + 18px));
+            transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+            z-index: 410;
+            will-change: transform;
+        }
+        body.help-open .command-help-drawer {
+            transform: translate(-50%, 0);
+        }
+        .command-help-content {
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+            touch-action: pan-y;
+            color: var(--text-secondary);
+            font-size: 0.8125rem;
+            line-height: 1.7;
+            display: grid;
+            gap: 14px;
+            padding-right: 4px;
+        }
+        .command-help-content h4 {
+            color: var(--text);
+            font-size: 0.875rem;
+            margin-bottom: 4px;
+        }
+        .command-help-content p {
+            margin: 3px 0;
+        }
+        .command-help-content code {
+            font-family: var(--font-mono);
+            font-weight: 800;
+            color: var(--primary);
+            overflow-wrap: anywhere;
+        }
 
         /* [EN] Input with sign toggle — for margin fields on phones */
         .input-with-sign {
@@ -838,6 +960,7 @@
             overflow-y: auto;
             /* [EN] Override body's touch-action:manipulation to allow vertical pan */
             touch-action: pan-y;
+            cursor: pointer;
         }
 
         /* ============================================================
@@ -867,6 +990,26 @@
             color: var(--primary);
             border-color: var(--border-focus);
             transform: scale(0.97);
+        }
+        .point-list {
+            display: grid;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .point-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            border-bottom: 1px solid rgba(99, 102, 241, 0.16);
+            padding-bottom: 5px;
+        }
+        .point-row:last-child {
+            border-bottom: 0;
+            padding-bottom: 0;
+        }
+        .point-row code {
+            font-family: var(--font-mono);
+            color: inherit;
         }
         .graph-canvas-wrap {
             background: #f8fafc;

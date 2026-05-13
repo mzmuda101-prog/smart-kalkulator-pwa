@@ -23,6 +23,7 @@
                 length: 100,
                 count: 3,
                 spacing: 20,
+                origin: 0,
                 marginStart: 0,
                 marginEnd: 0,
             },
@@ -72,6 +73,7 @@
 
         // Engineering
         const engLength = $('#engLength');
+        const engOrigin = $('#engOrigin');
         const engCount = $('#engCount');
         const engSpacing = $('#engSpacing');
         const engMarginStart = $('#engMarginStart');
@@ -83,6 +85,12 @@
         const axisToggle = $('#axisToggle');
         const spacingModeToggle = $('#spacingModeToggle');
         const fixedSpacingGroup = $('#fixedSpacingGroup');
+        const engCommand = $('#engCommand');
+        const engApplyCommandBtn = $('#engApplyCommandBtn');
+        const commandHelpOpen = $('#commandHelpOpen');
+        const commandHelpClose = $('#commandHelpClose');
+        const commandHelpBackdrop = $('#commandHelpBackdrop');
+        const commandHelpDrawer = $('#commandHelpDrawer');
         // Zoom / Pan
         const canvasContainer = $('#canvasContainer');
         const zoomInBtn = $('#zoomInBtn');
@@ -174,6 +182,54 @@
                 toastTimer = null;
             }, 2000);
         }
+
+        function hapticTap(strength) {
+            if (navigator.vibrate) {
+                navigator.vibrate(strength || 15);
+            }
+        }
+
+        function copyText(text) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                return navigator.clipboard.writeText(text);
+            }
+            return new Promise(function(resolve, reject) {
+                var textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.setAttribute('readonly', '');
+                textarea.style.position = 'fixed';
+                textarea.style.left = '-9999px';
+                document.body.appendChild(textarea);
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    resolve();
+                } catch (err) {
+                    document.body.removeChild(textarea);
+                    reject(err);
+                }
+            });
+        }
+
+        function normalizeNumberText(text) {
+            return String(text || '').replace(/\s/g, '').replace(',', '.');
+        }
+
+        function formatLocaleNumber(num, maxDigits) {
+            if (!isFinite(num)) return String(num);
+            var rounded = Math.abs(num) < 1e308 ? parseFloat(num.toPrecision(12)) : num;
+            return rounded.toLocaleString('pl-PL', {
+                maximumFractionDigits: maxDigits == null ? 10 : maxDigits,
+                useGrouping: true,
+            });
+        }
+
+        document.addEventListener('pointerdown', function(e) {
+            if (e.target.closest('button, .history-item, .calc-result, input[type="button"]')) {
+                hapticTap(15);
+            }
+        }, { passive: true });
 
         /* ============================================================
            [EN] Tab Navigation
@@ -370,13 +426,9 @@
         }
 
         function formatNumber(str) {
-            var num = parseFloat(str);
+            var num = parseFloat(normalizeNumberText(str));
             if (isNaN(num)) return str;
-            // [EN] If integer, don't show decimal point
-            if (Number.isInteger(num) && Math.abs(num) < 1e15) return String(num);
-            // [EN] Use up to 10 decimal places, strip trailing zeros
-            var formatted = num.toPrecision(12);
-            return String(parseFloat(formatted));
+            return formatLocaleNumber(num, 10);
         }
 
         function updateCalcDisplay() {
@@ -394,6 +446,59 @@
                 calcResult.classList.add('xsmall');
             }
         }
+
+        function bindLongPressCopy(el, getText) {
+            if (!el) return;
+            var timer = null;
+            var copied = false;
+            function clearTimer() {
+                if (timer) clearTimeout(timer);
+                timer = null;
+            }
+            el.addEventListener('pointerdown', function() {
+                copied = false;
+                clearTimer();
+                timer = setTimeout(function() {
+                    var text = getText ? getText() : el.textContent.trim();
+                    if (!text) return;
+                    copied = true;
+                    el.dataset.longPressed = 'true';
+                    hapticTap(35);
+                    copyText(text).then(function() {
+                        showToast('Skopiowano', 'success');
+                    }).catch(function() {
+                        showToast('Nie udało się skopiować', 'error');
+                    });
+                }, 550);
+            });
+            ['pointerup', 'pointercancel', 'pointerleave'].forEach(function(eventName) {
+                el.addEventListener(eventName, clearTimer);
+            });
+            el.addEventListener('click', function(e) {
+                if (!copied && el.dataset.longPressed !== 'true') return;
+                e.preventDefault();
+                e.stopPropagation();
+                setTimeout(function() {
+                    delete el.dataset.longPressed;
+                    copied = false;
+                }, 0);
+            }, true);
+        }
+
+        bindLongPressCopy(calcResult, function() {
+            var raw = STATE.calc.shouldResetDisplay && STATE.calc.operator ? STATE.calc.previousInput : STATE.calc.currentInput;
+            return normalizeNumberText(raw);
+        });
+
+        function bindCopyBox(el) {
+            bindLongPressCopy(el, function() {
+                var text = el.textContent.trim();
+                if (!text) return;
+                return text;
+            });
+        }
+        bindCopyBox(engResult);
+        bindCopyBox(graphResult);
 
         /* ============================================================
            [EN] Calculator History
@@ -442,10 +547,17 @@
                 spanResult.textContent = resultPart;
                 li.appendChild(spanExpr);
                 li.appendChild(spanResult);
+                bindLongPressCopy(li, function() {
+                    return item;
+                });
                 li.addEventListener('click', function() {
+                    if (li.dataset.longPressed === 'true') {
+                        delete li.dataset.longPressed;
+                        return;
+                    }
                     // [EN] Reuse history result as current input
                     if (resultPart) {
-                        STATE.calc.currentInput = resultPart;
+                        STATE.calc.currentInput = normalizeNumberText(resultPart);
                         STATE.calc.shouldResetDisplay = true;
                         STATE.calc.operator = null;
                         STATE.calc.previousInput = '';
@@ -486,6 +598,9 @@
             if (e.key === 'Escape' && document.body.classList.contains('history-open')) {
                 closeHistoryDrawer();
             }
+            if (e.key === 'Escape' && document.body.classList.contains('help-open')) {
+                closeCommandHelp();
+            }
         });
 
         function escapeHTML(str) {
@@ -511,16 +626,18 @@
         }
 
         function updateEngineering() {
-            var L = parseFloat(engLength.value) || 0;
+            var L = parseFloat(normalizeNumberText(engLength.value)) || 0;
+            var origin = parseFloat(normalizeNumberText(engOrigin.value)) || 0;
             var n = parseInt(engCount.value, 10) || 0;
-            var fixedSpacing = parseFloat(engSpacing.value) || 0;
-            var ms = parseFloat(engMarginStart.value) || 0;
-            var me = parseFloat(engMarginEnd.value) || 0;
+            var fixedSpacing = parseFloat(normalizeNumberText(engSpacing.value)) || 0;
+            var ms = parseFloat(normalizeNumberText(engMarginStart.value)) || 0;
+            var me = parseFloat(normalizeNumberText(engMarginEnd.value)) || 0;
             var mode = STATE.eng.mode;
 
             STATE.eng.length = L;
             STATE.eng.count = n;
             STATE.eng.spacing = fixedSpacing;
+            STATE.eng.origin = origin;
             STATE.eng.marginStart = ms;
             STATE.eng.marginEnd = me;
 
@@ -544,11 +661,12 @@
                 return;
             }
             var step = placement.step;
-            var positions = placement.positions;
+            var positions = placement.positions.map(function(pos) { return pos + origin; });
 
             // [EN] Build result text
             var unit = getUnitLabel();
             var resultText = '📏 Długość: ' + formatNum(L) + ' ' + unit + '\n';
+            resultText += '🎯 Początek osi: ' + formatNum(origin) + ' ' + unit + '\n';
             resultText += '⚙️ Tryb: ' + getPlacementModeLabel(mode) + '\n';
             resultText += '📌 Liczba podziałów: ' + positions.length + (mode === 'fixed' ? ' (wyliczona z odstępu)' : '') + '\n';
             resultText += '📐 Odstęp między środkami: ' + formatNum(step) + ' ' + unit + '\n';
@@ -561,7 +679,7 @@
             });
 
             engResult.textContent = resultText;
-            drawEngineeringCanvas(L, ms, me, positions, positions.length, step);
+            drawEngineeringCanvas(L, ms, me, positions, positions.length, step, origin);
         }
 
         function calculatePegPositions(totalLength, count, marginStart, marginEnd, fixedSpacing, mode) {
@@ -617,7 +735,12 @@
             if (val === 0) return '0';
             // [EN] Smart formatting: remove trailing zeros but keep reasonable precision
             var formatted = parseFloat(val.toFixed(6));
-            return String(formatted);
+            return formatLocaleNumber(formatted, 6);
+        }
+
+        function formatRawNum(val) {
+            if (val === 0) return '0';
+            return String(parseFloat(Number(val).toFixed(6)));
         }
 
         function drawEmptyCanvas() {
@@ -631,7 +754,7 @@
             ctx.fillText('⚠️ Nieprawidłowe dane — popraw wartości powyżej', w / 2, h / 2);
         }
 
-        function drawEngineeringCanvas(totalLength, marginStart, marginEnd, positions, count, step) {
+        function drawEngineeringCanvas(totalLength, marginStart, marginEnd, positions, count, step, origin) {
             var ctx = engCtx;
             var w = engCanvas.width;
             var h = engCanvas.height;
@@ -639,6 +762,7 @@
 
             var isHorizontal = STATE.eng.axis === 'X';
             var unit = getUnitLabel();
+            origin = origin || 0;
 
             // [EN] Layout constants
             var boardColor = '#e8d5b7';
@@ -750,7 +874,8 @@
                 var prevLabelEnd = [boardLeft - 999, boardLeft - 999]; // [EN] Track where last label in each row ends
 
                 positions.forEach(function(pos, idx) {
-                    var x = boardLeft + (pos / totalLength) * boardWidth;
+                    var localPos = pos - origin;
+                    var x = boardLeft + (localPos / totalLength) * boardWidth;
 
                     // [EN] Dashed alignment line from hole to top
                     ctx.setLineDash([2, 4]);
@@ -913,7 +1038,8 @@
                 var prevLabelBottom = [-999, -999];
 
                 positions.forEach(function(pos, idx) {
-                    var y = boardTopV + (pos / totalLength) * boardHeightV;
+                    var localPosV = pos - origin;
+                    var y = boardTopV + (localPosV / totalLength) * boardHeightV;
 
                     // [EN] Dashed alignment line
                     ctx.setLineDash([2, 4]);
@@ -1027,6 +1153,7 @@
            [EN] Engineering — Event Binding
            ============================================================ */
         engLength.addEventListener('input', updateEngineering);
+        engOrigin.addEventListener('input', updateEngineering);
         engCount.addEventListener('input', updateEngineering);
         engSpacing.addEventListener('input', updateEngineering);
         engMarginStart.addEventListener('input', updateEngineering);
@@ -1067,6 +1194,69 @@
             updateEngineering();
         });
 
+        function setToggleActive(container, selector, attr, value) {
+            if (!container) return;
+            container.querySelectorAll(selector).forEach(function(btn) {
+                btn.classList.toggle('active', btn.getAttribute(attr) === value);
+            });
+        }
+
+        function applyEngineeringCommand(raw) {
+            try {
+                var config = parsePipeCommand(raw);
+                if (!config) {
+                    showToast('Komenda: np. x(d)=120/4 | <-10 | ->10 | @edges', 'error');
+                    return;
+                }
+                engLength.value = formatRawNum(config.length);
+                engOrigin.value = formatRawNum(config.origin || 0);
+                engCount.value = String(config.count);
+                engSpacing.value = formatRawNum(config.spacing || (config.length / Math.max(1, config.count)));
+                engMarginStart.value = formatRawNum(config.marginStart);
+                engMarginEnd.value = formatRawNum(config.marginEnd);
+                STATE.eng.axis = config.axis;
+                STATE.eng.mode = config.mode;
+                if (config.unit) {
+                    STATE.eng.unit = config.unit;
+                    setToggleActive(unitToggle, '.unit-btn', 'data-unit', config.unit);
+                }
+                setToggleActive(axisToggle, '.axis-btn', 'data-axis', config.axis);
+                setToggleActive(spacingModeToggle, '.mode-btn', 'data-mode', config.mode);
+                updateSpacingModeUI();
+                updateEngineering();
+                showToast('Komenda ustawiona', 'success');
+            } catch (err) {
+                showToast(err.message || 'Nieprawidłowa komenda', 'error');
+            }
+        }
+
+        if (engApplyCommandBtn) {
+            engApplyCommandBtn.addEventListener('click', function() {
+                applyEngineeringCommand(engCommand.value);
+            });
+        }
+        if (engCommand) {
+            engCommand.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    applyEngineeringCommand(engCommand.value);
+                }
+            });
+        }
+
+        function openCommandHelp() {
+            document.body.classList.add('help-open');
+            if (commandHelpDrawer) commandHelpDrawer.setAttribute('aria-hidden', 'false');
+        }
+
+        function closeCommandHelp() {
+            document.body.classList.remove('help-open');
+            if (commandHelpDrawer) commandHelpDrawer.setAttribute('aria-hidden', 'true');
+        }
+
+        if (commandHelpOpen) commandHelpOpen.addEventListener('click', openCommandHelp);
+        if (commandHelpClose) commandHelpClose.addEventListener('click', closeCommandHelp);
+        if (commandHelpBackdrop) commandHelpBackdrop.addEventListener('click', closeCommandHelp);
+
         /* [EN] Sign toggle buttons for margin inputs */
         document.addEventListener('click', function(e) {
             var btn = e.target.closest('.sign-toggle');
@@ -1093,7 +1283,7 @@
            [EN] GRAPH MODULE — functions, commands, and easy X division
            ============================================================ */
         function parseGraphNumber(value, fallback) {
-            var n = parseFloat(String(value).replace(',', '.'));
+            var n = parseFloat(normalizeNumberText(value));
             return isFinite(n) ? n : fallback;
         }
 
@@ -1436,17 +1626,165 @@
             points.forEach(function(pt, idx) {
                 var p = graphToScreen(pt.x, pt.y, bounds, w, h, pad);
                 if (p.x < pad || p.x > w - pad || p.y < pad || p.y > h - pad) return;
+                var radius = pt.r || 7;
                 ctx.beginPath();
-                ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
+                ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.stroke();
                 ctx.fillStyle = '#0f172a';
-                ctx.fillText((labelPrefix || 'P') + (idx + 1), p.x, p.y - 10);
+                ctx.fillText((pt.label || labelPrefix || 'P') + (idx + 1), p.x, p.y - radius - 5);
                 ctx.fillStyle = '#dc2626';
             });
         }
 
+        function parsePipeCommand(command) {
+            var raw = String(command || '').trim();
+            if (raw.indexOf('|') === -1 && !/^(?:[xy]\s*(?:\(|[:=])|\d)/i.test(raw)) return null;
+
+            var parts = raw.split('|').map(function(part) { return part.trim(); }).filter(Boolean);
+            var head = parts.shift() || '';
+            var headMatch = head.match(/^(?:([xy])\s*(?:\(\s*([^)]+)\s*\))?\s*[:=]\s*)?(-?\d+(?:[.,]\d+)?)\s*\/\s*(\d+)/i);
+            if (!headMatch) return null;
+
+            var config = {
+                axis: (headMatch[1] || 'x').toUpperCase(),
+                name: (headMatch[2] || 'd').trim(),
+                length: parseGraphNumber(headMatch[3], 0),
+                count: parseInt(headMatch[4], 10),
+                marginStart: 0,
+                marginEnd: 0,
+                mode: 'between',
+                spacing: 0,
+                x: 0,
+                y: 0,
+                r: 7,
+                label: 'P',
+                unit: null,
+                origin: 0,
+            };
+
+            parts.forEach(function(part) {
+                var p = part.trim();
+                var lower = p.toLowerCase();
+                var simple = lower.normalize ? lower.normalize('NFD').replace(/[\u0300-\u036f]/g, '') : lower;
+                var num;
+
+                if (/^<-\s*/.test(simple)) {
+                    num = parseGraphNumber(p.replace(/^<-\s*/, ''), 0);
+                    config.marginStart = num;
+                    return;
+                }
+                if (/^->\s*/.test(simple)) {
+                    num = parseGraphNumber(p.replace(/^->\s*/, ''), 0);
+                    config.marginEnd = num;
+                    return;
+                }
+                if (/^(m|margin|margines)\s*=/.test(simple)) {
+                    var marginRaw = p.split('=')[1] || '0';
+                    var marginParts = marginRaw.split(/[/:]/);
+                    config.marginStart = parseGraphNumber(marginParts[0], 0);
+                    config.marginEnd = parseGraphNumber(marginParts.length > 1 ? marginParts[1] : marginParts[0], config.marginStart);
+                    return;
+                }
+                if (/^(ms|start|left|dol)\s*=/.test(simple)) {
+                    config.marginStart = parseGraphNumber(p.split('=')[1], 0);
+                    return;
+                }
+                if (/^(me|end|right|gora)\s*=/.test(simple)) {
+                    config.marginEnd = parseGraphNumber(p.split('=')[1], 0);
+                    return;
+                }
+                if (simple === '@edges' || simple === '@krance' || simple === '@krawedzie') {
+                    config.mode = 'edges';
+                    return;
+                }
+                if (simple === '@between' || simple === '@inside' || simple === '@pole' || simple === '@center' || simple === '@srodek') {
+                    config.mode = 'between';
+                    return;
+                }
+                if (simple.indexOf('@every:') === 0) {
+                    config.mode = 'fixed';
+                    config.spacing = parseGraphNumber(p.split(':')[1], 0);
+                    return;
+                }
+                if (/^(co|step|every|odstep)\s*=/.test(simple)) {
+                    config.mode = 'fixed';
+                    config.spacing = parseGraphNumber(p.split('=')[1], 0);
+                    return;
+                }
+                if (/^(origin|zero|offset|od)\s*=/.test(simple)) {
+                    config.origin = parseGraphNumber(p.split('=')[1], 0);
+                    return;
+                }
+                if (simple === '@centered' || simple === '@center' || simple === '@srodek') {
+                    config.origin = -config.length / 2;
+                    return;
+                }
+                if (simple.indexOf('axis=') === 0 || simple.indexOf('os=') === 0) {
+                    var axisVal = simple.split('=')[1];
+                    if (axisVal === 'x' || axisVal === 'y') config.axis = axisVal.toUpperCase();
+                    return;
+                }
+                if (simple.indexOf('y=') === 0) {
+                    config.y = parseGraphNumber(p.slice(2), 0);
+                    return;
+                }
+                if (simple.indexOf('x=') === 0) {
+                    config.x = parseGraphNumber(p.slice(2), 0);
+                    return;
+                }
+                if (simple.indexOf('r=') === 0 || simple.indexOf('dia=') === 0 || simple.indexOf('fi=') === 0 || simple.indexOf('ø=') === 0) {
+                    config.r = Math.max(2, parseGraphNumber(p.split('=')[1], 7));
+                    return;
+                }
+                if (simple.indexOf('u=') === 0 || simple.indexOf('unit=') === 0 || simple.indexOf('jednostka=') === 0) {
+                    var unit = p.split('=')[1].trim();
+                    if (unit === 'mm' || unit === 'cm' || unit === 'm') config.unit = unit;
+                    return;
+                }
+                if (simple.indexOf('label=') === 0 || simple.indexOf('opis=') === 0 || simple.indexOf('nazwa=') === 0) {
+                    config.label = p.split('=').slice(1).join('=').trim() || 'P';
+                }
+            });
+
+            if (config.length <= 0 || config.count <= 0) {
+                throw new Error('Komenda wymaga dodatniej długości i liczby punktów, np. x(d)=120/4.');
+            }
+            return config;
+        }
+
+        function pointsFromPipeCommand(config) {
+            var placement = calculatePegPositions(
+                config.length,
+                config.count,
+                config.marginStart,
+                config.marginEnd,
+                config.spacing,
+                config.mode
+            );
+            if (placement.error) throw new Error(placement.error.replace('⚠️ ', ''));
+            return placement.positions.map(function(pos) {
+                var shifted = pos + (config.origin || 0);
+                if (config.axis === 'Y') {
+                    return { x: config.x, y: shifted, r: config.r, label: config.label };
+                }
+                return { x: shifted, y: config.y, r: config.r, label: config.label };
+            });
+        }
+
+        function commandSummary(config, points) {
+            var axisName = config.axis === 'Y' ? 'Y' : 'X';
+            return 'Komenda: oś ' + axisName +
+                '\nTryb: ' + getPlacementModeLabel(config.mode) +
+                '\nPoczątek osi: ' + formatNum(config.origin || 0) +
+                '\nDługość: ' + formatNum(config.length) +
+                '\nPunkty: ' + points.length;
+        }
+
         function parseDivisionCommand(command) {
+            var pipe = parsePipeCommand(command);
+            if (pipe) return pipe;
+
             var text = String(command || '').toLowerCase().replace(/,/g, '.');
             var yMatch = text.match(/\by\s*=\s*(-?\d+(?:\.\d+)?)/);
             var y = yMatch ? parseFloat(yMatch[1]) : 0;
@@ -1481,6 +1819,9 @@
         }
 
         function buildDivisionPoints(config) {
+            if (config.axis) {
+                return pointsFromPipeCommand(config);
+            }
             var length = Math.abs(config.length || 0);
             var start = config.start || 0;
             var y = config.y || 0;
@@ -1524,18 +1865,18 @@
                         var minY = Math.min.apply(Math, py);
                         var maxY = Math.max.apply(Math, py);
                         if (minX < bounds.xMin || maxX > bounds.xMax) {
-                            graphXMin.value = formatNum(Math.min(0, minX));
-                            graphXMax.value = formatNum(maxX + Math.max(1, (maxX - minX) * 0.08));
+                            graphXMin.value = formatRawNum(Math.min(0, minX));
+                            graphXMax.value = formatRawNum(maxX + Math.max(1, (maxX - minX) * 0.08));
                         }
                         if (minY <= bounds.yMin || maxY >= bounds.yMax) {
-                            graphYMin.value = formatNum(minY - 4);
-                            graphYMax.value = formatNum(maxY + 4);
+                            graphYMin.value = formatRawNum(minY - 4);
+                            graphYMax.value = formatRawNum(maxY + 4);
                         }
                         bounds = getGraphBounds();
                     }
-                    drawPoints(points, bounds, 'P');
-                    graphResult.textContent = 'Punkty: ' + points.map(function(p, idx) {
-                        return 'P' + (idx + 1) + '=(' + formatNum(p.x) + ', ' + formatNum(p.y) + ')';
+                    drawPoints(points, bounds, division.label || 'P');
+                    graphResult.textContent = (division.axis ? commandSummary(division, points) + '\n\n' : 'Punkty:\n') + points.map(function(p, idx) {
+                        return (p.label || 'P') + (idx + 1) + '=(' + formatNum(p.x) + ', ' + formatNum(p.y) + ')';
                     }).join('\n');
                     return;
                 }
@@ -1544,7 +1885,7 @@
                 graphResult.textContent = 'Rysuję: ' + stripFunctionPrefix(command) + '\nZakres X: ' + formatNum(bounds.xMin) + ' do ' + formatNum(bounds.xMax) + '\nPróbki poprawne: ' + validCount;
             } catch (err) {
                 drawGraphBase(bounds);
-                graphResult.textContent = '⚠️ ' + err.message + '\nPrzykłady: f(x)=sin(x), f(x)=x^2-4, podziel 120 na 4 w polu y=-1';
+                graphResult.textContent = '⚠️ ' + err.message + '\nPrzykłady: f(x)=sin(x), f(x)=x^2-4, x(d)=120/4 | <-10 | ->10 | @edges | y=-1';
             }
         }
 
@@ -1567,19 +1908,22 @@
             var points = placement.positions.map(function(pos) {
                 return { x: pos, y: y };
             });
-            graphCommand.value = mode === 'fixed'
-                ? 'od ' + formatNum(ms) + ' do ' + formatNum(length - me) + ' co ' + formatNum(spacing) + ' y=' + formatNum(y)
-                : 'podziel ' + formatNum(length) + ' na ' + count + (mode === 'edges' ? ' od krańców' : ' w polu') + ' y=' + formatNum(y);
+            graphCommand.value = 'x(d)=' + formatRawNum(length) + '/' + count +
+                ' | <-' + formatRawNum(ms) +
+                ' | ->' + formatRawNum(me) +
+                ' | y=' + formatRawNum(y) +
+                (mode === 'fixed' ? ' | @every:' + formatRawNum(spacing) : (mode === 'edges' ? ' | @edges' : ' | @between')) +
+                ' | label=P';
 
             var bounds = getGraphBounds();
             if (length > bounds.xMax || 0 < bounds.xMin) {
                 graphXMin.value = '0';
-                graphXMax.value = formatNum(length);
+                graphXMax.value = formatRawNum(length);
                 bounds = getGraphBounds();
             }
             if (y <= bounds.yMin || y >= bounds.yMax) {
-                graphYMin.value = formatNum(y - 5);
-                graphYMax.value = formatNum(y + 5);
+                graphYMin.value = formatRawNum(y - 5);
+                graphYMax.value = formatRawNum(y + 5);
                 bounds = getGraphBounds();
             }
             drawPoints(points, bounds, 'P');
@@ -1600,7 +1944,13 @@
         document.addEventListener('click', function(e) {
             var chip = e.target.closest('.example-chip');
             if (!chip) return;
-            graphCommand.value = chip.getAttribute('data-command') || '';
+            var command = chip.getAttribute('data-command') || '';
+            if (chip.classList.contains('eng-command-chip')) {
+                engCommand.value = command;
+                applyEngineeringCommand(command);
+                return;
+            }
+            graphCommand.value = command;
             updateGraph();
         });
         graphDivideMode.addEventListener('click', function(e) {
@@ -2307,6 +2657,7 @@
 
             // [EN] Load saved engineering values
             engLength.value = STATE.eng.length;
+            engOrigin.value = STATE.eng.origin;
             engCount.value = STATE.eng.count;
             engSpacing.value = STATE.eng.spacing;
             engMarginStart.value = STATE.eng.marginStart;

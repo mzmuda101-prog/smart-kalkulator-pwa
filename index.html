@@ -86,6 +86,27 @@
             <div class="card">
                 <div class="card-header"><span class="icon">📐</span> Parametry podziału</div>
 
+                <details class="command-panel">
+                    <summary>Szybkie komendy</summary>
+                    <div class="input-group">
+                        <label>Szybka komenda</label>
+                        <div class="command-row">
+                            <input type="text" id="engCommand" value="x(d)=100/3 | @between" inputmode="text" autocomplete="off" placeholder="np. x=120/4 | m=10/10 | @edges">
+                            <button class="btn btn-primary command-btn" id="engApplyCommandBtn" type="button">Ustaw</button>
+                        </div>
+                    </div>
+
+                    <div class="graph-examples">
+                        <button class="example-chip eng-command-chip" data-command="x=120/4 | @between" type="button">4 w polu</button>
+                        <button class="example-chip eng-command-chip" data-command="x=120/4 | m=10/10 | @edges" type="button">z marginesami</button>
+                        <button class="example-chip eng-command-chip" data-command="x=120/4 | co=20" type="button">co 20</button>
+                        <button class="example-chip eng-command-chip" data-command="y=200/5 | @edges | u=mm" type="button">pionowo</button>
+                        <button class="example-chip eng-command-chip" data-command="x=120/4 | origin=-60 | @edges" type="button">od środka</button>
+                    </div>
+
+                    <button class="help-open-btn" id="commandHelpOpen" type="button">Pełna ściąga komend</button>
+                </details>
+
                 <div class="input-group">
                     <label>Jednostka</label>
                     <div class="unit-toggle" id="unitToggle">
@@ -98,6 +119,11 @@
                 <div class="input-group">
                     <label>Długość całkowita</label>
                     <input type="number" id="engLength" value="100" min="0" step="any" inputmode="decimal" placeholder="np. 100">
+                </div>
+
+                <div class="input-group">
+                    <label>Początek osi</label>
+                    <input type="number" id="engOrigin" value="0" step="any" inputmode="decimal" placeholder="np. -60 albo 1000">
                 </div>
 
                 <div class="input-row">
@@ -177,6 +203,7 @@
                     <button class="example-chip" data-command="f(x)=sin(x)" type="button">sin(x)</button>
                     <button class="example-chip" data-command="f(x)=x^2-4" type="button">x^2 - 4</button>
                     <button class="example-chip" data-command="podziel 120 na 4 w polu y=-1" type="button">podziel 120 na 4</button>
+                    <button class="example-chip" data-command="x(d)=120/4 | <-10 | ->10 | y=-1 | @edges | r=5 | label=otwory" type="button">komenda x(d)</button>
                     <button class="example-chip" data-command="od 0 do 120 co 20 y=0" type="button">co 20</button>
                 </div>
 
@@ -308,6 +335,51 @@
                 <p>Brak historii — zacznij liczyć!</p>
             </li>
         </ul>
+    </aside>
+
+    <!-- ============================================================
+    [EN] Command Help Drawer
+    ============================================================ -->
+    <div class="help-backdrop" id="commandHelpBackdrop" aria-hidden="true"></div>
+    <aside class="command-help-drawer" id="commandHelpDrawer" aria-hidden="true" aria-labelledby="commandHelpTitle">
+        <div class="drawer-handle" aria-hidden="true"></div>
+        <div class="history-header">
+            <h3 id="commandHelpTitle">Ściąga komend</h3>
+            <button class="history-close-btn" id="commandHelpClose" type="button" aria-label="Zamknij ściągę">×</button>
+        </div>
+        <div class="command-help-content">
+            <section>
+                <h4>Najkrócej</h4>
+                <p><code>x=120/4</code> podziel długość 120 na 4 punkty na osi X.</p>
+                <p><code>y=200/5</code> to samo pionowo na osi Y.</p>
+                <p><code>120/4</code> działa jak skrót dla osi X.</p>
+            </section>
+            <section>
+                <h4>Tryby rozmieszczenia</h4>
+                <p><code>@between</code> punkty równo wewnątrz pola.</p>
+                <p><code>@edges</code> pierwszy i ostatni punkt na krańcach pola.</p>
+                <p><code>co=20</code> albo <code>@every:20</code> stały odstęp 20.</p>
+            </section>
+            <section>
+                <h4>Marginesy i początek osi</h4>
+                <p><code>m=10/20</code> margines start 10, koniec 20.</p>
+                <p><code>&lt;-10</code> i <code>-&gt;20</code> to samo zapisane strzałkami.</p>
+                <p><code>origin=-60</code> przesuwa początek osi, przydatne przy liczeniu od środka.</p>
+            </section>
+            <section>
+                <h4>Jednostki i opis</h4>
+                <p><code>u=mm</code>, <code>u=cm</code>, <code>u=m</code> ustawia jednostkę.</p>
+                <p><code>opis=otwory</code>, <code>label=A</code> opisuje serię punktów w wykresach.</p>
+                <p><code>r=5</code>, <code>dia=5</code>, <code>fi=5</code> ustawia promień punktu w wykresach.</p>
+            </section>
+            <section>
+                <h4>Przykłady</h4>
+                <p><code>x=120/4 | m=10/10 | @edges | u=mm</code></p>
+                <p><code>x=120/4 | co=20 | opis=otwory</code></p>
+                <p><code>y=200/5 | @edges | x=30</code></p>
+                <p><code>x=120/4 | origin=-60 | @edges</code></p>
+            </section>
+        </div>
     </aside>
 
     <!-- ============================================================
