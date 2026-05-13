@@ -907,7 +907,14 @@
             background: var(--primary-light);
         }
         .axis-btn:active { transform: scale(0.97); }
-
+        .cmd-mode-badge { display:flex; align-items:center; gap:6px;
+        font-size:12px; color:var(--text-muted); margin-bottom:6px; }
+        .mode-dot { width:8px; height:8px; border-radius:50%;
+        background:#94a3b8; transition:background .2s; }
+        .cmd-mode-badge.cmd-active .mode-dot { background:#22c55e; }
+        .cmd-mode-badge.cmd-active .mode-label { color:#16a34a; font-weight:600; }
+        /* Podświetl obramowanie inputa gdy komenda aktywna */
+        #engCommand.cmd-active { border-color:#22c55e !important; box-shadow:0 0 0 2px rgba(34,197,94,.15); }
         /* ============================================================
            [EN] Canvas Visualization
            ============================================================ */
@@ -1028,6 +1035,25 @@
             background: #eef2ff;
             color: #3730a3;
         }
+        .fs-exit-btn {
+            display: none;
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            pointer-events: all;
+            background: rgba(15,23,42,0.85);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            width: 36px;
+            height: 36px;
+            font-size: 18px;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+        }
+        #canvasContainer.fs-mode .fs-exit-btn { display: flex !important; }
 
         /* ============================================================
            [EN] Constants Module
@@ -1180,6 +1206,30 @@
         }
         .empty-state .icon { font-size: 2.5rem; margin-bottom: 8px; }
         .empty-state p { font-size: 0.875rem; }
+        
+        /* Wskaźnik trybu — szybka komenda aktywna */
+        #engCommand.cmd-active {
+            border-color: #22c55e !important;
+            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+            background: rgba(34, 197, 94, 0.04);
+        }
+        #engCommand.cmd-active::placeholder {
+            color: #16a34a;
+        }
+        /* Pełny ekran wizualizacji */
+        #canvasContainer.fs-mode {
+            position: fixed !important;
+            inset: 0 !important;          /* top:0; right:0; bottom:0; left:0 */
+            z-index: 999 !important;
+            border-radius: 0 !important;
+            background: var(--bg-primary, #0f172a) !important;
+            width: 100vw !important;
+            height: 100dvh !important;    /* dvh = dynamic viewport height, działa na mobile */
+            overflow: hidden;
+        }
+        /* Gdy pełny ekran — pokaż ✕, ukryj ⛶ */
+        #canvasContainer.fs-mode #canvasFsBtn    { display: none  !important; }
+        #canvasContainer.fs-mode #canvasFsExitBtn { display: flex !important; }
 
         /* ============================================================
            [EN] Responsive — Tablet & Laptop

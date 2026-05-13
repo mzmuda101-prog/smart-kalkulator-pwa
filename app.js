@@ -225,12 +225,63 @@
             });
         }
 
+        /* ============================================================
+           [EN] Haptic'stics — Selective Vibration on Interactions
+           ============================================================ */
+
+        // Elementy które NIGDY nie dają haptyki — nawet jeśli są przyciskami lub elementami interaktywnymi. Pozwala to na bezpieczne dodawanie klas i atrybutów w HTML bez obawy o niechciane wibracje.
+        const NO_HAPTIC_SELECTORS = [
+        '.zoom-btn',         // przyciski zoom
+        '.sign-toggle',      // ± przy polach
+        '#orientationBtn',   // orientacja
+        '#cacheRefreshBtn',  // odświeżanie
+        '#installAppBtn',    // instalacja
+        'input[type="range"]',
+        'input:not([type="button"])',
+        '.no-haptic',        // klasa-parasol do dodawania w HTML
+        ];
+
+        /* ---- Haptyka: tylko przy kliknięciu, nie przy scrollowaniu ---- */
+        /* Lista elementów które NIE wibrują (niezależnie od kliknięcia) */
+        var NO_HAPTIC = [
+            '.zoom-btn',          /* przyciski zoom na canvasie */
+            '.sign-toggle',       /* przycisk ± przy polach marginesów */
+            '#orientationBtn',    /* przycisk orientacji ekranu */
+            '#cacheRefreshBtn',   /* przycisk odświeżania cache */
+            '#installAppBtn',     /* przycisk instalacji PWA */
+            '.no-haptic',         /* klasa-parasol — dodaj ją w HTML do dowolnego buttona */
+        ];
+
+        var _hapticDown = null;
+
         document.addEventListener('pointerdown', function(e) {
-            if (e.target.closest('button, .history-item, .calc-result, input[type="button"]')) {
-                hapticTap(15);
-            }
+            /* Sprawdź czy element jest na liście wykluczeń */
+            var skip = NO_HAPTIC.some(function(sel) { return !!e.target.closest(sel); });
+            if (skip) return;
+
+            /* Sprawdź czy element w ogóle powinien wibrować */
+            if (!e.target.closest('button, .history-item, .calc-result, input[type="button"]')) return;
+
+            /* Zapamiętaj pozycję palca/kursora */
+            _hapticDown = { x: e.clientX, y: e.clientY };
         }, { passive: true });
 
+        document.addEventListener('pointerup', function(e) {
+            if (!_hapticDown) return;
+            /* Sprawdź czy palec się nie przesunął (czyli to był scroll, nie klik) */
+            var dx = Math.abs(e.clientX - _hapticDown.x);
+            var dy = Math.abs(e.clientY - _hapticDown.y);
+            var czyScroll = (dx > 8 || dy > 8); /* próg 8px */
+            if (!czyScroll) {
+                hapticTap(15); /* wibruj tylko przy prawdziwym kliknięciu */
+            }
+            _hapticDown = null;
+        }, { passive: true });
+
+        document.addEventListener('pointercancel', function() {
+            /* Przeglądarka anulowała touch (np. zaczął się scroll strony) */
+            _hapticDown = null;
+        }, { passive: true });
         /* ============================================================
            [EN] Tab Navigation
            ============================================================ */
@@ -1256,6 +1307,26 @@
         if (commandHelpOpen) commandHelpOpen.addEventListener('click', openCommandHelp);
         if (commandHelpClose) commandHelpClose.addEventListener('click', closeCommandHelp);
         if (commandHelpBackdrop) commandHelpBackdrop.addEventListener('click', closeCommandHelp);
+         /* ---- Wskaźnik trybu komend ---- */
+        var cmdModeBadge  = $('#cmdModeBadge');
+        var cmdModeLabel  = cmdModeBadge ? cmdModeBadge.querySelector('.mode-label') : null;
+
+        function updateCmdBadge(raw) {
+            var isCmd = false;
+            if (raw.length > 0) {
+                try { isCmd = !!parsePipeCommand(raw); } catch(e) { isCmd = false; }
+            }
+            engCommand.classList.toggle('cmd-active', isCmd);
+            if (cmdModeBadge) cmdModeBadge.classList.toggle('cmd-active', isCmd);
+            if (cmdModeLabel) {
+                if (isCmd)           cmdModeLabel.textContent = 'Tryb: szybka komenda ✓';
+                else if (raw.length) cmdModeLabel.textContent = 'Tryb: komenda (niekompletna…)';
+                else                 cmdModeLabel.textContent = 'Tryb: ręczny';
+            }
+        }
+
+        engCommand.addEventListener('input', function() { updateCmdBadge(engCommand.value.trim()); });
+        engCommand.addEventListener('change', function() { updateCmdBadge(engCommand.value.trim()); });
 
         /* [EN] Sign toggle buttons for margin inputs */
         document.addEventListener('click', function(e) {
@@ -2480,6 +2551,41 @@
         if (zoomInBtn) zoomInBtn.addEventListener('click', zoomIn);
         if (zoomOutBtn) zoomOutBtn.addEventListener('click', zoomOut);
         if (zoomResetBtn) zoomResetBtn.addEventListener('click', zoomReset);
+        /* ---- Pełny ekran canvasu ---- */
+        var canvasFsBtn     = $('#canvasFsBtn');
+        var canvasFsExitBtn = $('#canvasFsExitBtn');
+        var isFsMode = false;
+
+        function enterCanvasFs() {
+            canvasContainer.classList.add('fs-mode');
+            isFsMode = true;
+            /* ⛶ jest poza kontenerem — CSS go nie złapie, chowamy JS-em */
+            if (canvasFsBtn) canvasFsBtn.style.display = 'none';
+            if (canvasContainer.requestFullscreen) {
+                canvasContainer.requestFullscreen().catch(function() {});
+            }
+            setTimeout(function() { updateEngineering(); }, 80);
+            showToast('⛶ Pełny ekran — naciśnij ✕ żeby wyjść', '');
+        }
+
+        function exitCanvasFs() {
+            canvasContainer.classList.remove('fs-mode');
+            isFsMode = false;
+            /* Przywróć ⛶ */
+            if (canvasFsBtn) canvasFsBtn.style.display = '';
+            if (document.fullscreenElement) {
+                document.exitFullscreen().catch(function() {});
+            }
+            setTimeout(function() { updateEngineering(); }, 80);
+        }
+
+        if (canvasFsBtn)     canvasFsBtn.addEventListener('click', enterCanvasFs);
+        if (canvasFsExitBtn) canvasFsExitBtn.addEventListener('click', exitCanvasFs);
+
+        /* ESC zamyka pełny ekran */
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && isFsMode) exitCanvasFs();
+        });
 
         /* ============================================================
            [EN] Pan — Mouse Drag on canvas container
@@ -2529,6 +2635,8 @@
 
         canvasContainer.addEventListener('touchstart', function(e) {
             if (e.touches.length === 1) {
+                /* Jeśli kliknięto przycisk ✕ — nie przechwytuj, pozwól kliknąć */
+                if (e.target.closest('.fs-exit-btn')) return;
                 /* [EN] Single finger — pan */
                 isDragging = true;
                 canvasContainer.classList.add('dragging');
@@ -2646,6 +2754,9 @@
             canvasWrapper.className = 'canvas-wrapper';
             engCanvas.parentNode.insertBefore(canvasWrapper, engCanvas);
             canvasWrapper.appendChild(engCanvas);
+            /* Przesuń przycisk ✕ za canvas-wrapper żeby pointer-events go nie blokowały */
+            var fsExitEl = $('#canvasFsExitBtn');
+            if (fsExitEl) canvasContainer.appendChild(fsExitEl);
 
             loadFromStorage();
             buildCalcButtons();
@@ -2663,6 +2774,7 @@
             engMarginStart.value = STATE.eng.marginStart;
             engMarginEnd.value = STATE.eng.marginEnd;
             updateSpacingModeUI();
+            if (typeof updateCmdBadge === 'function') updateCmdBadge(engCommand.value.trim());
         }
 
         init();
