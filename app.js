@@ -324,6 +324,7 @@
             ['0', 'number', '.', 'number', '⌫', 'fn', '=', 'equals'],
         ];
 
+        var _lastCalcActionTime = 0;
         function buildCalcButtons() {
             calcGrid.replaceChildren();
             calcButtons.forEach(function(row) {
@@ -335,7 +336,11 @@
                     if (type === 'clear') btn.className += ' calc-btn--clear';
                     btn.textContent = label;
                     btn.setAttribute('data-action', label);
-                    btn.addEventListener('click', function(e) {
+                    btn.addEventListener('pointerdown', function(e) {
+                        if (e.button !== undefined && e.button !== 0) return;
+                        var now = Date.now();
+                        if (now - _lastCalcActionTime < 60) return;
+                        _lastCalcActionTime = now;
                         handleCalcAction(e.currentTarget.getAttribute('data-action'));
                     });
                     calcGrid.appendChild(btn);
@@ -389,7 +394,18 @@
 
             if (action === '%') {
                 var val = parseFloat(c.currentInput) || 0;
-                c.currentInput = String(val / 100);
+                if (c.operator && c.previousInput !== '') {
+                    // Samsung-style: 200 + 5% → 200 + (200 * 5/100) = 210
+                    var base = parseFloat(c.previousInput) || 0;
+                    if (c.operator === '+' || c.operator === '−') {
+                        c.currentInput = String(base * val / 100);
+                    } else {
+                        // dla × i ÷: 200 × 5% → 200 × 0.05
+                        c.currentInput = String(val / 100);
+                    }
+                } else {
+                    c.currentInput = String(val / 100);
+                }
                 updateCalcDisplay();
                 return;
             }
@@ -1256,7 +1272,10 @@
             try {
                 var config = parsePipeCommand(raw);
                 if (!config) {
-                    showToast('Komenda: np. x(d)=120/4 | <-10 | ->10 | @edges', 'error');
+                    showToast('❌ Nieprawidłowa komenda. Przykład: x(d)=120/4 | <-10 | ->10', 'error');
+                    /* Podświetl pole na czerwono przez chwilę */
+                    engCommand.style.borderColor = '#ef4444';
+                    setTimeout(function() { engCommand.style.borderColor = ''; }, 1500);
                     return;
                 }
                 engLength.value = formatRawNum(config.length);
@@ -1305,6 +1324,8 @@
         }
 
         if (commandHelpOpen) commandHelpOpen.addEventListener('click', openCommandHelp);
+        var graphCommandHelpOpen = $('#graphCommandHelpOpen');
+        if (graphCommandHelpOpen) graphCommandHelpOpen.addEventListener('click', openCommandHelp);
         if (commandHelpClose) commandHelpClose.addEventListener('click', closeCommandHelp);
         if (commandHelpBackdrop) commandHelpBackdrop.addEventListener('click', closeCommandHelp);
          /* ---- Wskaźnik trybu komend ---- */
@@ -1825,6 +1846,11 @@
         }
 
         function pointsFromPipeCommand(config) {
+            /* Poprawka @every — jeśli podano stały odstęp a count=0, oblicz count automatycznie */
+            if (config.mode === 'fixed' && config.spacing > 0 && config.count <= 0) {
+                var usable = config.length - config.marginStart - config.marginEnd;
+                config.count = Math.max(1, Math.floor(usable / config.spacing) + 1);
+            }
             var placement = calculatePegPositions(
                 config.length,
                 config.count,
@@ -2346,64 +2372,6 @@
         }
 
         /* ============================================================
-           [EN] Manual Orientation Mode
-           Browser support varies; lock works best in installed PWA.
-           ============================================================ */
-        var orientationModes = ['auto', 'landscape', 'portrait'];
-        var orientationModeIndex = 0;
-
-        function setOrientationButton(mode) {
-            if (!orientationBtn) return;
-            var label;
-            var icon;
-            if (mode === 'landscape') {
-                label = 'Tryb orientacji: poziomy';
-                icon = '▭';
-            } else if (mode === 'portrait') {
-                label = 'Tryb orientacji: pionowy';
-                icon = '▯';
-            } else {
-                label = 'Tryb orientacji: automatyczny';
-                icon = 'Auto';
-            }
-            orientationBtn.textContent = icon;
-            orientationBtn.setAttribute('aria-label', label);
-            orientationBtn.setAttribute('title', label.replace('Tryb orientacji: ', 'Orientacja: '));
-            orientationBtn.classList.toggle('active', mode !== 'auto');
-        }
-
-        function lockOrientation(mode) {
-            if (!screen.orientation || typeof screen.orientation.lock !== 'function') {
-                return Promise.reject(new Error('Ta przeglądarka nie pozwala blokować orientacji.'));
-            }
-            if (mode === 'auto') {
-                if (typeof screen.orientation.unlock === 'function') {
-                    screen.orientation.unlock();
-                }
-                return Promise.resolve();
-            }
-            return screen.orientation.lock(mode === 'landscape' ? 'landscape' : 'portrait-primary');
-        }
-
-        if (orientationBtn) {
-            setOrientationButton('auto');
-            orientationBtn.addEventListener('click', function() {
-                orientationModeIndex = (orientationModeIndex + 1) % orientationModes.length;
-                var mode = orientationModes[orientationModeIndex];
-                setOrientationButton(mode);
-                lockOrientation(mode).then(function() {
-                    if (mode === 'auto') {
-                        showToast('Orientacja: automatyczna', 'success');
-                    } else {
-                        showToast('Orientacja: ' + (mode === 'landscape' ? 'pozioma' : 'pionowa'), 'success');
-                    }
-                }).catch(function() {
-                    showToast('Ta przeglądarka blokuje zmianę orientacji poza PWA/fullscreen', 'error');
-                });
-            });
-        }
-
-        /* ============================================================
            [EN] PWA — Install Prompt (deferred)
            ============================================================ */
         var deferredPrompt = null;
@@ -2559,10 +2527,13 @@
         function enterCanvasFs() {
             canvasContainer.classList.add('fs-mode');
             isFsMode = true;
-            /* ⛶ jest poza kontenerem — CSS go nie złapie, chowamy JS-em */
             if (canvasFsBtn) canvasFsBtn.style.display = 'none';
             if (canvasContainer.requestFullscreen) {
                 canvasContainer.requestFullscreen().catch(function() {});
+            }
+            // Próba blokady na landscape przy pełnym ekranie
+            if (screen.orientation && typeof screen.orientation.lock === 'function') {
+                screen.orientation.lock('landscape').catch(function() {});
             }
             setTimeout(function() { updateEngineering(); }, 80);
             showToast('⛶ Pełny ekran — naciśnij ✕ żeby wyjść', '');
@@ -2571,10 +2542,13 @@
         function exitCanvasFs() {
             canvasContainer.classList.remove('fs-mode');
             isFsMode = false;
-            /* Przywróć ⛶ */
             if (canvasFsBtn) canvasFsBtn.style.display = '';
             if (document.fullscreenElement) {
                 document.exitFullscreen().catch(function() {});
+            }
+            // Wróć do portrait po wyjściu z pełnego ekranu
+            if (screen.orientation && typeof screen.orientation.unlock === 'function') {
+                screen.orientation.unlock();
             }
             setTimeout(function() { updateEngineering(); }, 80);
         }
@@ -2586,6 +2560,197 @@
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && isFsMode) exitCanvasFs();
         });
+        /* ============================================================
+        Zoom & Pan dla wykresu (oś X/Y) — analogicznie jak Inżynieria
+        ============================================================ */
+        var graphZoomState = {
+            scale: 1, offsetX: 0, offsetY: 0,
+            minScale: 0.25, maxScale: 4, step: 0.25,
+        };
+
+        var graphContainer   = $('#graphContainer');
+        var graphCanvasWrapper = $('#graphCanvasWrapper');
+        var graphZoomInBtn   = $('#graphZoomInBtn');
+        var graphZoomOutBtn  = $('#graphZoomOutBtn');
+        var graphZoomResetBtn = $('#graphZoomResetBtn');
+        var graphZoomLabel   = $('#graphZoomLabel');
+        var graphFsBtn       = $('#graphFsBtn');
+        var graphFsExitBtn   = $('#graphFsExitBtn');
+        var isGraphFsMode    = false;
+
+        function applyGraphTransform(animate) {
+            if (!graphCanvasWrapper || !graphContainer) return;
+            var w = graphContainer.clientWidth;
+            var h = graphContainer.clientHeight;
+            var cw = graphCanvas.width  * graphZoomState.scale;
+            var ch = graphCanvas.height * graphZoomState.scale;
+            graphZoomState.offsetX = clamp(graphZoomState.offsetX, -cw + Math.min(w * 0.3, 80), w - Math.min(w * 0.3, 80));
+            graphZoomState.offsetY = clamp(graphZoomState.offsetY, -ch + Math.min(h * 0.3, 60), h - Math.min(h * 0.3, 60));
+            if (animate) {
+                graphCanvasWrapper.classList.add('animating');
+                clearTimeout(graphCanvasWrapper._animTimer);
+                graphCanvasWrapper._animTimer = setTimeout(function() {
+                    graphCanvasWrapper.classList.remove('animating');
+                }, 260);
+            } else {
+                graphCanvasWrapper.classList.remove('animating');
+            }
+            graphCanvasWrapper.style.transform =
+                'translate(' + graphZoomState.offsetX.toFixed(2) + 'px, ' +
+                            graphZoomState.offsetY.toFixed(2) + 'px) ' +
+                'scale(' + graphZoomState.scale.toFixed(4) + ')';
+            if (graphZoomLabel) graphZoomLabel.textContent = Math.round(graphZoomState.scale * 100) + '%';
+        }
+
+        if (graphZoomInBtn)   graphZoomInBtn.addEventListener('click',   function() {
+            graphZoomState.scale = clamp(graphZoomState.scale + graphZoomState.step, graphZoomState.minScale, graphZoomState.maxScale);
+            applyGraphTransform(true);
+        });
+        if (graphZoomOutBtn)  graphZoomOutBtn.addEventListener('click',  function() {
+            graphZoomState.scale = clamp(graphZoomState.scale - graphZoomState.step, graphZoomState.minScale, graphZoomState.maxScale);
+            applyGraphTransform(true);
+        });
+        if (graphZoomResetBtn) graphZoomResetBtn.addEventListener('click', function() {
+            graphZoomState.scale = 1; graphZoomState.offsetX = 0; graphZoomState.offsetY = 0;
+            applyGraphTransform(true);
+        });
+
+        /* Pełny ekran */
+        function enterGraphFs() {
+            if (!graphContainer) return;
+            graphContainer.classList.add('fs-mode');
+            isGraphFsMode = true;
+            if (graphFsBtn) graphFsBtn.style.display = 'none';
+            if (graphContainer.requestFullscreen) graphContainer.requestFullscreen().catch(function(){});
+            if (screen.orientation && typeof screen.orientation.lock === 'function') {
+                screen.orientation.lock('landscape').catch(function() {});
+            }
+            setTimeout(function() { updateGraph(); }, 80);
+            showToast('⛶ Pełny ekran — naciśnij ✕ żeby wyjść', '');
+        }
+        function exitGraphFs() {
+            if (!graphContainer) return;
+            graphContainer.classList.remove('fs-mode');
+            isGraphFsMode = false;
+            if (graphFsBtn) graphFsBtn.style.display = '';
+            if (document.fullscreenElement) document.exitFullscreen().catch(function(){});
+            if (screen.orientation && typeof screen.orientation.unlock === 'function') {
+                screen.orientation.unlock();
+            }
+            setTimeout(function() { updateGraph(); }, 80);
+        }
+        if (graphFsBtn)     graphFsBtn.addEventListener('click',     enterGraphFs);
+        if (graphFsExitBtn) graphFsExitBtn.addEventListener('click', exitGraphFs);
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && isGraphFsMode) exitGraphFs();
+        });
+
+        /* Pan — mysz */
+        var isGraphDragging = false;
+        var gDragStartX = 0, gDragStartY = 0, gDragOffX = 0, gDragOffY = 0;
+
+        if (graphContainer) {
+            graphContainer.addEventListener('mousedown', function(e) {
+                if (e.button !== 0) return;
+                isGraphDragging = true;
+                graphContainer.classList.add('dragging');
+                gDragStartX = e.clientX; gDragStartY = e.clientY;
+                gDragOffX = graphZoomState.offsetX; gDragOffY = graphZoomState.offsetY;
+                e.preventDefault();
+            });
+        }
+        window.addEventListener('mousemove', function(e) {
+            if (!isGraphDragging) return;
+            graphZoomState.offsetX = gDragOffX + (e.clientX - gDragStartX);
+            graphZoomState.offsetY = gDragOffY + (e.clientY - gDragStartY);
+            applyGraphTransform(false);
+        });
+        window.addEventListener('mouseup', function() {
+            if (!isGraphDragging) return;
+            isGraphDragging = false;
+            if (graphContainer) graphContainer.classList.remove('dragging');
+        });
+
+        /* Pan + pinch — dotyk */
+        var gTouchId = null, gTouchStartDist = 0, gTouchStartScale = 1;
+        var gPinchMidX = 0, gPinchMidY = 0, gPinchOffX = 0, gPinchOffY = 0, gPinchScale = 1;
+
+        if (graphContainer) {
+            graphContainer.addEventListener('touchstart', function(e) {
+                if (e.touches.length === 1) {
+                    if (e.target.closest('.fs-exit-btn')) return;
+                    isGraphDragging = true;
+                    graphContainer.classList.add('dragging');
+                    gDragStartX = e.touches[0].clientX; gDragStartY = e.touches[0].clientY;
+                    gDragOffX = graphZoomState.offsetX;  gDragOffY = graphZoomState.offsetY;
+                    gTouchId = e.touches[0].identifier;
+                    e.preventDefault();
+                } else if (e.touches.length === 2) {
+                    isGraphDragging = false;
+                    graphContainer.classList.remove('dragging');
+                    var dx = e.touches[1].clientX - e.touches[0].clientX;
+                    var dy = e.touches[1].clientY - e.touches[0].clientY;
+                    gTouchStartDist  = Math.sqrt(dx*dx + dy*dy);
+                    gTouchStartScale = graphZoomState.scale;
+                    gPinchScale      = graphZoomState.scale;
+                    gPinchMidX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                    gPinchMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                    gPinchOffX = graphZoomState.offsetX; gPinchOffY = graphZoomState.offsetY;
+                    gTouchId = null;
+                }
+            }, { passive: false });
+
+            graphContainer.addEventListener('touchmove', function(e) {
+                if (e.touches.length === 1 && isGraphDragging) {
+                    graphZoomState.offsetX = gDragOffX + (e.touches[0].clientX - gDragStartX);
+                    graphZoomState.offsetY = gDragOffY + (e.touches[0].clientY - gDragStartY);
+                    applyGraphTransform(false);
+                    e.preventDefault();
+                } else if (e.touches.length === 2) {
+                    var dx   = e.touches[1].clientX - e.touches[0].clientX;
+                    var dy   = e.touches[1].clientY - e.touches[0].clientY;
+                    var dist = Math.sqrt(dx*dx + dy*dy);
+                    if (gTouchStartDist > 0) {
+                        var newScale   = clamp(gTouchStartScale * (dist / gTouchStartDist), graphZoomState.minScale, graphZoomState.maxScale);
+                        var scaleRatio = newScale / gPinchScale;
+                        graphZoomState.offsetX = gPinchMidX - scaleRatio * (gPinchMidX - gPinchOffX);
+                        graphZoomState.offsetY = gPinchMidY - scaleRatio * (gPinchMidY - gPinchOffY);
+                        graphZoomState.scale   = newScale;
+                        gPinchScale = newScale;
+                        gPinchOffX  = graphZoomState.offsetX; gPinchOffY = graphZoomState.offsetY;
+                        applyGraphTransform(false);
+                    }
+                    e.preventDefault();
+                }
+            }, { passive: false });
+
+            graphContainer.addEventListener('touchend', function(e) {
+                var found = false;
+                for (var i = 0; i < e.touches.length; i++) {
+                    if (e.touches[i].identifier === gTouchId) { found = true; break; }
+                }
+                if (!found) {
+                    isGraphDragging = false;
+                    graphContainer.classList.remove('dragging');
+                    gTouchId = null; gTouchStartDist = 0;
+                }
+            });
+
+            /* Scroll kółkiem na desktopie */
+            graphContainer.addEventListener('wheel', function(e) {
+                e.preventDefault();
+                var rect     = graphContainer.getBoundingClientRect();
+                var mx       = e.clientX - rect.left;
+                var my       = e.clientY - rect.top;
+                var oldScale = graphZoomState.scale;
+                var newScale = clamp(oldScale * (e.deltaY < 0 ? 1.1 : 0.9), graphZoomState.minScale, graphZoomState.maxScale);
+                var ratio    = newScale / oldScale;
+                graphZoomState.offsetX = mx - ratio * (mx - graphZoomState.offsetX);
+                graphZoomState.offsetY = my - ratio * (my - graphZoomState.offsetY);
+                graphZoomState.scale   = newScale;
+                applyGraphTransform(false);
+            }, { passive: false });
+        }
 
         /* ============================================================
            [EN] Pan — Mouse Drag on canvas container
@@ -2757,7 +2922,11 @@
             /* Przesuń przycisk ✕ za canvas-wrapper żeby pointer-events go nie blokowały */
             var fsExitEl = $('#canvasFsExitBtn');
             if (fsExitEl) canvasContainer.appendChild(fsExitEl);
+            /* [EN] Wrap graph canvas for CSS zoom/pan */
+            var graphFsExitEl = $('#graphFsExitBtn');
+            if (graphFsExitEl && graphContainer) graphContainer.appendChild(graphFsExitEl);
 
+            /* [EN] Load saved engineering values */
             loadFromStorage();
             buildCalcButtons();
             updateCalcDisplay();

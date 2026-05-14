@@ -779,6 +779,9 @@
             color: var(--primary);
             overflow-wrap: anywhere;
         }
+        #graphCommandHelpOpen {
+            margin-top: 0.5rem;
+        }
 
         /* [EN] Input with sign toggle — for margin fields on phones */
         .input-with-sign {
@@ -1054,6 +1057,7 @@
             justify-content: center;
         }
         #canvasContainer.fs-mode .fs-exit-btn { display: flex !important; }
+        #graphContainer.fs-mode .fs-exit-btn { display: flex !important; }
 
         /* ============================================================
            [EN] Constants Module
