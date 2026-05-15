@@ -409,6 +409,11 @@
             overflow: hidden;
         }
         /* [EN] Ripple effect handled in JS — static styles only */
+        .calc-btn.clear {
+            background:#D33D76;
+            color:#fff;
+            box-shadow: 0 0 10px #a52f5c;
+        }
         .calc-btn:active { transform: scale(0.94); }
         .calc-btn--number {
             background: #f1f5f9;
@@ -425,6 +430,7 @@
             background: var(--primary);
             color: #fff;
             font-size: 1.5rem;
+            box-shadow: 0 0 10px var(--primary);
         }
         .calc-btn--equals:active { background: var(--primary-hover); }
         .calc-btn--fn {
