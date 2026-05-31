@@ -51,11 +51,8 @@
         <button class="tab-btn active" data-tab="calculator" role="tab" aria-selected="true">
             <span class="tab-icon">🧮</span> Standard
         </button>
-        <button class="tab-btn" data-tab="engineering" role="tab" aria-selected="false">
-            <span class="tab-icon">📐</span> Inżynieria
-        </button>
-        <button class="tab-btn" data-tab="graph" role="tab" aria-selected="false">
-            <span class="tab-icon">📈</span> Wykresy
+        <button class="tab-btn" data-tab="komenda" role="tab" aria-selected="false">
+            <span class="tab-icon">⌨️</span> Komenda
         </button>
         <button class="tab-btn" data-tab="constants" role="tab" aria-selected="false">
             <span class="tab-icon">📊</span> Moje Stałe
@@ -92,256 +89,112 @@
             </div>
         </section>
 
-        <!-- ==================== PANEL: Engineering ==================== -->
-        <section id="panel-engineering" class="panel" role="tabpanel">
+        <!-- ==================== PANEL: Komenda (merged Engineering + Graph) ==================== -->
+        <section id="panel-komenda" class="panel" role="tabpanel">
+
+            <!-- Card 1: Command input -->
             <div class="card">
-                <div class="card-header"><span class="icon">📐</span> Parametry podziału</div>
-                
-                <details class="command-panel">
-                    <summary>Szybkie komendy</summary>
-                    <div class="input-group">
-                        <label>Szybka komenda</label>
-                        <div id="cmdModeBadge" class="cmd-mode-badge">
-                            <span class="mode-dot"></span>
-                            <span class="mode-label">Tryb: ręczny</span>
-                        </div>
-                        <div class="command-row">
-                            <input type="text" id="engCommand" value="x(d)=100/3 ,, @between" inputmode="text"
-                                autocomplete="off" placeholder="np. x=120/4 {PIPE} m=10/10 {PIPE} {MODE}edges">
-                            <button class="btn btn-primary command-btn" id="engApplyCommandBtn"
-                                type="button">Ustaw</button>
-                        </div>
-                        <div class="command-error" id="engCommandError" aria-live="polite"></div>
-                        <div class="recent-commands" id="engRecentCommands" aria-label="Ostatnie komendy inżynierii"></div>
-                    </div>
-
-                    <div class="graph-examples">
-                        <button class="example-chip eng-command-chip" data-command="x=120/4 {PIPE} {MODE}between" type="button">4
-                            w polu</button>
-                        <button class="example-chip eng-command-chip" data-command="x=120/4 {PIPE} m=10/10 {PIPE} {MODE}edges"
-                            type="button">z marginesami</button>
-                        <button class="example-chip eng-command-chip" data-command="x=120/4 {PIPE} co=20" type="button">co
-                            20</button>
-                        <button class="example-chip eng-command-chip" data-command="y=200/5 {PIPE} {MODE}edges {PIPE} u=mm"
-                            type="button">pionowo</button>
-                        <button class="example-chip eng-command-chip" data-command="x=120/4 {PIPE} origin=-60 {PIPE} {MODE}edges"
-                            type="button">od środka</button>
-                    </div>
-
-                    <button class="help-open-btn" id="commandHelpOpen" type="button">Pełna ściąga komend</button>
-                </details>
+                <div class="card-header"><span class="icon">⌨️</span> Komenda</div>
 
                 <div class="input-group">
-                    <label>Jednostka</label>
-                    <div class="unit-toggle" id="unitToggle">
-                        <button class="unit-btn active" data-unit="cm">cm</button>
-                        <button class="unit-btn" data-unit="mm">mm</button>
-                        <button class="unit-btn" data-unit="m">m</button>
-                    </div>
-                </div>
-
-                <div class="input-group">
-                    <label>Długość całkowita</label>
-                    <input type="number" id="engLength" value="100" min="0" step="any" inputmode="decimal"
-                        placeholder="np. 100">
-                </div>
-
-                <div class="input-group">
-                    <label>Początek osi</label>
-                    <input type="number" id="engOrigin" value="0" step="any" inputmode="decimal"
-                        placeholder="np. -60 albo 1000">
-                </div>
-
-                <div class="input-row">
-                    <div class="input-group">
-                        <label>Liczba podziałów</label>
-                        <input type="number" id="engCount" value="3" min="1" max="100" step="1" inputmode="numeric"
-                            placeholder="np. 3">
-                    </div>
-                    <div class="input-group">
-                        <label>Orientacja</label>
-                        <div class="axis-toggle" id="axisToggle">
-                            <button class="axis-btn active" data-axis="X">⬌ Poziomo</button>
-                            <button class="axis-btn" data-axis="Y">⬍ Pionowo</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="input-group">
-                    <label>Sposób rozmieszczenia</label>
-                    <div class="mode-toggle" id="spacingModeToggle">
-                        <button class="mode-btn active" data-mode="between" type="button">W polu</button>
-                        <button class="mode-btn" data-mode="edges" type="button">Od krańców</button>
-                        <button class="mode-btn" data-mode="fixed" type="button">Stały odstęp</button>
-                    </div>
-                </div>
-
-                <div class="input-group fixed-spacing-group" id="fixedSpacingGroup">
-                    <label>Stały odstęp między podziałami</label>
-                    <input type="number" id="engSpacing" value="20" min="0" step="any" inputmode="decimal"
-                        placeholder="np. 20">
-                </div>
-
-                <div class="input-row">
-                    <div class="input-group">
-                        <label>Margines początkowy</label>
-                        <div class="input-with-sign">
-                            <input type="text" id="engMarginStart" value="0" step="any" inputmode="decimal"
-                                placeholder="np. 5" autocomplete="off">
-                            <button class="sign-toggle" data-target="engMarginStart" type="button"
-                                aria-label="Odwróć znak">±</button>
-                        </div>
-                    </div>
-                    <div class="input-group">
-                        <label>Margines końcowy</label>
-                        <div class="input-with-sign">
-                            <input type="text" id="engMarginEnd" value="0" step="any" inputmode="decimal"
-                                placeholder="np. 5" autocomplete="off">
-                            <button class="sign-toggle" data-target="engMarginEnd" type="button"
-                                aria-label="Odwróć znak">±</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <span class="icon">🎨</span> Wizualizacja
-                    <span class="zoom-controls" id="zoomControls">
-                        <button class="zoom-btn" id="zoomOutBtn" type="button" aria-label="Pomniejsz">−</button>
-                        <span class="zoom-label" id="zoomLabel">100%</span>
-                        <button class="zoom-btn" id="zoomInBtn" type="button" aria-label="Powiększ">+</button>
-                        <button class="zoom-btn zoom-reset" id="zoomResetBtn" type="button"aria-label="Resetuj widok">↺</button>
-                        <button class="zoom-btn canvas-fs-btn" id="canvasFsBtn" type="button" aria-label="Pełny ekran">⛶</button>
-                    </span>
-                </div>
-                <div class="canvas-container" id="canvasContainer">
-                    <button class="zoom-btn no-haptic fs-exit-btn" id="canvasFsExitBtn" type="button" aria-label="Wyjdź z pełnego ekranu">✕</button>
-                        <canvas id="engCanvas" width="900" height="450" aria-label="Wizualizacja rozmieszczenia podziałów"
-                        role="img"></canvas>
-                </div>
-                <div class="eng-result" id="engResult" aria-live="polite"></div>
-            </div>
-        </section>
-
-        <!-- ==================== PANEL: Graph / Easy Math Lines ==================== -->
-        <section id="panel-graph" class="panel" role="tabpanel">
-            <div class="card">
-                <div class="card-header"><span class="icon">📈</span> Wykresy i szybkie podziały</div>
-
-                <div class="input-group">
-                    <label>Komenda albo funkcja</label>
                     <div id="graphCmdModeBadge" class="cmd-mode-badge">
                         <span class="mode-dot"></span>
-                        <span class="mode-label">Tryb: funkcja</span>
+                        <span class="mode-label">Tryb: pusty</span>
                     </div>
-                    <input type="text" id="graphCommand" value="f(x)=sin(x)" inputmode="text" autocomplete="off"
-                        placeholder="np. f(x)=x^2-4 albo podziel 120 na 4 w polu y=-1">
+                    <input type="text" id="graphCommand" value="" inputmode="text" autocomplete="off"
+                        placeholder="np. x=120/4 ,, @edges   albo   f(x)=sin(x)">
                     <div class="command-error" id="graphCommandError" aria-live="polite"></div>
-                    <div class="recent-commands" id="graphRecentCommands" aria-label="Ostatnie komendy wykresów"></div>
+                    <div class="recent-commands" id="graphRecentCommands" aria-label="Ostatnie komendy"></div>
                 </div>
 
                 <div class="graph-examples">
+                    <button class="example-chip" data-command="x=120/4" type="button">podziel 120/4</button>
+                    <button class="example-chip" data-command="x=120/4 ,, @edges" type="button">od krańców</button>
+                    <button class="example-chip" data-command="x=120/4 ,, m=10/10 ,, @edges" type="button">z marginesami</button>
                     <button class="example-chip" data-command="f(x)=sin(x)" type="button">sin(x)</button>
-                    <button class="example-chip" data-command="f(x)=x^2-4" type="button">x^2 - 4</button>
-                    <button class="example-chip" data-command="podziel 120 na 4 w polu y=-1" type="button">podziel 120
-                        na 4</button>
-                    <button class="example-chip"
-                        data-command="x(d)=120/4 {PIPE} <-10 {PIPE} ->10 {PIPE} y=-1 {PIPE} {MODE}edges {PIPE} r=5 {PIPE} label=otwory"
-                        type="button">komenda x(d)</button>
-                    <button class="example-chip" data-command="od 0 do 120 co 20 y=0" type="button">co 20</button>
+                    <button class="example-chip" data-command="f(x)=x^2-4" type="button">x²−4</button>
+                    <button class="example-chip" data-command="siatka=400x300 ,, co=200x150 ,, label=słup" type="button">siatka</button>
                 </div>
 
-                <div class="input-row">
-                    <div class="input-group">
-                        <label for="graphXMin">X od</label>
-                        <input type="number" id="graphXMin" value="-10" step="any" inputmode="decimal">
-                    </div>
-                    <div class="input-group">
-                        <label for="graphXMax">X do</label>
-                        <input type="number" id="graphXMax" value="10" step="any" inputmode="decimal">
-                    </div>
+                <div class="komenda-actions">
+                    <button class="btn btn-primary" id="graphDrawBtn" type="button">▶ Uruchom</button>
+                    <button class="help-open-btn no-haptic" id="graphCommandHelpOpen" type="button">📋 Ściąga</button>
                 </div>
 
-                <div class="input-row">
-                    <div class="input-group">
-                        <label for="graphYMin">Y od</label>
-                        <input type="number" id="graphYMin" value="-10" step="any" inputmode="decimal">
-                    </div>
-                    <div class="input-group">
-                        <label for="graphYMax">Y do</label>
-                        <input type="number" id="graphYMax" value="10" step="any" inputmode="decimal">
-                    </div>
-                </div>
+                <!-- Kreator — noob-friendly, collapsible -->
+                <details class="command-panel" id="kreatorPanel">
+                    <summary>Kreator podziału</summary>
 
-                <div class="input-row">
-                    <label>Krok siatki</label>
                     <div class="input-group">
-                        <span>X:</span>
-                        <input type="number" id="graphXStep" step="any" min="0.1" placeholder="auto"
-                            class="input no-haptic" inputmode="decimal">
-                        <span>Y:</span>
-                        <input type="number" id="graphYStep" step="any" min="0.1" placeholder="auto"
-                            class="input no-haptic" inputmode="decimal">
+                        <label>Jednostka</label>
+                        <div class="unit-toggle" id="unitToggle">
+                            <button class="unit-btn active" data-unit="cm">cm</button>
+                            <button class="unit-btn" data-unit="mm">mm</button>
+                            <button class="unit-btn" data-unit="m">m</button>
+                        </div>
                     </div>
-                </div>
 
-                <button class="btn btn-primary" id="graphDrawBtn" type="button">📈 Rysuj</button>
-                <button class="help-open-btn no-haptic" id="graphCommandHelpOpen" type="button">📋 Ściąga komend</button>
+                    <div class="input-group">
+                        <label>Długość całkowita</label>
+                        <input type="number" id="engLength" value="120" min="0" step="any" inputmode="decimal" placeholder="np. 120">
+                    </div>
+
+                    <div class="input-group">
+                        <label>Początek osi</label>
+                        <input type="number" id="engOrigin" value="0" step="any" inputmode="decimal" placeholder="np. −60">
+                    </div>
+
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label>Liczba podziałów</label>
+                            <input type="number" id="engCount" value="4" min="1" max="100" step="1" inputmode="numeric" placeholder="np. 4">
+                        </div>
+                        <div class="input-group">
+                            <label>Orientacja</label>
+                            <div class="axis-toggle" id="axisToggle">
+                                <button class="axis-btn active" data-axis="X" type="button">⬌ X</button>
+                                <button class="axis-btn" data-axis="Y" type="button">⬍ Y</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Tryb</label>
+                        <div class="mode-toggle" id="spacingModeToggle">
+                            <button class="mode-btn active" data-mode="between" type="button">W polu</button>
+                            <button class="mode-btn" data-mode="edges" type="button">Od krańców</button>
+                            <button class="mode-btn" data-mode="fixed" type="button">Stały odstęp</button>
+                        </div>
+                    </div>
+
+                    <div class="input-group fixed-spacing-group" id="fixedSpacingGroup">
+                        <label>Stały odstęp</label>
+                        <input type="number" id="engSpacing" value="20" min="0" step="any" inputmode="decimal" placeholder="np. 20">
+                    </div>
+
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label>Margines pocz.</label>
+                            <div class="input-with-sign">
+                                <input type="text" id="engMarginStart" value="0" step="any" inputmode="decimal" placeholder="np. 5" autocomplete="off">
+                                <button class="sign-toggle" data-target="engMarginStart" type="button" aria-label="Odwróć znak">±</button>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label>Margines końc.</label>
+                            <div class="input-with-sign">
+                                <input type="text" id="engMarginEnd" value="0" step="any" inputmode="decimal" placeholder="np. 5" autocomplete="off">
+                                <button class="sign-toggle" data-target="engMarginEnd" type="button" aria-label="Odwróć znak">±</button>
+                            </div>
+                        </div>
+                    </div>
+                </details>
             </div>
 
-            <div class="card">
-                <div class="card-header"><span class="icon">✳️</span> Kreator podziału osi X</div>
-
-                <div class="input-row">
-                    <div class="input-group">
-                        <label for="graphDivideLength">Długość / koniec X</label>
-                        <input type="number" id="graphDivideLength" value="120" min="0" step="any" inputmode="decimal">
-                    </div>
-                    <div class="input-group">
-                        <label for="graphDivideCount">Liczba punktów</label>
-                        <input type="number" id="graphDivideCount" value="4" min="1" max="200" step="1"
-                            inputmode="numeric">
-                    </div>
-                </div>
-
-                <div class="input-group">
-                    <label>Sposób podziału</label>
-                    <div class="mode-toggle" id="graphDivideMode">
-                        <button class="mode-btn active" data-mode="between" type="button">W polu</button>
-                        <button class="mode-btn" data-mode="edges" type="button">Od krańców</button>
-                        <button class="mode-btn" data-mode="fixed" type="button">Stały odstęp</button>
-                    </div>
-                </div>
-
-                <div class="input-row">
-                    <div class="input-group">
-                        <label for="graphDivideStartMargin">Margines start</label>
-                        <input type="number" id="graphDivideStartMargin" value="0" step="any" inputmode="decimal">
-                    </div>
-                    <div class="input-group">
-                        <label for="graphDivideEndMargin">Margines koniec</label>
-                        <input type="number" id="graphDivideEndMargin" value="0" step="any" inputmode="decimal">
-                    </div>
-                </div>
-
-                <div class="input-row">
-                    <div class="input-group">
-                        <label for="graphDivideSpacing">Stały odstęp</label>
-                        <input type="number" id="graphDivideSpacing" value="20" min="0" step="any" inputmode="decimal">
-                    </div>
-                    <div class="input-group">
-                        <label for="graphDivideY">Wysokość Y</label>
-                        <input type="number" id="graphDivideY" value="-1" step="any" inputmode="decimal">
-                    </div>
-                </div>
-
-                <button class="btn btn-primary" id="graphBuildDivideBtn" type="button">✳️ Zrób punkty</button>
-            </div>
-
+            <!-- Card 2: Canvas -->
             <div class="card">
                 <div class="card-header">
-                    <span class="icon">🧭</span> Oś X/Y
+                    <span class="icon">🎨</span> Wizualizacja
                     <span class="zoom-controls">
                         <button class="zoom-btn no-haptic" id="graphZoomOutBtn" type="button" aria-label="Pomniejsz">−</button>
                         <span class="zoom-label" id="graphZoomLabel">100%</span>
@@ -353,12 +206,46 @@
                 <div class="canvas-container" id="graphContainer">
                     <button class="zoom-btn no-haptic fs-exit-btn" id="graphFsExitBtn" type="button" aria-label="Wyjdź z pełnego ekranu">✕</button>
                     <div class="canvas-wrapper" id="graphCanvasWrapper">
-                        <canvas id="graphCanvas" width="900" height="520" aria-label="Wykres funkcji i punktów"
-                            role="img"></canvas>
+                        <canvas id="graphCanvas" width="900" height="520" aria-label="Wizualizacja" role="img"></canvas>
                     </div>
                 </div>
                 <div class="eng-result graph-result" id="graphResult" aria-live="polite"></div>
             </div>
+
+            <!-- Card 3: Zakres widoku (ukryty dla komend podziału, widoczny dla wykresów) -->
+            <div class="card" id="komendaViewCard">
+                <div class="card-header"><span class="icon">🧭</span> Zakres widoku</div>
+                <div class="input-row">
+                    <div class="input-group">
+                        <label for="graphXMin">X od</label>
+                        <input type="number" id="graphXMin" value="-10" step="any" inputmode="decimal">
+                    </div>
+                    <div class="input-group">
+                        <label for="graphXMax">X do</label>
+                        <input type="number" id="graphXMax" value="10" step="any" inputmode="decimal">
+                    </div>
+                </div>
+                <div class="input-row">
+                    <div class="input-group">
+                        <label for="graphYMin">Y od</label>
+                        <input type="number" id="graphYMin" value="-10" step="any" inputmode="decimal">
+                    </div>
+                    <div class="input-group">
+                        <label for="graphYMax">Y do</label>
+                        <input type="number" id="graphYMax" value="10" step="any" inputmode="decimal">
+                    </div>
+                </div>
+                <div class="input-row">
+                    <label>Krok siatki</label>
+                    <div class="input-group">
+                        <span>X:</span>
+                        <input type="number" id="graphXStep" step="any" min="0.1" placeholder="auto" class="input no-haptic" inputmode="decimal">
+                        <span>Y:</span>
+                        <input type="number" id="graphYStep" step="any" min="0.1" placeholder="auto" class="input no-haptic" inputmode="decimal">
+                    </div>
+                </div>
+            </div>
+
         </section>
 
         <!-- ==================== PANEL: My Constants ==================== -->

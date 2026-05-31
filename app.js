@@ -19,33 +19,21 @@
                 lastResult: null,
                 lastUnit: null,
             },
-            // Engineering
-            eng: {
-                unit: 'cm',
-                axis: 'X',
-                mode: 'between',
-                length: 100,
-                count: 3,
-                spacing: 20,
-                origin: 0,
-                marginStart: 0,
-                marginEnd: 0,
-            },
+            // Komenda tab (merged Engineering + Graph)
+            eng: { unit: 'cm', axis: 'X', mode: 'between' }, // used by drawEngineeringCanvas
             graph: {
-                command: 'f(x)=sin(x)',
+                command: '',
                 xMin: -10,
                 xMax: 10,
                 yMin: -10,
                 yMax: 10,
-                divideMode: 'between',
             },
             // Constants
             constants: [],
             // History
             history: [],
             recentCommands: {
-                engineering: [],
-                graph: [],
+                graph: [], // unified (was: engineering + graph)
             },
         };
 
@@ -59,9 +47,8 @@
         const tabBtns = $$('.tab-btn');
         const panels = {
             calculator: $('#panel-calculator'),
-            engineering: $('#panel-engineering'),
-            graph: $('#panel-graph'),
-            constants: $('#panel-constants'),
+            komenda:    $('#panel-komenda'),
+            constants:  $('#panel-constants'),
         };
 
         // Calculator
@@ -79,40 +66,27 @@
         const installAppBtn = $('#installAppBtn');
         const orientationBtn = $('#orientationBtn');
 
-        // Engineering
+        // Kreator (form fields in Komenda tab)
         const engLength = $('#engLength');
         const engOrigin = $('#engOrigin');
         const engCount = $('#engCount');
         const engSpacing = $('#engSpacing');
         const engMarginStart = $('#engMarginStart');
         const engMarginEnd = $('#engMarginEnd');
-        const engCanvas = $('#engCanvas');
-        const engCtx = engCanvas.getContext('2d');
-        const engResult = $('#engResult');
         const unitToggle = $('#unitToggle');
         const axisToggle = $('#axisToggle');
         const spacingModeToggle = $('#spacingModeToggle');
         const fixedSpacingGroup = $('#fixedSpacingGroup');
-        const engCommand = $('#engCommand');
-        const engApplyCommandBtn = $('#engApplyCommandBtn');
-        const engCommandError = $('#engCommandError');
-        const engRecentCommands = $('#engRecentCommands');
-        const commandHelpOpen = $('#commandHelpOpen');
+
+        // Help drawer
+        const commandHelpOpen = null; // removed — help opens via graphCommandHelpOpen
         const commandHelpClose = $('#commandHelpClose');
         const commandHelpBackdrop = $('#commandHelpBackdrop');
         const commandHelpDrawer = $('#commandHelpDrawer');
         const helpSearch = $('#helpSearch');
-        let activeCommandTarget = 'engineering';
-        // Zoom / Pan
-        const canvasContainer = $('#canvasContainer');
-        const zoomInBtn = $('#zoomInBtn');
-        const zoomOutBtn = $('#zoomOutBtn');
-        const zoomResetBtn = $('#zoomResetBtn');
-        const zoomLabel = $('#zoomLabel');
-        // [EN] canvasWrapper is created dynamically on init
-        let canvasWrapper = null;
+        let activeCommandTarget = 'graph';
 
-        // Graph
+        // Komenda canvas & UI
         const graphCommand = $('#graphCommand');
         const graphCommandError = $('#graphCommandError');
         const graphRecentCommands = $('#graphRecentCommands');
@@ -127,14 +101,7 @@
         const graphCanvas = $('#graphCanvas');
         const graphCtx = graphCanvas.getContext('2d');
         const graphResult = $('#graphResult');
-        const graphDivideLength = $('#graphDivideLength');
-        const graphDivideCount = $('#graphDivideCount');
-        const graphDivideMode = $('#graphDivideMode');
-        const graphDivideStartMargin = $('#graphDivideStartMargin');
-        const graphDivideEndMargin = $('#graphDivideEndMargin');
-        const graphDivideSpacing = $('#graphDivideSpacing');
-        const graphDivideY = $('#graphDivideY');
-        const graphBuildDivideBtn = $('#graphBuildDivideBtn');
+        const komendaViewCard = $('#komendaViewCard');
 
         // Constants
         const constName = $('#constName');
@@ -163,14 +130,16 @@
                 if (c) STATE.constants = JSON.parse(c);
                 const r = localStorage.getItem(STORAGE_KEYS.recentCommands);
                 if (r) STATE.recentCommands = JSON.parse(r);
-                if (!STATE.recentCommands || !Array.isArray(STATE.recentCommands.engineering) || !Array.isArray(STATE.recentCommands.graph)) {
-                    STATE.recentCommands = { engineering: [], graph: [] };
+                // Migrate old engineering+graph split into unified graph list
+                if (!STATE.recentCommands) STATE.recentCommands = {};
+                if (!Array.isArray(STATE.recentCommands.graph)) {
+                    var old = [].concat(STATE.recentCommands.engineering || [], STATE.recentCommands.graph || []);
+                    STATE.recentCommands.graph = old.slice(0, 6);
                 }
             } catch (e) {
-                // [EN] Corrupted data — reset silently
                 STATE.history = [];
                 STATE.constants = [];
-                STATE.recentCommands = { engineering: [], graph: [] };
+                STATE.recentCommands = { graph: [] };
             }
         }
 
@@ -307,9 +276,8 @@
             STATE.activeTab = tabName;
             var titles = {
                 calculator: 'Kalkulator — Matm0',
-                engineering: 'Inżynieria — Matm0',
-                graph: 'Wykresy — Matm0',
-                constants: 'Moje Stałe — Matm0',
+                komenda:    'Komenda — Matm0',
+                constants:  'Moje Stałe — Matm0',
             };
             document.title = titles[tabName] || 'Kalkulator by Matm0';
             tabBtns.forEach(function(btn) {
@@ -320,11 +288,7 @@
             Object.keys(panels).forEach(function(key) {
                 panels[key].classList.toggle('active', key === tabName);
             });
-            if (tabName === 'engineering') {
-                // [EN] Redraw canvas on tab switch (handles any layout shifts)
-                setTimeout(function() { updateEngineering(); }, 50);
-            }
-            if (tabName === 'graph') {
+            if (tabName === 'komenda') {
                 setTimeout(function() { updateGraph(); }, 50);
             }
             if (tabName === 'constants') {
@@ -700,7 +664,6 @@
                 return text;
             });
         }
-        bindCopyBox(engResult);
         bindCopyBox(graphResult);
 
         /* ============================================================
@@ -810,7 +773,7 @@
         }
 
         function getCommandErrorEl(target) {
-            return target === 'graph' ? graphCommandError : engCommandError;
+            return graphCommandError;
         }
 
         function setCommandError(target, message) {
@@ -831,9 +794,9 @@
         }
 
         function renderRecentCommands(target) {
-            var box = target === 'graph' ? graphRecentCommands : engRecentCommands;
+            var box = graphRecentCommands;
             if (!box) return;
-            var list = (STATE.recentCommands && STATE.recentCommands[target]) || [];
+            var list = (STATE.recentCommands && STATE.recentCommands.graph) || [];
             box.replaceChildren();
             box.classList.toggle('has-items', list.length > 0);
             list.forEach(function(command) {
@@ -843,21 +806,15 @@
                 btn.textContent = command;
                 btn.title = command;
                 btn.addEventListener('click', function() {
-                    if (target === 'graph') {
-                        graphCommand.value = command;
-                        updateGraph();
-                    } else {
-                        engCommand.value = command;
-                        updateCmdBadge(command);
-                        applyEngineeringCommand(command);
-                    }
+                    graphCommand.value = command;
+                    if (typeof updateGraphCmdBadge === 'function') updateGraphCmdBadge(command);
+                    updateGraph();
                 });
                 box.appendChild(btn);
             });
         }
 
         function renderAllRecentCommands() {
-            renderRecentCommands('engineering');
             renderRecentCommands('graph');
         }
 
@@ -875,80 +832,6 @@
 
         function getUnitLabel() {
             return STATE.eng.unit;
-        }
-
-        function updateEngineering() {
-            var L = parseFloat(normalizeNumberText(engLength.value)) || 0;
-            var origin = parseFloat(normalizeNumberText(engOrigin.value)) || 0;
-            var n = parseInt(engCount.value, 10) || 0;
-            var fixedSpacing = parseFloat(normalizeNumberText(engSpacing.value)) || 0;
-            var ms = parseFloat(normalizeNumberText(engMarginStart.value)) || 0;
-            var me = parseFloat(normalizeNumberText(engMarginEnd.value)) || 0;
-            var mode = STATE.eng.mode;
-
-            STATE.eng.length = L;
-            STATE.eng.count = n;
-            STATE.eng.spacing = fixedSpacing;
-            STATE.eng.origin = origin;
-            STATE.eng.marginStart = ms;
-            STATE.eng.marginEnd = me;
-
-            if (L <= 0 || (mode !== 'fixed' && n <= 0)) {
-                engResult.textContent = '⚠️ Wprowadź prawidłową długość i liczbę podziału.';
-                drawEmptyCanvas();
-                return;
-            }
-
-            var usableLength = L - ms - me;
-            if (usableLength <= 0) {
-                engResult.textContent = '⚠️ Marginesy przekraczają długość całkowitą. Zmniejsz marginesy.';
-                drawEmptyCanvas();
-                return;
-            }
-
-            var placement = calculatePegPositions(L, n, ms, me, fixedSpacing, mode);
-            if (placement.error) {
-                engResult.textContent = placement.error;
-                drawEmptyCanvas();
-                return;
-            }
-            var step = placement.step;
-            var positions = placement.positions.map(function(pos) { return pos + origin; });
-
-            // [EN] Build result text
-            var unit = getUnitLabel();
-            var resultText = '📏 Długość: ' + formatNum(L) + ' ' + unit + '\n';
-            resultText += '🎯 Początek osi: ' + formatNum(origin) + ' ' + unit + '\n';
-            resultText += '⚙️ Tryb: ' + getPlacementModeLabel(mode) + '\n';
-            resultText += '📌 Liczba podziałów: ' + positions.length + (mode === 'fixed' ? ' (wyliczona z odstępu)' : '') + '\n';
-            resultText += '📐 Odstęp między środkami: ' + formatNum(step) + ' ' + unit + '\n';
-            if (ms > 0 || me > 0) {
-                resultText += '↔️ Marginesy: ' + formatNum(ms) + ' / ' + formatNum(me) + ' ' + unit + '\n';
-            }
-            resultText += '\n📍 Pozycje podziałów:\n';
-            positions.forEach(function(pos, idx) {
-                resultText += '  Podział ' + (idx + 1) + ': ' + formatNum(pos) + ' ' + unit + '\n';
-            });
-
-            engResult.textContent = resultText;
-            if (STATE.eng.multiSeries && STATE.eng.multiSeries.length > 1) {
-                // Wieloseria — zbierz punkty ze wszystkich serii i narysuj razem
-                var allSeries = [];
-                var resultExtra = '\n🔀 Wieloseria (' + STATE.eng.multiSeries.length + ' serie):\n';
-                STATE.eng.multiSeries.forEach(function(cfg, idx) {
-                    try {
-                        var pts = pointsFromPipeCommand(cfg);
-                        var seriesLabel = cfg.label || ('Seria ' + (idx + 1));
-                        allSeries.push({ points: pts, label: seriesLabel, r: cfg.r });
-                        resultExtra += '  • ' + seriesLabel + ': ' + pts.length + ' pkt\n';
-                    } catch(e) {}
-                });
-                engResult.textContent = resultText + resultExtra;
-                drawEngineeringCanvasMulti(L, ms, me, allSeries, origin);
-            } else {
-                engResult.textContent = resultText;
-                drawEngineeringCanvas(L, ms, me, positions, positions.length, step, origin);
-            }
         }
 
         function calculatePegPositions(totalLength, count, marginStart, marginEnd, fixedSpacing, mode) {
@@ -1012,27 +895,27 @@
             return String(parseFloat(Number(val).toFixed(6)));
         }
 
-        function drawEmptyCanvas() {
-            var ctx = engCtx;
-            var w = engCanvas.width;
-            var h = engCanvas.height;
+        function drawEmptyCanvas(_canvas, _ctx) {
+            var ctx = _ctx || graphCtx;
+            var w = (_canvas || graphCanvas).width;
+            var h = (_canvas || graphCanvas).height;
             ctx.clearRect(0, 0, w, h);
             ctx.fillStyle = '#94a3b8';
             ctx.font = '600 16px ' + getComputedStyle(document.body).fontFamily;
             ctx.textAlign = 'center';
-            ctx.fillText('⚠️ Nieprawidłowe dane — popraw wartości powyżej', w / 2, h / 2);
+            ctx.fillText('⚠️ Nieprawidłowe dane', w / 2, h / 2);
         }
 
-        function drawEngineeringCanvasMulti(L, ms, me, allSeries, origin) {
+        function drawEngineeringCanvasMulti(L, ms, me, allSeries, origin, _canvas, _ctx) {
             // Kolory dla kolejnych serii
             var seriesColors = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2'];
             // Zbierz wszystkie punkty żeby znać zakres
             var allPoints = [];
             allSeries.forEach(function(s) { allPoints = allPoints.concat(s.points); });
 
-            var ctx = engCtx;
-            var W = engCanvas.width;
-            var H = engCanvas.height;
+            var ctx = _ctx || graphCtx;
+            var W = (_canvas || graphCanvas).width;
+            var H = (_canvas || graphCanvas).height;
             ctx.clearRect(0, 0, W, H);
 
             var PAD_L = 60, PAD_R = 40, PAD_T = 60, PAD_B = 60;
@@ -1118,10 +1001,10 @@
             });
         }
 
-        function drawEngineeringCanvas(totalLength, marginStart, marginEnd, positions, count, step, origin) {
-            var ctx = engCtx;
-            var w = engCanvas.width;
-            var h = engCanvas.height;
+        function drawEngineeringCanvas(totalLength, marginStart, marginEnd, positions, count, step, origin, _canvas, _ctx) {
+            var ctx = _ctx || graphCtx;
+            var w = (_canvas || graphCanvas).width;
+            var h = (_canvas || graphCanvas).height;
             ctx.clearRect(0, 0, w, h);
 
             var isHorizontal = STATE.eng.axis === 'X';
@@ -1516,136 +1399,106 @@
         /* ============================================================
            [EN] Engineering — Event Binding
            ============================================================ */
-        engLength.addEventListener('input', updateEngineering);
-        engOrigin.addEventListener('input', updateEngineering);
-        engCount.addEventListener('input', updateEngineering);
-        engSpacing.addEventListener('input', updateEngineering);
-        engMarginStart.addEventListener('input', updateEngineering);
-        engMarginEnd.addEventListener('input', updateEngineering);
-
-        unitToggle.addEventListener('click', function(e) {
-            var btn = e.target.closest('.unit-btn');
-            if (!btn) return;
-            unitToggle.querySelectorAll('.unit-btn').forEach(function(b) { b.classList.remove('active'); });
-            btn.classList.add('active');
-            STATE.eng.unit = btn.getAttribute('data-unit');
-            updateEngineering();
-        });
-
-        axisToggle.addEventListener('click', function(e) {
-            var btn = e.target.closest('.axis-btn');
-            if (!btn) return;
-            axisToggle.querySelectorAll('.axis-btn').forEach(function(b) { b.classList.remove('active'); });
-            btn.classList.add('active');
-            STATE.eng.axis = btn.getAttribute('data-axis');
-            updateEngineering();
-            showToast('Widok: ' + (STATE.eng.axis === 'X' ? 'Poziomy ⬌' : 'Pionowy ⬍'), '');
-        });
-
-        function updateSpacingModeUI() {
+        /* ============================================================
+           Kreator — generuje komendę z formularza i uruchamia updateGraph
+           ============================================================ */
+        function updateKreatorModeUI() {
             var isFixed = STATE.eng.mode === 'fixed';
             if (fixedSpacingGroup) fixedSpacingGroup.classList.toggle('active', isFixed);
             if (engCount) engCount.disabled = isFixed;
         }
 
-        spacingModeToggle.addEventListener('click', function(e) {
-            var btn = e.target.closest('.mode-btn');
-            if (!btn) return;
-            spacingModeToggle.querySelectorAll('.mode-btn').forEach(function(b) { b.classList.remove('active'); });
-            btn.classList.add('active');
-            STATE.eng.mode = btn.getAttribute('data-mode');
-            updateSpacingModeUI();
-            updateEngineering();
+        function generateCommandFromForm() {
+            var length = parseFloat(normalizeNumberText(engLength ? engLength.value : '120')) || 120;
+            var count  = parseInt(engCount ? engCount.value : '4', 10) || 4;
+            var origin = parseFloat(normalizeNumberText(engOrigin ? engOrigin.value : '0')) || 0;
+            var ms     = parseFloat(normalizeNumberText(engMarginStart ? engMarginStart.value : '0')) || 0;
+            var me     = parseFloat(normalizeNumberText(engMarginEnd ? engMarginEnd.value : '0')) || 0;
+            var spacing = parseFloat(normalizeNumberText(engSpacing ? engSpacing.value : '20')) || 20;
+            var axis = STATE.eng.axis || 'X';
+            var mode = STATE.eng.mode || 'between';
+            var unit = STATE.eng.unit || 'cm';
+
+            var axisKey = axis.toLowerCase() === 'y' ? 'y' : 'x';
+            var parts = [axisKey + '=' + formatRawNum(length) + '/' + count];
+            if (ms > 0 || me > 0) parts.push('m=' + formatRawNum(ms) + '/' + formatRawNum(me));
+            if (origin !== 0) parts.push('origin=' + formatRawNum(origin));
+            if (mode === 'edges') parts.push('@edges');
+            else if (mode === 'fixed') parts.push('co=' + formatRawNum(spacing));
+            parts.push('u=' + unit);
+
+            var cmd = parts.join(' ,, ');
+            if (graphCommand) {
+                graphCommand.value = cmd;
+                if (typeof updateGraphCmdBadge === 'function') updateGraphCmdBadge(cmd);
+            }
+            updateGraph();
+        }
+
+        // Kreator: form fields
+        [engLength, engOrigin, engCount, engSpacing, engMarginStart, engMarginEnd].forEach(function(el) {
+            if (el) el.addEventListener('input', generateCommandFromForm);
         });
 
-        function setToggleActive(container, selector, attr, value) {
-            if (!container) return;
-            container.querySelectorAll(selector).forEach(function(btn) {
-                btn.classList.toggle('active', btn.getAttribute(attr) === value);
+        if (unitToggle) {
+            unitToggle.addEventListener('click', function(e) {
+                var btn = e.target.closest('.unit-btn');
+                if (!btn) return;
+                unitToggle.querySelectorAll('.unit-btn').forEach(function(b) { b.classList.remove('active'); });
+                btn.classList.add('active');
+                STATE.eng.unit = btn.getAttribute('data-unit');
+                generateCommandFromForm();
             });
         }
 
-        function applyEngineeringCommand(raw) {
-            try {
-                setCommandError('engineering', '');
-                var configs = parseMultiSeriesCommand(raw);
-                if (!configs) {
-                    var message = 'Nieprawidłowa komenda. Przykład: x=120/4 | m=10 albo x=120 | co=20.';
-                    showToast('❌ ' + message, 'error');
-                    setCommandError('engineering', message);
-                    engCommand.style.borderColor = '#ef4444';
-                    setTimeout(function() { engCommand.style.borderColor = ''; }, 1500);
-                    return;
-                }
-                var config = configs[0];
-                engLength.value      = formatRawNum(config.length);
-                engOrigin.value      = formatRawNum(config.origin || 0);
-                engCount.value       = String(config.count);
-                engSpacing.value     = formatRawNum(config.spacing || (config.length / Math.max(1, config.count)));
-                engMarginStart.value = formatRawNum(config.marginStart);
-                engMarginEnd.value   = formatRawNum(config.marginEnd);
-                STATE.eng.axis       = config.axis;
-                STATE.eng.mode       = config.mode;
-                STATE.eng.multiSeries = configs.length > 1 ? configs : null;
-                if (config.unit) {
-                    STATE.eng.unit = config.unit;
-                    setToggleActive(unitToggle, '.unit-btn', 'data-unit', config.unit);
-                }
-                setToggleActive(axisToggle, '.axis-btn', 'data-axis', config.axis);
-                setToggleActive(spacingModeToggle, '.mode-btn', 'data-mode', config.mode);
-                updateSpacingModeUI();
-                updateEngineering();
-                if (configs.length > 1) {
-                    var totalPoints = configs.reduce(function(sum, cfg) { return sum + cfg.count; }, 0);
-                    showToast('✅ ' + configs.length + ' serie, ~' + totalPoints + ' punktów', 'success');
-                } else {
-                    showToast('Komenda ustawiona', 'success');
-                }
-                recordRecentCommand('engineering', raw);
-            } catch (err) {
-                var errorMessage = err.message || 'Nieprawidłowa komenda';
-                setCommandError('engineering', errorMessage);
-                showToast(errorMessage, 'error');
-            }
-        }
-
-        if (engApplyCommandBtn) {
-            engApplyCommandBtn.addEventListener('click', function() {
-                applyEngineeringCommand(engCommand.value);
+        if (axisToggle) {
+            axisToggle.addEventListener('click', function(e) {
+                var btn = e.target.closest('.axis-btn');
+                if (!btn) return;
+                axisToggle.querySelectorAll('.axis-btn').forEach(function(b) { b.classList.remove('active'); });
+                btn.classList.add('active');
+                STATE.eng.axis = btn.getAttribute('data-axis');
+                generateCommandFromForm();
             });
         }
-        if (engCommand) {
-            engCommand.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter') {
-                    applyEngineeringCommand(engCommand.value);
-                }
+
+        if (spacingModeToggle) {
+            spacingModeToggle.addEventListener('click', function(e) {
+                var btn = e.target.closest('.mode-btn');
+                if (!btn) return;
+                spacingModeToggle.querySelectorAll('.mode-btn').forEach(function(b) { b.classList.remove('active'); });
+                btn.classList.add('active');
+                STATE.eng.mode = btn.getAttribute('data-mode');
+                updateKreatorModeUI();
+                generateCommandFromForm();
             });
         }
 
         function openCommandHelp() {
-
             document.body.classList.add('help-open');
-
-            if (commandHelpDrawer) {
-                commandHelpDrawer.setAttribute('aria-hidden', 'false');
-            }
+            if (commandHelpDrawer) commandHelpDrawer.setAttribute('aria-hidden', 'false');
 
             document.querySelectorAll('.help-section').forEach(function(section) {
-
                 var type = section.getAttribute('data-help');
-
-                section.style.display =
-                    type === activeCommandTarget
-                        ? 'block'
-                        : 'none';
-
+                var visible;
+                if (activeCommandTarget === 'komenda') {
+                    // Komenda tab: show engineering + graph sections
+                    visible = (type === 'engineering' || type === 'graph');
+                } else {
+                    visible = (type === activeCommandTarget);
+                }
+                section.style.display = visible ? 'block' : 'none';
             });
-
         }
 
         function closeCommandHelp() {
             document.body.classList.remove('help-open');
-            if (commandHelpDrawer) commandHelpDrawer.setAttribute('aria-hidden', 'true');
+            if (commandHelpDrawer) {
+                // Blur focused element inside drawer before hiding — prevents aria-hidden warning
+                var focused = commandHelpDrawer.querySelector(':focus');
+                if (focused) focused.blur();
+                commandHelpDrawer.setAttribute('aria-hidden', 'true');
+            }
             if (helpSearch) {
                 helpSearch.value = '';
 
@@ -1746,6 +1599,9 @@
             var definitions = window.MATM0_COMMAND_DEFINITIONS;
             if (!definitions) return;
 
+            var allMissing = [];
+            var lastSection = null;
+
             ['engineering', 'graph'].forEach(function(helpType) {
                 var helpSection = document.querySelector('.help-section[data-help="' + helpType + '"]');
                 var groups = definitions[helpType];
@@ -1757,33 +1613,33 @@
                     var title = document.createElement('h4');
                     title.textContent = group.title;
                     section.appendChild(title);
-
                     (group.items || []).forEach(function(item) {
                         section.appendChild(createHelpCommandRow(item));
                     });
-
                     helpSection.appendChild(section);
                 });
 
+                // Collect all missing capabilities — render ONE combined section at the end
                 var missing = getMissingHelpCapabilities(helpType);
-                if (missing.length) {
-                    var missingSection = document.createElement('section');
-                    missingSection.className = 'parser-gap-section';
-                    var missingTitle = document.createElement('h4');
-                    missingTitle.textContent = 'Parser umie wiecej';
-                    missingSection.appendChild(missingTitle);
-
-                    var intro = document.createElement('p');
-                    intro.className = 'parser-gap-note';
-                    intro.textContent = 'Te wpisy wykryl parser, ale nie sa jeszcze opisane w glownej sciadze. To lista pomocnicza, nie ograniczenie silnika.';
-                    missingSection.appendChild(intro);
-
-                    missing.forEach(function(item) {
-                        missingSection.appendChild(createHelpCommandRow(item));
-                    });
-                    helpSection.appendChild(missingSection);
-                }
+                allMissing = allMissing.concat(missing);
+                lastSection = helpSection;
             });
+
+            if (allMissing.length && lastSection) {
+                var missingSection = document.createElement('section');
+                missingSection.className = 'parser-gap-section';
+                var missingTitle = document.createElement('h4');
+                missingTitle.textContent = 'Parser umie więcej';
+                missingSection.appendChild(missingTitle);
+                var intro = document.createElement('p');
+                intro.className = 'parser-gap-note';
+                intro.textContent = 'Wpisy wykryte przez parser, nieujęte jeszcze w głównej ściądze. Lista pomocnicza — nie ograniczenie silnika.';
+                missingSection.appendChild(intro);
+                allMissing.forEach(function(item) {
+                    missingSection.appendChild(createHelpCommandRow(item));
+                });
+                lastSection.appendChild(missingSection);
+            }
         }
 
         function escapeRegExp(text) {
@@ -1895,11 +1751,8 @@
 
             if (graphCommandHelpOpen) {
                 graphCommandHelpOpen.addEventListener('click', function() {
-
-                    activeCommandTarget = 'graph';
-
+                    activeCommandTarget = 'komenda';
                     openCommandHelp();
-
                 });
             }
 
@@ -1923,19 +1776,11 @@
 
                     if (!command) return;
 
-                    if (activeCommandTarget === 'engineering') {
-
-                        engCommand.value = command;
-
-                        updateCmdBadge(command);
-
-                        applyEngineeringCommand(command);
-
-                    } else if (activeCommandTarget === 'graph') {
+                    if (activeCommandTarget === 'komenda' || activeCommandTarget === 'graph') {
 
                         graphCommand.value = command;
-
-                        updateGraph(graphCommand.value);
+                        if (typeof updateGraphCmdBadge === 'function') updateGraphCmdBadge(command);
+                        updateGraph();
 
                     } else if (activeCommandTarget === 'calculator') {
 
@@ -1957,27 +1802,7 @@
         }
 
         initHelpSystem();
-         /* ---- Wskaźnik trybu komend ---- */
-        var cmdModeBadge  = $('#cmdModeBadge');
-        var cmdModeLabel  = cmdModeBadge ? cmdModeBadge.querySelector('.mode-label') : null;
         var graphCmdModeLabel = graphCmdModeBadge ? graphCmdModeBadge.querySelector('.mode-label') : null;
-
-        function updateCmdBadge(raw) {
-            var isCmd = false;
-            if (raw.length > 0) {
-                try { isCmd = !!parseMultiSeriesCommand(raw); } catch(e) { isCmd = false; }
-            }
-            engCommand.classList.toggle('cmd-active', isCmd);
-            if (cmdModeBadge) cmdModeBadge.classList.toggle('cmd-active', isCmd);
-            if (cmdModeLabel) {
-                if (isCmd)           cmdModeLabel.textContent = 'Tryb: szybka komenda ✓';
-                else if (raw.length) cmdModeLabel.textContent = 'Tryb: komenda (niekompletna…)';
-                else                 cmdModeLabel.textContent = 'Tryb: ręczny';
-            }
-        }
-
-        engCommand.addEventListener('input', function() { updateCmdBadge(engCommand.value.trim()); });
-        engCommand.addEventListener('change', function() { updateCmdBadge(engCommand.value.trim()); });
 
         function graphModeLabelFromParsed(parsed) {
             if (!parsed || !parsed.length) return 'Tryb: pusty';
@@ -2805,12 +2630,12 @@
             var positions;
 
             if (config.mode === 'fixed') {
-                var spacing = config.spacing || parseGraphNumber(graphDivideSpacing.value, 0);
+                var spacing = config.spacing || 20;
                 var placement = calculatePegPositions(length, 1, 0, 0, spacing, 'fixed');
                 if (placement.error) throw new Error(placement.error.replace('⚠️ ', ''));
                 positions = placement.positions;
             } else {
-                var count = config.count || parseInt(graphDivideCount.value, 10) || 1;
+                var count = config.count || 1;
                 var placement2 = calculatePegPositions(length, count, 0, 0, 0, config.mode || 'between');
                 if (placement2.error) throw new Error(placement2.error.replace('⚠️ ', ''));
                 positions = placement2.positions;
@@ -2819,6 +2644,67 @@
             return positions.map(function(pos) {
                 return { x: start + pos, y: y };
             });
+        }
+
+        function isEngineeringCommand(parsedSeries) {
+            return parsedSeries.length > 0 &&
+                   parsedSeries.every(function(s) { return s.type === 'division' && s.data && s.data.axis; });
+        }
+
+        function renderAsEngineering(parsedSeries) {
+            if (komendaViewCard) komendaViewCard.style.display = 'none';
+
+            var cfg = parsedSeries[0].data;
+            var L  = cfg.length;
+            var ms = cfg.marginStart || 0;
+            var me = cfg.marginEnd   || 0;
+            var n  = cfg.count;
+            var spacing = cfg.spacing || 0;
+            var mode   = cfg.mode || 'between';
+            var origin = cfg.origin || 0;
+            var unit   = cfg.unit   || STATE.eng.unit || 'cm';
+
+            STATE.eng.axis = cfg.axis || 'X';
+            STATE.eng.unit = unit;
+
+            if (L <= 0) {
+                drawEmptyCanvas();
+                graphResult.textContent = '⚠️ Podaj dodatnią długość.';
+                return;
+            }
+
+            if (parsedSeries.length > 1) {
+                var allSeries = [];
+                parsedSeries.forEach(function(item) {
+                    try {
+                        var pts = pointsFromPipeCommand(item.data);
+                        allSeries.push({ points: pts, label: item.data.label || 'P', r: item.data.r });
+                    } catch(e) {}
+                });
+                drawEngineeringCanvasMulti(L, ms, me, allSeries, origin);
+            } else {
+                var placement = calculatePegPositions(L, n, ms, me, spacing, mode);
+                if (placement.error) {
+                    drawEmptyCanvas();
+                    graphResult.textContent = placement.error;
+                    return;
+                }
+                var positions = placement.positions.map(function(p) { return p + origin; });
+                drawEngineeringCanvas(L, ms, me, positions, positions.length, placement.step, origin);
+            }
+
+            var unit2 = unit;
+            var placement2 = calculatePegPositions(L, n, ms, me, spacing, mode);
+            var step2 = placement2.step || 0;
+            var positions2 = (placement2.positions || []).map(function(p) { return p + origin; });
+            var txt = '📏 ' + formatNum(L) + ' ' + unit2;
+            if (ms > 0 || me > 0) txt += '  ↔ marginesy: ' + formatNum(ms) + '/' + formatNum(me) + ' ' + unit2;
+            txt += '\n📐 Odstęp: ' + formatNum(step2) + ' ' + unit2;
+            txt += '\n\n📍 Pozycje:\n';
+            positions2.forEach(function(pos, i) {
+                txt += '  ' + (i + 1) + ': ' + formatNum(pos) + ' ' + unit2 + '\n';
+            });
+            graphResult.textContent = txt;
         }
 
         function updateGraph() {
@@ -2833,6 +2719,7 @@
             STATE.graph.yMax = bounds.yMax;
 
             if (!command) {
+                if (komendaViewCard) komendaViewCard.style.display = '';
                 drawGraphBase(bounds);
                 graphResult.textContent = '';
                 return;
@@ -2841,6 +2728,17 @@
             try {
                 // --- Wieloseria: wspólny parser komend ---
                 var parsedSeries = parseCommandSeries(command);
+
+                // Inteligentny routing: podział 1D → belka drewniana
+                if (isEngineeringCommand(parsedSeries)) {
+                    renderAsEngineering(parsedSeries);
+                    recordRecentCommand('graph', command);
+                    return;
+                }
+
+                // Wykres / geometria → pokaż Zakres widoku
+                if (komendaViewCard) komendaViewCard.style.display = '';
+
                 var rawSeries = parsedSeries.map(function(item) { return item.raw; });
 
                 // Zbierz wszystkie punkty i geometrie ze wszystkich serii
@@ -3007,49 +2905,6 @@
             }
         }
 
-        function buildGraphDivisionFromForm() {
-            var active = graphDivideMode.querySelector('.mode-btn.active');
-            var mode = active ? active.getAttribute('data-mode') : 'between';
-            var length = parseGraphNumber(graphDivideLength.value, 120);
-            var count = parseInt(graphDivideCount.value, 10) || 1;
-            var ms = parseGraphNumber(graphDivideStartMargin.value, 0);
-            var me = parseGraphNumber(graphDivideEndMargin.value, 0);
-            var spacing = parseGraphNumber(graphDivideSpacing.value, 20);
-            var y = parseGraphNumber(graphDivideY.value, -1);
-            var placement = calculatePegPositions(length, count, ms, me, spacing, mode);
-
-            if (placement.error) {
-                graphResult.textContent = placement.error;
-                return;
-            }
-
-            var points = placement.positions.map(function(pos) {
-                return { x: pos, y: y };
-            });
-            graphCommand.value = 'x(d)=' + formatRawNum(length) + '/' + count +
-                ' | <-' + formatRawNum(ms) +
-                ' | ->' + formatRawNum(me) +
-                ' | y=' + formatRawNum(y) +
-                (mode === 'fixed' ? ' | @every:' + formatRawNum(spacing) : (mode === 'edges' ? ' | @edges' : ' | @between')) +
-                ' | label=P';
-
-            var bounds = getGraphBounds();
-            if (length > bounds.xMax || 0 < bounds.xMin) {
-                graphXMin.value = '0';
-                graphXMax.value = formatRawNum(length);
-                bounds = getGraphBounds();
-            }
-            if (y <= bounds.yMin || y >= bounds.yMax) {
-                graphYMin.value = formatRawNum(y - 5);
-                graphYMax.value = formatRawNum(y + 5);
-                bounds = getGraphBounds();
-            }
-            drawPoints(points, bounds, 'P');
-            graphResult.textContent = 'Punkty z kreatora:\n' + points.map(function(p, idx) {
-                return 'P' + (idx + 1) + '=(' + formatNum(p.x) + ', ' + formatNum(p.y) + ')';
-            }).join('\n');
-        }
-
         graphDrawBtn.addEventListener('click', updateGraph);
         graphCommand.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
@@ -3063,22 +2918,10 @@
             var chip = e.target.closest('.example-chip');
             if (!chip) return;
             var command = chip.getAttribute('data-command') || '';
-            if (chip.classList.contains('eng-command-chip')) {
-                engCommand.value = command;
-                applyEngineeringCommand(command);
-                return;
-            }
             graphCommand.value = command;
+            if (typeof updateGraphCmdBadge === 'function') updateGraphCmdBadge(command);
             updateGraph();
         });
-        graphDivideMode.addEventListener('click', function(e) {
-            var btn = e.target.closest('.mode-btn');
-            if (!btn) return;
-            graphDivideMode.querySelectorAll('.mode-btn').forEach(function(b) { b.classList.remove('active'); });
-            btn.classList.add('active');
-            STATE.graph.divideMode = btn.getAttribute('data-mode');
-        });
-        graphBuildDivideBtn.addEventListener('click', buildGraphDivisionFromForm);
 
         /* ============================================================
            [EN] CONSTANTS MODULE
@@ -3464,131 +3307,20 @@
         }, { passive: false });
 
         /* ============================================================
-           [EN] Canvas Zoom & Pan
-               Zoom: CSS scale via transform on wrapper
-               Pan: CSS translate via transform on wrapper
-               Canvas always renders at native 900×450
+           [EN] Canvas Zoom & Pan — shared utilities + Komenda canvas
            ============================================================ */
-        var zoomState = {
-            scale: 1,
-            offsetX: 0,
-            offsetY: 0,
-            minScale: 0.25,
-            maxScale: 4,
-            step: 0.15, // [EN] Zoom step per button click
-        };
-
         function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
-        var PAN_DAMPING = 0.46;
+        var PAN_DAMPING   = 0.46;
         var PINCH_DAMPING = 0.46;
-        var WHEEL_ZOOM_IN = 1.0241;
+        var WHEEL_ZOOM_IN  = 1.0241;
         var WHEEL_ZOOM_OUT = 0.97614;
-
 
         function dampScale(startScale, rawScale, minScale, maxScale) {
             return clamp(startScale + (rawScale - startScale) * PINCH_DAMPING, minScale, maxScale);
         }
 
-        function applyTransform(animate) {
-            if (!canvasWrapper) return;
-            /* [EN] Clamp offset so canvas stays reachable */
-            var w = canvasContainer.clientWidth;
-            var h = canvasContainer.clientHeight;
-            var cw = engCanvas.width * zoomState.scale; // [EN] Scaled canvas width
-            var ch = engCanvas.height * zoomState.scale; // [EN] Scaled canvas height
-
-            /* [EN] Don't let the image fully escape the viewport */
-            zoomState.offsetX = clamp(zoomState.offsetX, -cw + Math.min(w * 0.3, 80), w - Math.min(w * 0.3, 80));
-            zoomState.offsetY = clamp(zoomState.offsetY, -ch + Math.min(h * 0.3, 60), h - Math.min(h * 0.3, 60));
-
-            if (animate) {
-                canvasWrapper.classList.add('animating');
-                /* [EN] Remove class after transition ends so subsequent drags are instant */
-                clearTimeout(canvasWrapper._animTimer);
-                canvasWrapper._animTimer = setTimeout(function() {
-                    canvasWrapper.classList.remove('animating');
-                }, 260);
-            } else {
-                canvasWrapper.classList.remove('animating');
-            }
-
-            canvasWrapper.style.transform =
-                'translate(' + zoomState.offsetX.toFixed(2) + 'px, ' + zoomState.offsetY.toFixed(2) + 'px) ' +
-                'scale(' + zoomState.scale.toFixed(4) + ')';
-
-            updateZoomLabel();
-        }
-
-        function updateZoomLabel() {
-            if (zoomLabel) {
-                zoomLabel.textContent = String(Math.round(zoomState.scale * 100)) + '%';
-            }
-        }
-
-        function zoomIn() {
-            zoomState.scale = clamp(zoomState.scale + zoomState.step, zoomState.minScale, zoomState.maxScale);
-            applyTransform(true);
-        }
-
-        function zoomOut() {
-            zoomState.scale = clamp(zoomState.scale - zoomState.step, zoomState.minScale, zoomState.maxScale);
-            applyTransform(true);
-        }
-
-        function zoomReset() {
-            zoomState.scale = 1;
-            zoomState.offsetX = 0;
-            zoomState.offsetY = 0;
-            applyTransform(true);
-        }
-
-        /* [EN] Zoom button events */
-        if (zoomInBtn) zoomInBtn.addEventListener('click', zoomIn);
-        if (zoomOutBtn) zoomOutBtn.addEventListener('click', zoomOut);
-        if (zoomResetBtn) zoomResetBtn.addEventListener('click', zoomReset);
-        /* ---- Pełny ekran canvasu ---- */
-        var canvasFsBtn     = $('#canvasFsBtn');
-        var canvasFsExitBtn = $('#canvasFsExitBtn');
-        var isFsMode = false;
-
-        function enterCanvasFs() {
-            canvasContainer.classList.add('fs-mode');
-            isFsMode = true;
-            if (canvasFsBtn) canvasFsBtn.style.display = 'none';
-            if (canvasContainer.requestFullscreen) {
-                canvasContainer.requestFullscreen().catch(function() {});
-            }
-            // Próba blokady na landscape przy pełnym ekranie
-            if (screen.orientation && typeof screen.orientation.lock === 'function') {
-                screen.orientation.lock('landscape').catch(function() {});
-            }
-            setTimeout(function() { updateEngineering(); }, 80);
-            showToast('⛶ Pełny ekran — naciśnij ✕ żeby wyjść', '');
-        }
-
-        function exitCanvasFs() {
-            canvasContainer.classList.remove('fs-mode');
-            isFsMode = false;
-            if (canvasFsBtn) canvasFsBtn.style.display = '';
-            if (document.fullscreenElement) {
-                document.exitFullscreen().catch(function() {});
-            }
-            // Wróć do portrait po wyjściu z pełnego ekranu
-            if (screen.orientation && typeof screen.orientation.unlock === 'function') {
-                screen.orientation.unlock();
-            }
-            setTimeout(function() { updateEngineering(); }, 80);
-        }
-
-        if (canvasFsBtn)     canvasFsBtn.addEventListener('click', enterCanvasFs);
-        if (canvasFsExitBtn) canvasFsExitBtn.addEventListener('click', exitCanvasFs);
-
-        /* ESC zamyka pełny ekran */
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && isFsMode) exitCanvasFs();
-        });
         /* ============================================================
-        Zoom & Pan dla wykresu (oś X/Y) — analogicznie jak Inżynieria
+           Zoom & Pan — Komenda canvas
         ============================================================ */
         var graphZoomState = {
             scale: 1, offsetX: 0, offsetY: 0,
@@ -3781,155 +3513,10 @@
         }
 
         /* ============================================================
-           [EN] Pan — Mouse Drag on canvas container
-           ============================================================ */
-        var isDragging = false;
-        var dragStartX = 0;
-        var dragStartY = 0;
-        var dragOffX = 0;
-        var dragOffY = 0;
-
-        canvasContainer.addEventListener('mousedown', function(e) {
-            /* [EN] Only start drag on left button, skip zoom buttons etc. */
-            if (e.button !== 0) return;
-            isDragging = true;
-            canvasContainer.classList.add('dragging');
-            dragStartX = e.clientX;
-            dragStartY = e.clientY;
-            dragOffX = zoomState.offsetX;
-            dragOffY = zoomState.offsetY;
-            e.preventDefault();
-        });
-
-        window.addEventListener('mousemove', function(e) {
-            if (!isDragging) return;
-            zoomState.offsetX = dragOffX + (e.clientX - dragStartX) * PAN_DAMPING;
-            zoomState.offsetY = dragOffY + (e.clientY - dragStartY) * PAN_DAMPING;
-            applyTransform(false);
-        });
-
-        window.addEventListener('mouseup', function() {
-            if (!isDragging) return;
-            isDragging = false;
-            canvasContainer.classList.remove('dragging');
-        });
-
-        /* ============================================================
-           [EN] Pan — Touch drag on canvas container
-           ============================================================ */
-        var touchId = null;
-        var touchStartDist = 0;
-        var touchStartScale = 1;
-        var pinchMidX = 0;
-        var pinchMidY = 0;
-        var pinchOffX = 0;
-        var pinchOffY = 0;
-        var pinchScale = 1;
-
-        canvasContainer.addEventListener('touchstart', function(e) {
-            if (e.touches.length === 1) {
-                /* Jeśli kliknięto przycisk ✕ — nie przechwytuj, pozwól kliknąć */
-                if (e.target.closest('.fs-exit-btn')) return;
-                /* [EN] Single finger — pan */
-                isDragging = true;
-                canvasContainer.classList.add('dragging');
-                dragStartX = e.touches[0].clientX;
-                dragStartY = e.touches[0].clientY;
-                dragOffX = zoomState.offsetX;
-                dragOffY = zoomState.offsetY;
-                touchId = e.touches[0].identifier;
-                /* [EN] Stop swipe gesture from scrolling panels */
-                e.preventDefault();
-            } else if (e.touches.length === 2) {
-                /* [EN] Two fingers — pinch zoom */
-                isDragging = false;
-                canvasContainer.classList.remove('dragging');
-                var dx = e.touches[1].clientX - e.touches[0].clientX;
-                var dy = e.touches[1].clientY - e.touches[0].clientY;
-                touchStartDist = Math.sqrt(dx * dx + dy * dy);
-                touchStartScale = zoomState.scale;
-                pinchScale = zoomState.scale;
-                /* [EN] Midpoint of the two touches — zoom around this point */
-                pinchMidX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-                pinchMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-                pinchOffX = zoomState.offsetX;
-                pinchOffY = zoomState.offsetY;
-                touchId = null;
-            }
-        }, { passive: false });
-
-        canvasContainer.addEventListener('touchmove', function(e) {
-            if (e.touches.length === 1 && isDragging) {
-                zoomState.offsetX = dragOffX + (e.touches[0].clientX - dragStartX) * PAN_DAMPING;
-                zoomState.offsetY = dragOffY + (e.touches[0].clientY - dragStartY) * PAN_DAMPING;
-                applyTransform(false);
-                e.preventDefault();
-            } else if (e.touches.length === 2) {
-                var dx = e.touches[1].clientX - e.touches[0].clientX;
-                var dy = e.touches[1].clientY - e.touches[0].clientY;
-                var dist = Math.sqrt(dx * dx + dy * dy);
-                if (touchStartDist > 0) {
-                    var rawScale = touchStartScale * (dist / touchStartDist);
-                    var newScale = dampScale(touchStartScale, rawScale, zoomState.minScale, zoomState.maxScale);
-                    /* [EN] Zoom around the pinch center point */
-                    var scaleRatio = newScale / pinchScale;
-                    zoomState.offsetX = pinchMidX - scaleRatio * (pinchMidX - pinchOffX);
-                    zoomState.offsetY = pinchMidY - scaleRatio * (pinchMidY - pinchOffY);
-                    zoomState.scale = newScale;
-                    pinchScale = newScale;
-                    pinchOffX = zoomState.offsetX;
-                    pinchOffY = zoomState.offsetY;
-                    applyTransform(false);
-                }
-                e.preventDefault();
-            }
-        }, { passive: false });
-
-        canvasContainer.addEventListener('touchend', function(e) {
-            /* [EN] Check if our tracked touch ended */
-            var found = false;
-            for (var i = 0; i < e.touches.length; i++) {
-                if (e.touches[i].identifier === touchId) { found = true; break; }
-            }
-            if (!found) {
-                isDragging = false;
-                canvasContainer.classList.remove('dragging');
-                touchId = null;
-                touchStartDist = 0;
-            }
-        });
-
-        /* [EN] Wheel zoom on desktop */
-        canvasContainer.addEventListener('wheel', function(e) {
-            /* [EN] Only zoom when not inside a scrollable panel (let normal scroll pass) */
-            e.preventDefault();
-            var rect = canvasContainer.getBoundingClientRect();
-            /* [EN] Mouse position relative to canvas container */
-            var mx = e.clientX - rect.left;
-            var my = e.clientY - rect.top;
-            /* [EN] Point under cursor in canvas coordinate space */
-            var oldScale = zoomState.scale;
-            var newScale = clamp(
-                oldScale * (e.deltaY < 0 ? WHEEL_ZOOM_IN : WHEEL_ZOOM_OUT),
-                zoomState.minScale,
-                zoomState.maxScale
-            );
-            /* [EN] Adjust offset so the point under cursor stays put */
-            var ratio = newScale / oldScale;
-            zoomState.offsetX = mx - ratio * (mx - zoomState.offsetX);
-            zoomState.offsetY = my - ratio * (my - zoomState.offsetY);
-            zoomState.scale = newScale;
-            applyTransform(false);
-        }, { passive: false });
-
-        /* ============================================================
-           [EN] Handle canvas resize for HiDPI
+           [EN] Handle canvas resize
            ============================================================ */
         function handleCanvasResize() {
-            if (STATE.activeTab === 'engineering') {
-                updateEngineering();
-            }
-            if (STATE.activeTab === 'graph') {
+            if (STATE.activeTab === 'komenda') {
                 updateGraph();
             }
         }
@@ -3943,19 +3530,10 @@
            [EN] Initialization
            ============================================================ */
         function init() {
-            /* [EN] Wrap canvas for CSS zoom/pan */
-            canvasWrapper = document.createElement('div');
-            canvasWrapper.className = 'canvas-wrapper';
-            engCanvas.parentNode.insertBefore(canvasWrapper, engCanvas);
-            canvasWrapper.appendChild(engCanvas);
-            /* Przesuń przycisk ✕ za canvas-wrapper żeby pointer-events go nie blokowały */
-            var fsExitEl = $('#canvasFsExitBtn');
-            if (fsExitEl) canvasContainer.appendChild(fsExitEl);
             /* [EN] Wrap graph canvas for CSS zoom/pan */
             var graphFsExitEl = $('#graphFsExitBtn');
             if (graphFsExitEl && graphContainer) graphContainer.appendChild(graphFsExitEl);
 
-            /* [EN] Load saved engineering values */
             loadFromStorage();
             buildCalcButtons();
             calcExpr.addEventListener('input', liveEval);
@@ -3965,20 +3543,12 @@
             });
             liveEval();
             renderHistory();
-            updateEngineering();
             updateGraph();
             renderConstants();
             renderAllRecentCommands();
 
-            // [EN] Load saved engineering values
-            engLength.value = STATE.eng.length;
-            engOrigin.value = STATE.eng.origin;
-            engCount.value = STATE.eng.count;
-            engSpacing.value = STATE.eng.spacing;
-            engMarginStart.value = STATE.eng.marginStart;
-            engMarginEnd.value = STATE.eng.marginEnd;
-            updateSpacingModeUI();
-            if (typeof updateCmdBadge === 'function') updateCmdBadge(engCommand.value.trim());
+            // Inicjalizacja kreatora
+            updateKreatorModeUI();
             if (typeof updateGraphCmdBadge === 'function') updateGraphCmdBadge(graphCommand.value.trim());
         }
 
@@ -4028,12 +3598,10 @@
             window.__matm0 = {
                 state: STATE,
                 switchTab: switchTab,
-                updateEngineering: updateEngineering,
                 updateGraph: updateGraph,
                 renderConstants: renderConstants,
                 renderHistory: renderHistory,
                 parseCommandSeries: parseCommandSeries,
-                parseEngineeringCommand: parseMultiSeriesCommand,
                 getParserCapabilities: getParserCapabilities,
                 getHelpCoverageReport: getHelpCoverageReport,
                 runParserSmokeTests: runParserSmokeTests,

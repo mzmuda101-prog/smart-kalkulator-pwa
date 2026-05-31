@@ -730,6 +730,24 @@
             padding: 0 14px;
             white-space: nowrap;
         }
+        /* Komenda tab */
+        .komenda-actions {
+            display: flex;
+            gap: 8px;
+            margin: 10px 0 6px;
+        }
+        .komenda-actions .btn {
+            flex: 1;
+        }
+        .komenda-actions .help-open-btn {
+            flex-shrink: 0;
+            width: auto;
+            min-width: 80px;
+        }
+        #komendaViewCard {
+            transition: opacity 0.2s;
+        }
+
         .command-panel {
             border: 1px solid var(--border);
             border-radius: var(--radius);
