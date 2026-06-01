@@ -107,7 +107,7 @@
 
                     <div class="input-group">
                         <label>Długość całkowita</label>
-                        <input type="number" id="engLength" value="120" min="0" step="any" inputmode="decimal" placeholder="np. 120">
+                        <input type="number" id="engLength" min="0" step="any" inputmode="decimal" placeholder="np. 120">
                     </div>
 
                     <div class="input-group">
@@ -118,7 +118,7 @@
                     <div class="input-row">
                         <div class="input-group">
                             <label>Liczba podziałów</label>
-                            <input type="number" id="engCount" value="4" min="1" max="100" step="1" inputmode="numeric" placeholder="np. 4">
+                            <input type="number" id="engCount" min="1" max="100" step="1" inputmode="numeric" placeholder="np. 4">
                         </div>
                         <div class="input-group">
                             <label>Orientacja</label>
@@ -130,7 +130,7 @@
                     </div>
 
                     <div class="input-group">
-                        <label>Tryb</label>
+                        <label>Sposób rozmieszczenia</label>
                         <div class="mode-toggle" id="spacingModeToggle">
                             <button class="mode-btn active" data-mode="between" type="button">W polu</button>
                             <button class="mode-btn" data-mode="edges" type="button">Od krańców</button>
@@ -145,20 +145,28 @@
 
                     <div class="input-row">
                         <div class="input-group">
-                            <label>Margines pocz.</label>
+                            <label>Przerwa na początku</label>
                             <div class="input-with-sign">
                                 <input type="text" id="engMarginStart" value="0" step="any" inputmode="decimal" placeholder="np. 5" autocomplete="off">
                                 <button class="sign-toggle" data-target="engMarginStart" type="button" aria-label="Odwróć znak">±</button>
                             </div>
                         </div>
                         <div class="input-group">
-                            <label>Margines końc.</label>
+                            <label>Przerwa na końcu</label>
                             <div class="input-with-sign">
                                 <input type="text" id="engMarginEnd" value="0" step="any" inputmode="decimal" placeholder="np. 5" autocomplete="off">
                                 <button class="sign-toggle" data-target="engMarginEnd" type="button" aria-label="Odwróć znak">±</button>
                             </div>
                         </div>
                     </div>
+
+                    <!-- Mini live preview -->
+                    <div class="kreator-preview" id="kreatorPreview" aria-hidden="true"></div>
+                    <div class="kreator-preview-info" id="kreatorPreviewInfo"></div>
+
+                    <button class="btn btn-primary kreator-apply-btn" id="kreatorApplyBtn" type="button">
+                        ▶ Pokaż wynik na canvasie
+                    </button>
                 </details>
 
             <!-- Card 1: Command input -->

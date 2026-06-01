@@ -1408,16 +1408,80 @@
             if (engCount) engCount.disabled = isFixed;
         }
 
-        function generateCommandFromForm() {
-            var length = parseFloat(normalizeNumberText(engLength ? engLength.value : '120')) || 120;
-            var count  = parseInt(engCount ? engCount.value : '4', 10) || 4;
-            var origin = parseFloat(normalizeNumberText(engOrigin ? engOrigin.value : '0')) || 0;
-            var ms     = parseFloat(normalizeNumberText(engMarginStart ? engMarginStart.value : '0')) || 0;
-            var me     = parseFloat(normalizeNumberText(engMarginEnd ? engMarginEnd.value : '0')) || 0;
+        /* Mini diagram — aktualizuje się natychmiast przy każdej zmianie pola */
+        function updateKreatorPreview() {
+            var preview = $('#kreatorPreview');
+            var infoEl  = $('#kreatorPreviewInfo');
+            if (!preview) return;
+
+            var length  = parseFloat(normalizeNumberText(engLength  ? engLength.value  : '120')) || 120;
+            var count   = parseInt(engCount ? engCount.value : '4', 10) || 4;
+            var ms      = parseFloat(normalizeNumberText(engMarginStart ? engMarginStart.value : '0')) || 0;
+            var me      = parseFloat(normalizeNumberText(engMarginEnd   ? engMarginEnd.value   : '0')) || 0;
             var spacing = parseFloat(normalizeNumberText(engSpacing ? engSpacing.value : '20')) || 20;
-            var axis = STATE.eng.axis || 'X';
-            var mode = STATE.eng.mode || 'between';
-            var unit = STATE.eng.unit || 'cm';
+            var mode    = STATE.eng.mode || 'between';
+            var unit    = STATE.eng.unit || 'cm';
+
+            var placement = calculatePegPositions(length, count, ms, me, spacing, mode);
+            preview.classList.toggle('kreator-preview--error', !!placement.error);
+
+            while (preview.firstChild) preview.removeChild(preview.firstChild);
+
+            if (placement.error || !placement.positions || !placement.positions.length) {
+                if (infoEl) infoEl.textContent = '⚠️ Sprawdź wartości';
+                return;
+            }
+
+            var positions = placement.positions;
+
+            // Belka
+            var beam = document.createElement('div');
+            beam.className = 'kreator-preview-beam';
+            preview.appendChild(beam);
+
+            // Marginesy
+            if (ms > 0) {
+                var msEl = document.createElement('div');
+                msEl.className = 'kreator-preview-margin';
+                msEl.style.left  = '0';
+                msEl.style.width = Math.min(100, (ms / length) * 100) + '%';
+                preview.appendChild(msEl);
+            }
+            if (me > 0) {
+                var meEl = document.createElement('div');
+                meEl.className = 'kreator-preview-margin';
+                meEl.style.right = '0';
+                meEl.style.width = Math.min(100, (me / length) * 100) + '%';
+                preview.appendChild(meEl);
+            }
+
+            // Kropki
+            positions.forEach(function(pos) {
+                var dot = document.createElement('div');
+                dot.className = 'kreator-preview-dot';
+                dot.style.left = Math.max(0, Math.min(100, (pos / length) * 100)) + '%';
+                preview.appendChild(dot);
+            });
+
+            // Info: "4 punkty · co 30 cm"
+            if (infoEl) {
+                var n = positions.length;
+                var step = placement.step;
+                var nStr = n + (n === 1 ? ' punkt' : n < 5 ? ' punkty' : ' punktów');
+                infoEl.textContent = nStr + '  ·  co ' + formatNum(step) + ' ' + unit;
+            }
+        }
+
+        function generateCommandFromForm() {
+            var length  = parseFloat(normalizeNumberText(engLength  ? engLength.value  : '120')) || 120;
+            var count   = parseInt(engCount ? engCount.value : '4', 10) || 4;
+            var origin  = parseFloat(normalizeNumberText(engOrigin  ? engOrigin.value  : '0'))  || 0;
+            var ms      = parseFloat(normalizeNumberText(engMarginStart ? engMarginStart.value : '0')) || 0;
+            var me      = parseFloat(normalizeNumberText(engMarginEnd   ? engMarginEnd.value   : '0')) || 0;
+            var spacing = parseFloat(normalizeNumberText(engSpacing ? engSpacing.value : '20')) || 20;
+            var axis    = STATE.eng.axis || 'X';
+            var mode    = STATE.eng.mode || 'between';
+            var unit    = STATE.eng.unit || 'cm';
 
             var axisKey = axis.toLowerCase() === 'y' ? 'y' : 'x';
             var parts = [axisKey + '=' + formatRawNum(length) + '/' + count];
@@ -1433,11 +1497,14 @@
                 if (typeof updateGraphCmdBadge === 'function') updateGraphCmdBadge(cmd);
             }
             updateGraph();
+            // Przewiń do canvasu na mobile
+            var canvas = $('#graphContainer');
+            if (canvas) canvas.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
 
-        // Kreator: form fields
+        // Kreator: zmiany pól → tylko mini preview (NIE canvas główny)
         [engLength, engOrigin, engCount, engSpacing, engMarginStart, engMarginEnd].forEach(function(el) {
-            if (el) el.addEventListener('input', generateCommandFromForm);
+            if (el) el.addEventListener('input', updateKreatorPreview);
         });
 
         if (unitToggle) {
@@ -1447,7 +1514,7 @@
                 unitToggle.querySelectorAll('.unit-btn').forEach(function(b) { b.classList.remove('active'); });
                 btn.classList.add('active');
                 STATE.eng.unit = btn.getAttribute('data-unit');
-                generateCommandFromForm();
+                updateKreatorPreview();
             });
         }
 
@@ -1458,7 +1525,7 @@
                 axisToggle.querySelectorAll('.axis-btn').forEach(function(b) { b.classList.remove('active'); });
                 btn.classList.add('active');
                 STATE.eng.axis = btn.getAttribute('data-axis');
-                generateCommandFromForm();
+                updateKreatorPreview();
             });
         }
 
@@ -1470,8 +1537,14 @@
                 btn.classList.add('active');
                 STATE.eng.mode = btn.getAttribute('data-mode');
                 updateKreatorModeUI();
-                generateCommandFromForm();
+                updateKreatorPreview();
             });
+        }
+
+        // Przycisk "Wynik" → dopiero teraz aktualizuje główny canvas
+        var kreatorApplyBtn = $('#kreatorApplyBtn');
+        if (kreatorApplyBtn) {
+            kreatorApplyBtn.addEventListener('click', generateCommandFromForm);
         }
 
         function openCommandHelp() {
@@ -3549,6 +3622,7 @@
 
             // Inicjalizacja kreatora
             updateKreatorModeUI();
+            updateKreatorPreview();
             if (typeof updateGraphCmdBadge === 'function') updateGraphCmdBadge(graphCommand.value.trim());
         }
 

@@ -730,6 +730,60 @@
             padding: 0 14px;
             white-space: nowrap;
         }
+        /* ---- Kreator mini preview ---- */
+        .kreator-preview {
+            position: relative;
+            height: 56px;
+            background: #f1f5f9;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            margin: 14px 0 0;
+            overflow: hidden;
+        }
+        .kreator-preview-beam {
+            position: absolute;
+            left: 4px; right: 4px;
+            height: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #e8d5b7;
+            border: 1.5px solid #b8956a;
+            border-radius: 3px;
+        }
+        .kreator-preview-margin {
+            position: absolute;
+            top: 0; bottom: 0;
+            background: rgba(100,116,139,0.2);
+            z-index: 1;
+        }
+        .kreator-preview-dot {
+            position: absolute;
+            width: 14px; height: 14px;
+            border-radius: 50%;
+            background: var(--danger);
+            border: 2.5px solid #991b1b;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2;
+        }
+        .kreator-preview--error {
+            background: #fef2f2;
+            border-color: #fca5a5;
+        }
+        .kreator-preview-info {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            font-weight: 600;
+            text-align: center;
+            min-height: 18px;
+            margin: 5px 0 10px;
+        }
+        .kreator-apply-btn {
+            width: 100%;
+            margin-bottom: 4px;
+        }
+
         /* Komenda tab */
         .komenda-actions {
             display: flex;
