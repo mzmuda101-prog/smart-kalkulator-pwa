@@ -1239,8 +1239,13 @@
             gap: 10px;
             margin-bottom: 16px;
         }
+        .const-form input,
+        .const-form button {
+            width: 100%;
+            max-width: 100%;
+        }
         .const-form-row {
-            display: grid;
+            display: flex;
             grid-template-columns: 2fr 1fr 1fr;
             gap: 8px;
         }
