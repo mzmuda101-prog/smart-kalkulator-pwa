@@ -48,6 +48,7 @@
         const panels = {
             calculator: $('#panel-calculator'),
             komenda:    $('#panel-komenda'),
+            warsztat:   $('#panel-warsztat'),
             constants:  $('#panel-constants'),
         };
 
@@ -277,6 +278,7 @@
             var titles = {
                 calculator: 'Kalkulator — Matm0',
                 komenda:    'Komenda — Matm0',
+                warsztat:   'Warsztat — Matm0',
                 constants:  'Moje Stałe — Matm0',
             };
             document.title = titles[tabName] || 'Kalkulator by Matm0';
@@ -1566,6 +1568,8 @@
                 graphCommand.value = cmd;
                 if (typeof updateGraphCmdBadge === 'function') updateGraphCmdBadge(cmd);
             }
+            // [EN] Kreator żyje teraz w zakładce Warsztat — pokaż wynik na canvasie w Komendzie
+            switchTab('komenda');
             updateGraph();
             // Przewiń do canvasu na mobile
             var canvas = $('#graphContainer');
@@ -4228,6 +4232,483 @@
             });
         }
 
+        /* ============================================================
+           [EN] WARSZTAT — Sekcja 1: Powierzchnie i pokrycia
+           Generic engine: licz pole figury, potem ile materiału je pokryje.
+           ============================================================ */
+        function initWarsztat() {
+            var panel = $('#panel-warsztat');
+            if (!panel) return;
+
+            var wsState = {
+                shape: 'rect', dimUnit: 'm', covMode: 'perUnit',
+                volShape: 'box', volDimUnit: 'm', fillMode: 'density',
+                gridUnit: 'cm', gridMode: 'count',
+                slMode: 'dims', pyMode: 'legs',
+                elMode: 'UI', vdMat: 'cu', vdPhase: '1', convCat: 'length',
+            };
+
+            // [EN] Liczba z pola — pusty/niepoprawny zwraca fallback
+            function num(sel, fallback) {
+                var el = $(sel);
+                if (!el) return fallback;
+                var v = parseFloat(normalizeNumberText(el.value));
+                return isFinite(v) ? v : fallback;
+            }
+
+            // [EN] Współczynnik zamiany wymiaru na metry
+            function dimToMeters() { return wsState.dimUnit === 'cm' ? 0.01 : 1; }
+
+            /* ---- Generyczny przełącznik (unit-toggle) ---- */
+            function bindToggle(toggleSel, dataAttr, onPick) {
+                var toggle = $(toggleSel);
+                if (!toggle) return;
+                toggle.addEventListener('click', function(e) {
+                    var btn = e.target.closest('.unit-btn');
+                    if (!btn) return;
+                    toggle.querySelectorAll('.unit-btn').forEach(function(b) { b.classList.remove('active'); });
+                    btn.classList.add('active');
+                    onPick(btn.getAttribute(dataAttr));
+                });
+            }
+
+            /* ---- Tool 1A: Pole powierzchni ---- */
+            function rawArea() {
+                var k = dimToMeters();
+                if (wsState.shape === 'rect') {
+                    var w = num('#wsRectW', 0) * k, h = num('#wsRectH', 0) * k;
+                    return { area: w * h, ok: w > 0 && h > 0 };
+                }
+                if (wsState.shape === 'circle') {
+                    var d = num('#wsCircleD', 0) * k, r = d / 2;
+                    return { area: Math.PI * r * r, ok: d > 0 };
+                }
+                // triangle
+                var base = num('#wsTriBase', 0) * k, th = num('#wsTriH', 0) * k;
+                return { area: 0.5 * base * th, ok: base > 0 && th > 0 };
+            }
+
+            function netArea() {
+                var ra = rawArea();
+                var count = num('#wsAreaCount', 1) || 1;
+                var subtract = num('#wsAreaSubtract', 0) || 0;
+                var net = Math.max(0, ra.area * count - subtract);
+                return { net: net, single: ra.area, ok: ra.ok, count: count, subtract: subtract };
+            }
+
+            function renderArea() {
+                var el = $('#wsAreaResult');
+                var r = netArea();
+                if (!r.ok) { el.textContent = 'Podaj wymiary…'; return; }
+                var lines = [];
+                lines.push('Pole: ' + formatNum(r.net) + ' m²');
+                if (r.count !== 1 || r.subtract) {
+                    lines.push('(1 szt.: ' + formatNum(r.single) + ' m² × ' + formatNum(r.count) +
+                        (r.subtract ? ' − ' + formatNum(r.subtract) + ' m²' : '') + ')');
+                }
+                lines.push(formatNum(r.net * 10000) + ' cm²');
+                el.textContent = lines.join('\n');
+            }
+
+            /* ---- Tool 1B: Ilość materiału (pokrycie) ---- */
+            function updateCovRateLabel() {
+                var lab = $('#wsCovRateLabel');
+                if (lab) lab.textContent = wsState.covMode === 'perArea' ? 'Zużycie (jedn./m²)' : 'Wydajność (m²/jedn.)';
+            }
+
+            function renderCoverage() {
+                var el = $('#wsCovResult');
+                var area = num('#wsCovArea', 0);
+                var rate = num('#wsCovRate', 0);
+                if (!(area > 0) || !(rate > 0)) { el.textContent = 'Podaj pole i wydajność…'; return; }
+
+                var base = wsState.covMode === 'perArea' ? area * rate : area / rate;
+                var layers = num('#wsCovLayers', 1) || 1;
+                var waste = num('#wsCovWaste', 0) || 0;
+                var qty = base * layers * (1 + waste / 100);
+                var unit = ($('#wsCovUnit').value || 'szt.').trim() || 'szt.';
+
+                var lines = [];
+                lines.push('Potrzeba: ' + formatNum(qty) + ' ' + unit);
+                if (layers !== 1 || waste) {
+                    lines.push('(' + formatNum(base) + ' bazowo × ' + formatNum(layers) + ' warstw' +
+                        (waste ? ' +' + formatNum(waste) + '%' : '') + ')');
+                }
+
+                var perPack = num('#wsCovPerPack', 0);
+                var packs = null;
+                if (perPack > 0) {
+                    packs = Math.ceil(qty / perPack);
+                    lines.push('Opakowania: ' + packs + ' szt. (po ' + formatNum(perPack) + ' ' + unit + ')');
+                }
+
+                var price = num('#wsCovPrice', 0);
+                if (price > 0 && packs != null) {
+                    lines.push('Koszt: ' + formatNum(packs * price) + ' zł');
+                } else if (price > 0) {
+                    lines.push('Koszt: podaj „na opakowanie", by policzyć liczbę paczek');
+                }
+                el.textContent = lines.join('\n');
+            }
+
+            /* ---- Tool 2A: Objętość ---- */
+            function volDimToMeters() { return wsState.volDimUnit === 'cm' ? 0.01 : 1; }
+
+            function rawVolume() {
+                var k = volDimToMeters();
+                if (wsState.volShape === 'box') {
+                    var l = num('#wsVolL', 0) * k, w = num('#wsVolW', 0) * k, d = num('#wsVolD', 0) * k;
+                    return { vol: l * w * d, ok: l > 0 && w > 0 && d > 0 };
+                }
+                if (wsState.volShape === 'cylinder') {
+                    var dia = num('#wsVolDia', 0) * k, h = num('#wsVolH', 0) * k, r = dia / 2;
+                    return { vol: Math.PI * r * r * h, ok: dia > 0 && h > 0 };
+                }
+                // areaThick: pole w m², grubość w cm (stałe)
+                var area = num('#wsVolArea', 0), thick = num('#wsVolThick', 0) * 0.01;
+                return { vol: area * thick, ok: area > 0 && thick > 0 };
+            }
+
+            function totalVolume() {
+                var rv = rawVolume();
+                var count = num('#wsVolCount', 1) || 1;
+                return { total: rv.vol * count, single: rv.vol, ok: rv.ok, count: count };
+            }
+
+            function renderVolume() {
+                var el = $('#wsVolResult');
+                var r = totalVolume();
+                if (!r.ok) { el.textContent = 'Podaj wymiary…'; return; }
+                var lines = [];
+                lines.push('Objętość: ' + formatNum(r.total) + ' m³');
+                if (r.count !== 1) lines.push('(1 szt.: ' + formatNum(r.single) + ' m³ × ' + formatNum(r.count) + ')');
+                lines.push(formatNum(r.total * 1000) + ' litrów');
+                el.textContent = lines.join('\n');
+            }
+
+            /* ---- Tool 2B: Wypełnienie (worki / waga) ---- */
+            function updateFillRateLabel() {
+                var lab = $('#wsFillRateLabel');
+                if (lab) lab.textContent = wsState.fillMode === 'bagYield' ? 'Wydajność worka (m³)' : 'Gęstość (kg/m³)';
+                var perBagGroup = $('#wsFillPerBagGroup');
+                if (perBagGroup) perBagGroup.hidden = wsState.fillMode === 'bagYield';
+            }
+
+            function renderFill() {
+                var el = $('#wsFillResult');
+                var vol = num('#wsFillVol', 0);
+                var rate = num('#wsFillRate', 0);
+                if (!(vol > 0) || !(rate > 0)) { el.textContent = 'Podaj objętość i przelicznik…'; return; }
+
+                var waste = num('#wsFillWaste', 0) || 0;
+                var volAdj = vol * (1 + waste / 100);
+                var price = num('#wsFillPrice', 0);
+                var lines = [];
+                var bags = null;
+
+                if (wsState.fillMode === 'bagYield') {
+                    bags = Math.ceil(volAdj / rate);
+                    lines.push('Worki: ' + bags + ' szt. (po ' + formatNum(rate) + ' m³)');
+                    if (waste) lines.push('(objętość +' + formatNum(waste) + '% = ' + formatNum(volAdj) + ' m³)');
+                } else {
+                    var weight = volAdj * rate; // kg
+                    lines.push('Waga: ' + formatNum(weight) + ' kg' + (weight >= 1000 ? ' (' + formatNum(weight / 1000) + ' t)' : ''));
+                    if (waste) lines.push('(objętość +' + formatNum(waste) + '% = ' + formatNum(volAdj) + ' m³)');
+                    var perBag = num('#wsFillPerBag', 0);
+                    if (perBag > 0) {
+                        bags = Math.ceil(weight / perBag);
+                        lines.push('Worki: ' + bags + ' szt. (po ' + formatNum(perBag) + ' kg)');
+                    }
+                }
+
+                if (price > 0 && bags != null) {
+                    lines.push('Koszt: ' + formatNum(bags * price) + ' zł');
+                } else if (price > 0) {
+                    lines.push('Koszt: podaj „na worek", by policzyć liczbę worków');
+                }
+                el.textContent = lines.join('\n');
+            }
+
+            /* ---- Tool 3B: Siatka punktów (2D) ---- */
+            function renderGrid() {
+                var el = $('#wsGridResult');
+                var unit = wsState.gridUnit;
+                var W = num('#wsGridW', 0), H = num('#wsGridH', 0);
+                if (!(W > 0) || !(H > 0)) { el.textContent = 'Podaj wymiary pola…'; return; }
+
+                var cols, rows, dx, dy, lines = [];
+                if (wsState.gridMode === 'spacing') {
+                    dx = num('#wsGridDx', 0); dy = num('#wsGridDy', 0);
+                    if (!(dx > 0) || !(dy > 0)) { el.textContent = 'Podaj odstępy dx i dy…'; return; }
+                    cols = Math.floor(W / dx + 1e-9) + 1;
+                    rows = Math.floor(H / dy + 1e-9) + 1;
+                    lines.push('Punktów: ' + (cols * rows) + ' (' + cols + ' × ' + rows + ')');
+                    lines.push('Odstęp: ' + formatNum(dx) + ' × ' + formatNum(dy) + ' ' + unit);
+                    var lx = W - (cols - 1) * dx, ly = H - (rows - 1) * dy;
+                    if (lx > 1e-6 || ly > 1e-6) lines.push('Zapas: X=' + formatNum(lx) + ', Y=' + formatNum(ly) + ' ' + unit);
+                } else {
+                    cols = Math.max(1, Math.round(num('#wsGridCols', 1) || 1));
+                    rows = Math.max(1, Math.round(num('#wsGridRows', 1) || 1));
+                    dx = cols > 1 ? W / (cols - 1) : 0;
+                    dy = rows > 1 ? H / (rows - 1) : 0;
+                    lines.push('Punktów: ' + (cols * rows) + ' (' + cols + ' × ' + rows + ')');
+                    lines.push('Odstęp: dx=' + formatNum(dx) + ' × dy=' + formatNum(dy) + ' ' + unit);
+                }
+                el.textContent = lines.join('\n');
+            }
+
+            /* ---- Tool 4A: Spadek / nachylenie ---- */
+            function updateSlVarLabel() {
+                var lab = $('#wsSlVarLabel'), inp = $('#wsSlVar');
+                if (!lab) return;
+                if (wsState.slMode === 'percent') { lab.textContent = 'Spadek (%)'; if (inp) inp.placeholder = 'np. 2'; }
+                else if (wsState.slMode === 'deg') { lab.textContent = 'Kąt (°)'; if (inp) inp.placeholder = 'np. 30'; }
+                else { lab.textContent = 'Różnica wysokości'; if (inp) inp.placeholder = 'np. 15'; }
+            }
+
+            function renderSlope() {
+                var el = $('#wsSlResult');
+                var L = num('#wsSlLength', NaN);
+                var v = num('#wsSlVar', NaN);
+                if (!(L > 0) || isNaN(v)) { el.textContent = 'Podaj wartości…'; return; }
+
+                var pct, ang, H;
+                if (wsState.slMode === 'percent') { pct = v; ang = Math.atan(pct / 100); H = L * pct / 100; }
+                else if (wsState.slMode === 'deg') { ang = v * Math.PI / 180; pct = Math.tan(ang) * 100; H = L * Math.tan(ang); }
+                else { H = v; ang = Math.atan2(H, L); pct = H / L * 100; }
+
+                var angDeg = ang * 180 / Math.PI;
+                var skos = Math.sqrt(L * L + H * H);
+                var lines = [];
+                lines.push('Spadek: ' + formatNum(pct) + ' %');
+                lines.push('Kąt: ' + formatNum(angDeg) + ' °');
+                lines.push(Math.abs(H) > 1e-9 ? 'Stosunek: 1 : ' + formatNum(Math.abs(L / H)) : 'Stosunek: płasko');
+                lines.push('Różnica wysokości: ' + formatNum(H));
+                lines.push('Długość skosu: ' + formatNum(skos));
+                el.textContent = lines.join('\n');
+            }
+
+            /* ---- Tool 4B: Kąt prosty (Pitagoras) ---- */
+            function updatePyLabels() {
+                var la = $('#wsPyALabel'), lb = $('#wsPyBLabel'), ia = $('#wsPyA'), ib = $('#wsPyB');
+                if (!la) return;
+                if (wsState.pyMode === 'leg') {
+                    la.textContent = 'Przeciwprostokątna c'; if (ia) ia.placeholder = 'np. 5';
+                    lb.textContent = 'Znane ramię a'; if (ib) ib.placeholder = 'np. 3';
+                } else {
+                    la.textContent = 'Bok a'; if (ia) ia.placeholder = 'np. 3';
+                    lb.textContent = 'Bok b'; if (ib) ib.placeholder = 'np. 4';
+                }
+            }
+
+            function renderPy() {
+                var el = $('#wsPyResult');
+                var a = num('#wsPyA', NaN), b = num('#wsPyB', NaN);
+                if (wsState.pyMode === 'leg') {
+                    if (!(a > 0) || !(b > 0)) { el.textContent = 'Podaj przeciwprostokątną i ramię…'; return; }
+                    if (a <= b) { el.textContent = '⚠️ Przeciwprostokątna musi być większa od ramienia'; return; }
+                    el.textContent = 'Brakujące ramię: ' + formatNum(Math.sqrt(a * a - b * b));
+                } else {
+                    if (!(a > 0) || !(b > 0)) { el.textContent = 'Podaj boki…'; return; }
+                    el.textContent = 'Przeciwprostokątna (przekątna): ' + formatNum(Math.sqrt(a * a + b * b));
+                }
+            }
+
+            /* ---- Tool 5A: Moc / prąd / napięcie (Ohm) ---- */
+            function updateElLabels() {
+                var la = $('#wsElALabel'), lb = $('#wsElBLabel'), ia = $('#wsElA'), ib = $('#wsElB');
+                if (!la) return;
+                if (wsState.elMode === 'PU') { la.textContent = 'Moc (W)'; ia.placeholder = 'np. 2000'; lb.textContent = 'Napięcie (V)'; ib.placeholder = 'np. 230'; }
+                else if (wsState.elMode === 'PI') { la.textContent = 'Moc (W)'; ia.placeholder = 'np. 2000'; lb.textContent = 'Prąd (A)'; ib.placeholder = 'np. 10'; }
+                else { la.textContent = 'Napięcie (V)'; ia.placeholder = 'np. 230'; lb.textContent = 'Prąd (A)'; ib.placeholder = 'np. 10'; }
+            }
+
+            function renderEl() {
+                var el = $('#wsElResult');
+                var a = num('#wsElA', NaN), b = num('#wsElB', NaN);
+                if (!(a > 0) || !(b > 0)) { el.textContent = 'Podaj wartości…'; return; }
+                var U, I, P;
+                if (wsState.elMode === 'PU') { P = a; U = b; I = U !== 0 ? P / U : 0; }
+                else if (wsState.elMode === 'PI') { P = a; I = b; U = I !== 0 ? P / I : 0; }
+                else { U = a; I = b; P = U * I; }
+                var R = I > 0 ? U / I : null;
+                var lines = [
+                    'Napięcie: ' + formatNum(U) + ' V',
+                    'Prąd: ' + formatNum(I) + ' A',
+                    'Moc: ' + formatNum(P) + ' W',
+                ];
+                if (R != null) lines.push('Opór: ' + formatNum(R) + ' Ω');
+                el.textContent = lines.join('\n');
+            }
+
+            /* ---- Tool 5B: Koszt energii ---- */
+            function renderEnergy() {
+                var el = $('#wsEnResult');
+                var power = num('#wsEnPower', 0), hours = num('#wsEnHours', 0), days = num('#wsEnDays', 0);
+                if (!(power > 0) || !(hours > 0) || !(days > 0)) { el.textContent = 'Podaj moc i czas…'; return; }
+                var kwh = power / 1000 * hours * days;
+                var lines = ['Zużycie: ' + formatNum(kwh) + ' kWh'];
+                var price = num('#wsEnPrice', 0);
+                if (price > 0) lines.push('Koszt: ' + formatNum(kwh * price) + ' zł');
+                el.textContent = lines.join('\n');
+            }
+
+            /* ---- Tool 5C: Spadek napięcia na kablu ---- */
+            function renderVd() {
+                var el = $('#wsVdResult');
+                var L = num('#wsVdLen', 0), I = num('#wsVdCurrent', 0), S = num('#wsVdSection', 0), U = num('#wsVdVoltage', 230);
+                if (!(L > 0) || !(I > 0) || !(S > 0)) { el.textContent = 'Podaj dane kabla…'; return; }
+                var rho = wsState.vdMat === 'al' ? 0.0282 : 0.0175; // Ω·mm²/m
+                var factor = wsState.vdPhase === '3' ? Math.sqrt(3) : 2;
+                var dU = factor * L * I * rho / S;
+                var lines = ['Spadek napięcia: ' + formatNum(dU) + ' V'];
+                if (U > 0) lines.push('Spadek: ' + formatNum(dU / U * 100) + ' %');
+                el.textContent = lines.join('\n');
+            }
+
+            /* ---- Tool 6A: Przelicznik jednostek ---- */
+            var WS_UNITS = {
+                length: { units: { 'mm': 0.001, 'cm': 0.01, 'm': 1, 'km': 1000, 'cal': 0.0254, 'stopa': 0.3048 }, def: ['m', 'cm'] },
+                area:   { units: { 'mm²': 1e-6, 'cm²': 1e-4, 'm²': 1, 'ar': 100, 'ha': 10000, 'km²': 1e6 }, def: ['m²', 'cm²'] },
+                volume: { units: { 'ml': 0.001, 'l': 1, 'cm³': 0.001, 'm³': 1000 }, def: ['m³', 'l'] },
+                weight: { units: { 'g': 0.001, 'kg': 1, 't': 1000 }, def: ['kg', 'g'] },
+            };
+
+            function populateConvSelects() {
+                var cat = WS_UNITS[wsState.convCat];
+                var fromSel = $('#wsConvFrom'), toSel = $('#wsConvTo');
+                if (!fromSel || !toSel) return;
+                fromSel.replaceChildren();
+                toSel.replaceChildren();
+                Object.keys(cat.units).forEach(function(u) {
+                    var o1 = document.createElement('option'); o1.value = u; o1.textContent = u; fromSel.appendChild(o1);
+                    var o2 = document.createElement('option'); o2.value = u; o2.textContent = u; toSel.appendChild(o2);
+                });
+                fromSel.value = cat.def[0];
+                toSel.value = cat.def[1];
+            }
+
+            function renderConv() {
+                var el = $('#wsConvResult');
+                var v = num('#wsConvValue', NaN);
+                if (isNaN(v)) { el.textContent = 'Podaj wartość…'; return; }
+                var units = WS_UNITS[wsState.convCat].units;
+                var from = $('#wsConvFrom').value, to = $('#wsConvTo').value;
+                if (!(from in units) || !(to in units)) { el.textContent = 'Podaj wartość…'; return; }
+                var result = v * units[from] / units[to];
+                el.textContent = formatNum(v) + ' ' + from + ' = ' + formatNum(result) + ' ' + to;
+            }
+
+            /* ---- Tool 6B: Zaokrąglenie do opakowań ---- */
+            function renderRound() {
+                var el = $('#wsRoundResult');
+                var need = num('#wsRoundNeed', NaN), per = num('#wsRoundPer', NaN);
+                if (isNaN(need) || !(per > 0)) { el.textContent = 'Podaj ilość…'; return; }
+                var waste = num('#wsRoundWaste', 0) || 0;
+                var total = need * (1 + waste / 100);
+                var packs = Math.ceil(total / per);
+                var covered = packs * per;
+                var lines = ['Opakowania: ' + packs + ' szt.'];
+                if (waste) lines.push('(z zapasem: ' + formatNum(total) + ')');
+                lines.push('Łącznie: ' + formatNum(covered));
+                lines.push('Nadwyżka: ' + formatNum(covered - total));
+                el.textContent = lines.join('\n');
+            }
+
+            function renderAll() { renderArea(); renderCoverage(); renderVolume(); renderFill(); renderGrid(); renderSlope(); renderPy(); renderEl(); renderEnergy(); renderVd(); renderConv(); renderRound(); }
+
+            /* ---- Pokaż pola właściwe dla kształtu ---- */
+            function applyShapeVisibility() {
+                panel.querySelectorAll('[data-shape-fields]').forEach(function(box) {
+                    box.hidden = box.getAttribute('data-shape-fields') !== wsState.shape;
+                });
+            }
+
+            function applyVolShapeVisibility() {
+                panel.querySelectorAll('[data-volshape-fields]').forEach(function(box) {
+                    box.hidden = box.getAttribute('data-volshape-fields') !== wsState.volShape;
+                });
+                // [EN] „Pole × grubość" nie używa jednostki wymiarów (pole=m², grubość=cm)
+                var dimGroup = $('#wsVolDimUnitGroup');
+                if (dimGroup) dimGroup.hidden = wsState.volShape === 'areaThick';
+            }
+
+            function applyGridModeVisibility() {
+                var countGroup = $('#wsGridCountGroup'), spacingGroup = $('#wsGridSpacingGroup');
+                if (countGroup) countGroup.hidden = wsState.gridMode === 'spacing';
+                if (spacingGroup) spacingGroup.hidden = wsState.gridMode !== 'spacing';
+            }
+
+            /* ---- Wiązania ---- */
+            bindToggle('#wsShapeToggle', 'data-shape', function(v) { wsState.shape = v; applyShapeVisibility(); renderArea(); });
+            bindToggle('#wsDimUnitToggle', 'data-dimunit', function(v) { wsState.dimUnit = v; renderArea(); });
+            bindToggle('#wsCovModeToggle', 'data-covmode', function(v) { wsState.covMode = v; updateCovRateLabel(); renderCoverage(); });
+            bindToggle('#wsVolShapeToggle', 'data-volshape', function(v) { wsState.volShape = v; applyVolShapeVisibility(); renderVolume(); });
+            bindToggle('#wsVolDimUnitToggle', 'data-voldimunit', function(v) { wsState.volDimUnit = v; renderVolume(); });
+            bindToggle('#wsFillModeToggle', 'data-fillmode', function(v) { wsState.fillMode = v; updateFillRateLabel(); renderFill(); });
+            bindToggle('#wsGridUnitToggle', 'data-gridunit', function(v) { wsState.gridUnit = v; renderGrid(); });
+            bindToggle('#wsGridModeToggle', 'data-gridmode', function(v) { wsState.gridMode = v; applyGridModeVisibility(); renderGrid(); });
+            bindToggle('#wsSlModeToggle', 'data-slmode', function(v) { wsState.slMode = v; updateSlVarLabel(); renderSlope(); });
+            bindToggle('#wsPyModeToggle', 'data-pymode', function(v) { wsState.pyMode = v; updatePyLabels(); renderPy(); });
+            bindToggle('#wsElModeToggle', 'data-elmode', function(v) { wsState.elMode = v; updateElLabels(); renderEl(); });
+            bindToggle('#wsVdMatToggle', 'data-vdmat', function(v) { wsState.vdMat = v; renderVd(); });
+            bindToggle('#wsVdPhaseToggle', 'data-vdphase', function(v) {
+                wsState.vdPhase = v;
+                var volt = $('#wsVdVoltage'); if (volt) volt.value = v === '3' ? '400' : '230';
+                renderVd();
+            });
+            bindToggle('#wsConvCatToggle', 'data-convcat', function(v) { wsState.convCat = v; populateConvSelects(); renderConv(); });
+            var convFrom = $('#wsConvFrom'), convTo = $('#wsConvTo');
+            if (convFrom) convFrom.addEventListener('change', renderConv);
+            if (convTo) convTo.addEventListener('change', renderConv);
+
+            panel.addEventListener('input', function(e) {
+                if (!e.target.matches('input')) return;
+                renderAll();
+            });
+
+            var toCov = $('#wsAreaToCoverageBtn');
+            if (toCov) toCov.addEventListener('click', function() {
+                var r = netArea();
+                if (!r.ok) { showToast('⚠️ Najpierw podaj wymiary', 'error'); return; }
+                $('#wsCovArea').value = formatRawNum(r.net);
+                renderCoverage();
+                $('#wsCovArea').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                showToast('▽ Przeniesiono pole: ' + formatNum(r.net) + ' m²', 'success');
+            });
+
+            var toFill = $('#wsVolToFillBtn');
+            if (toFill) toFill.addEventListener('click', function() {
+                var r = totalVolume();
+                if (!r.ok) { showToast('⚠️ Najpierw podaj wymiary', 'error'); return; }
+                $('#wsFillVol').value = formatRawNum(r.total);
+                renderFill();
+                $('#wsFillVol').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                showToast('▽ Przeniesiono objętość: ' + formatNum(r.total) + ' m³', 'success');
+            });
+
+            // [EN] Tap wyniku = kopiuj (jak w eng-result)
+            ['#wsAreaResult', '#wsCovResult', '#wsVolResult', '#wsFillResult', '#wsGridResult', '#wsSlResult', '#wsPyResult', '#wsElResult', '#wsEnResult', '#wsVdResult', '#wsConvResult', '#wsRoundResult'].forEach(function(sel) {
+                var el = $(sel);
+                if (el) el.addEventListener('click', function() {
+                    var t = el.textContent.trim();
+                    if (!t || t.indexOf('Podaj') === 0) return;
+                    copyText(t).then(function() { showToast('📋 Skopiowano', 'success'); }).catch(function() {});
+                });
+            });
+
+            applyShapeVisibility();
+            applyVolShapeVisibility();
+            applyGridModeVisibility();
+            updateCovRateLabel();
+            updateFillRateLabel();
+            updateSlVarLabel();
+            updatePyLabels();
+            updateElLabels();
+            populateConvSelects();
+            renderAll();
+        }
+
         function init() {
             /* [EN] Wrap graph canvas for CSS zoom/pan */
             var graphFsExitEl = $('#graphFsExitBtn');
@@ -4246,6 +4727,7 @@
             renderConstants();
             renderAllRecentCommands();
             initAutocomplete(graphCommand, $('#graphCommandAC'));
+            initWarsztat();
 
             // Inicjalizacja kreatora
             updateKreatorModeUI();

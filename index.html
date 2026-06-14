@@ -52,7 +52,10 @@
             <span class="tab-icon">🧮</span> Standard
         </button>
         <button class="tab-btn" data-tab="komenda" role="tab" aria-selected="false">
-            <span class="tab-icon">⌨️</span> Komenda/Kreator podziału
+            <span class="tab-icon">⌨️</span> Komenda
+        </button>
+        <button class="tab-btn" data-tab="warsztat" role="tab" aria-selected="false">
+            <span class="tab-icon">🛠️</span> Warsztat
         </button>
         <button class="tab-btn" data-tab="constants" role="tab" aria-selected="false">
             <span class="tab-icon">📊</span> Moje Stałe
@@ -91,83 +94,6 @@
 
         <!-- ==================== PANEL: Komenda (merged Engineering + Graph) ==================== -->
         <section id="panel-komenda" class="panel" role="tabpanel">
-
-            <!-- Kreator — new-users-friendly, collapsible -->
-                <details class="command-panel card" id="kreatorPanel" name="accordion1">
-                    <summary>Kreator podziału</summary>
-
-                    <div class="input-group">
-                        <label>Jednostka</label>
-                        <div class="unit-toggle" id="unitToggle">
-                            <button class="unit-btn active" data-unit="cm">cm</button>
-                            <button class="unit-btn" data-unit="mm">mm</button>
-                            <button class="unit-btn" data-unit="m">m</button>
-                        </div>
-                    </div>
-
-                    <div class="input-group">
-                        <label>Długość całkowita</label>
-                        <input type="number" id="engLength" min="0" step="any" inputmode="decimal" placeholder="np. 120">
-                    </div>
-
-                    <div class="input-group">
-                        <label>Początek osi</label>
-                        <input type="number" id="engOrigin" value="0" step="any" inputmode="decimal" placeholder="np. −60">
-                    </div>
-
-                    <div class="input-row">
-                        <div class="input-group">
-                            <label>Liczba podziałów</label>
-                            <input type="number" id="engCount" min="1" max="100" step="1" inputmode="numeric" placeholder="np. 4">
-                        </div>
-                        <div class="input-group">
-                            <label>Orientacja</label>
-                            <div class="axis-toggle" id="axisToggle">
-                                <button class="axis-btn active" data-axis="X" type="button">⬌ X</button>
-                                <button class="axis-btn" data-axis="Y" type="button">⬍ Y</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="input-group">
-                        <label>Sposób rozmieszczenia</label>
-                        <div class="mode-toggle" id="spacingModeToggle">
-                            <button class="mode-btn active" data-mode="between" type="button">W polu</button>
-                            <button class="mode-btn" data-mode="edges" type="button">Od krańców</button>
-                            <button class="mode-btn" data-mode="fixed" type="button">Stały odstęp</button>
-                        </div>
-                    </div>
-
-                    <div class="input-group fixed-spacing-group" id="fixedSpacingGroup">
-                        <label>Stały odstęp</label>
-                        <input type="number" id="engSpacing" value="20" min="0" step="any" inputmode="decimal" placeholder="np. 20">
-                    </div>
-
-                    <div class="input-row">
-                        <div class="input-group">
-                            <label>odsunięcie od początku</label>
-                            <div class="input-with-sign">
-                                <input type="text" id="engMarginStart" value="0" step="any" inputmode="decimal" placeholder="np. 5" autocomplete="off">
-                                <button class="sign-toggle" data-target="engMarginStart" type="button" aria-label="Odwróć znak">±</button>
-                            </div>
-                        </div>
-                        <div class="input-group">
-                            <label>odsunięcie od końca</label>
-                            <div class="input-with-sign">
-                                <input type="text" id="engMarginEnd" value="0" step="any" inputmode="decimal" placeholder="np. 5" autocomplete="off">
-                                <button class="sign-toggle" data-target="engMarginEnd" type="button" aria-label="Odwróć znak">±</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Mini live preview -->
-                    <div class="kreator-preview" id="kreatorPreview" aria-hidden="true"></div>
-                    <div class="kreator-preview-info" id="kreatorPreviewInfo"></div>
-
-                    <button class="btn btn-primary kreator-apply-btn" id="kreatorApplyBtn" type="button">
-                        ▶ Pokaż wynik na canvasie
-                    </button>
-                </details>
 
             <!-- Card 1: Command input -->
                 <details class="command-panel card" name="accordion1">
@@ -257,6 +183,628 @@
                         <input type="number" id="graphYStep" step="any" min="0.1" placeholder="auto" class="input no-haptic" inputmode="decimal">
                     </div>
                 </div>
+            </details>
+
+        </section>
+
+        <!-- ==================== PANEL: Warsztat ==================== -->
+        <section id="panel-warsztat" class="panel" role="tabpanel">
+
+            <p class="ws-intro">Praktyczne przeliczniki do prac w domu, remontu, ogrodu i warsztatu. Sekcja 1: policz pole powierzchni, a potem ile materiału je pokryje.</p>
+
+            <!-- ---- Sekcja 1: Powierzchnie i pokrycia ---- -->
+            <h2 class="ws-section-title"><span class="ws-section-icon">📐</span> Powierzchnie i pokrycia</h2>
+
+            <!-- Tool 1A: Pole powierzchni -->
+            <details class="section-panel card" name="accordion2">
+                <summary><span class="icon">📐</span> Pole powierzchni</summary>
+
+                <div class="input-group">
+                    <label>Kształt</label>
+                    <div class="unit-toggle" id="wsShapeToggle">
+                        <button class="unit-btn active" data-shape="rect" type="button">Prostokąt</button>
+                        <button class="unit-btn" data-shape="circle" type="button">Koło</button>
+                        <button class="unit-btn" data-shape="triangle" type="button">Trójkąt</button>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Jednostka wymiarów</label>
+                    <div class="unit-toggle" id="wsDimUnitToggle">
+                        <button class="unit-btn active" data-dimunit="m" type="button">m</button>
+                        <button class="unit-btn" data-dimunit="cm" type="button">cm</button>
+                    </div>
+                </div>
+
+                <!-- Prostokąt -->
+                <div class="ws-shape-fields" data-shape-fields="rect">
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label>Szerokość</label>
+                            <input type="number" id="wsRectW" min="0" step="any" inputmode="decimal" placeholder="np. 4">
+                        </div>
+                        <div class="input-group">
+                            <label>Wysokość / długość</label>
+                            <input type="number" id="wsRectH" min="0" step="any" inputmode="decimal" placeholder="np. 2.6">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Koło -->
+                <div class="ws-shape-fields" data-shape-fields="circle" hidden>
+                    <div class="input-group">
+                        <label>Średnica</label>
+                        <input type="number" id="wsCircleD" min="0" step="any" inputmode="decimal" placeholder="np. 3">
+                    </div>
+                </div>
+
+                <!-- Trójkąt -->
+                <div class="ws-shape-fields" data-shape-fields="triangle" hidden>
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label>Podstawa</label>
+                            <input type="number" id="wsTriBase" min="0" step="any" inputmode="decimal" placeholder="np. 4">
+                        </div>
+                        <div class="input-group">
+                            <label>Wysokość</label>
+                            <input type="number" id="wsTriH" min="0" step="any" inputmode="decimal" placeholder="np. 3">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Liczba powierzchni</label>
+                        <input type="number" id="wsAreaCount" min="1" step="any" value="1" inputmode="decimal" placeholder="np. 4">
+                    </div>
+                    <div class="input-group">
+                        <label>Odejmij (m²)</label>
+                        <input type="number" id="wsAreaSubtract" min="0" step="any" value="0" inputmode="decimal" placeholder="np. 1.5">
+                    </div>
+                </div>
+
+                <div class="eng-result ws-result" id="wsAreaResult" aria-live="polite">Podaj wymiary…</div>
+
+                <div class="komenda-actions">
+                    <button class="btn btn-primary" id="wsAreaToCoverageBtn" type="button">▽ Użyj jako pole w pokryciu</button>
+                </div>
+            </details>
+
+            <!-- Tool 1B: Ilość materiału / pokrycie -->
+            <details class="section-panel card">
+                <summary><span class="icon">🪣</span> Ilość materiału (pokrycie)</summary>
+
+                <div class="input-group">
+                    <label>Pole do pokrycia (m²)</label>
+                    <input type="number" id="wsCovArea" min="0" step="any" inputmode="decimal" placeholder="np. 38">
+                </div>
+
+                <div class="input-group">
+                    <label>Sposób podania wydajności</label>
+                    <div class="unit-toggle" id="wsCovModeToggle">
+                        <button class="unit-btn active" data-covmode="perUnit" type="button">m² na jednostkę</button>
+                        <button class="unit-btn" data-covmode="perArea" type="button">jednostek na m²</button>
+                    </div>
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label id="wsCovRateLabel">Wydajność (m²/jedn.)</label>
+                        <input type="number" id="wsCovRate" min="0" step="any" inputmode="decimal" placeholder="np. 10">
+                    </div>
+                    <div class="input-group">
+                        <label>Nazwa jednostki</label>
+                        <input type="text" id="wsCovUnit" maxlength="12" value="szt." placeholder="np. litr, worek, szt.">
+                    </div>
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Liczba warstw</label>
+                        <input type="number" id="wsCovLayers" min="1" step="any" value="1" inputmode="decimal">
+                    </div>
+                    <div class="input-group">
+                        <label>Zapas (%)</label>
+                        <input type="number" id="wsCovWaste" min="0" step="any" value="10" inputmode="decimal">
+                    </div>
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Na opakowanie (opcjonalnie)</label>
+                        <input type="number" id="wsCovPerPack" min="0" step="any" inputmode="decimal" placeholder="np. 5">
+                    </div>
+                    <div class="input-group">
+                        <label>Cena za opakowanie (opcjonalnie)</label>
+                        <input type="number" id="wsCovPrice" min="0" step="any" inputmode="decimal" placeholder="np. 89">
+                    </div>
+                </div>
+
+                <div class="eng-result ws-result" id="wsCovResult" aria-live="polite">Podaj pole i wydajność…</div>
+            </details>
+
+            <!-- ---- Sekcja 2: Objętości i wypełnienia ---- -->
+            <h2 class="ws-section-title"><span class="ws-section-icon">🧱</span> Objętości i wypełnienia</h2>
+
+            <!-- Tool 2A: Objętość -->
+            <details class="section-panel card">
+                <summary><span class="icon">📦</span> Objętość</summary>
+
+                <div class="input-group">
+                    <label>Bryła</label>
+                    <div class="unit-toggle" id="wsVolShapeToggle">
+                        <button class="unit-btn active" data-volshape="box" type="button">Prostopadłościan</button>
+                        <button class="unit-btn" data-volshape="cylinder" type="button">Walec</button>
+                        <button class="unit-btn" data-volshape="areaThick" type="button">Pole × grubość</button>
+                    </div>
+                </div>
+
+                <div class="input-group" id="wsVolDimUnitGroup">
+                    <label>Jednostka wymiarów</label>
+                    <div class="unit-toggle" id="wsVolDimUnitToggle">
+                        <button class="unit-btn active" data-voldimunit="m" type="button">m</button>
+                        <button class="unit-btn" data-voldimunit="cm" type="button">cm</button>
+                    </div>
+                </div>
+
+                <!-- Prostopadłościan -->
+                <div class="ws-shape-fields" data-volshape-fields="box">
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label>Długość</label>
+                            <input type="number" id="wsVolL" min="0" step="any" inputmode="decimal" placeholder="np. 5">
+                        </div>
+                        <div class="input-group">
+                            <label>Szerokość</label>
+                            <input type="number" id="wsVolW" min="0" step="any" inputmode="decimal" placeholder="np. 0.4">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Głębokość / grubość</label>
+                        <input type="number" id="wsVolD" min="0" step="any" inputmode="decimal" placeholder="np. 0.4">
+                    </div>
+                </div>
+
+                <!-- Walec -->
+                <div class="ws-shape-fields" data-volshape-fields="cylinder" hidden>
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label>Średnica</label>
+                            <input type="number" id="wsVolDia" min="0" step="any" inputmode="decimal" placeholder="np. 0.3">
+                        </div>
+                        <div class="input-group">
+                            <label>Wysokość</label>
+                            <input type="number" id="wsVolH" min="0" step="any" inputmode="decimal" placeholder="np. 1">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pole × grubość -->
+                <div class="ws-shape-fields" data-volshape-fields="areaThick" hidden>
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label>Pole (m²)</label>
+                            <input type="number" id="wsVolArea" min="0" step="any" inputmode="decimal" placeholder="np. 38">
+                        </div>
+                        <div class="input-group">
+                            <label>Grubość (cm)</label>
+                            <input type="number" id="wsVolThick" min="0" step="any" inputmode="decimal" placeholder="np. 6">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Liczba elementów</label>
+                    <input type="number" id="wsVolCount" min="1" step="any" value="1" inputmode="decimal" placeholder="np. 6">
+                </div>
+
+                <div class="eng-result ws-result" id="wsVolResult" aria-live="polite">Podaj wymiary…</div>
+
+                <div class="komenda-actions">
+                    <button class="btn btn-primary" id="wsVolToFillBtn" type="button">▽ Użyj objętości w wypełnieniu</button>
+                </div>
+            </details>
+
+            <!-- Tool 2B: Wypełnienie (worki / waga) -->
+            <details class="section-panel card">
+                <summary><span class="icon">🛒</span> Wypełnienie (worki / waga)</summary>
+
+                <div class="input-group">
+                    <label>Objętość (m³)</label>
+                    <input type="number" id="wsFillVol" min="0" step="any" inputmode="decimal" placeholder="np. 0.8">
+                </div>
+
+                <div class="input-group">
+                    <label>Sposób przeliczenia</label>
+                    <div class="unit-toggle" id="wsFillModeToggle">
+                        <button class="unit-btn active" data-fillmode="density" type="button">gęstość (kg/m³)</button>
+                        <button class="unit-btn" data-fillmode="bagYield" type="button">wydajność worka (m³)</button>
+                    </div>
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label id="wsFillRateLabel">Gęstość (kg/m³)</label>
+                        <input type="number" id="wsFillRate" min="0" step="any" inputmode="decimal" placeholder="np. 2400">
+                    </div>
+                    <div class="input-group" id="wsFillPerBagGroup">
+                        <label>Na worek (kg)</label>
+                        <input type="number" id="wsFillPerBag" min="0" step="any" inputmode="decimal" placeholder="np. 25">
+                    </div>
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Zapas (%)</label>
+                        <input type="number" id="wsFillWaste" min="0" step="any" value="5" inputmode="decimal">
+                    </div>
+                    <div class="input-group">
+                        <label>Cena za worek (opcjonalnie)</label>
+                        <input type="number" id="wsFillPrice" min="0" step="any" inputmode="decimal" placeholder="np. 15">
+                    </div>
+                </div>
+
+                <div class="eng-result ws-result" id="wsFillResult" aria-live="polite">Podaj objętość i przelicznik…</div>
+            </details>
+
+            <!-- ---- Sekcja 3: Rozmieszczenie i rozstaw ---- -->
+            <h2 class="ws-section-title"><span class="ws-section-icon">📏</span> Rozmieszczenie i rozstaw</h2>
+
+            <!-- Tool 3A: Rozstaw na długości (przeniesiony Kreator podziału) -->
+            <details class="section-panel card" id="kreatorPanel">
+                <summary><span class="icon">📏</span> Rozstaw na długości</summary>
+
+                <div class="input-group">
+                    <label>Jednostka</label>
+                    <div class="unit-toggle" id="unitToggle">
+                        <button class="unit-btn active" data-unit="cm">cm</button>
+                        <button class="unit-btn" data-unit="mm">mm</button>
+                        <button class="unit-btn" data-unit="m">m</button>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Długość całkowita</label>
+                    <input type="number" id="engLength" min="0" step="any" inputmode="decimal" placeholder="np. 120">
+                </div>
+
+                <div class="input-group">
+                    <label>Początek osi</label>
+                    <input type="number" id="engOrigin" value="0" step="any" inputmode="decimal" placeholder="np. −60">
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Liczba podziałów</label>
+                        <input type="number" id="engCount" min="1" max="100" step="1" inputmode="numeric" placeholder="np. 4">
+                    </div>
+                    <div class="input-group">
+                        <label>Orientacja</label>
+                        <div class="axis-toggle" id="axisToggle">
+                            <button class="axis-btn active" data-axis="X" type="button">⬌ X</button>
+                            <button class="axis-btn" data-axis="Y" type="button">⬍ Y</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Sposób rozmieszczenia</label>
+                    <div class="mode-toggle" id="spacingModeToggle">
+                        <button class="mode-btn active" data-mode="between" type="button">W polu</button>
+                        <button class="mode-btn" data-mode="edges" type="button">Od krańców</button>
+                        <button class="mode-btn" data-mode="fixed" type="button">Stały odstęp</button>
+                    </div>
+                </div>
+
+                <div class="input-group fixed-spacing-group" id="fixedSpacingGroup">
+                    <label>Stały odstęp</label>
+                    <input type="number" id="engSpacing" value="20" min="0" step="any" inputmode="decimal" placeholder="np. 20">
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>odsunięcie od początku</label>
+                        <div class="input-with-sign">
+                            <input type="text" id="engMarginStart" value="0" step="any" inputmode="decimal" placeholder="np. 5" autocomplete="off">
+                            <button class="sign-toggle" data-target="engMarginStart" type="button" aria-label="Odwróć znak">±</button>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>odsunięcie od końca</label>
+                        <div class="input-with-sign">
+                            <input type="text" id="engMarginEnd" value="0" step="any" inputmode="decimal" placeholder="np. 5" autocomplete="off">
+                            <button class="sign-toggle" data-target="engMarginEnd" type="button" aria-label="Odwróć znak">±</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mini live preview -->
+                <div class="kreator-preview" id="kreatorPreview" aria-hidden="true"></div>
+                <div class="kreator-preview-info" id="kreatorPreviewInfo"></div>
+
+                <button class="btn btn-primary kreator-apply-btn" id="kreatorApplyBtn" type="button">
+                    ▶ Pokaż wynik na canvasie
+                </button>
+            </details>
+
+            <!-- Tool 3B: Siatka (2D) -->
+            <details class="section-panel card">
+                <summary><span class="icon">🔲</span> Siatka punktów (2D)</summary>
+
+                <div class="input-group">
+                    <label>Jednostka</label>
+                    <div class="unit-toggle" id="wsGridUnitToggle">
+                        <button class="unit-btn active" data-gridunit="cm" type="button">cm</button>
+                        <button class="unit-btn" data-gridunit="mm" type="button">mm</button>
+                        <button class="unit-btn" data-gridunit="m" type="button">m</button>
+                    </div>
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Szerokość pola</label>
+                        <input type="number" id="wsGridW" min="0" step="any" inputmode="decimal" placeholder="np. 400">
+                    </div>
+                    <div class="input-group">
+                        <label>Wysokość pola</label>
+                        <input type="number" id="wsGridH" min="0" step="any" inputmode="decimal" placeholder="np. 300">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Sposób rozmieszczenia</label>
+                    <div class="unit-toggle" id="wsGridModeToggle">
+                        <button class="unit-btn active" data-gridmode="count" type="button">Liczba (kol × wier)</button>
+                        <button class="unit-btn" data-gridmode="spacing" type="button">Odstęp (dx × dy)</button>
+                    </div>
+                </div>
+
+                <div class="input-row" id="wsGridCountGroup">
+                    <div class="input-group">
+                        <label>Kolumny</label>
+                        <input type="number" id="wsGridCols" min="1" step="1" value="3" inputmode="numeric" placeholder="np. 3">
+                    </div>
+                    <div class="input-group">
+                        <label>Wiersze</label>
+                        <input type="number" id="wsGridRows" min="1" step="1" value="2" inputmode="numeric" placeholder="np. 2">
+                    </div>
+                </div>
+
+                <div class="input-row" id="wsGridSpacingGroup" hidden>
+                    <div class="input-group">
+                        <label>Odstęp poziomy (dx)</label>
+                        <input type="number" id="wsGridDx" min="0" step="any" value="100" inputmode="decimal" placeholder="np. 100">
+                    </div>
+                    <div class="input-group">
+                        <label>Odstęp pionowy (dy)</label>
+                        <input type="number" id="wsGridDy" min="0" step="any" value="100" inputmode="decimal" placeholder="np. 100">
+                    </div>
+                </div>
+
+                <div class="eng-result ws-result" id="wsGridResult" aria-live="polite">Podaj wymiary pola…</div>
+            </details>
+
+            <!-- ---- Sekcja 4: Spadki, kąty i poziomy ---- -->
+            <h2 class="ws-section-title"><span class="ws-section-icon">🪜</span> Spadki, kąty i poziomy</h2>
+
+            <!-- Tool 4A: Spadek / nachylenie -->
+            <details class="section-panel card">
+                <summary><span class="icon">📐</span> Spadek / nachylenie</summary>
+
+                <div class="input-group">
+                    <label>Co masz?</label>
+                    <div class="unit-toggle" id="wsSlModeToggle">
+                        <button class="unit-btn active" data-slmode="dims" type="button">Wymiary</button>
+                        <button class="unit-btn" data-slmode="percent" type="button">Spadek %</button>
+                        <button class="unit-btn" data-slmode="deg" type="button">Kąt °</button>
+                    </div>
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Długość pozioma</label>
+                        <input type="number" id="wsSlLength" min="0" step="any" inputmode="decimal" placeholder="np. 500">
+                    </div>
+                    <div class="input-group">
+                        <label id="wsSlVarLabel">Różnica wysokości</label>
+                        <input type="number" id="wsSlVar" step="any" inputmode="decimal" placeholder="np. 15">
+                    </div>
+                </div>
+
+                <div class="eng-result ws-result" id="wsSlResult" aria-live="polite">Podaj wartości…</div>
+                <p class="ws-hint">Długości w tych samych jednostkach (cm, m…). Przydatne: spadek odpływu, dach, podjazd, schody.</p>
+            </details>
+
+            <!-- Tool 4B: Kąt prosty (Pitagoras) -->
+            <details class="section-panel card">
+                <summary><span class="icon">🔺</span> Kąt prosty (Pitagoras)</summary>
+
+                <div class="input-group">
+                    <label>Co liczysz?</label>
+                    <div class="unit-toggle" id="wsPyModeToggle">
+                        <button class="unit-btn active" data-pymode="legs" type="button">Przekątna z boków</button>
+                        <button class="unit-btn" data-pymode="leg" type="button">Brakujące ramię</button>
+                    </div>
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label id="wsPyALabel">Bok a</label>
+                        <input type="number" id="wsPyA" min="0" step="any" inputmode="decimal" placeholder="np. 3">
+                    </div>
+                    <div class="input-group">
+                        <label id="wsPyBLabel">Bok b</label>
+                        <input type="number" id="wsPyB" min="0" step="any" inputmode="decimal" placeholder="np. 4">
+                    </div>
+                </div>
+
+                <div class="eng-result ws-result" id="wsPyResult" aria-live="polite">Podaj boki…</div>
+                <p class="ws-hint">Sprawdzenie kąta prostego: zmierz boki a i b, przekątna powinna wyjść = c (np. 3-4-5).</p>
+            </details>
+
+            <!-- ---- Sekcja 5: Moc, prąd i koszt zużycia ---- -->
+            <h2 class="ws-section-title"><span class="ws-section-icon">⚡</span> Moc, prąd i koszt zużycia</h2>
+
+            <!-- Tool 5A: Moc / prąd / napięcie (Ohm) -->
+            <details class="section-panel card">
+                <summary><span class="icon">⚡</span> Moc / prąd / napięcie</summary>
+
+                <div class="input-group">
+                    <label>Co masz?</label>
+                    <div class="unit-toggle" id="wsElModeToggle">
+                        <button class="unit-btn active" data-elmode="UI" type="button">Napięcie + prąd</button>
+                        <button class="unit-btn" data-elmode="PU" type="button">Moc + napięcie</button>
+                        <button class="unit-btn" data-elmode="PI" type="button">Moc + prąd</button>
+                    </div>
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label id="wsElALabel">Napięcie (V)</label>
+                        <input type="number" id="wsElA" min="0" step="any" inputmode="decimal" placeholder="np. 230">
+                    </div>
+                    <div class="input-group">
+                        <label id="wsElBLabel">Prąd (A)</label>
+                        <input type="number" id="wsElB" min="0" step="any" inputmode="decimal" placeholder="np. 10">
+                    </div>
+                </div>
+
+                <div class="eng-result ws-result" id="wsElResult" aria-live="polite">Podaj wartości…</div>
+            </details>
+
+            <!-- Tool 5B: Koszt energii -->
+            <details class="section-panel card">
+                <summary><span class="icon">💡</span> Koszt energii</summary>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Moc urządzenia (W)</label>
+                        <input type="number" id="wsEnPower" min="0" step="any" inputmode="decimal" placeholder="np. 2000">
+                    </div>
+                    <div class="input-group">
+                        <label>Godzin dziennie</label>
+                        <input type="number" id="wsEnHours" min="0" step="any" value="1" inputmode="decimal" placeholder="np. 3">
+                    </div>
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Liczba dni</label>
+                        <input type="number" id="wsEnDays" min="0" step="any" value="30" inputmode="decimal" placeholder="np. 30">
+                    </div>
+                    <div class="input-group">
+                        <label>Cena za kWh (zł)</label>
+                        <input type="number" id="wsEnPrice" min="0" step="any" inputmode="decimal" placeholder="np. 1.2">
+                    </div>
+                </div>
+
+                <div class="eng-result ws-result" id="wsEnResult" aria-live="polite">Podaj moc i czas…</div>
+                <p class="ws-hint">Działa dla dowolnego urządzenia. Cenę kWh możesz zapisać w „Moje Stałe".</p>
+            </details>
+
+            <!-- Tool 5C: Spadek napięcia na kablu -->
+            <details class="section-panel card">
+                <summary><span class="icon">🔌</span> Spadek napięcia na kablu</summary>
+
+                <div class="input-group">
+                    <label>Materiał żyły</label>
+                    <div class="unit-toggle" id="wsVdMatToggle">
+                        <button class="unit-btn active" data-vdmat="cu" type="button">Miedź</button>
+                        <button class="unit-btn" data-vdmat="al" type="button">Aluminium</button>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Instalacja</label>
+                    <div class="unit-toggle" id="wsVdPhaseToggle">
+                        <button class="unit-btn active" data-vdphase="1" type="button">1-fazowa (230 V)</button>
+                        <button class="unit-btn" data-vdphase="3" type="button">3-fazowa (400 V)</button>
+                    </div>
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Długość kabla (m)</label>
+                        <input type="number" id="wsVdLen" min="0" step="any" inputmode="decimal" placeholder="np. 25">
+                    </div>
+                    <div class="input-group">
+                        <label>Prąd (A)</label>
+                        <input type="number" id="wsVdCurrent" min="0" step="any" inputmode="decimal" placeholder="np. 16">
+                    </div>
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Przekrój (mm²)</label>
+                        <input type="number" id="wsVdSection" min="0" step="any" inputmode="decimal" placeholder="np. 2.5">
+                    </div>
+                    <div class="input-group">
+                        <label>Napięcie (V)</label>
+                        <input type="number" id="wsVdVoltage" min="0" step="any" value="230" inputmode="decimal" placeholder="np. 230">
+                    </div>
+                </div>
+
+                <div class="eng-result ws-result" id="wsVdResult" aria-live="polite">Podaj dane kabla…</div>
+                <p class="ws-hint">Orientacyjnie. Zalecany spadek dla obwodów: do ~3% (oświetlenie), do ~5% (gniazda).</p>
+            </details>
+
+            <!-- ---- Sekcja 6: Przeliczniki i zaokrąglenia ---- -->
+            <h2 class="ws-section-title"><span class="ws-section-icon">🔄</span> Przeliczniki i zaokrąglenia</h2>
+
+            <!-- Tool 6A: Przelicznik jednostek -->
+            <details class="section-panel card">
+                <summary><span class="icon">🔄</span> Przelicznik jednostek</summary>
+
+                <div class="input-group">
+                    <label>Kategoria</label>
+                    <div class="unit-toggle" id="wsConvCatToggle">
+                        <button class="unit-btn active" data-convcat="length" type="button">Długość</button>
+                        <button class="unit-btn" data-convcat="area" type="button">Pole</button>
+                        <button class="unit-btn" data-convcat="volume" type="button">Objętość</button>
+                        <button class="unit-btn" data-convcat="weight" type="button">Waga</button>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Wartość</label>
+                    <input type="number" id="wsConvValue" step="any" inputmode="decimal" placeholder="np. 120">
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Z</label>
+                        <select id="wsConvFrom"></select>
+                    </div>
+                    <div class="input-group">
+                        <label>Na</label>
+                        <select id="wsConvTo"></select>
+                    </div>
+                </div>
+
+                <div class="eng-result ws-result" id="wsConvResult" aria-live="polite">Podaj wartość…</div>
+            </details>
+
+            <!-- Tool 6B: Zaokrąglenie do opakowań -->
+            <details class="section-panel card">
+                <summary><span class="icon">📦</span> Zaokrąglenie do opakowań</summary>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Potrzeba (ilość)</label>
+                        <input type="number" id="wsRoundNeed" min="0" step="any" inputmode="decimal" placeholder="np. 7.3">
+                    </div>
+                    <div class="input-group">
+                        <label>Na opakowanie</label>
+                        <input type="number" id="wsRoundPer" min="0" step="any" value="1" inputmode="decimal" placeholder="np. 1">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Zapas (%)</label>
+                    <input type="number" id="wsRoundWaste" min="0" step="any" value="0" inputmode="decimal" placeholder="np. 10">
+                </div>
+
+                <div class="eng-result ws-result" id="wsRoundResult" aria-live="polite">Podaj ilość…</div>
             </details>
 
         </section>

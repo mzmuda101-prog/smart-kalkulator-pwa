@@ -1352,6 +1352,27 @@
             font-size: 1rem;
         }
 
+        .section-panel {
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: #f8fafc;
+            padding: 0 12px;
+            margin-bottom: 14px;
+        }
+        .section-panel summary {
+            min-height: 48px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-weight: 800;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .section-panel[open] {
+            padding-bottom: 12px;
+            background: #fff;
+        }
         /* ============================================================
            [EN] Toast / Notifications
            ============================================================ */
@@ -1579,6 +1600,33 @@
             .calc-result { font-size: 3.5rem; }
             .card { padding: 24px; }
             .app-header h1 { font-size: 1.5rem; }
+        }
+
+        /* ============================================================
+           [EN] Warsztat panel
+           ============================================================ */
+        .ws-intro {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            line-height: 1.55;
+            margin: 2px 4px 14px;
+        }
+        .ws-section-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1.0625rem;
+            font-weight: 700;
+            color: var(--text);
+            margin: 4px 4px 12px;
+        }
+        .ws-section-icon { font-size: 1.2rem; }
+        .ws-result { cursor: pointer; }
+        .ws-hint {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+            margin: 8px 2px 0;
         }
 
         /* ============================================================
