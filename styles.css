@@ -1670,6 +1670,19 @@
             height: auto;
             margin: 10px auto 6px;
         }
+        .ws-fov-compass {
+            font-size: 9px;
+            font-weight: 600;
+            fill: var(--text-muted);
+        }
+        .ws-subhead {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin: 16px 2px 8px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
         .ws-hint {
             font-size: 0.75rem;
             color: var(--text-muted);

@@ -612,17 +612,35 @@
                 </div>
 
                 <div class="input-group">
-                    <label>Na odległości (opcjonalnie)</label>
-                    <input type="number" id="wsFovDist" min="0" step="any" inputmode="decimal" placeholder="np. 5 — ile obejmuje wszerz w tym miejscu">
+                    <label>Azymut — kierunek patrzenia (opcjonalnie)</label>
+                    <input type="number" id="wsFovAzimuth" step="any" inputmode="decimal" placeholder="kompas °: 0=płn. (góra), 90=wsch. (prawo)…">
                 </div>
 
-                <svg id="wsFovPreview" class="ws-fov-preview" viewBox="0 0 160 96" role="img" aria-label="Podgląd pola widzenia">
+                <svg id="wsFovPreview" class="ws-fov-preview" viewBox="0 0 160 100" role="img" aria-label="Podgląd pola widzenia">
+                    <text x="80" y="9" class="ws-fov-compass" text-anchor="middle">N</text>
+                    <text x="80" y="98" class="ws-fov-compass" text-anchor="middle">S</text>
+                    <text x="153" y="54" class="ws-fov-compass" text-anchor="middle">E</text>
+                    <text x="7" y="54" class="ws-fov-compass" text-anchor="middle">W</text>
                     <path id="wsFovWedge" fill="rgba(37,99,235,0.18)" stroke="#2563eb" stroke-width="2" stroke-linejoin="round"></path>
-                    <circle id="wsFovApex" cx="80" cy="86" r="4" fill="#2563eb"></circle>
+                    <circle id="wsFovApex" cx="80" cy="50" r="4" fill="#2563eb"></circle>
                 </svg>
 
                 <div class="eng-result ws-result" id="wsFovResult" aria-live="polite">Podaj kąt i zasięg…</div>
-                <p class="ws-hint">„Szerokość na wprost" = jak szeroką scenę obejmiesz na końcu zasięgu (2·zasięg·tan(kąt/2)). Działa też dla czujnika ruchu, reflektora czy zraszacza. Pełne rozmieszczenie z kierunkiem zrobisz w „Komenda" (kamera=…).</p>
+                <p class="ws-hint">„Szerokość na wprost" = jak szeroką scenę obejmiesz na końcu zasięgu (2·zasięg·tan(kąt/2)). Działa też dla czujnika ruchu, reflektora czy zraszacza. Pełne rozmieszczenie z kierunkiem na planie zrobisz w „Komenda" (kamera=…).</p>
+
+                <h3 class="ws-subhead">Dobór kąta — ile potrzebujesz?</h3>
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Chcę objąć (szerokość)</label>
+                        <input type="number" id="wsFovNeedWidth" min="0" step="any" inputmode="decimal" placeholder="np. 8">
+                    </div>
+                    <div class="input-group">
+                        <label>Z odległości</label>
+                        <input type="number" id="wsFovNeedDist" min="0" step="any" inputmode="decimal" placeholder="np. 5">
+                    </div>
+                </div>
+                <div class="eng-result ws-result" id="wsFovNeedResult" aria-live="polite">Podaj szerokość i odległość…</div>
+                <p class="ws-hint">Odwrotne pytanie: jakiego kąta widzenia potrzebujesz, by z danej odległości objąć zadaną szerokość. Przydaje się przy doborze kamery/czujnika.</p>
             </details>
 
             <!-- ---- Sekcja 5: Moc, prąd i koszt zużycia ---- -->

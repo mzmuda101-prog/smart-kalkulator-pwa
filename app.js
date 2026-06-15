@@ -5008,35 +5008,53 @@
             function renderFov() {
                 var el = $('#wsFovResult');
                 var ang = num('#wsFovAngle', NaN), r = num('#wsFovRange', NaN);
-                updateFovPreview(ang);
-                if (!(ang > 0) || !(r > 0)) { el.textContent = 'Podaj kąt i zasięg…'; return; }
-                var rad = Math.min(ang, 360) * Math.PI / 180;
-                var lines = [];
-                if (ang < 180) {
-                    lines.push('Szerokość na wprost (na zasięgu ' + formatNum(r) + '): ' + formatNum(2 * r * Math.tan(rad / 2)));
+                var az = num('#wsFovAzimuth', NaN);
+                updateFovPreview(ang, isFinite(az) ? az : 0);
+                if (ang > 0 && r > 0) {
+                    var rad = Math.min(ang, 360) * Math.PI / 180;
+                    var lines = [];
+                    if (ang < 180) {
+                        lines.push('Szerokość na wprost (na zasięgu ' + formatNum(r) + '): ' + formatNum(2 * r * Math.tan(rad / 2)));
+                    } else {
+                        lines.push('Kąt ≥ 180° — brak „szerokości na wprost" (widok dookolny).');
+                    }
+                    lines.push('Pole pokrycia: ' + formatNum(0.5 * r * r * rad));
+                    lines.push('Łuk na zasięgu: ' + formatNum(r * rad));
+                    if (isFinite(az)) {
+                        lines.push('Kierunek: azymut ' + formatNum(az) + '°');
+                        if (ang < 360) {
+                            var norm360 = function (d) { d = d % 360; return d < 0 ? d + 360 : d; };
+                            lines.push('Azymut rogów: lewy ' + formatNum(norm360(az - ang / 2)) + '°, prawy ' + formatNum(norm360(az + ang / 2)) + '°');
+                        }
+                    }
+                    el.textContent = lines.join('\n');
                 } else {
-                    lines.push('Kąt ≥ 180° — brak „szerokości na wprost" (widok dookolny).');
+                    el.textContent = 'Podaj kąt i zasięg…';
                 }
-                lines.push('Pole pokrycia: ' + formatNum(0.5 * r * r * rad));
-                lines.push('Łuk na zasięgu: ' + formatNum(r * rad));
-                // Opcjonalnie: szerokość FOV na zadanej odległości od kamery.
-                var dist = num('#wsFovDist', NaN);
-                if (dist > 0 && ang < 180) {
-                    var wAtD = 2 * dist * Math.tan(rad / 2);
-                    lines.push('— Na odległości ' + formatNum(dist) + ': szerokość ' + formatNum(wAtD) + ' (granice ±' + formatNum(wAtD / 2) + ' od osi)');
+                // Dobór kąta (odwrotnie): szerokość + odległość → potrzebny kąt widzenia.
+                var nEl = $('#wsFovNeedResult');
+                if (nEl) {
+                    var nw = num('#wsFovNeedWidth', NaN), nd = num('#wsFovNeedDist', NaN);
+                    if (nw > 0 && nd > 0) {
+                        var need = 2 * Math.atan2(nw / 2, nd) * 180 / Math.PI;
+                        nEl.textContent = 'Potrzebny kąt widzenia: ≈ ' + formatNum(need) + '°' +
+                            '\n(by z ' + formatNum(nd) + ' objąć szerokość ' + formatNum(nw) + ')';
+                    } else {
+                        nEl.textContent = 'Podaj szerokość i odległość…';
+                    }
                 }
-                el.textContent = lines.join('\n');
             }
 
-            // Mini-podgląd: rysuje klin o danym kącie (wierzchołek na dole, otwarcie do góry).
-            function updateFovPreview(ang) {
+            // Mini-podgląd: klin o danym kącie, wierzchołek na środku, obrócony wg azymutu (kompas).
+            function updateFovPreview(ang, azimuth) {
                 var path = $('#wsFovWedge');
                 if (!path) return;
                 if (!(ang > 0)) { path.setAttribute('d', ''); return; }
                 var capped = Math.min(ang, 360);
-                var cx = 80, cy = 86, R = 70;
+                var cx = 80, cy = 50, R = 38;
                 var half = capped * Math.PI / 360;
-                var base = -Math.PI / 2; // „do góry" na ekranie (oś Y w dół)
+                // 0° = góra (płn.); azymut rośnie zgodnie z zegarem (ekran: oś Y w dół)
+                var base = (-90 + (azimuth || 0)) * Math.PI / 180;
                 var a1 = base - half, a2 = base + half;
                 var p1x = (cx + R * Math.cos(a1)).toFixed(2), p1y = (cy + R * Math.sin(a1)).toFixed(2);
                 var p2x = (cx + R * Math.cos(a2)).toFixed(2), p2y = (cy + R * Math.sin(a2)).toFixed(2);
@@ -5194,7 +5212,7 @@
 
 
             // [EN] Tap wyniku = kopiuj (jak w eng-result)
-            ['#wsAreaResult', '#wsCovResult', '#wsVolResult', '#wsGridResult', '#wsSlResult', '#wsPyResult', '#wsFovResult', '#wsElResult', '#wsEnResult', '#wsVdResult', '#wsConvResult'].forEach(function(sel) {
+            ['#wsAreaResult', '#wsCovResult', '#wsVolResult', '#wsGridResult', '#wsSlResult', '#wsPyResult', '#wsFovResult', '#wsFovNeedResult', '#wsElResult', '#wsEnResult', '#wsVdResult', '#wsConvResult'].forEach(function(sel) {
                 var el = $(sel);
                 if (el) el.addEventListener('click', function() {
                     var t = el.textContent.trim();
