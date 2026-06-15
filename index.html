@@ -192,6 +192,143 @@
 
             <p class="ws-intro">Praktyczne przeliczniki do prac w domu, remontu, ogrodu i warsztatu. Sekcja 1: policz pole powierzchni, a potem ile materiału je pokryje.</p>
 
+            <!-- ---- Sekcja 3: Rozmieszczenie i rozstaw ---- -->
+            <h2 class="ws-section-title"><span class="ws-section-icon">📏</span> Rozmieszczenie i rozstaw</h2>
+
+            <!-- Tool 3A: Rozstaw na długości (przeniesiony Kreator podziału) -->
+            <details class="section-panel card" id="kreatorPanel">
+                <summary><span class="icon">📏</span> Rozstaw na długości</summary>
+
+                <div class="input-group">
+                    <label>Jednostka</label>
+                    <div class="unit-toggle" id="unitToggle">
+                        <button class="unit-btn active" data-unit="cm">cm</button>
+                        <button class="unit-btn" data-unit="mm">mm</button>
+                        <button class="unit-btn" data-unit="m">m</button>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Długość całkowita</label>
+                    <input type="number" id="engLength" min="0" step="any" inputmode="decimal" placeholder="np. 120">
+                </div>
+
+                <div class="input-group">
+                    <label>Początek osi</label>
+                    <input type="number" id="engOrigin" value="0" step="any" inputmode="decimal" placeholder="np. −60">
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Liczba podziałów</label>
+                        <input type="number" id="engCount" min="1" max="100" step="1" inputmode="numeric" placeholder="np. 4">
+                    </div>
+                    <div class="input-group">
+                        <label>Orientacja</label>
+                        <div class="axis-toggle" id="axisToggle">
+                            <button class="axis-btn active" data-axis="X" type="button">⬌ X</button>
+                            <button class="axis-btn" data-axis="Y" type="button">⬍ Y</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Sposób rozmieszczenia</label>
+                    <div class="mode-toggle" id="spacingModeToggle">
+                        <button class="mode-btn active" data-mode="between" type="button">W polu</button>
+                        <button class="mode-btn" data-mode="edges" type="button">Od krańców</button>
+                        <button class="mode-btn" data-mode="fixed" type="button">Stały odstęp</button>
+                    </div>
+                </div>
+
+                <div class="input-group fixed-spacing-group" id="fixedSpacingGroup">
+                    <label>Stały odstęp</label>
+                    <input type="number" id="engSpacing" value="20" min="0" step="any" inputmode="decimal" placeholder="np. 20">
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>odsunięcie od początku</label>
+                        <div class="input-with-sign">
+                            <input type="text" id="engMarginStart" value="0" step="any" inputmode="decimal" placeholder="np. 5" autocomplete="off">
+                            <button class="sign-toggle" data-target="engMarginStart" type="button" aria-label="Odwróć znak">±</button>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>odsunięcie od końca</label>
+                        <div class="input-with-sign">
+                            <input type="text" id="engMarginEnd" value="0" step="any" inputmode="decimal" placeholder="np. 5" autocomplete="off">
+                            <button class="sign-toggle" data-target="engMarginEnd" type="button" aria-label="Odwróć znak">±</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mini live preview -->
+                <div class="kreator-preview" id="kreatorPreview" aria-hidden="true"></div>
+                <div class="kreator-preview-info" id="kreatorPreviewInfo"></div>
+
+                <button class="btn btn-primary kreator-apply-btn" id="kreatorApplyBtn" type="button">
+                    ▶ Pokaż wynik na canvasie
+                </button>
+            </details>
+
+            <!-- Tool 3B: Siatka (2D) -->
+            <details class="section-panel card">
+                <summary><span class="icon">🔲</span> Siatka punktów (2D)</summary>
+
+                <div class="input-group">
+                    <label>Jednostka</label>
+                    <div class="unit-toggle" id="wsGridUnitToggle">
+                        <button class="unit-btn active" data-gridunit="cm" type="button">cm</button>
+                        <button class="unit-btn" data-gridunit="mm" type="button">mm</button>
+                        <button class="unit-btn" data-gridunit="m" type="button">m</button>
+                    </div>
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Szerokość pola</label>
+                        <input type="number" id="wsGridW" min="0" step="any" inputmode="decimal" placeholder="np. 400">
+                    </div>
+                    <div class="input-group">
+                        <label>Wysokość pola</label>
+                        <input type="number" id="wsGridH" min="0" step="any" inputmode="decimal" placeholder="np. 300">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Sposób rozmieszczenia</label>
+                    <div class="unit-toggle" id="wsGridModeToggle">
+                        <button class="unit-btn active" data-gridmode="count" type="button">Liczba (kol × wier)</button>
+                        <button class="unit-btn" data-gridmode="spacing" type="button">Odstęp (dx × dy)</button>
+                    </div>
+                </div>
+
+                <div class="input-row" id="wsGridCountGroup">
+                    <div class="input-group">
+                        <label>Kolumny</label>
+                        <input type="number" id="wsGridCols" min="1" step="1" value="3" inputmode="numeric" placeholder="np. 3">
+                    </div>
+                    <div class="input-group">
+                        <label>Wiersze</label>
+                        <input type="number" id="wsGridRows" min="1" step="1" value="2" inputmode="numeric" placeholder="np. 2">
+                    </div>
+                </div>
+
+                <div class="input-row" id="wsGridSpacingGroup" hidden>
+                    <div class="input-group">
+                        <label>Odstęp poziomy (dx)</label>
+                        <input type="number" id="wsGridDx" min="0" step="any" value="100" inputmode="decimal" placeholder="np. 100">
+                    </div>
+                    <div class="input-group">
+                        <label>Odstęp pionowy (dy)</label>
+                        <input type="number" id="wsGridDy" min="0" step="any" value="100" inputmode="decimal" placeholder="np. 100">
+                    </div>
+                </div>
+
+                <div class="eng-result ws-result" id="wsGridResult" aria-live="polite">Podaj wymiary pola…</div>
+            </details>
+
             <!-- ---- Sekcja 1: Powierzchnie i pokrycia ---- -->
             <h2 class="ws-section-title"><span class="ws-section-icon">📐</span> Powierzchnie i pokrycia</h2>
 
@@ -445,143 +582,6 @@
                 </div>
 
                 <div class="eng-result ws-result" id="wsFillResult" aria-live="polite">Podaj objętość i przelicznik…</div>
-            </details>
-
-            <!-- ---- Sekcja 3: Rozmieszczenie i rozstaw ---- -->
-            <h2 class="ws-section-title"><span class="ws-section-icon">📏</span> Rozmieszczenie i rozstaw</h2>
-
-            <!-- Tool 3A: Rozstaw na długości (przeniesiony Kreator podziału) -->
-            <details class="section-panel card" id="kreatorPanel">
-                <summary><span class="icon">📏</span> Rozstaw na długości</summary>
-
-                <div class="input-group">
-                    <label>Jednostka</label>
-                    <div class="unit-toggle" id="unitToggle">
-                        <button class="unit-btn active" data-unit="cm">cm</button>
-                        <button class="unit-btn" data-unit="mm">mm</button>
-                        <button class="unit-btn" data-unit="m">m</button>
-                    </div>
-                </div>
-
-                <div class="input-group">
-                    <label>Długość całkowita</label>
-                    <input type="number" id="engLength" min="0" step="any" inputmode="decimal" placeholder="np. 120">
-                </div>
-
-                <div class="input-group">
-                    <label>Początek osi</label>
-                    <input type="number" id="engOrigin" value="0" step="any" inputmode="decimal" placeholder="np. −60">
-                </div>
-
-                <div class="input-row">
-                    <div class="input-group">
-                        <label>Liczba podziałów</label>
-                        <input type="number" id="engCount" min="1" max="100" step="1" inputmode="numeric" placeholder="np. 4">
-                    </div>
-                    <div class="input-group">
-                        <label>Orientacja</label>
-                        <div class="axis-toggle" id="axisToggle">
-                            <button class="axis-btn active" data-axis="X" type="button">⬌ X</button>
-                            <button class="axis-btn" data-axis="Y" type="button">⬍ Y</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="input-group">
-                    <label>Sposób rozmieszczenia</label>
-                    <div class="mode-toggle" id="spacingModeToggle">
-                        <button class="mode-btn active" data-mode="between" type="button">W polu</button>
-                        <button class="mode-btn" data-mode="edges" type="button">Od krańców</button>
-                        <button class="mode-btn" data-mode="fixed" type="button">Stały odstęp</button>
-                    </div>
-                </div>
-
-                <div class="input-group fixed-spacing-group" id="fixedSpacingGroup">
-                    <label>Stały odstęp</label>
-                    <input type="number" id="engSpacing" value="20" min="0" step="any" inputmode="decimal" placeholder="np. 20">
-                </div>
-
-                <div class="input-row">
-                    <div class="input-group">
-                        <label>odsunięcie od początku</label>
-                        <div class="input-with-sign">
-                            <input type="text" id="engMarginStart" value="0" step="any" inputmode="decimal" placeholder="np. 5" autocomplete="off">
-                            <button class="sign-toggle" data-target="engMarginStart" type="button" aria-label="Odwróć znak">±</button>
-                        </div>
-                    </div>
-                    <div class="input-group">
-                        <label>odsunięcie od końca</label>
-                        <div class="input-with-sign">
-                            <input type="text" id="engMarginEnd" value="0" step="any" inputmode="decimal" placeholder="np. 5" autocomplete="off">
-                            <button class="sign-toggle" data-target="engMarginEnd" type="button" aria-label="Odwróć znak">±</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Mini live preview -->
-                <div class="kreator-preview" id="kreatorPreview" aria-hidden="true"></div>
-                <div class="kreator-preview-info" id="kreatorPreviewInfo"></div>
-
-                <button class="btn btn-primary kreator-apply-btn" id="kreatorApplyBtn" type="button">
-                    ▶ Pokaż wynik na canvasie
-                </button>
-            </details>
-
-            <!-- Tool 3B: Siatka (2D) -->
-            <details class="section-panel card">
-                <summary><span class="icon">🔲</span> Siatka punktów (2D)</summary>
-
-                <div class="input-group">
-                    <label>Jednostka</label>
-                    <div class="unit-toggle" id="wsGridUnitToggle">
-                        <button class="unit-btn active" data-gridunit="cm" type="button">cm</button>
-                        <button class="unit-btn" data-gridunit="mm" type="button">mm</button>
-                        <button class="unit-btn" data-gridunit="m" type="button">m</button>
-                    </div>
-                </div>
-
-                <div class="input-row">
-                    <div class="input-group">
-                        <label>Szerokość pola</label>
-                        <input type="number" id="wsGridW" min="0" step="any" inputmode="decimal" placeholder="np. 400">
-                    </div>
-                    <div class="input-group">
-                        <label>Wysokość pola</label>
-                        <input type="number" id="wsGridH" min="0" step="any" inputmode="decimal" placeholder="np. 300">
-                    </div>
-                </div>
-
-                <div class="input-group">
-                    <label>Sposób rozmieszczenia</label>
-                    <div class="unit-toggle" id="wsGridModeToggle">
-                        <button class="unit-btn active" data-gridmode="count" type="button">Liczba (kol × wier)</button>
-                        <button class="unit-btn" data-gridmode="spacing" type="button">Odstęp (dx × dy)</button>
-                    </div>
-                </div>
-
-                <div class="input-row" id="wsGridCountGroup">
-                    <div class="input-group">
-                        <label>Kolumny</label>
-                        <input type="number" id="wsGridCols" min="1" step="1" value="3" inputmode="numeric" placeholder="np. 3">
-                    </div>
-                    <div class="input-group">
-                        <label>Wiersze</label>
-                        <input type="number" id="wsGridRows" min="1" step="1" value="2" inputmode="numeric" placeholder="np. 2">
-                    </div>
-                </div>
-
-                <div class="input-row" id="wsGridSpacingGroup" hidden>
-                    <div class="input-group">
-                        <label>Odstęp poziomy (dx)</label>
-                        <input type="number" id="wsGridDx" min="0" step="any" value="100" inputmode="decimal" placeholder="np. 100">
-                    </div>
-                    <div class="input-group">
-                        <label>Odstęp pionowy (dy)</label>
-                        <input type="number" id="wsGridDy" min="0" step="any" value="100" inputmode="decimal" placeholder="np. 100">
-                    </div>
-                </div>
-
-                <div class="eng-result ws-result" id="wsGridResult" aria-live="polite">Podaj wymiary pola…</div>
             </details>
 
             <!-- ---- Sekcja 4: Spadki, kąty i poziomy ---- -->
