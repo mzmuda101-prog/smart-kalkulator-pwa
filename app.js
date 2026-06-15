@@ -227,7 +227,11 @@
 
         function formatLocaleNumber(num, maxDigits) {
             if (!isFinite(num)) return String(num);
-            var rounded = Math.abs(num) < 1e308 ? parseFloat(num.toPrecision(15)) : num;
+            // Dokładne liczby całkowite (≤ MAX_SAFE_INTEGER) pokaż w pełni (16 cyfr);
+            // ułamki/duże floaty zaokrąglij do 15 cyfr znaczących (ukrycie szumu).
+            var rounded = (Number.isInteger(num) && Math.abs(num) <= Number.MAX_SAFE_INTEGER)
+                ? num
+                : (Math.abs(num) < 1e308 ? parseFloat(num.toPrecision(15)) : num);
             return rounded.toLocaleString('pl-PL', {
                 maximumFractionDigits: maxDigits == null ? 10 : maxDigits,
                 useGrouping: true,
@@ -807,6 +811,67 @@
             loadFxRates();
         }
 
+        // ── Dokładne liczenie na DUŻYCH liczbach całkowitych (BigInt) ──
+        // Obsługuje +, −, × i nawiasy na liczbach całkowitych o DOWOLNEJ długości.
+        // Zwraca string z cyframi wyniku albo null, gdy wyrażenie się nie kwalifikuje
+        // (ułamki, dzielenie, jednostki, funkcje → null, leci zwykłą ścieżką float).
+        function tryBigIntCalc(raw) {
+            var s = String(raw == null ? '' : raw)
+                .replace(/×/g, '*')
+                .replace(/−/g, '-')
+                .replace(/\s+/g, '');
+            if (!s) return null;
+            if (!/^[0-9+\-*()]+$/.test(s)) return null; // brak kropki/przecinka, „/”, liter
+            if (!/[0-9]/.test(s)) return null;
+            var i = 0;
+            function peek() { return s.charAt(i); }
+            function parseExpr() {
+                var v = parseTerm();
+                while (peek() === '+' || peek() === '-') {
+                    var op = s.charAt(i++);
+                    var r = parseTerm();
+                    v = op === '+' ? v + r : v - r;
+                }
+                return v;
+            }
+            function parseTerm() {
+                var v = parseFactor();
+                while (peek() === '*') { i++; v = v * parseFactor(); }
+                return v;
+            }
+            function parseFactor() {
+                var c = peek();
+                if (c === '+') { i++; return parseFactor(); }
+                if (c === '-') { i++; return -parseFactor(); }
+                if (c === '(') {
+                    i++;
+                    var v = parseExpr();
+                    if (peek() !== ')') throw new Error('paren');
+                    i++;
+                    return v;
+                }
+                var start = i;
+                while (i < s.length && s.charAt(i) >= '0' && s.charAt(i) <= '9') i++;
+                if (i === start) throw new Error('num');
+                return BigInt(s.slice(start, i));
+            }
+            try {
+                var result = parseExpr();
+                if (i !== s.length) return null; // niedoparsowane resztki
+                return result.toString();
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // Grupowanie tysięcy dla stringa liczby całkowitej (jak pl-PL: spacją niełamliwą).
+        function groupBigIntStr(str) {
+            var neg = str.charAt(0) === '-';
+            var d = neg ? str.slice(1) : str;
+            d = d.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+            return (neg ? '-' : '') + d;
+        }
+
         function evalCalcExpression(raw) {
             var original = String(raw || '').trim();
             if (!original) return { value: null, unit: null, error: null };
@@ -822,6 +887,20 @@
                 expr = parseNaturalShortcuts(expr);
                 expr = resolveCalcAnswer(expr);
                 expr = resolveCalcConstants(expr, STATE.constants);
+                // Duże liczby całkowite (+, −, ×): licz dokładnie BigInt-em, ale TYLKO gdy
+                // to potrzebne (liczba/wynik > 15 cyfr) — krótkie działania idą zwykłą
+                // ścieżką float, żeby zachować dotychczasowe formatowanie i testy.
+                var bigStr = tryBigIntCalc(expr);
+                if (bigStr !== null) {
+                    var bigNeeded = /\d{16,}/.test(expr.replace(/\s+/g, '')) ||
+                                    bigStr.replace('-', '').length > 15;
+                    if (bigNeeded) {
+                        STATE.calc.lastResult = bigStr;
+                        STATE.calc.lastUnit = null;
+                        return { value: null, unit: null, error: null,
+                                 big: true, bigStr: bigStr, text: groupBigIntStr(bigStr) };
+                    }
+                }
                 // Waluty (przed jednostkami): zamienia kwoty walutowe na PLN / robi konwersję.
                 var curRes = resolveCalcCurrency(expr);
                 if (curRes.pending) return { value: null, unit: null, error: null, pendingFx: true };
@@ -836,7 +915,11 @@
                 var fn = compileGraphExpression(expr);
                 var value = fn(0);
                 if (!isFinite(value)) return { value: Infinity, unit: unit, error: '∞' };
-                if (Math.abs(value) < 1e308 && value !== 0) {
+                // Dokładne liczby całkowite do MAX_SAFE_INTEGER (16 cyfr) zostaw bez
+                // zaokrąglania; tylko ułamki/duże floaty tnij do 15 cyfr znaczących,
+                // by ukryć szum zmiennoprzecinkowy (np. 0,1+0,2).
+                if (Math.abs(value) < 1e308 && value !== 0 &&
+                    !(Number.isInteger(value) && Math.abs(value) <= Number.MAX_SAFE_INTEGER)) {
                     value = parseFloat(value.toPrecision(15));
                 }
                 STATE.calc.lastResult = value;
@@ -866,9 +949,14 @@
         }
 
         function liveEval() {
-            // Blokada: liczba dłuższa niż 15 cyfr przekracza dokładność JS (2^53) i
-            // dalsze cyfry zamieniłyby się w zera — utnij nadmiar zamiast kłamać.
-            var clamped = calcExpr.value.replace(/\d{16,}/g, function(run) { return run.slice(0, 15); });
+            // Wyrażenia z samych liczb całkowitych i +,−,×,() liczymy BigInt-em (dokładnie,
+            // dowolna długość) — NIE obcinamy ich. Pozostałe (ułamki/dzielenie/funkcje) idą
+            // przez float: tam liczba > 16 cyfr przekracza dokładność JS, więc tniemy nadmiar.
+            var rawVal = calcExpr.value;
+            var bigEligible = /^[\s0-9+\-*()×−]+$/.test(rawVal) && /\d/.test(rawVal);
+            var clamped = bigEligible
+                ? rawVal
+                : rawVal.replace(/\d{17,}/g, function(run) { return run.slice(0, 16); });
             if (clamped !== calcExpr.value) {
                 var atEnd = calcExpr.selectionStart >= calcExpr.value.length;
                 calcExpr.value = clamped;
@@ -970,6 +1058,16 @@
 
             if (action === '=') {
                 var res = evalCalcExpression(expr);
+                // Duża liczba całkowita (BigInt) — wstaw pełne cyfry z powrotem do pola,
+                // żeby można było liczyć dalej (i zapamiętaj jako „ans” dokładnie).
+                if (res.big && expr.trim()) {
+                    addHistory(expr + ' = ' + res.text);
+                    STATE.calc.ans = res.bigStr;
+                    calcExpr.value = res.bigStr;
+                    calcExpr.setSelectionRange(calcExpr.value.length, calcExpr.value.length);
+                    liveEval();
+                    return;
+                }
                 // Wynik daty/czasu (tekst) — dodaj do historii, zostaw wpisane wyrażenie.
                 if (res.text != null && expr.trim()) {
                     addHistory(expr + ' = ' + res.text);
@@ -1109,9 +1207,15 @@
                     }
                     // [EN] Reuse history result as current input
                     if (resultPart) {
-                        calcExpr.value = normalizeNumberText(resultPart);
-                        var reusedNum = parseFloat(normalizeNumberText(resultPart));
-                        if (isFinite(reusedNum)) STATE.calc.ans = reusedNum;
+                        var reusedNorm = normalizeNumberText(resultPart);
+                        calcExpr.value = reusedNorm;
+                        var reusedNum = parseFloat(reusedNorm);
+                        // Duża liczba całkowita: trzymaj dokładny string (nie float, by nie zgubić cyfr).
+                        if (/^-?\d+$/.test(reusedNorm) && reusedNorm.replace('-', '').length > 15) {
+                            STATE.calc.ans = reusedNorm;
+                        } else if (isFinite(reusedNum)) {
+                            STATE.calc.ans = reusedNum;
+                        }
                         calcExpr.setSelectionRange(calcExpr.value.length, calcExpr.value.length);
                         liveEval();
                         switchTab('calculator');
@@ -5364,6 +5468,12 @@
             results.push({ expr: 'ans*2 (ans=15)', pass: evalCalcExpression('ans*2').value === 30, got: evalCalcExpression('ans*2').value });
             results.push({ expr: 'wynik+5 (ans=15)', pass: evalCalcExpression('wynik + 5').value === 20, got: evalCalcExpression('wynik + 5').value });
             STATE.calc.ans = savedAns;
+            // BigInt — dokładne duże liczby całkowite (+, −, ×)
+            results.push({ expr: '99999999999999999+1 (BigInt)', pass: evalCalcExpression('99999999999999999+1').bigStr === '100000000000000000', got: evalCalcExpression('99999999999999999+1').bigStr });
+            results.push({ expr: '123456789012345678+876543210987654322 (BigInt)', pass: evalCalcExpression('123456789012345678+876543210987654322').bigStr === '1000000000000000000', got: evalCalcExpression('123456789012345678+876543210987654322').bigStr });
+            results.push({ expr: '10000000000000000-9999999999999999 (BigInt)', pass: evalCalcExpression('10000000000000000-9999999999999999').bigStr === '1', got: evalCalcExpression('10000000000000000-9999999999999999').bigStr });
+            results.push({ expr: '99999999999*99999999999 (BigInt)', pass: evalCalcExpression('99999999999*99999999999').bigStr === '9999999999800000000001', got: evalCalcExpression('99999999999*99999999999').bigStr });
+            results.push({ expr: '2+2 (zostaje float)', pass: evalCalcExpression('2+2').value === 4 && !evalCalcExpression('2+2').big, got: evalCalcExpression('2+2').value });
             // daty względne — sprawdzamy tylko, że zwracają sformatowaną datę (zależą od „dziś")
             results.push({ expr: 'za 3 tygodnie (data)', pass: !!evalCalcExpression('za 3 tygodnie').text, got: evalCalcExpression('za 3 tygodnie').text });
             results.push({ expr: 'jutro (data)', pass: !!evalCalcExpression('jutro').text, got: evalCalcExpression('jutro').text });
