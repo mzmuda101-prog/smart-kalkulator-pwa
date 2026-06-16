@@ -3359,7 +3359,39 @@
                         dFar = oz / Math.tan(aTop);
                         if (dFar > range) { dFar = range; farClamped = true; }    // ucięte do zasięgu sensora
                     }
-                    footprint = { dNear: dNear, dFar: dFar, farClamped: farClamped };
+
+                    // Wierny rzut na ziemię (keystone): 4 narożniki stożka widzenia rzutowane na
+                    // płaszczyznę z=0 pełną projekcją 3D. Bliski brzeg i daleki (gdy ogranicza go
+                    // pionowy kąt) wychodzą prostymi; daleki staje się łukiem tylko gdy ucina go zasięg.
+                    var th = theta * Math.PI / 180;
+                    var bh = fov * Math.PI / 360, bv = fovVr / 2;
+                    var fwd = [Math.cos(dirRad) * Math.cos(th), Math.sin(dirRad) * Math.cos(th), -Math.sin(th)];
+                    var uH = [-Math.sin(dirRad), Math.cos(dirRad), 0];          // poziomy bok (oś pozioma obrazu)
+                    var vUp = [fwd[1] * uH[2] - fwd[2] * uH[1],                 // oś pionowa obrazu = fwd × uH
+                               fwd[2] * uH[0] - fwd[0] * uH[2],
+                               fwd[0] * uH[1] - fwd[1] * uH[0]];
+                    function groundCorner(sh, sv) {
+                        var d0 = fwd[0] + Math.tan(bh) * sh * uH[0] + Math.tan(bv) * sv * vUp[0];
+                        var d1 = fwd[1] + Math.tan(bh) * sh * uH[1] + Math.tan(bv) * sv * vUp[1];
+                        var d2 = fwd[2] + Math.tan(bh) * sh * uH[2] + Math.tan(bv) * sv * vUp[2];
+                        var az = Math.atan2(d1, d0);
+                        if (d2 >= -1e-9) return { x: ox + range * Math.cos(az), y: oy + range * Math.sin(az), az: az, clamped: true };
+                        var t = oz / (-d2);
+                        var gx = ox + t * d0, gy = oy + t * d1;
+                        if (Math.hypot(t * d0, t * d1) > range) return { x: ox + range * Math.cos(az), y: oy + range * Math.sin(az), az: az, clamped: true };
+                        return { x: gx, y: gy, az: az, clamped: false };
+                    }
+                    var nA = groundCorner(-1, -1), nB = groundCorner(1, -1);    // bliski brzeg (dół kadru)
+                    var fA = groundCorner(-1, 1), fB = groundCorner(1, 1);      // daleki brzeg (góra kadru)
+                    var farArc = fA.clamped || fB.clamped;                       // łuk tylko gdy ogranicza zasięg
+                    var nearWidth = Math.hypot(nB.x - nA.x, nB.y - nA.y);
+                    var farWidth = Math.hypot(fB.x - fA.x, fB.y - fA.y);
+                    var poly = [nA, nB, fB, fA], area2 = 0;                      // pole — wzór Gaussa (shoelace)
+                    for (var qi = 0; qi < 4; qi++) { var q1 = poly[qi], q2 = poly[(qi + 1) % 4]; area2 += q1.x * q2.y - q2.x * q1.y; }
+
+                    footprint = { dNear: dNear, dFar: dFar, farClamped: farClamped,
+                                  nA: nA, nB: nB, fA: fA, fB: fB, farArc: farArc, range: range,
+                                  nearWidth: nearWidth, farWidth: farWidth, area: Math.abs(area2) / 2 };
                 }
 
                 return { type: 'widok', ox: ox, oy: oy, fov: fov, range: range, dir: dirRad,
@@ -3474,12 +3506,9 @@
                 lines.push('Pokrycie na ziemi: od ' + formatNum(f.dNear) + ' do ' + formatNum(f.dFar)
                     + (f.farClamped ? ' (ucięte do zasięgu)' : '') + ' — głębokość ' + formatNum(f.dFar - f.dNear));
                 if (f.dNear > 0) lines.push('Martwa strefa pod kamerą: 0 – ' + formatNum(f.dNear));
-                if (geo.fov < 180) {
-                    lines.push('Szerokość sceny: bliski brzeg ' + formatNum(2 * f.dNear * Math.tan(rad / 2))
-                        + ', daleki brzeg ' + formatNum(2 * f.dFar * Math.tan(rad / 2)));
-                }
-                lines.push('Łuk pokrycia: bliski ' + formatNum(f.dNear * rad) + ', daleki ' + formatNum(f.dFar * rad));
-                lines.push('Pole pokrycia (wycinek pierścienia): ' + formatNum((f.dFar * f.dFar - f.dNear * f.dNear) * rad / 2));
+                lines.push('Szerokość pokrycia: bliski brzeg ' + formatNum(f.nearWidth)
+                    + ', daleki brzeg ' + formatNum(f.farWidth) + (f.farArc ? ' (łuk zasięgu)' : ''));
+                lines.push('Pole pokrycia: ' + formatNum(f.area));
             } else {
                 if (geo.oz > 0) {
                     if (!(geo.fovV > 0))
@@ -3575,15 +3604,16 @@
                 // Punkty tylko do dopasowania zakresu (wierzchołek + próbki łuku) — rysowane osobno.
                 var pts = [{ x: geo.ox, y: geo.oy, r: 0, label: '', _hidden: true }];
                 var half = geo.fov * Math.PI / 360;
-                // Tryb przestrzenny — dopasuj zakres do łuku dalekiego brzegu pokrycia.
+                // Tryb przestrzenny — dopasuj zakres do narożników keystone (+ szczyt łuku gdy zasięg).
                 if (geo.footprint) {
                     var f = geo.footprint;
-                    var a0 = geo.dir - half, a1 = geo.dir + half;
-                    var samples = 10;
-                    for (var i = 0; i <= samples; i++) {
-                        var ang = a0 + (a1 - a0) * i / samples;
-                        pts.push({ x: parseFloat((geo.ox + f.dFar * Math.cos(ang)).toFixed(6)),
-                                   y: parseFloat((geo.oy + f.dFar * Math.sin(ang)).toFixed(6)),
+                    [f.nA, f.nB, f.fA, f.fB].forEach(function(c) {
+                        pts.push({ x: parseFloat(c.x.toFixed(6)), y: parseFloat(c.y.toFixed(6)), r: 0, label: '', _hidden: true });
+                    });
+                    if (f.farArc) {
+                        var amid = (f.fA.az + f.fB.az) / 2;
+                        pts.push({ x: parseFloat((geo.ox + f.range * Math.cos(amid)).toFixed(6)),
+                                   y: parseFloat((geo.oy + f.range * Math.sin(amid)).toFixed(6)),
                                    r: 0, label: '', _hidden: true });
                     }
                     return pts;
@@ -3765,41 +3795,36 @@
                     var steps = 64;
                     var axisLen = geo.range; // dokąd sięga oś kierunku (na ekranie)
                     if (geo.footprint) {
-                        // Pokrycie na ziemi jako wycinek pierścienia: łuk daleki (dFar) + łuk
-                        // bliski (dNear, granica martwej strefy) + promieniste boki. Łuki próbkowane
-                        // w danych (skale osi X/Y bywają różne), nie przez ctx.arc.
+                        // Wierny keystone: bliski brzeg + boki jako proste; daleki brzeg prosty
+                        // (gdy ogranicza go pionowy kąt) albo łuk zasięgu (gdy ucina go zasięg).
                         var f = geo.footprint;
-                        var a0 = geo.dir - half, a1 = geo.dir + half;
-                        var arcSteps = 48;
-                        function gpolar(rad2, ang) {
-                            return graphToScreen(geo.ox + rad2 * Math.cos(ang), geo.oy + rad2 * Math.sin(ang), bounds, w, h, pad);
-                        }
+                        function gs(p) { return graphToScreen(p.x, p.y, bounds, w, h, pad); }
+                        var sNA = gs(f.nA), sNB = gs(f.nB), sFA = gs(f.fA), sFB = gs(f.fB);
                         ctx.beginPath();
-                        for (var i = 0; i <= arcSteps; i++) {
-                            var ang = a0 + (a1 - a0) * i / arcSteps;
-                            var p = gpolar(f.dFar, ang);
-                            if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
-                        }
-                        if (f.dNear > 0) {
-                            for (var i = arcSteps; i >= 0; i--) {
-                                var ang = a0 + (a1 - a0) * i / arcSteps;
-                                var p = gpolar(f.dNear, ang);
-                                ctx.lineTo(p.x, p.y);
+                        ctx.moveTo(sNA.x, sNA.y);
+                        ctx.lineTo(sNB.x, sNB.y);        // bliski brzeg (prosty)
+                        ctx.lineTo(sFB.x, sFB.y);        // bok B (prosty)
+                        if (f.farArc) {                  // daleki brzeg — łuk zasięgu
+                            var arcSteps = 48;
+                            for (var i = 1; i <= arcSteps; i++) {
+                                var ang = f.fB.az + (f.fA.az - f.fB.az) * i / arcSteps;
+                                var pa = graphToScreen(geo.ox + f.range * Math.cos(ang), geo.oy + f.range * Math.sin(ang), bounds, w, h, pad);
+                                ctx.lineTo(pa.x, pa.y);
                             }
                         } else {
-                            ctx.lineTo(apex.x, apex.y);
+                            ctx.lineTo(sFA.x, sFA.y);    // daleki brzeg (prosty)
                         }
-                        ctx.closePath();
+                        ctx.closePath();                 // bok A z powrotem do bliskiego brzegu
                         ctx.fillStyle = color + '22';
                         ctx.fill();
                         ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.setLineDash([]);
                         ctx.stroke();
-                        // Martwa strefa pod kamerą — delikatne promieniste linie od kamery do bliskiego łuku.
+                        // Martwa strefa pod kamerą — delikatne linie od kamery do narożników bliskiego brzegu.
                         if (f.dNear > 0) {
                             ctx.setLineDash([3, 3]); ctx.lineWidth = 1; ctx.strokeStyle = color + '99';
                             ctx.beginPath();
-                            ctx.moveTo(apex.x, apex.y); var pnL = gpolar(f.dNear, a0); ctx.lineTo(pnL.x, pnL.y);
-                            ctx.moveTo(apex.x, apex.y); var pnR = gpolar(f.dNear, a1); ctx.lineTo(pnR.x, pnR.y);
+                            ctx.moveTo(apex.x, apex.y); ctx.lineTo(sNA.x, sNA.y);
+                            ctx.moveTo(apex.x, apex.y); ctx.lineTo(sNB.x, sNB.y);
                             ctx.stroke();
                             ctx.setLineDash([]);
                         }
