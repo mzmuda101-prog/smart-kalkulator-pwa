@@ -3293,6 +3293,7 @@
                 var oz = posC[2] != null ? Math.abs(parseGraphNumber(posC[2], 0)) : 0;
                 var fov = 90, range = 10, label = '', markDist = 0;
                 var dirRad = 0, dirMode = 'kierunek', dirValue = 0, targetTxt = null;
+                var targetX = null, targetY = null; // punkt celu (do narysowania znacznika „cel")
                 var fovV = 0;                 // pionowy FOV (analogicznie do poziomego `kąt`)
                 var tilt = null, tiltMode = 'brak'; // pochylenie osi w dół (°), jawne lub z celu
                 var targetZ = 0, targetHorizDist = null; // do auto-pochylenia z celu
@@ -3316,6 +3317,7 @@
                         var cx = parseGraphNumber(c[0], 0), cy = parseGraphNumber(c[1] || '0', 0);
                         if (c[2] != null && c[2].trim() !== '') targetZ = parseGraphNumber(c[2], 0);
                         dirRad = Math.atan2(cy - oy, cx - ox); dirMode = 'cel';
+                        targetX = cx; targetY = cy;
                         targetHorizDist = Math.hypot(cx - ox, cy - oy);
                         targetTxt = formatNum(cx) + ', ' + formatNum(cy) + (c[2] != null && c[2].trim() !== '' ? ', ' + formatNum(targetZ) : '');
                     } else if (/^(azymut|bearing|kompas)=/.test(pl)) {
@@ -3362,6 +3364,7 @@
 
                 return { type: 'widok', ox: ox, oy: oy, fov: fov, range: range, dir: dirRad,
                          dirMode: dirMode, dirValue: dirValue, targetTxt: targetTxt, label: label, markDist: markDist,
+                         targetX: targetX, targetY: targetY,
                          oz: oz, fovV: fovV, tilt: theta, tiltMode: tiltMode, targetZ: targetZ, footprint: footprint };
             }
 
@@ -3865,6 +3868,23 @@
                     var camTxt = geo.label || '📷';
                     if (geo.oz > 0) camTxt += ' ↑' + formatNum(geo.oz);
                     ctx.fillText(camTxt, apex.x, apex.y - 9);
+
+                    // Znacznik celu — żeby od razu było widać, gdzie kamera celuje (bez zgadywania z siatki).
+                    if (geo.targetX != null && geo.targetY != null) {
+                        var tp = graphToScreen(geo.targetX, geo.targetY, bounds, w, h, pad);
+                        ctx.beginPath(); ctx.arc(tp.x, tp.y, 5, 0, Math.PI * 2);
+                        ctx.fillStyle = color; ctx.fill();
+                        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+                        var celTxt = 'cel (' + formatNum(geo.targetX) + ', ' + formatNum(geo.targetY)
+                            + (geo.targetZ ? ', ' + formatNum(geo.targetZ) : '') + ')';
+                        ctx.font = '600 10px ' + getComputedStyle(document.body).fontFamily;
+                        ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+                        var ctw = ctx.measureText(celTxt).width + 6;
+                        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+                        ctx.fillRect(tp.x - ctw / 2, tp.y - 20, ctw, 14);
+                        ctx.fillStyle = color;
+                        ctx.fillText(celTxt, tp.x, tp.y - 8);
+                    }
                 }
 
                 // Narysuj punkty
