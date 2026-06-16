@@ -92,6 +92,7 @@
 
         // Komenda canvas & UI
         const graphCommand = $('#graphCommand');
+        const graphCommandHL = $('#graphCommandHL');
         const graphCommandError = $('#graphCommandError');
         const graphRecentCommands = $('#graphRecentCommands');
         const graphCmdModeBadge = $('#graphCmdModeBadge');
@@ -2485,10 +2486,38 @@
             graphCommand.classList.toggle('cmd-active', active);
             if (graphCmdModeBadge) graphCmdModeBadge.classList.toggle('cmd-active', active);
             if (graphCmdModeLabel) graphCmdModeLabel.textContent = label;
+            refreshCmdHL();
+        }
+
+        // [EN] Koloryzacja składni w polu komendy — podświetla separatory (;; serie,
+        // ,, oraz | parametry) i znak =, żeby od razu było widać rozgraniczniki. Warstwa
+        // .cmd-hl leży pod przezroczystą textareą; tekst budujemy jednym przebiegiem regex
+        // (bez ponownego skanowania wstawionego HTML).
+        function refreshCmdHL() {
+            if (!graphCommandHL || !graphCommand) return;
+            var text = graphCommand.value;
+            var esc = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            var parts = esc.split(/(;;)/);           // [seria0, ';;', seria1, ';;', …]
+            var hasMulti = parts.length > 1;         // pas serii tylko gdy jest wiele serii
+            var serIdx = 0;
+            graphCommandHL.innerHTML = parts.map(function(part) {
+                if (part === ';;') return '<span class="sep-series">;;</span>';
+                var inner = part.replace(/(,,|\|)/g, '<span class="sep">$1</span>');
+                var cls = 'ser' + (serIdx % 6) + (hasMulti ? ' band' : '');
+                serIdx++;
+                return '<span class="' + cls + '">' + inner + '</span>';
+            }).join('');
+            graphCommand.classList.toggle('hl-on', text.length > 0);
+            graphCommandHL.scrollTop = graphCommand.scrollTop;
+            graphCommandHL.scrollLeft = graphCommand.scrollLeft;
         }
 
         graphCommand.addEventListener('input', function() { updateGraphCmdBadge(graphCommand.value.trim()); });
         graphCommand.addEventListener('change', function() { updateGraphCmdBadge(graphCommand.value.trim()); });
+        graphCommand.addEventListener('scroll', function() {
+            if (graphCommandHL) { graphCommandHL.scrollTop = graphCommand.scrollTop; graphCommandHL.scrollLeft = graphCommand.scrollLeft; }
+        });
+        refreshCmdHL();
 
         /* [EN] Sign toggle buttons for margin inputs */
         document.addEventListener('click', function(e) {

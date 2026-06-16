@@ -113,15 +113,22 @@
                 ],
             },
             {
-                title: 'Pole widzenia (kamera / czujnik / reflektor)',
+                title: 'Pole widzenia 2D (kamera / czujnik / reflektor)',
                 items: [
-                    { syntax: 'kamera=x,y {PIPE} kąt=K {PIPE} zasięg=Z', command: 'kamera=0,0 {PIPE} kąt=110 {PIPE} zasięg=15', description: 'rysuje stożek (wycinek) widzenia. x,y = miejsce montażu, K = kąt widzenia (°), Z = zasięg. Aliasy: widok=, fov=.' },
-                    { syntax: 'cel=x,y  (lub cel=x,y,z)', command: 'kamera=0,0 {PIPE} kąt=110 {PIPE} zasięg=15 {PIPE} cel=10,8', description: 'kierunek przez wycelowanie w PUNKT (np. brama). Najpraktyczniejsze — nie musisz liczyć stopni. Opcjonalnie 3. liczba = wysokość celu (z): razem z z= kamery wyznacza pochylenie w pionie (np. cel w okno: cel=10,8,2).' },
+                    { syntax: 'kamera=x,y {PIPE} kąt=K {PIPE} zasięg=Z', command: 'kamera=0,0 {PIPE} kąt=110 {PIPE} zasięg=15', description: 'rysuje pole widzenia na płasko. x,y = miejsce montażu, K = kąt poziomy (°), Z = zasięg. Aliasy figury: widok=, fov=. Kąt poziomy też: kątXY=, kąt_poziomy=, hfov=.' },
+                    { syntax: 'cel=x,y  (lub cel=x,y,z)', command: 'kamera=0,0 {PIPE} kąt=110 {PIPE} zasięg=15 {PIPE} cel=10,8', description: 'kierunek przez wycelowanie w PUNKT (np. brama) — nie musisz liczyć stopni. Rysuje też znacznik celu. Trzecia liczba = wysokość celu (z), np. okno: cel=10,8,2.' },
                     { syntax: 'azymut=A', command: 'kamera=0,0 {PIPE} kąt=90 {PIPE} azymut=135', description: 'kierunek jak na kompasie: 0°=góra (płn.), 90°=prawo, zgodnie z zegarem.' },
                     { syntax: 'kierunek=A', command: 'kamera=0,0 {PIPE} kąt=90 {PIPE} kierunek=45', description: 'kierunek matematyczny: 0°=w prawo (+X), rośnie przeciwnie do zegara.' },
                     { syntax: 'na=D', command: 'kamera=0,0 {PIPE} kąt=110 {PIPE} zasięg=15 {PIPE} na=5', description: 'D = odległość od kamery — rysuje poprzeczną linię granic i podpisuje szerokość pola w tym miejscu.' },
-                    { syntax: 'z=H {PIPE} kąt_pionowy=V', command: 'kamera=0,0 {PIPE} kąt=105 {PIPE} kąt_pionowy=60 {PIPE} zasięg=30 {PIPE} z=4 {PIPE} cel=-1.5,10', description: 'kamera na WYSOKOŚCI. z=H = wysokość montażu, kąt pionowy = kąt widzenia w pionie. Zamiast wycinka koła rysuje realny obszar na ziemi (wycinek pierścienia) z niewypełnioną martwą strefą pod kamerą. Wysokość: z=, wys=. Kąt poziomy: kąt=, kąt_poziomy=, kątXY=, hfov=. Kąt pionowy: kąt_pionowy=, kątZ=, vfov=.' },
-                    { syntax: 'pochył=P', command: 'kamera=0,0 {PIPE} kąt=90 {PIPE} kąt_pionowy=40 {PIPE} z=4 {PIPE} pochył=30 {PIPE} zasięg=25', description: 'pochylenie osi w dół w stopniach (0=poziomo, 90=prosto w dół). Jeśli pominiesz, a podasz z= i cel= na ziemi — policzę je sam. Aliasy: pochył=, tilt=.' },
+                ],
+            },
+            {
+                title: 'Kamera na wysokości — oś Z (rzut na ziemię)',
+                items: [
+                    { syntax: 'z=H  (lub kamera=x,y,H)', command: 'kamera=0,0,4 {PIPE} kątXY=105 {PIPE} kątZ=55 {PIPE} zasięg=30 {PIPE} cel=-1.5,10', description: 'H = wysokość montażu nad ziemią. Zamiast płaskiego stożka rysuje REALNY rzut kamery na ziemię (keystone): prosty bliski brzeg, niewypełniona martwa strefa pod kamerą, a daleki brzeg łukiem gdy ucina go zasięg. Aliasy: z=, wys=.' },
+                    { syntax: 'kątXY=K  (kąt poziomy)', command: 'kamera=0,0,4 {PIPE} kątXY=105 {PIPE} kątZ=55 {PIPE} cel=-1.5,10 {PIPE} zasięg=30', description: 'kąt widzenia w poziomie (płaszczyzna XY). Aliasy: kąt=, kąt_poziomy=, hfov=.' },
+                    { syntax: 'kątZ=V  (kąt pionowy)', command: 'kamera=0,0,4 {PIPE} kątXY=105 {PIPE} kątZ=55 {PIPE} cel=-1.5,10 {PIPE} zasięg=30', description: 'kąt widzenia w pionie (oś Z). Bez niego nie policzymy martwej strefy ani pokrycia na ziemi. Aliasy: kąt_pionowy=, vfov=.' },
+                    { syntax: 'pochył=P  (tilt)', command: 'kamera=0,0,4 {PIPE} kątXY=90 {PIPE} kątZ=40 {PIPE} pochył=30 {PIPE} zasięg=25', description: 'pochylenie osi w dół (0=poziomo, 90=prosto w dół). Jeśli pominiesz, a podasz z= i cel= — policzę je sam z geometrii. Aliasy: pochył=, tilt=.' },
                 ],
             },
             {
@@ -131,6 +138,7 @@
                     { syntax: 'wielokat=0,0/120,0/120,80/40,120', command: 'wielokat=0,0/120,0/120,80/40,120 {PIPE} label=działka', description: 'czworokąt nieforemny — z długościami boków, polem i kątami.' },
                     { syntax: 'okrag=100 {SERIES} wielokat=6,100', command: 'okrag=100 {SERIES} wielokat=6,100', description: 'okrąg i wpisany w niego sześciokąt foremny.' },
                     { syntax: 'kamera=0,0 {PIPE} kąt=110 {PIPE} zasięg=15 {PIPE} cel=12,4 {SERIES} kamera=20,0 {PIPE} kąt=90 {PIPE} zasięg=12 {PIPE} cel=12,4', command: 'kamera=0,0 {PIPE} kąt=110 {PIPE} zasięg=15 {PIPE} cel=12,4 {SERIES} kamera=20,0 {PIPE} kąt=90 {PIPE} zasięg=12 {PIPE} cel=12,4', description: 'dwie kamery celujące w ten sam punkt — widać pokrycie i martwe pola.' },
+                    { syntax: 'kamera=0,0,4 {PIPE} kątXY=105 {PIPE} kątZ=55 {PIPE} zasięg=30 {PIPE} cel=-1.5,10', command: 'kamera=0,0,4 {PIPE} kątXY=105 {PIPE} kątZ=55 {PIPE} zasięg=30 {PIPE} cel=-1.5,10', description: 'kamera na budynku (4 m) celująca w punkt na ziemi — rzut na ziemię, martwa strefa i znacznik celu.' },
                 ],
             },
         ],

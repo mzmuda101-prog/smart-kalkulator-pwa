@@ -707,6 +707,8 @@
         /* Pole komendy — wyższe, z zawijaniem długiego tekstu i scrollem jako fallback */
         #graphCommand {
             display: block;
+            position: relative;
+            z-index: 1;
             min-height: 60px;
             max-height: 132px;
             overflow-y: auto;
@@ -714,7 +716,44 @@
             line-height: 1.45;
             white-space: pre-wrap;
             word-break: break-word;
+            caret-color: var(--text);
+            background: transparent;          /* tło i kolory daje warstwa .cmd-hl pod spodem */
         }
+        /* Gdy w polu jest tekst — ukryj jego kolor (kursor zostaje), widać kolorową nakładkę */
+        #graphCommand.hl-on {
+            color: transparent;
+            -webkit-text-fill-color: transparent;
+        }
+        /* Warstwa z koloryzowaną składnią — pod textareą, idealnie wyrównana */
+        .autocomplete-wrap > .cmd-hl {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            margin: 0;
+            box-sizing: border-box;
+            border: 1.5px solid transparent;  /* ta sama szerokość ramki co textarea → tekst się pokrywa */
+            border-radius: var(--radius);
+            padding: 12px 14px;
+            font-family: var(--font);
+            font-size: 1rem;
+            line-height: 1.45;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow: hidden;
+            pointer-events: none;
+            color: var(--text);
+            background: #f8fafc;
+        }
+        .cmd-hl .sep-series { color: #db2777; font-weight: 800; }  /* ;; — wyróżniający dzielnik serii (magenta) */
+        .cmd-hl .sep { font-weight: 800; }                         /* ,, oraz | — akcent w kolorze serii */
+        /* Smart kolory serii — pasują do kolorów figur na wykresie. Tło („pas") tylko przy
+           wielu seriach (.band); przy jednej serii zostaje sam kolor separatorów. */
+        .cmd-hl .ser0 .sep { color: #2563eb; } .cmd-hl .ser0.band { background: rgba(37, 99, 235, 0.09); }
+        .cmd-hl .ser1 .sep { color: #dc2626; } .cmd-hl .ser1.band { background: rgba(220, 38, 38, 0.09); }
+        .cmd-hl .ser2 .sep { color: #16a34a; } .cmd-hl .ser2.band { background: rgba(22, 163, 74, 0.09); }
+        .cmd-hl .ser3 .sep { color: #d97706; } .cmd-hl .ser3.band { background: rgba(217, 119, 6, 0.10); }
+        .cmd-hl .ser4 .sep { color: #7c3aed; } .cmd-hl .ser4.band { background: rgba(124, 58, 237, 0.10); }
+        .cmd-hl .ser5 .sep { color: #0891b2; } .cmd-hl .ser5.band { background: rgba(8, 145, 178, 0.10); }
         .input-group input:disabled {
             opacity: 0.55;
             cursor: not-allowed;
