@@ -1404,8 +1404,9 @@
 
         function drawEmptyCanvas(_canvas, _ctx) {
             var ctx = _ctx || graphCtx;
-            var w = (_canvas || graphCanvas).width;
-            var h = (_canvas || graphCanvas).height;
+            var dims = setCanvasHiDPI(_canvas || graphCanvas, ctx);
+            var w = dims.w;
+            var h = dims.h;
             ctx.clearRect(0, 0, w, h);
             ctx.fillStyle = '#94a3b8';
             ctx.font = '600 16px ' + getComputedStyle(document.body).fontFamily;
@@ -1416,8 +1417,9 @@
         function drawEngineeringCanvasMulti(L, ms, me, allSeries, origin, _canvas, _ctx) {
             var COLORS = ['#2563eb', '#e11d48', '#16a34a', '#d97706', '#7c3aed', '#0891b2'];
             var ctx = _ctx || graphCtx;
-            var W = (_canvas || graphCanvas).width;
-            var H = (_canvas || graphCanvas).height;
+            var dims = setCanvasHiDPI(_canvas || graphCanvas, ctx);
+            var W = dims.w;
+            var H = dims.h;
             ctx.clearRect(0, 0, W, H);
 
             var PAD_L = 56, PAD_R = 36, PAD_T = 52, PAD_B = 48;
@@ -1576,8 +1578,9 @@
 
         function drawEngineeringCanvas(totalLength, marginStart, marginEnd, positions, count, step, origin, _canvas, _ctx) {
             var ctx = _ctx || graphCtx;
-            var w = (_canvas || graphCanvas).width;
-            var h = (_canvas || graphCanvas).height;
+            var dims = setCanvasHiDPI(_canvas || graphCanvas, ctx);
+            var w = dims.w;
+            var h = dims.h;
             ctx.clearRect(0, 0, w, h);
 
             var isHorizontal = STATE.eng.axis === 'X';
@@ -2737,8 +2740,8 @@
         // Tylko POWIĘKSZA zakres osi o większej skali — nic nie przycina.
         function equalizeGraphAspect() {
             var b = getGraphBounds();
-            var drawW = graphCanvas.width - 2 * GRAPH_PAD;
-            var drawH = graphCanvas.height - 2 * GRAPH_PAD;
+            var drawW = GRAPH_LOGICAL_W - 2 * GRAPH_PAD;
+            var drawH = GRAPH_LOGICAL_H - 2 * GRAPH_PAD;
             if (drawW <= 0 || drawH <= 0) return;
             var xRange = b.xMax - b.xMin;
             var yRange = b.yMax - b.yMin;
@@ -2776,11 +2779,31 @@
         }
 
         var GRAPH_PAD = 46;
+        var GRAPH_LOGICAL_W = 900, GRAPH_LOGICAL_H = 520;
+
+        // [EN] HiDPI/retina: bufor canvasa = logiczny rozmiar × skala (devicePixelRatio
+        // z lekkim supersamplingiem), a kontekst skalujemy. Dzięki temu twarde piksele
+        // kodu (pad, fonty, grubości linii) pozostają logiczne, a obraz jest ostry —
+        // mniej pikselozy, zwłaszcza przy zoomie CSS i dużych liczbach. Limit ×3, by nie
+        // tworzyć gigantycznego bufora. Zwraca logiczne wymiary do rysowania.
+        function setCanvasHiDPI(canvas, ctx) {
+            canvas = canvas || graphCanvas;
+            ctx = ctx || graphCtx;
+            if (!canvas._logicalW) { canvas._logicalW = canvas.width; canvas._logicalH = canvas.height; }
+            var dpr = window.devicePixelRatio || 1;
+            var scale = Math.min(Math.max(dpr, 1) * 1.5, 3);
+            var W = Math.round(canvas._logicalW * scale);
+            var H = Math.round(canvas._logicalH * scale);
+            if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
+            ctx.setTransform(scale, 0, 0, scale, 0, 0);
+            return { w: canvas._logicalW, h: canvas._logicalH };
+        }
 
         function drawGraphBase(bounds) {
             var ctx = graphCtx;
-            var w = graphCanvas.width;
-            var h = graphCanvas.height;
+            var dims = setCanvasHiDPI(graphCanvas, ctx);
+            var w = dims.w;
+            var h = dims.h;
             var pad = GRAPH_PAD;
             ctx.clearRect(0, 0, w, h);
             ctx.fillStyle = '#f8fafc';
@@ -2843,8 +2866,8 @@
         function drawFunction(command, bounds) {
             var fn = compileGraphExpression(command);
             var ctx = graphCtx;
-            var w = graphCanvas.width;
-            var h = graphCanvas.height;
+            var w = GRAPH_LOGICAL_W;
+            var h = GRAPH_LOGICAL_H;
             var pad = drawGraphBase(bounds);
             var started = false;
             var samples = Math.max(300, w - pad * 2);
@@ -2876,8 +2899,8 @@
 
         function drawPoints(points, bounds, labelPrefix) {
             var ctx = graphCtx;
-            var w = graphCanvas.width;
-            var h = graphCanvas.height;
+            var w = GRAPH_LOGICAL_W;
+            var h = GRAPH_LOGICAL_H;
             var pad = drawGraphBase(bounds);
 
             ctx.fillStyle = '#dc2626';
@@ -3575,8 +3598,8 @@
         function drawGeometry(geos, bounds) {
             // geos = tablica obiektów { geo, points, color }
             var ctx = graphCtx;
-            var w = graphCanvas.width;
-            var h = graphCanvas.height;
+            var w = GRAPH_LOGICAL_W;
+            var h = GRAPH_LOGICAL_H;
             var pad = drawGraphBase(bounds);
             var colors = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2'];
 
@@ -4157,7 +4180,7 @@
                     var labelPrefix = item.geo.division.label || 'P';
                     // Rysuj punkty ręcznie z danym kolorem
                     var ctx = graphCtx;
-                    var w = graphCanvas.width; var h = graphCanvas.height;
+                    var w = GRAPH_LOGICAL_W; var h = GRAPH_LOGICAL_H;
                     var pad = 46;
                     ctx.font = '700 12px ' + getComputedStyle(document.body).fontFamily;
                     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
@@ -4179,8 +4202,8 @@
                     // Rysuj funkcję BEZ czyszczenia canvasa (drawGraphBase już wywołane wyżej)
                     var fn = compileGraphExpression(item.cmd);
                     var ctx = graphCtx;
-                    var w = graphCanvas.width;
-                    var h = graphCanvas.height;
+                    var w = GRAPH_LOGICAL_W;
+                    var h = GRAPH_LOGICAL_H;
                     var pad = 46;
                     var samples = Math.max(300, w - pad * 2);
                     var started = false;
@@ -4678,8 +4701,8 @@
             if (!graphCanvasWrapper || !graphContainer) return;
             var w = graphContainer.clientWidth;
             var h = graphContainer.clientHeight;
-            var cw = graphCanvas.width  * graphZoomState.scale;
-            var ch = graphCanvas.height * graphZoomState.scale;
+            var cw = GRAPH_LOGICAL_W  * graphZoomState.scale;
+            var ch = GRAPH_LOGICAL_H * graphZoomState.scale;
             graphZoomState.offsetX = clamp(graphZoomState.offsetX, -cw + Math.min(w * 0.3, 80), w - Math.min(w * 0.3, 80));
             graphZoomState.offsetY = clamp(graphZoomState.offsetY, -ch + Math.min(h * 0.3, 60), h - Math.min(h * 0.3, 60));
             if (animate) {
