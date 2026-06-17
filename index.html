@@ -104,6 +104,7 @@
                             <span class="mode-dot"></span>
                             <span class="mode-label">Tryb: pusty</span>
                         </div>
+                        <div class="cmd-syntax-hint" id="graphCmdSyntax" aria-live="polite" hidden></div>
                         <div class="autocomplete-wrap">
                             <textarea id="graphCommand" rows="2" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false"
                                 placeholder="np. x=120/4 ,, @edges   albo   f(x)=sin(x)"></textarea>
@@ -1282,13 +1283,13 @@
                 <section>
                     <h4>📐 Geometria 2D</h4>
 
-                    <p class="help-command" data-command="punkt=150,200 | label=A | r=8">
-                        <code>punkt=150,200 | label=A | r=8</code>
+                    <p class="help-command" data-command="punkt=150;200 | label=A | r=8">
+                        <code>punkt=150;200 | label=A | r=8</code>
                         punkt w miejscu X=150, Y=200, rozmiar r=8
                     </p>
 
-                    <p class="help-command" data-command="punkt=0,0 | label=środek">
-                        <code>punkt=0,0 | label=środek</code>
+                    <p class="help-command" data-command="punkt=0;0 | label=środek">
+                        <code>punkt=0;0 | label=środek</code>
                         punkt w centrum układu
                     </p>
 
@@ -1328,13 +1329,13 @@
                         porównanie funkcji
                     </p>
 
-                    <p class="help-command" data-command="rect=400x300 ;; siatka=400x300 | co=200x150 | label=słup ;; punkt=200,150 | label=środek">
+                    <p class="help-command" data-command="rect=400x300 ;; siatka=400x300 | co=200x150 | label=słup ;; punkt=200;150 | label=środek">
                         <code>rect=400x300 ;; siatka=... ;; punkt=...</code>
                         rzut altanki: obrys + słupy + środek
                     </p>
 
-                    <p class="help-command" data-command="x(d)=300/4 | m=10 | y=-2 ;; punkt=150,0 | label=kotwica">
-                        <code>x(d)=300/4 | y=-2 ;; punkt=150,0</code>
+                    <p class="help-command" data-command="x(d)=300/4 | m=10 | y=-2 ;; punkt=150;0 | label=kotwica">
+                        <code>x(d)=300/4 | y=-2 ;; punkt=150;0</code>
                         punkty na belce + dodatkowy punkt
                     </p>
                 </section>

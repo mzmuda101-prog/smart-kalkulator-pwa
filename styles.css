@@ -908,6 +908,38 @@
         .command-error:empty {
             display: none;
         }
+        /* Live podpowiedź składni komendy (jak w Excelu/Sheets) — pojawia się przy pisaniu. */
+        .cmd-syntax-hint {
+            margin-top: 6px;
+            padding: 7px 10px;
+            border-radius: 8px;
+            background: color-mix(in srgb, var(--primary, #2563eb) 8%, transparent);
+            border: 1px solid color-mix(in srgb, var(--primary, #2563eb) 22%, transparent);
+            font-size: 0.76rem;
+            line-height: 1.4;
+            color: var(--text, #0f172a);
+        }
+        .cmd-syntax-hint[hidden] { display: none; }
+        .cmd-syntax-hint .cs-head {
+            font-weight: 700;
+            color: var(--primary, #2563eb);
+            margin-right: 6px;
+        }
+        .cmd-syntax-hint .cs-sig {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.74rem;
+            word-break: break-word;
+        }
+        .cmd-syntax-hint .cs-sig b { color: var(--primary, #2563eb); font-weight: 700; }
+        .cmd-syntax-hint .cs-desc { display: block; margin-top: 3px; opacity: 0.8; }
+        .cmd-syntax-hint .cs-legend {
+            display: block;
+            margin-top: 4px;
+            padding-top: 4px;
+            border-top: 1px dashed color-mix(in srgb, var(--primary, #2563eb) 20%, transparent);
+            font-size: 0.68rem;
+            color: var(--text-muted, #94a3b8);
+        }
         .recent-commands {
             display: none;
             flex-wrap: wrap;

@@ -2192,12 +2192,12 @@
                     { syntax: 'pi / π / e', command: 'f(x)=sin(pi*x)', description: 'stale matematyczne.', terms: ['pi', 'π', 'e'] },
                     { syntax: 'podziel 120 na 4', command: 'podziel 120 na 4', description: 'naturalny zapis podzialu.', terms: ['podziel 120 na 4'] },
                     { syntax: 'od 0 do 120 co 20', command: 'od 0 do 120 co 20', description: 'naturalny zapis stalego odstepu.', terms: ['od 0 do 120 co 20'] },
-                    { syntax: 'punkt=150,200 / p=150,200', command: 'p=150,200 | label=A', description: 'punkt 2D.', terms: ['punkt=150,200', 'p=150,200'] },
+                    { syntax: 'punkt=150;200 / p=150;200', command: 'p=150;200 | label=A', description: 'punkt 2D.', terms: ['punkt=150;200', 'p=150;200'] },
                     { syntax: 'rect=400x300 / prostokat=400x300', command: 'prostokat=400x300', description: 'prostokat 2D.', terms: ['rect=400x300', 'prostokat=400x300'] },
                     { syntax: 'ox=50 / oy=50 / x0=50 / y0=50 / od_x=50 / od_y=50', command: 'rect=400x300 | x0=50 | y0=50', description: 'przesuniecie geometrii.', terms: ['ox=50', 'oy=50', 'x0=50', 'y0=50', 'od_x=50', 'od_y=50'] },
                     { syntax: 'siatka=400x300 / grid=400x300', command: 'grid=400x300 | co=100x100', description: 'siatka punktow.', terms: ['siatka=400x300', 'grid=400x300'] },
                     { syntax: 'co=100x100 / krok=100x100 / co_x=100x100', command: 'siatka=400x300 | krok=100x100', description: 'odstep siatki.', terms: ['co=100x100', 'krok=100x100', 'co_x=100x100'] },
-                    { syntax: ';;', command: 'f(x)=sin(x) ;; punkt=0,0', description: 'wiele serii na wykresie.', terms: [';;'] },
+                    { syntax: ';;', command: 'f(x)=sin(x) ;; punkt=0;0', description: 'wiele serii na wykresie.', terms: [';;'] },
                 ],
             };
         }
@@ -2487,6 +2487,80 @@
             if (graphCmdModeBadge) graphCmdModeBadge.classList.toggle('cmd-active', active);
             if (graphCmdModeLabel) graphCmdModeLabel.textContent = label;
             refreshCmdHL();
+            refreshCmdSyntaxHint();
+        }
+
+        // [PL] Live podpowiedź składni (jak w Excelu/Google Sheets): w trakcie pisania
+        // pokazuje wzór komendy lub aktualnie wpisywanego parametru pod polem. Sygnatury są
+        // statyczne (nasze, bezpieczne do wstrzyknięcia) — nie wstawiamy tu tekstu użytkownika.
+        var graphCmdSyntaxEl = document.getElementById('graphCmdSyntax');
+        var CMD_SIGNATURES = [
+            { test: /^f\s*\(|^y\s*=/, head: 'f(x)=', sig: 'f(x)=<b>wyrażenie</b>', desc: 'wykres funkcji. Działa: + − * / ^, sin cos tan sqrt abs log ln exp, stałe π e.' },
+            { test: /^(kamera|widok|fov|pole|stozek|sto[zż]ek)/, head: 'kamera', sig: 'kamera=<b>x;y[;z]</b> ,, kąt=<b>H[;V]</b> ,, zasięg=<b>Z</b> ,, [cel=x;y;z | azymut=A[;V] | kierunek=A[;V]] ,, [pochył=P] ,, [na=D1;D2]', desc: 'pole widzenia. z = wysokość, V = pionowy FOV. Skrót pozycyjny: kamera=x;y;z;kąt;zasięg.' },
+            { test: /^(siatka|grid)/, head: 'siatka', sig: 'siatka=<b>WxH</b> ,, co=<b>dx x dy</b> ,, [ox= ,, oy=]', desc: 'siatka punktów w polu W×H (dx, dy = odstępy).' },
+            { test: /^(rect|prostokat)/, head: 'rect', sig: 'rect=<b>WxH</b> ,, [ox= ,, oy= ,, label=]', desc: 'prostokąt; lewy dolny róg w 0;0.' },
+            { test: /^(okrag|kolo|circle|okr[aą]g|ko[lł]o)/, head: 'okrag', sig: 'okrag=<b>R</b> ,, [ox= ,, oy=]', desc: 'okrąg o promieniu R, środek w 0;0.' },
+            { test: /^(wielokat|wielok[aą]t|poly|figura)/, head: 'wielokat', sig: 'wielokat=<b>N;R</b>  |  wielokat=<b>x;y/x;y/…</b>', desc: 'foremny (N boków, promień R) lub nieforemny (lista wierzchołków przez /).' },
+            { test: /^(trojkat|tr[oó]jk[aą]t|triangle)/, head: 'trojkat', sig: 'trojkat=<b>x;y/x;y/x;y</b>', desc: '3 wierzchołki → boki, kąty, pole, obwód.' },
+            { test: /^(pitagoras|pythagoras)/, head: 'pitagoras', sig: 'pitagoras=<b>a;b</b>', desc: 'przyprostokątne a;b → przeciwprostokątna c.' },
+            { test: /^(punkt|p)\s*=/, head: 'punkt', sig: 'punkt=<b>x;y</b> ,, [label=T ,, r=P ,, z=H]', desc: 'punkt 2D w (x;y).' },
+            { test: /^x\s*\(|^[xy]\s*=/, head: 'oś / podział', sig: '<b>x=L/N</b>  |  x=L ,, co=<b>S</b> ,, [m=A/B ,, @edges ,, u=mm]', desc: 'podział osi: L = długość, N = liczba punktów, co = odstęp.' },
+        ];
+        var PARAM_ALIASES = {
+            hfov: 'kąt', kat: 'kąt', katxy: 'kątxy', kat_poziomy: 'kątxy', 'kąt_poziomy': 'kątxy',
+            vfov: 'kątz', katz: 'kątz', pion: 'kątz', kat_pionowy: 'kątz', 'kąt_pionowy': 'kątz',
+            range: 'zasięg', zasieg: 'zasięg', tilt: 'pochył', pochyl: 'pochył',
+            wys: 'z', target: 'cel', patrz: 'cel', bearing: 'azymut', kompas: 'azymut', dir: 'kierunek',
+            opis: 'label', nazwa: 'label', step: 'co', krok: 'co', every: 'co', odstep: 'co', margin: 'm', margines: 'm',
+        };
+        var PARAM_SIGNATURES = {
+            'cel':      { sig: 'cel=<b>x;y[;z]</b>', desc: 'wyceluj kamerę w punkt; z = wysokość celu.' },
+            'azymut':   { sig: 'azymut=<b>A[;V]</b>', desc: 'A = kompas (0=płn., zgodnie z zegarem), V = pion (+ w górę).' },
+            'kierunek': { sig: 'kierunek=<b>A[;V]</b>', desc: 'A = matematyczny (0=prawo, przeciwnie do zegara), V = pion (+ w górę).' },
+            'kąt':      { sig: 'kąt=<b>H[;V]</b>', desc: 'H = poziomy FOV, V = pionowy (skrót zamiast kątZ).' },
+            'kątxy':    { sig: 'kątXY=<b>H</b>', desc: 'poziomy FOV (płaszczyzna XY).' },
+            'kątz':     { sig: 'kątZ=<b>V</b>', desc: 'pionowy FOV (oś Z) — potrzebny do rzutu na ziemię.' },
+            'zasięg':   { sig: 'zasięg=<b>Z</b>', desc: 'zasięg widzenia (promień).' },
+            'pochył':   { sig: 'pochył=<b>P</b>', desc: 'pochylenie w dół (0=poziomo, 90=prosto w dół).' },
+            'na':       { sig: 'na=<b>D1[;D2;D3]</b>', desc: 'poprzeczne linie granic na podanych odległościach.' },
+            'z':        { sig: 'z=<b>H</b>', desc: 'wysokość montażu nad ziemią.' },
+            'co':       { sig: 'co=<b>S</b> | <b>S1;S2</b> | <b>dx x dy</b>', desc: 'odstęp: stały, naprzemienny lub siatka.' },
+            'm':        { sig: 'm=<b>A/B</b>', desc: 'margines: A od początku, B od końca.' },
+            'label':    { sig: 'label=<b>T</b>', desc: 'podpis serii/figury (opis/nazwa).' },
+        };
+        function cmdSyntaxFor(raw) {
+            if (!raw || !raw.trim()) return null;
+            var lastSeries = raw.split(';;').pop();
+            var segs = lastSeries.split(/,,|\|/);
+            // Jeśli user pisze dalszy parametr (po ,,) — pokaż sygnaturę tego parametru.
+            if (segs.length > 1) {
+                var curKey = segs[segs.length - 1].trim().toLowerCase().split('=')[0].trim();
+                if (curKey) {
+                    var key = PARAM_ALIASES[curKey] || curKey;
+                    if (PARAM_SIGNATURES[key]) return { head: key, sig: PARAM_SIGNATURES[key].sig, desc: PARAM_SIGNATURES[key].desc };
+                }
+            }
+            var headRaw = segs[0].trim().toLowerCase();
+            for (var i = 0; i < CMD_SIGNATURES.length; i++) {
+                if (CMD_SIGNATURES[i].test.test(headRaw)) return CMD_SIGNATURES[i];
+            }
+            return null;
+        }
+        function refreshCmdSyntaxHint() {
+            if (!graphCmdSyntaxEl) return;
+            var info = null;
+            try { info = cmdSyntaxFor(graphCommand.value); } catch (e) { info = null; }
+            if (!info) { graphCmdSyntaxEl.hidden = true; graphCmdSyntaxEl.innerHTML = ''; return; }
+            // Kontekstowa legenda zapisu — tylko gdy w sygnaturze są symbole, które wymagają wyjaśnienia.
+            var leg = [];
+            if (/\[/.test(info.sig)) leg.push('[ ] = opcjonalne');
+            if (/\|/.test(info.sig)) leg.push('| = albo');
+            if (/;/.test(info.sig)) leg.push('; oddziela liczby (przecinek = ułamek)');
+            graphCmdSyntaxEl.hidden = false;
+            graphCmdSyntaxEl.innerHTML = '<span class="cs-head">' + info.head + '</span>'
+                + '<span class="cs-sig">' + info.sig + '</span>'
+                + (info.desc ? '<span class="cs-desc">' + info.desc + '</span>' : '')
+                + (leg.length ? '<span class="cs-legend">' + leg.join(' · ') + '</span>' : '');
         }
 
         // [EN] Koloryzacja składni w polu komendy — podświetla separatory (;; serie,
@@ -2546,6 +2620,13 @@
         function parseGraphNumber(value, fallback) {
             var n = parseFloat(normalizeNumberText(value));
             return isFinite(n) ? n : fallback;
+        }
+
+        // [PL] Rozdziela składowe wartości (współrzędne, listy) po ';'. Średnik jest JEDYNYM
+        // separatorem składowych — dzięki temu ',' jest wolny jako przecinek dziesiętny
+        // (np. cel=10,5;8 → (10.5, 8); kąt=90;55 → poziom 90, pion 55).
+        function splitVals(value) {
+            return String(value == null ? '' : value).split(';').map(function(t) { return t.trim(); });
         }
 
         function stripFunctionPrefix(raw) {
@@ -3247,7 +3328,7 @@
             if (/^punkt\s*=\s*-?[\d.]/.test(lower) || /^p\s*=\s*-?[\d.]/.test(lower)) {
                 var body = str.replace(/^[^=]+=/, '').trim();
                 var parts = body.split(',,').map(function(s) { return s.trim(); });
-                var coords = parts[0].split(',');
+                var coords = splitVals(parts[0]);
                 var x = parseGraphNumber(coords[0], 0);
                 var y = parseGraphNumber(coords[1] || '0', 0);
                 var label = 'P'; var r = 7; var oz = 0;
@@ -3335,7 +3416,7 @@
                 // Nieforemny: lista wierzchołków rozdzielona "/" (każdy jako x,y)
                 if (parts[0].indexOf('/') !== -1) {
                     var vertices = parts[0].split('/').map(function(v) {
-                        var c = v.trim().split(',');
+                        var c = splitVals(v);
                         return { x: parseGraphNumber(c[0], 0), y: parseGraphNumber(c[1] || '0', 0) };
                     }).filter(function(v) { return isFinite(v.x) && isFinite(v.y); });
                     if (vertices.length >= 2) {
@@ -3344,7 +3425,7 @@
                 }
 
                 // Foremny: N boków wpisany w okrąg o promieniu R
-                var mainParts = parts[0].split(',');
+                var mainParts = splitVals(parts[0]);
                 var n = Math.max(3, Math.round(parseGraphNumber(mainParts[0], 6)));
                 var r = Math.abs(parseGraphNumber(mainParts[1] || '100', 100));
                 return { type: 'wielokat', n: n, r: r, ox: ox, oy: oy, label: label, oz: oz };
@@ -3363,11 +3444,11 @@
                     if (/^(z|wys|wysoko[sść]c?|wysoko[sść][cć]|h)=/.test(pl)) oz = parseGraphNumber(p.split('=')[1], 0);
                 });
                 var verts = parts[0].split('/').map(function(v) {
-                    var c = v.trim().split(',');
+                    var c = splitVals(v);
                     return { x: parseGraphNumber(c[0], 0), y: parseGraphNumber(c[1] || '0', 0) };
                 }).filter(function(v) { return isFinite(v.x) && isFinite(v.y); });
                 if (verts.length !== 3) {
-                    return { type: 'trojkat', error: 'Trójkąt wymaga dokładnie 3 wierzchołków (x,y/x,y/x,y).' };
+                    return { type: 'trojkat', error: 'Trójkąt wymaga dokładnie 3 wierzchołków (x;y/x;y/x;y).' };
                 }
                 return { type: 'trojkat', vertices: verts, ox: ox, oy: oy, label: label, oz: oz };
             }
@@ -3384,11 +3465,11 @@
                     if (/^(oy|y0|od_y)=/.test(pl)) oy = parseGraphNumber(p.split('=')[1], 0);
                     if (/^(z|wys|wysoko[sść]c?|wysoko[sść][cć]|h)=/.test(pl)) oz = parseGraphNumber(p.split('=')[1], 0);
                 });
-                var legs = parts[0].split(/[,/]/);
+                var legs = parts[0].split(/[;/]/);
                 var a = Math.abs(parseGraphNumber(legs[0], 0));
                 var b = Math.abs(parseGraphNumber(legs[1] || '0', 0));
                 if (!(a > 0) || !(b > 0)) {
-                    return { type: 'trojkat', error: 'Pitagoras wymaga dwóch przyprostokątnych, np. pitagoras=3,4.' };
+                    return { type: 'trojkat', error: 'Pitagoras wymaga dwóch przyprostokątnych, np. pitagoras=3;4.' };
                 }
                 // Wierzchołki trójkąta prostokątnego: kąt prosty w (0,0)
                 var verts = [
@@ -3400,18 +3481,23 @@
             }
 
             // --- kamera=x,y / widok / fov / pole widzenia — stożek (wycinek) pola widzenia ---
-            // Kierunek: cel=x,y[,z] (patrz w punkt), azymut=A[,V] (kompas: 0°=góra, zgodnie z zegarem),
-            // kierunek=A[,V] (matematyczny: 0°=prawo, przeciwnie do zegara). Domyślnie 0° (w prawo).
+            // Kierunek: cel=x;y[;z] (patrz w punkt), azymut=A[;V] (kompas: 0°=góra, zgodnie z zegarem),
+            // kierunek=A[;V] (matematyczny: 0°=prawo, przeciwnie do zegara). Domyślnie 0° (w prawo).
             // Druga liczba V w azymut/kierunek = pion (dodatni = w górę, ujemny = w dół), analogicznie do z w cel.
+            // Separator składowych = ';' (przecinek wolny na ułamki: cel=10,5;8). Skrót: kamera=x;y;z;kąt;zasięg.
             if (/^(kamera|widok|fov|pole[_ ]?widzenia|stozek|sto[zż]ek)\s*=/.test(lower)) {
                 var body = str.replace(/^[^=]+=/, '').trim();
                 var parts = body.split(',,').map(function(s) { return s.trim(); });
-                var posC = parts[0].split('/')[0].split(',');
+                var posC = splitVals(parts[0].split('/')[0]);
                 var ox = parseGraphNumber(posC[0], 0);
                 var oy = parseGraphNumber(posC[1] || '0', 0);
-                // Wysokość montażu można też podać jako 3. składową pozycji: kamera=x,y,z
-                var oz = posC[2] != null ? Math.abs(parseGraphNumber(posC[2], 0)) : 0;
-                var fov = 90, range = 10, label = '', markDist = 0;
+                // Skrót pozycyjny: kamera=x;y;z;kąt;zasięg — wysokość (z), kąt poziomy i zasięg
+                // można podać od razu w pozycji. Jawne parametry (kąt=, zasięg=, z=) i tak nadpiszą.
+                function posNum(i) { return posC[i] != null && posC[i] !== '' ? posC[i] : null; }
+                var oz = posNum(2) != null ? Math.abs(parseGraphNumber(posC[2], 0)) : 0;
+                var fov = posNum(3) != null ? Math.abs(parseGraphNumber(posC[3], 90)) : 90;
+                var range = posNum(4) != null ? Math.abs(parseGraphNumber(posC[4], 10)) : 10;
+                var label = '', markDists = [];
                 var dirRad = 0, dirMode = 'kierunek', dirValue = 0, targetTxt = null;
                 var targetX = null, targetY = null; // punkt celu (do narysowania znacznika „cel")
                 var fovV = 0;                 // pionowy FOV (analogicznie do poziomego `kąt`)
@@ -3424,35 +3510,39 @@
                     if (/^(k[aą]tz|katz|k[aą]t_pion|k[aą]t_pionowy|kat_pion|kat_pionowy|fovv|fov_v|vfov|pion)=/.test(pl)) {
                         fovV = Math.abs(parseGraphNumber(val, 0));
                     } else if (/^(k[aą]t|kat|k[aą]txy|katxy|k[aą]t_poziomy|kat_poziomy|k[aą]t_poz|kat_poz|fov|hfov|fov_h|angle)=/.test(pl)) {
-                        fov = Math.abs(parseGraphNumber(val, 90));
+                        // kąt=H lub kąt=H;V — H = kąt poziomy, V (opcjonalnie) = kąt pionowy (jak kątZ=)
+                        var kc = splitVals(val);
+                        fov = Math.abs(parseGraphNumber(kc[0], 90));
+                        if (kc[1] != null && kc[1] !== '') fovV = Math.abs(parseGraphNumber(kc[1], 0));
                     } else if (/^(pochy[lł]|pochylenie|tilt|sp[aą]d|wd[oó][lł])=/.test(pl)) {
                         tilt = parseGraphNumber(val, 0); tiltMode = 'jawny';
                     } else if (/^(z|wys|wysoko[sść]c?|wysoko[sść][cć]|h)=/.test(pl)) {
                         oz = Math.abs(parseGraphNumber(val, 0));
                     } else if (/^(na|przy|odl|dystans)=/.test(pl)) {
-                        markDist = Math.abs(parseGraphNumber(val, 0));
+                        // na=5 lub na=5;10;15 — jedna lub wiele poprzecznych linii granic FOV.
+                        splitVals(val).forEach(function(d) { var n = Math.abs(parseGraphNumber(d, 0)); if (n > 0) markDists.push(n); });
                     } else if (/^(zasi[eę]g|zasieg|range|d[lł]ugo[sś][cć]|r)=/.test(pl)) {
                         range = Math.abs(parseGraphNumber(val, 10));
                     } else if (/^(cel|target|patrz)=/.test(pl)) {
-                        var c = val.split(',');
+                        var c = splitVals(val);
                         var cx = parseGraphNumber(c[0], 0), cy = parseGraphNumber(c[1] || '0', 0);
-                        if (c[2] != null && c[2].trim() !== '') targetZ = parseGraphNumber(c[2], 0);
+                        if (c[2] != null && c[2] !== '') targetZ = parseGraphNumber(c[2], 0);
                         dirRad = Math.atan2(cy - oy, cx - ox); dirMode = 'cel';
                         targetX = cx; targetY = cy;
                         targetHorizDist = Math.hypot(cx - ox, cy - oy);
-                        targetTxt = formatNum(cx) + ', ' + formatNum(cy) + (c[2] != null && c[2].trim() !== '' ? ', ' + formatNum(targetZ) : '');
+                        targetTxt = formatNum(cx) + '; ' + formatNum(cy) + (c[2] != null && c[2] !== '' ? '; ' + formatNum(targetZ) : '');
                     } else if (/^(azymut|bearing|kompas)=/.test(pl)) {
-                        // azymut=A lub azymut=A,V — A = kierunek poziomy (kompas), V = pion (dodatni = w górę)
-                        var av = val.split(',');
+                        // azymut=A lub azymut=A;V — A = kierunek poziomy (kompas), V = pion (dodatni = w górę)
+                        var av = splitVals(val);
                         dirValue = parseGraphNumber(av[0], 0);
                         dirRad = (90 - dirValue) * Math.PI / 180; dirMode = 'azymut';
-                        if (av[1] != null && av[1].trim() !== '') dirTilt = -parseGraphNumber(av[1], 0);
+                        if (av[1] != null && av[1] !== '') dirTilt = -parseGraphNumber(av[1], 0);
                     } else if (/^(kierunek|dir|kat_kier)=/.test(pl)) {
-                        // kierunek=A lub kierunek=A,V — A = kierunek poziomy (matematyczny), V = pion (dodatni = w górę)
-                        var kv = val.split(',');
+                        // kierunek=A lub kierunek=A;V — A = kierunek poziomy (matematyczny), V = pion (dodatni = w górę)
+                        var kv = splitVals(val);
                         dirValue = parseGraphNumber(kv[0], 0);
                         dirRad = dirValue * Math.PI / 180; dirMode = 'kierunek';
-                        if (kv[1] != null && kv[1].trim() !== '') dirTilt = -parseGraphNumber(kv[1], 0);
+                        if (kv[1] != null && kv[1] !== '') dirTilt = -parseGraphNumber(kv[1], 0);
                     } else if (/^(label|opis|nazwa)=/.test(pl)) {
                         label = val;
                     }
@@ -3474,10 +3564,21 @@
                     tiltMode = 'cel';
                 }
 
+                // Czy pole widzenia w ogóle obejmuje ziemię? theta = pochylenie w dół (°),
+                // dodatnie = w dół. Najbardziej „w dół" promień = theta + fovV/2. Gdy nawet on
+                // jest nad horyzontem (≤ 0), kamera patrzy w niebo → ZERO pokrycia ziemi.
+                // (fovV pominięty ⇒ traktujemy oś jak cienki promień: β=0.)
+                var groundVanished = false;
+                if (theta != null) {
+                    var aBottomDeg = theta + (fovV > 0 ? fovV : 0) / 2;
+                    if (aBottomDeg <= 1e-9) groundVanished = true;
+                }
+
                 // Footprint (rzut pola widzenia na ziemię) — gdy kamera jest podniesiona,
-                // patrzy w dół i znamy pionowy FOV. Inaczej zostaje płaski wycinek.
+                // znamy pionowy FOV i choć część kadru patrzy pod horyzont. Inaczej płaski
+                // wycinek (gdy brak pochylenia) albo nic (gdy patrzy w górę — groundVanished).
                 var footprint = null;
-                if (oz > 0 && theta != null && theta > 0 && fovV > 0) {
+                if (!groundVanished && oz > 0 && theta != null && fovV > 0 && (theta + fovV / 2) > 1e-9) {
                     var fovVr = fovV * Math.PI / 180;
                     var aBottom = theta * Math.PI / 180 + fovVr / 2; // najbardziej stromy promień (bliski brzeg)
                     var aTop = theta * Math.PI / 180 - fovVr / 2;    // najpłytszy promień (daleki brzeg)
@@ -3505,7 +3606,16 @@
                         var d1 = fwd[1] + Math.tan(bh) * sh * uH[1] + Math.tan(bv) * sv * vUp[1];
                         var d2 = fwd[2] + Math.tan(bh) * sh * uH[2] + Math.tan(bv) * sv * vUp[2];
                         var az = Math.atan2(d1, d0);
-                        if (d2 >= -1e-9) return { x: ox + range * Math.cos(az), y: oy + range * Math.sin(az), az: az, clamped: true };
+                        if (d2 >= -1e-9) {
+                            // Promień ponad horyzontem nie sięga ziemi — rzut „przy horyzoncie" na
+                            // zasięg. Nie może wypaść ZA kamerę: tniemy azymut do przedniej półsfery
+                            // (±90° od kierunku), inaczej kadr za zenitem zawija pokrycie do tyłu.
+                            var rel = Math.atan2(Math.sin(az - dirRad), Math.cos(az - dirRad));
+                            if (rel > Math.PI / 2) rel = Math.PI / 2;
+                            else if (rel < -Math.PI / 2) rel = -Math.PI / 2;
+                            var azC = dirRad + rel;
+                            return { x: ox + range * Math.cos(azC), y: oy + range * Math.sin(azC), az: azC, clamped: true };
+                        }
                         var t = oz / (-d2);
                         var gx = ox + t * d0, gy = oy + t * d1;
                         if (Math.hypot(t * d0, t * d1) > range) return { x: ox + range * Math.cos(az), y: oy + range * Math.sin(az), az: az, clamped: true };
@@ -3533,9 +3643,10 @@
                 }
 
                 return { type: 'widok', ox: ox, oy: oy, fov: fov, range: range, dir: dirRad,
-                         dirMode: dirMode, dirValue: dirValue, targetTxt: targetTxt, label: label, markDist: markDist,
+                         dirMode: dirMode, dirValue: dirValue, targetTxt: targetTxt, label: label, markDists: markDists,
                          targetX: targetX, targetY: targetY,
-                         oz: oz, fovV: fovV, tilt: theta, tiltMode: tiltMode, targetZ: targetZ, footprint: footprint };
+                         oz: oz, fovV: fovV, tilt: theta, tiltMode: tiltMode, targetZ: targetZ,
+                         footprint: footprint, groundVanished: groundVanished };
             }
 
             return null;
@@ -3636,11 +3747,28 @@
             mountTxt += ', zasięg ' + formatNum(geo.range);
             lines.push(mountTxt);
 
-            // Tryb przestrzenny: kamera podniesiona, znamy pochylenie i pionowy FOV → trapez na ziemi.
+            // Pionowy opis osi (tilt jest down-positive → tekst góra/dół).
+            function vAimTxt(tiltDown) {
+                if (tiltDown == null) return 'poziomo (0°)';
+                var e = -tiltDown; // elewacja: dodatnia = w górę
+                if (Math.abs(e) < 1e-9) return 'poziomo (0°)';
+                return e > 0 ? formatNum(e) + '° w górę' : formatNum(-e) + '° w dół';
+            }
+
+            // Kamera patrzy w górę / nad horyzont — pole widzenia nie sięga ziemi.
+            if (geo.groundVanished) {
+                lines.push('Pion: ' + vAimTxt(geo.tilt));
+                lines.push('⚠️ Pole widzenia nie obejmuje ziemi — brak pokrycia (kamera patrzy w górę).');
+                if (geo.oz > 0 && !(geo.fovV > 0))
+                    lines.push('ℹ️ Jeśli ma obejmować grunt: zmniejsz kąt w górę albo dodaj kątZ= (pionowy FOV).');
+                return lines.join('\n');
+            }
+
+            // Tryb przestrzenny: znamy pochylenie i pionowy FOV → wierny trapez na ziemi.
             if (geo.footprint) {
                 var f = geo.footprint;
                 var pochSrc = geo.tiltMode === 'cel' ? ' (z celu)' : '';
-                lines.push('Pochylenie w dół: ' + formatNum(geo.tilt) + '°' + pochSrc + ', pionowy FOV ' + formatNum(geo.fovV) + '°');
+                lines.push('Oś pionowo: ' + vAimTxt(geo.tilt) + pochSrc + ', pionowy FOV ' + formatNum(geo.fovV) + '°');
                 lines.push('Pokrycie na ziemi: od ' + formatNum(f.dNear) + ' do ' + formatNum(f.dFar)
                     + (f.farClamped ? ' (ucięte do zasięgu)' : '') + ' — głębokość ' + formatNum(f.dFar - f.dNear));
                 if (f.dNear > 0) lines.push('Martwa strefa pod kamerą: 0 – ' + formatNum(f.dNear));
@@ -3648,27 +3776,26 @@
                     + ', daleki brzeg ' + formatNum(f.farWidth) + (f.farArc ? ' (łuk zasięgu)' : ''));
                 lines.push('Pole pokrycia: ' + formatNum(f.area));
             } else {
-                // Pion podany (np. azymut=A,V), ale bez rzutu na ziemię — pokaż sam kąt patrzenia.
-                if (geo.tilt != null && Math.abs(geo.tilt) > 1e-9) {
-                    var elev = -geo.tilt; // tilt jest down-positive; elewacja w górę dodatnia
-                    lines.push('Pion: ' + (elev >= 0
-                        ? formatNum(elev) + '° w górę'
-                        : formatNum(-elev) + '° w dół'));
-                }
+                var tiltSet = geo.tilt != null && Math.abs(geo.tilt) > 1e-9;
+                if (tiltSet) lines.push('Pion: ' + vAimTxt(geo.tilt));
                 if (geo.oz > 0) {
                     if (!(geo.fovV > 0))
-                        lines.push('ℹ️ Dodaj kąt_pionowy= (lub kątZ=), by zobaczyć martwą strefę i pokrycie na ziemi.');
+                        lines.push('ℹ️ Dodaj kąt_pionowy= (lub kątZ=), by policzyć martwą strefę i rzut na ziemię.');
                     else
                         lines.push('ℹ️ Dodaj cel= na ziemi lub pochył=, by policzyć pokrycie na ziemi.');
+                } else if (tiltSet) {
+                    lines.push('ℹ️ Pochylenie podane, ale bez z= (wysokość) i kątZ= (pionowy FOV) rzut na ziemię się nie policzy — liczby niżej to płaskie uproszczenie (bez pochylenia).');
                 }
                 if (geo.fov < 180) {
                     lines.push('Szerokość na wprost (na zasięgu): ' + formatNum(2 * geo.range * Math.tan(rad / 2)));
                 }
-                lines.push('Pole pokrycia: ' + formatNum(0.5 * geo.range * geo.range * rad));
+                lines.push('Pole pokrycia' + (tiltSet ? ' (płasko)' : '') + ': ' + formatNum(0.5 * geo.range * geo.range * rad));
                 lines.push('Łuk na zasięgu: ' + formatNum(geo.range * rad));
             }
-            if (geo.markDist > 0 && geo.fov < 180) {
-                lines.push('Na odległości ' + formatNum(geo.markDist) + ': szerokość ' + formatNum(2 * geo.markDist * Math.tan(rad / 2)));
+            if (geo.markDists && geo.markDists.length && geo.fov < 180) {
+                geo.markDists.forEach(function(md) {
+                    lines.push('Na odległości ' + formatNum(md) + ': szerokość ' + formatNum(2 * md * Math.tan(rad / 2)));
+                });
             }
             return lines.join('\n');
         }
@@ -3749,6 +3876,8 @@
                 // Punkty tylko do dopasowania zakresu (wierzchołek + próbki łuku) — rysowane osobno.
                 var pts = [{ x: geo.ox, y: geo.oy, r: 0, label: '', _hidden: true }];
                 var half = geo.fov * Math.PI / 360;
+                // Kamera patrzy w górę — brak pokrycia ziemi, do zakresu liczy się tylko kamera.
+                if (geo.groundVanished) return pts;
                 // Tryb przestrzenny — dopasuj zakres do narożników keystone (+ szczyt łuku gdy zasięg).
                 if (geo.footprint) {
                     var f = geo.footprint;
@@ -3937,7 +4066,20 @@
                     var half = geo.fov * Math.PI / 360;
                     var steps = 64;
                     var axisLen = geo.range; // dokąd sięga oś kierunku (na ekranie)
-                    if (geo.footprint) {
+                    if (geo.groundVanished) {
+                        // Kamera patrzy w górę — pole widzenia nie sięga ziemi. Nie rysujemy
+                        // wypełnionego wycinka (byłby fałszem). Tylko krótka oś + marker „brak pokrycia".
+                        // Stub ma STAŁĄ długość ekranową (zoom-niezależną), bo zakres zwija się do kamery.
+                        var dTip = graphToScreen(geo.ox + Math.cos(geo.dir), geo.oy + Math.sin(geo.dir), bounds, w, h, pad);
+                        var ddx = dTip.x - apex.x, ddy = dTip.y - apex.y, dlen = Math.hypot(ddx, ddy) || 1;
+                        var skyEnd = { x: apex.x + ddx / dlen * 70, y: apex.y + ddy / dlen * 70 };
+                        ctx.setLineDash([6, 5]); ctx.lineWidth = 2; ctx.strokeStyle = color + 'aa';
+                        ctx.beginPath(); ctx.moveTo(apex.x, apex.y); ctx.lineTo(skyEnd.x, skyEnd.y); ctx.stroke();
+                        ctx.setLineDash([]);
+                        var elevUp = geo.tilt != null ? -geo.tilt : 0; // w górę dodatnia
+                        var skyTxt = '↑ ' + formatNum(elevUp) + '° w górę — brak pokrycia ziemi';
+                        drawSmartLabel(ctx, skyTxt, skyEnd.x, skyEnd.y, { font: lblFont('700', 10), fill: color, bg: GRAPH_LABEL_PLATE, key: 'sky' + item.si });
+                    } else if (geo.footprint) {
                         // Wierny keystone: bliski brzeg + boki jako proste; daleki brzeg prosty
                         // (gdy ogranicza go pionowy kąt) albo łuk zasięgu (gdy ucina go zasięg).
                         var f = geo.footprint;
@@ -3994,31 +4136,38 @@
                         ctx.setLineDash([]);
                         ctx.stroke();
                     }
-                    // Oś kierunku (przerywana)
-                    var axisEnd = graphToScreen(geo.ox + axisLen * Math.cos(geo.dir), geo.oy + axisLen * Math.sin(geo.dir), bounds, w, h, pad);
-                    ctx.setLineDash([5, 4]);
-                    ctx.lineWidth = 1;
-                    ctx.beginPath(); ctx.moveTo(apex.x, apex.y); ctx.lineTo(axisEnd.x, axisEnd.y); ctx.stroke();
-                    ctx.setLineDash([]);
-                    // Poprzeczna linia granic FOV na zadanej odległości (na=...)
-                    if (geo.markDist > 0 && geo.fov < 180) {
-                        var halfW = geo.markDist * Math.tan(half);
-                        var ux = Math.cos(geo.dir), uy = Math.sin(geo.dir);   // oś
-                        var pxu = -uy, pyu = ux;                              // prostopadła do osi
-                        var cxD = geo.ox + geo.markDist * ux, cyD = geo.oy + geo.markDist * uy;
-                        var mL = graphToScreen(cxD + halfW * pxu, cyD + halfW * pyu, bounds, w, h, pad);
-                        var mR = graphToScreen(cxD - halfW * pxu, cyD - halfW * pyu, bounds, w, h, pad);
-                        var mC = graphToScreen(cxD, cyD, bounds, w, h, pad);
-                        ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash([2, 2]);
-                        ctx.beginPath(); ctx.moveTo(mL.x, mL.y); ctx.lineTo(mR.x, mR.y); ctx.stroke();
+                    // Oś kierunku (przerywana) — przy „w górę" już narysowana wyżej, nie dubluj.
+                    if (!geo.groundVanished) {
+                        var axisEnd = graphToScreen(geo.ox + axisLen * Math.cos(geo.dir), geo.oy + axisLen * Math.sin(geo.dir), bounds, w, h, pad);
+                        ctx.setLineDash([5, 4]);
+                        ctx.lineWidth = 1;
+                        ctx.beginPath(); ctx.moveTo(apex.x, apex.y); ctx.lineTo(axisEnd.x, axisEnd.y); ctx.stroke();
                         ctx.setLineDash([]);
-                        var wTxt = formatNum(2 * halfW) + ' @ ' + formatNum(geo.markDist);
-                        drawSmartLabel(ctx, wTxt, mC.x, mC.y, { font: lblFont('600', 10), fill: color, bg: GRAPH_LABEL_PLATE, key: 'mark' + item.si });
+                    }
+                    // Poprzeczne linie granic FOV na zadanych odległościach (na=5;10;15)
+                    if (!geo.groundVanished && geo.markDists && geo.markDists.length && geo.fov < 180) {
+                        var uxN = Math.cos(geo.dir), uyN = Math.sin(geo.dir);  // oś
+                        var pxu = -uyN, pyu = uxN;                            // prostopadła do osi
+                        geo.markDists.forEach(function(md, mi) {
+                            var halfW = md * Math.tan(half);
+                            var cxD = geo.ox + md * uxN, cyD = geo.oy + md * uyN;
+                            var mL = graphToScreen(cxD + halfW * pxu, cyD + halfW * pyu, bounds, w, h, pad);
+                            var mR = graphToScreen(cxD - halfW * pxu, cyD - halfW * pyu, bounds, w, h, pad);
+                            var mC = graphToScreen(cxD, cyD, bounds, w, h, pad);
+                            ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash([2, 2]);
+                            ctx.beginPath(); ctx.moveTo(mL.x, mL.y); ctx.lineTo(mR.x, mR.y); ctx.stroke();
+                            ctx.setLineDash([]);
+                            var wTxt = formatNum(2 * halfW) + ' @ ' + formatNum(md);
+                            drawSmartLabel(ctx, wTxt, mC.x, mC.y, { font: lblFont('600', 10), fill: color, bg: GRAPH_LABEL_PLATE, key: 'mark' + item.si + '_' + mi });
+                        });
                     }
                     // Etykieta kąta — drugorzędna (anty-kolizja, znika przy tłoku, wraca przy zoomie).
-                    var midA = graphToScreen(geo.ox + axisLen * 0.28 * Math.cos(geo.dir), geo.oy + axisLen * 0.28 * Math.sin(geo.dir), bounds, w, h, pad);
-                    var angLabel = formatNum(geo.fov) + '°' + (geo.footprint ? '↔ ' + formatNum(geo.fovV) + '°↕' : '');
-                    drawSmartLabel(ctx, angLabel, midA.x, midA.y, { font: lblFont('600', 11), fill: color, bg: GRAPH_LABEL_PLATE, key: 'ang' + item.si });
+                    // Pomijamy gdy „w górę" (brak wycinka — etykietę zastępuje znacznik nieba).
+                    if (!geo.groundVanished) {
+                        var midA = graphToScreen(geo.ox + axisLen * 0.28 * Math.cos(geo.dir), geo.oy + axisLen * 0.28 * Math.sin(geo.dir), bounds, w, h, pad);
+                        var angLabel = formatNum(geo.fov) + '°' + (geo.footprint ? '↔ ' + formatNum(geo.fovV) + '°↕' : '');
+                        drawSmartLabel(ctx, angLabel, midA.x, midA.y, { font: lblFont('600', 11), fill: color, bg: GRAPH_LABEL_PLATE, key: 'ang' + item.si });
+                    }
                     // Marker kamery (wierzchołek)
                     ctx.beginPath(); ctx.arc(apex.x, apex.y, 6, 0, Math.PI * 2);
                     ctx.fillStyle = color; ctx.fill();
@@ -4605,7 +4754,7 @@
                 drawGraphBase(bounds);
                 setCommandError('graph', err.message || 'Nieprawidłowa komenda.');
                 graphResult.textContent = '⚠️ ' + err.message +
-                    '\n\nPrzykłady:\n  f(x)=sin(x)\n  rect=400x300\n  siatka=400x300 | co=100x100\n  punkt=150,200 | label=A\n  x(d)=120/4 | m=10 | y=0';
+                    '\n\nPrzykłady:\n  f(x)=sin(x)\n  rect=400x300\n  siatka=400x300 | co=100x100\n  punkt=150;200 | label=A\n  x(d)=120/4 | m=10 | y=0';
             }
         }
 
@@ -6045,7 +6194,8 @@
                 { name: 'podzial z liczba punktow', command: 'x=120/4 | m=10/10 | @edges', expect: 'division' },
                 { name: 'podzial staly bez /liczby', command: 'x=120 | co=20 | opis=otwory', expect: 'division' },
                 { name: 'wieloseria', command: 'x=120/4 ;; x=120/6 | y=30', expectCount: 2 },
-                { name: 'geometria punkt', command: 'punkt=150,200 | label=A', expect: 'geometry' },
+                { name: 'geometria punkt', command: 'punkt=150;200 | label=A', expect: 'geometry' },
+                { name: 'kamera pozycyjna + kat HxV', command: 'kamera=0;0;4 | kąt=90;55 | cel=-1,5;10 | zasięg=30', expect: 'geometry' },
                 { name: 'geometria siatka', command: 'siatka=400x300 | co=100x100', expect: 'geometry' },
                 { name: 'funkcja sinus', command: 'f(x)=sin(x)', expect: 'function' },
             ];
