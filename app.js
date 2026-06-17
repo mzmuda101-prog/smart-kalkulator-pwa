@@ -2852,6 +2852,10 @@
         var graphLabelScale = 1;
         var showLabelDetail = true;
         var labelDetailLevel = 1;   // 0 = mniej podpisów (wąsko), 1 = normalnie, 2 = więcej (fullscreen)
+        var graphLabelGap = 2;      // wymagany luz między etykietami; większy na małym canvasie = szybsze chowanie
+        // Podkładka pod tekstem na canvasie — celowo ledwo widoczna (delikatnie odcina tekst
+        // od linii/wypełnień, ale nie „zabrudza" rysunku). Jedno miejsce do regulacji.
+        var GRAPH_LABEL_PLATE = 'rgba(255, 255, 255, 0.25)';
         function computeLabelScale() {
             // [EN] Viewport świata: zoom zmienia widoczny zakres i przerysowuje wektorowo,
             // więc 1 px logiczny = 1 px CSS. Etykiety mają STAŁĄ wielkość (graphLabelScale=1)
@@ -2864,6 +2868,10 @@
             // pełny ekran = więcej podpisów, wąsko/mobilka = mniej (mniej tłoku).
             labelDetailLevel = fs ? 2 : (compact ? 0 : 1);
             showLabelDetail = labelDetailLevel >= 1;
+            // Mało miejsca (mobilka / mały canvas) → większy wymagany luz, więc etykiety
+            // szybciej się chowają zamiast nachodzić. Zoom/fullscreen → mniejszy luz, więcej pokazane.
+            var tiny = (GRAPH_LOGICAL_W < 430 || GRAPH_LOGICAL_H < 330);
+            graphLabelGap = (!fs && (compact || tiny)) ? 7 : 2;
         }
         function lblFont(weight, px) {
             var size = Math.max(8, Math.round(px * graphLabelScale));
@@ -3899,9 +3907,9 @@
                     // Wymiary — drugorzędne: anty-kolizja, znikają przy tłoku (force:false), wracają przy zoomie.
                     if (showLabelDetail) {
                         var mid = graphToScreen(geo.ox + geo.w / 2, geo.oy, bounds, w, h, pad);
-                        drawSmartLabel(ctx, formatNum(geo.w), mid.x, mid.y, { font: lblFont('', 11), fill: color, bg: 'rgba(255,255,255,0.62)', gap: 8, key: 'rw' + item.si });
+                        drawSmartLabel(ctx, formatNum(geo.w), mid.x, mid.y, { font: lblFont('', 11), fill: color, bg: GRAPH_LABEL_PLATE, gap: 8, key: 'rw' + item.si });
                         var midL = graphToScreen(geo.ox, geo.oy + geo.h / 2, bounds, w, h, pad);
-                        drawSmartLabel(ctx, formatNum(geo.h), midL.x, midL.y, { font: lblFont('', 11), fill: color, bg: 'rgba(255,255,255,0.62)', gap: 8, key: 'rh' + item.si });
+                        drawSmartLabel(ctx, formatNum(geo.h), midL.x, midL.y, { font: lblFont('', 11), fill: color, bg: GRAPH_LABEL_PLATE, gap: 8, key: 'rh' + item.si });
                     }
                 }
 
@@ -3947,7 +3955,7 @@
                             if (labelDetailLevel >= 2) {
                                 var nm = gs({ x: (f.nA.x + f.nB.x) / 2, y: (f.nA.y + f.nB.y) / 2 });
                                 var dzTxt = 'martwa ' + formatNum(Math.round(f.dNear * 10) / 10);
-                                drawSmartLabel(ctx, dzTxt, nm.x, nm.y, { font: lblFont('600', 9), fill: color, bg: 'rgba(255,255,255,0.62)', key: 'dz' + item.si });
+                                drawSmartLabel(ctx, dzTxt, nm.x, nm.y, { font: lblFont('600', 9), fill: color, bg: GRAPH_LABEL_PLATE, key: 'dz' + item.si });
                             }
                         }
                         axisLen = f.dFar;
@@ -3987,12 +3995,12 @@
                         ctx.beginPath(); ctx.moveTo(mL.x, mL.y); ctx.lineTo(mR.x, mR.y); ctx.stroke();
                         ctx.setLineDash([]);
                         var wTxt = formatNum(2 * halfW) + ' @ ' + formatNum(geo.markDist);
-                        drawSmartLabel(ctx, wTxt, mC.x, mC.y, { font: lblFont('600', 10), fill: color, bg: 'rgba(255,255,255,0.62)', key: 'mark' + item.si });
+                        drawSmartLabel(ctx, wTxt, mC.x, mC.y, { font: lblFont('600', 10), fill: color, bg: GRAPH_LABEL_PLATE, key: 'mark' + item.si });
                     }
                     // Etykieta kąta — drugorzędna (anty-kolizja, znika przy tłoku, wraca przy zoomie).
                     var midA = graphToScreen(geo.ox + axisLen * 0.28 * Math.cos(geo.dir), geo.oy + axisLen * 0.28 * Math.sin(geo.dir), bounds, w, h, pad);
                     var angLabel = formatNum(geo.fov) + '°' + (geo.footprint ? '↔ ' + formatNum(geo.fovV) + '°↕' : '');
-                    drawSmartLabel(ctx, angLabel, midA.x, midA.y, { font: lblFont('600', 11), fill: color, bg: 'rgba(255,255,255,0.62)', key: 'ang' + item.si });
+                    drawSmartLabel(ctx, angLabel, midA.x, midA.y, { font: lblFont('600', 11), fill: color, bg: GRAPH_LABEL_PLATE, key: 'ang' + item.si });
                     // Marker kamery (wierzchołek)
                     ctx.beginPath(); ctx.arc(apex.x, apex.y, 6, 0, Math.PI * 2);
                     ctx.fillStyle = color; ctx.fill();
@@ -4000,7 +4008,7 @@
                     var camTxt = geo.label || '📷';
                     if (geo.oz > 0) camTxt += ' ↑' + formatNum(geo.oz);
                     // Marker kamery — kluczowy (force:true): zawsze widoczny, odsuwany od innych.
-                    drawSmartLabel(ctx, camTxt, apex.x, apex.y, { font: lblFont('700', 10), fill: '#0f172a', bg: 'rgba(255,255,255,0.7)', anchorR: 6, gap: 5, force: true, key: 'cam' + item.si });
+                    drawSmartLabel(ctx, camTxt, apex.x, apex.y, { font: lblFont('700', 10), fill: '#0f172a', bg: GRAPH_LABEL_PLATE, anchorR: 6, gap: 5, force: true, key: 'cam' + item.si });
 
                     // Znacznik celu — żeby od razu było widać, gdzie kamera celuje (bez zgadywania z siatki).
                     if (geo.targetX != null && geo.targetY != null) {
@@ -4011,7 +4019,7 @@
                         var celTxt = 'cel (' + formatNum(geo.targetX) + ', ' + formatNum(geo.targetY)
                             + (geo.targetZ ? ', ' + formatNum(geo.targetZ) : '') + ')';
                         // Cel — drugorzędny (anty-kolizja, znika przy tłoku, wraca przy zoomie).
-                        drawSmartLabel(ctx, celTxt, tp.x, tp.y, { font: lblFont('600', 10), fill: color, bg: 'rgba(255,255,255,0.62)', anchorR: 5, gap: 4, key: 'cel' + item.si });
+                        drawSmartLabel(ctx, celTxt, tp.x, tp.y, { font: lblFont('600', 10), fill: color, bg: GRAPH_LABEL_PLATE, anchorR: 5, gap: 4, key: 'cel' + item.si });
                     }
                 }
 
@@ -4317,11 +4325,21 @@
                 var box = boxFor(candidates[i]);
                 var hit = false;
                 for (var j = 0; j < graphLabelBoxes.length; j++) {
-                    if (graphRectsOverlap(box, graphLabelBoxes[j], 1)) { hit = true; break; }
+                    if (graphRectsOverlap(box, graphLabelBoxes[j], graphLabelGap)) { hit = true; break; }
                 }
                 if (!hit) { paint(box); return true; }
             }
-            if (opts.force) paint(boxFor(candidates[0]));
+            // Brak wolnego miejsca → etykieta się chowa (także „kluczowe" — gdy naprawdę
+            // jest za ciasno, zwłaszcza na telefonie). force tylko delikatnie ją ratuje:
+            // rysuje na pierwszej pozycji wyłącznie gdy nie nachodzi mocno na inne.
+            if (opts.force) {
+                var fb = boxFor(candidates[0]);
+                var clash = false;
+                for (var k = 0; k < graphLabelBoxes.length; k++) {
+                    if (graphRectsOverlap(fb, graphLabelBoxes[k], 0)) { clash = true; break; }
+                }
+                if (!clash) { paint(fb); return true; }
+            }
             return false;
         }
 
@@ -5216,17 +5234,42 @@
         var gPinchLastDist = 0, gPinchLastMidX = 0, gPinchLastMidY = 0;
         var gWasPinch = false;   // czy gest był szczypaniem (wtedy touchend nie jest tapnięciem)
 
+        // [EN] Martwe pasy na krawędziach canvasu (telefon): dotyk zaczęty przy brzegu
+        // przewija STRONĘ (do tekstu pod wykresem) zamiast panować wykresem. Robimy to
+        // ręcznie (scroll najbliższego scrollowalnego rodzica lub okna), bo touch-action:none
+        // na kontenerze blokuje natywne przewijanie nad canvasem.
+        var GRAPH_EDGE_BAND = 26;
+        var gEdgeScroll = false, gEdgeScroller = null;
+        function graphTouchInEdge(clientX, clientY) {
+            var r = graphCanvas.getBoundingClientRect();
+            var m = GRAPH_EDGE_BAND;
+            return clientX < r.left + m || clientX > r.right - m || clientY < r.top + m || clientY > r.bottom - m;
+        }
+        function graphScrollParent() {
+            var node = graphContainer ? graphContainer.parentElement : null;
+            while (node && node !== document.body && node !== document.documentElement) {
+                var s = getComputedStyle(node);
+                if (/(auto|scroll)/.test(s.overflowY) && node.scrollHeight > node.clientHeight + 1) return node;
+                node = node.parentElement;
+            }
+            return null;   // null → przewijamy oknem
+        }
+
         if (graphContainer) {
             graphContainer.addEventListener('touchstart', function(e) {
                 if (e.touches.length === 1) {
                     if (e.target.closest('.fs-exit-btn')) return;
                     isGraphDragging = true;
                     gWasPinch = false;
+                    // Start przy krawędzi → ten gest przewija stronę, nie panuje wykresem.
+                    gEdgeScroll = !isGraphFsMode && graphTouchInEdge(e.touches[0].clientX, e.touches[0].clientY);
+                    gEdgeScroller = gEdgeScroll ? graphScrollParent() : null;
                     graphContainer.classList.add('dragging');
                     gDragLastX = e.touches[0].clientX; gDragLastY = e.touches[0].clientY;
                     gDownX = e.touches[0].clientX; gDownY = e.touches[0].clientY;
                     e.preventDefault();
                 } else if (e.touches.length === 2) {
+                    gEdgeScroll = false;
                     isGraphDragging = false;
                     gWasPinch = true;
                     graphContainer.classList.remove('dragging');
@@ -5241,6 +5284,14 @@
 
             graphContainer.addEventListener('touchmove', function(e) {
                 if (e.touches.length === 1 && isGraphDragging) {
+                    if (gEdgeScroll) {
+                        // Pas krawędziowy → przewiń stronę (treść podąża za palcem).
+                        var dyS = e.touches[0].clientY - gDragLastY;
+                        if (gEdgeScroller) gEdgeScroller.scrollTop -= dyS; else window.scrollBy(0, -dyS);
+                        gDragLastX = e.touches[0].clientX; gDragLastY = e.touches[0].clientY;
+                        e.preventDefault();
+                        return;
+                    }
                     GraphView.panByScreen(e.touches[0].clientX - gDragLastX, e.touches[0].clientY - gDragLastY);
                     gDragLastX = e.touches[0].clientX; gDragLastY = e.touches[0].clientY;
                     e.preventDefault();
@@ -5268,14 +5319,16 @@
                     isGraphDragging = false;
                     graphContainer.classList.remove('dragging');
                     gPinchLastDist = 0;
-                    // Tapnięcie (pojedynczy palec, bez przesunięcia, nie pinch) → klik w etykietę.
+                    // Tapnięcie (pojedynczy palec, bez przesunięcia, nie pinch, nie pas krawędzi) → klik w etykietę.
                     var ct = e.changedTouches && e.changedTouches[0];
-                    if (ct && !gWasPinch && Math.abs(ct.clientX - gDownX) < 6 && Math.abs(ct.clientY - gDownY) < 6) {
+                    if (ct && !gWasPinch && !gEdgeScroll && Math.abs(ct.clientX - gDownX) < 6 && Math.abs(ct.clientY - gDownY) < 6) {
                         handleGraphTap(ct.clientX, ct.clientY);
                     }
+                    gEdgeScroll = false;
                 } else if (e.touches.length === 1) {
                     // Z pinch wracamy do przesuwu jednym palcem.
                     isGraphDragging = true;
+                    gEdgeScroll = false;
                     gDragLastX = e.touches[0].clientX; gDragLastY = e.touches[0].clientY;
                     gPinchLastDist = 0;
                 }
