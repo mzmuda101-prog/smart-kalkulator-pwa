@@ -715,15 +715,47 @@
             position: relative;
             z-index: 1;
             min-height: 60px;
-            max-height: 132px;
+            max-height: 60vh;
             overflow-y: auto;
-            resize: vertical;
+            resize: none;            /* własny, większy uchwyt .cmd-resize-grip (przyjazny dotykowi) */
             line-height: 1.45;
             white-space: pre-wrap;
             word-break: break-word;
             caret-color: var(--text);
             background: transparent;          /* tło i kolorowe podświetlenia daje .cmd-hl pod spodem */
         }
+        /* Własny uchwyt zmiany wysokości — duży cel dotykowy (30px) + widoczny „grip".
+           Zastępuje natywny róg textarei (za mały/niewidoczny na mobilkach). */
+        .cmd-resize-grip {
+            position: absolute;
+            right: 1px;
+            bottom: 1px;
+            width: 30px;
+            height: 30px;
+            z-index: 3;
+            cursor: ns-resize;
+            touch-action: none;               /* pointermove bez przewijania strony na dotyku */
+            border-radius: 0 0 var(--radius) 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .cmd-resize-grip::after {             /* trzy diagonalne kreski w rogu = sygnał „rozsuń" */
+            content: "";
+            position: absolute;
+            right: 4px;
+            bottom: 4px;
+            width: 15px;
+            height: 15px;
+            background: repeating-linear-gradient(135deg,
+                var(--primary) 0 1.6px, transparent 1.6px 4.2px);
+            -webkit-mask: linear-gradient(135deg, transparent 0 38%, #000 38%);
+                    mask: linear-gradient(135deg, transparent 0 38%, #000 38%);
+            opacity: 0.5;
+            transition: opacity var(--transition);
+        }
+        .cmd-resize-grip:hover::after,
+        .cmd-resize-grip:active::after,
+        .cmd-resize-grip.dragging::after { opacity: 0.95; }
+        .cmd-resize-grip:focus-visible { outline: 2px solid var(--border-focus); outline-offset: -2px; }
         /* Warstwa podświetleń — TYLKO kolorowe TŁA pod prawdziwym (widocznym) tekstem pola.
            Tekst textarei zostaje natywny i w pełni edytowalny → zero ingerencji w kasowanie/
            zaznaczanie (ważne na mobilkach). Brak pogrubień → identyczne metryki = idealne

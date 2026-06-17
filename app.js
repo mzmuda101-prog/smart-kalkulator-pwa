@@ -2528,28 +2528,56 @@
             'm':        { sig: 'm=<b>A/B</b>', desc: 'margines: A od początku, B od końca.' },
             'label':    { sig: 'label=<b>T</b>', desc: 'podpis serii/figury (opis/nazwa).' },
         };
-        function cmdSyntaxFor(raw) {
+        // Znajduje przedziały [start,end) rozdzielone wzorcem `re` (z zachowaniem offsetów w `text`).
+        function splitRanges(text, re) {
+            var ranges = [], last = 0, m;
+            re.lastIndex = 0;
+            while ((m = re.exec(text))) { ranges.push([last, m.index]); last = m.index + m[0].length; }
+            ranges.push([last, text.length]);
+            return ranges;
+        }
+        // Który przedział obejmuje kursor (caret); domyślnie ostatni.
+        function rangeAtCaret(ranges, caret) {
+            for (var i = 0; i < ranges.length; i++) {
+                if (caret >= ranges[i][0] && caret <= ranges[i][1]) return { r: ranges[i], i: i };
+            }
+            return { r: ranges[ranges.length - 1], i: ranges.length - 1 };
+        }
+        // Sygnatura komendy/parametru — ŚWIADOMA KURSORA: bierze serię (;;) i parametr (,, |),
+        // w którym aktualnie stoi caret, a nie zawsze ostatni.
+        function cmdSyntaxFor(raw, caret) {
             if (!raw || !raw.trim()) return null;
-            var lastSeries = raw.split(';;').pop();
-            var segs = lastSeries.split(/,,|\|/);
-            // Jeśli user pisze dalszy parametr (po ,,) — pokaż sygnaturę tego parametru.
-            if (segs.length > 1) {
-                var curKey = segs[segs.length - 1].trim().toLowerCase().split('=')[0].trim();
+            if (caret == null || caret < 0 || caret > raw.length) caret = raw.length;
+            // 1) seria pod kursorem
+            var sr = rangeAtCaret(splitRanges(raw, /;;/g), caret).r;
+            var seriesText = raw.slice(sr[0], sr[1]);
+            var caretInSeries = caret - sr[0];
+            // 2) parametr pod kursorem w tej serii
+            var segRanges = splitRanges(seriesText, /,,|\|/g);
+            var hit = rangeAtCaret(segRanges, caretInSeries);
+            var headSeg = seriesText.slice(segRanges[0][0], segRanges[0][1]).trim().toLowerCase();
+            // 3) jeśli caret w dalszym parametrze (nie w głowie) → sygnatura tego parametru
+            if (hit.i > 0) {
+                var curSeg = seriesText.slice(hit.r[0], hit.r[1]).trim().toLowerCase();
+                var curKey = curSeg.split('=')[0].trim();
                 if (curKey) {
                     var key = PARAM_ALIASES[curKey] || curKey;
                     if (PARAM_SIGNATURES[key]) return { head: key, sig: PARAM_SIGNATURES[key].sig, desc: PARAM_SIGNATURES[key].desc };
                 }
             }
-            var headRaw = segs[0].trim().toLowerCase();
+            // 4) inaczej (caret w głowie) → sygnatura komendy
             for (var i = 0; i < CMD_SIGNATURES.length; i++) {
-                if (CMD_SIGNATURES[i].test.test(headRaw)) return CMD_SIGNATURES[i];
+                if (CMD_SIGNATURES[i].test.test(headSeg)) return CMD_SIGNATURES[i];
             }
             return null;
         }
         function refreshCmdSyntaxHint() {
             if (!graphCmdSyntaxEl) return;
             var info = null;
-            try { info = cmdSyntaxFor(graphCommand.value); } catch (e) { info = null; }
+            try {
+                var caret = (document.activeElement === graphCommand) ? graphCommand.selectionStart : null;
+                info = cmdSyntaxFor(graphCommand.value, caret);
+            } catch (e) { info = null; }
             if (!info) { graphCmdSyntaxEl.hidden = true; graphCmdSyntaxEl.innerHTML = ''; return; }
             // Kontekstowa legenda zapisu — tylko gdy w sygnaturze są symbole, które wymagają wyjaśnienia.
             var leg = [];
@@ -2587,10 +2615,55 @@
 
         graphCommand.addEventListener('input', function() { updateGraphCmdBadge(graphCommand.value.trim()); });
         graphCommand.addEventListener('change', function() { updateGraphCmdBadge(graphCommand.value.trim()); });
+        // Ruch kursora (klik, strzałki, zaznaczenie) — odśwież podpowiedź pod aktualną pozycją.
+        ['keyup', 'click', 'select', 'focus'].forEach(function(ev) {
+            graphCommand.addEventListener(ev, refreshCmdSyntaxHint);
+        });
         graphCommand.addEventListener('scroll', function() {
             if (graphCommandHL) { graphCommandHL.scrollTop = graphCommand.scrollTop; graphCommandHL.scrollLeft = graphCommand.scrollLeft; }
         });
         refreshCmdHL();
+
+        /* [PL] Własny uchwyt zmiany wysokości pola komendy — większy cel dotykowy niż
+           natywny róg textarei. Pointer Events: jednolicie mysz / dotyk / pióro. */
+        (function initCmdResize() {
+            var grip = document.getElementById('graphCmdResize');
+            if (!grip || !graphCommand) return;
+            var startY = 0, startH = 0, active = false;
+            function clampH(h) { return Math.max(60, Math.min(h, Math.round(window.innerHeight * 0.6))); }
+            function onMove(e) {
+                if (!active) return;
+                graphCommand.style.height = clampH(startH + (e.clientY - startY)) + 'px';
+                if (graphCommandHL) graphCommandHL.scrollTop = graphCommand.scrollTop;
+                e.preventDefault();
+            }
+            function onUp(e) {
+                active = false;
+                grip.classList.remove('dragging');
+                try { grip.releasePointerCapture(e.pointerId); } catch (_) {}
+                window.removeEventListener('pointermove', onMove);
+                window.removeEventListener('pointerup', onUp);
+            }
+            grip.addEventListener('pointerdown', function(e) {
+                active = true;
+                startY = e.clientY;
+                startH = graphCommand.offsetHeight;
+                grip.classList.add('dragging');
+                try { grip.setPointerCapture(e.pointerId); } catch (_) {}
+                window.addEventListener('pointermove', onMove);
+                window.addEventListener('pointerup', onUp);
+                e.preventDefault();
+            });
+            // A11y: strzałki góra/dół zmieniają wysokość, gdy uchwyt ma fokus.
+            grip.addEventListener('keydown', function(e) {
+                if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+                graphCommand.style.height = clampH(graphCommand.offsetHeight + (e.key === 'ArrowDown' ? 24 : -24)) + 'px';
+                if (graphCommandHL) graphCommandHL.scrollTop = graphCommand.scrollTop;
+                e.preventDefault();
+            });
+            // Dwuklik/dwa tapnięcia w uchwyt — reset do wysokości domyślnej.
+            grip.addEventListener('dblclick', function() { graphCommand.style.height = ''; });
+        })();
 
         /* [EN] Sign toggle buttons for margin inputs */
         document.addEventListener('click', function(e) {
