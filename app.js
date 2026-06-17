@@ -2507,11 +2507,16 @@
             { test: /^x\s*\(|^[xy]\s*=/, head: 'oś / podział', sig: '<b>x=L/N</b>  |  x=L ,, co=<b>S</b> ,, [m=A/B ,, @edges ,, u=mm]', desc: 'podział osi: L = długość, N = liczba punktów, co = odstęp.' },
         ];
         var PARAM_ALIASES = {
-            hfov: 'kąt', kat: 'kąt', katxy: 'kątxy', kat_poziomy: 'kątxy', 'kąt_poziomy': 'kątxy',
-            vfov: 'kątz', katz: 'kątz', pion: 'kątz', kat_pionowy: 'kątz', 'kąt_pionowy': 'kątz',
-            range: 'zasięg', zasieg: 'zasięg', tilt: 'pochył', pochyl: 'pochył',
-            wys: 'z', target: 'cel', patrz: 'cel', bearing: 'azymut', kompas: 'azymut', dir: 'kierunek',
-            opis: 'label', nazwa: 'label', step: 'co', krok: 'co', every: 'co', odstep: 'co', margin: 'm', margines: 'm',
+            hfov: 'kąt', kat: 'kąt', katxy: 'kątxy', kat_poziomy: 'kątxy', 'kąt_poziomy': 'kątxy', kat_poz: 'kątxy', 'kąt_poz': 'kątxy',
+            vfov: 'kątz', katz: 'kątz', pion: 'kątz', kat_pionowy: 'kątz', 'kąt_pionowy': 'kątz', kat_pion: 'kątz', 'kąt_pion': 'kątz', fovv: 'kątz', fov_v: 'kątz',
+            fov: 'kąt', fov_h: 'kąt', angle: 'kąt',
+            range: 'zasięg', zasieg: 'zasięg', tilt: 'pochył', pochyl: 'pochył', pochylenie: 'pochył', spad: 'pochył', 'spąd': 'pochył',
+            wys: 'z', wysokosc: 'z', 'wysokość': 'z', h: 'z', target: 'cel', patrz: 'cel', bearing: 'azymut', kompas: 'azymut', dir: 'kierunek', kat_kier: 'kierunek',
+            opis: 'label', nazwa: 'label', step: 'co', krok: 'co', every: 'co', odstep: 'co', co_x: 'co', margin: 'm', margines: 'm',
+            przy: 'na', odl: 'na', dystans: 'na',
+            x0: 'ox', od_x: 'ox', y0: 'oy', od_y: 'oy',
+            unit: 'u', jednostka: 'u', dia: 'r', fi: 'r', 'ø': 'r',
+            zero: 'origin', offset: 'origin', od: 'origin', ms: 'origin', start: 'origin', me: 'origin', end: 'origin',
         };
         var PARAM_SIGNATURES = {
             'cel':      { sig: 'cel=<b>x;y[;z]</b>', desc: 'wyceluj kamerę w punkt; z = wysokość celu.' },
@@ -2523,10 +2528,20 @@
             'zasięg':   { sig: 'zasięg=<b>Z</b>', desc: 'zasięg widzenia (promień).' },
             'pochył':   { sig: 'pochył=<b>P</b>', desc: 'pochylenie w dół (0=poziomo, 90=prosto w dół).' },
             'na':       { sig: 'na=<b>D1[;D2;D3]</b>', desc: 'poprzeczne linie granic na podanych odległościach.' },
-            'z':        { sig: 'z=<b>H</b>', desc: 'wysokość montażu nad ziemią.' },
+            'z':        { sig: 'z=<b>H</b>', desc: 'wysokość montażu nad ziemią (alias: wys, h).' },
             'co':       { sig: 'co=<b>S</b> | <b>S1;S2</b> | <b>dx x dy</b>', desc: 'odstęp: stały, naprzemienny lub siatka.' },
             'm':        { sig: 'm=<b>A/B</b>', desc: 'margines: A od początku, B od końca.' },
             'label':    { sig: 'label=<b>T</b>', desc: 'podpis serii/figury (opis/nazwa).' },
+            'ox':       { sig: 'ox=<b>A</b>', desc: 'przesunięcie figury w poziomie (od 0;0). Alias: x0, od_x.' },
+            'oy':       { sig: 'oy=<b>B</b>', desc: 'przesunięcie figury w pionie (od 0;0). Alias: y0, od_y.' },
+            'r':        { sig: 'r=<b>P</b>', desc: 'promień kółka punktu / rozmiar znacznika. Alias: dia, fi, ø.' },
+            'u':        { sig: 'u=<b>mm | cm | m</b>', desc: 'jednostka pokazywana w wynikach.' },
+            'origin':   { sig: 'origin=<b>Z</b>', desc: 'wartość punktu zerowego osi. Alias: zero, offset, od.' },
+        };
+        // Konteksty: ten sam zapis znaczy co innego zależnie od komendy.
+        // (np. w kamerze 'r' = zasięg, gdzie indziej = promień punktu).
+        var PARAM_CONTEXT = {
+            kamera: { r: 'zasięg', d: 'zasięg', 'długość': 'zasięg', dlugosc: 'zasięg' },
         };
         // Znajduje przedziały [start,end) rozdzielone wzorcem `re` (z zachowaniem offsetów w `text`).
         function splitRanges(text, re) {
@@ -2556,20 +2571,26 @@
             var segRanges = splitRanges(seriesText, /,,|\|/g);
             var hit = rangeAtCaret(segRanges, caretInSeries);
             var headSeg = seriesText.slice(segRanges[0][0], segRanges[0][1]).trim().toLowerCase();
-            // 3) jeśli caret w dalszym parametrze (nie w głowie) → sygnatura tego parametru
+            // Komenda-głowa tej serii (do okruszka „komenda › parametr" i fallbacku).
+            var cmd = null;
+            for (var i = 0; i < CMD_SIGNATURES.length; i++) {
+                if (CMD_SIGNATURES[i].test.test(headSeg)) { cmd = CMD_SIGNATURES[i]; break; }
+            }
+            // 3) caret w dalszym parametrze (nie w głowie) → sygnatura tego parametru
             if (hit.i > 0) {
-                var curSeg = seriesText.slice(hit.r[0], hit.r[1]).trim().toLowerCase();
-                var curKey = curSeg.split('=')[0].trim();
+                var curKey = seriesText.slice(hit.r[0], hit.r[1]).trim().toLowerCase().split('=')[0].trim();
                 if (curKey) {
-                    var key = PARAM_ALIASES[curKey] || curKey;
-                    if (PARAM_SIGNATURES[key]) return { head: key, sig: PARAM_SIGNATURES[key].sig, desc: PARAM_SIGNATURES[key].desc };
+                    // kontekst komendy potrafi przemapować (np. w kamerze r = zasięg)
+                    var ctx = cmd && PARAM_CONTEXT[cmd.head];
+                    var key = (ctx && ctx[curKey]) || PARAM_ALIASES[curKey] || curKey;
+                    var bc = cmd ? cmd.head + ' › ' + key : key;          // okruszek
+                    if (PARAM_SIGNATURES[key]) return { head: bc, sig: PARAM_SIGNATURES[key].sig, desc: PARAM_SIGNATURES[key].desc };
+                    // nieznany parametr — pokaż komendę z notką, żeby user wiedział, że literówka/brak
+                    if (cmd) return { head: cmd.head + ' › ' + curKey, sig: cmd.sig, desc: 'Parametr „' + curKey + '" — nierozpoznany lub bez osobnej podpowiedzi. ' + cmd.desc };
                 }
             }
             // 4) inaczej (caret w głowie) → sygnatura komendy
-            for (var i = 0; i < CMD_SIGNATURES.length; i++) {
-                if (CMD_SIGNATURES[i].test.test(headSeg)) return CMD_SIGNATURES[i];
-            }
-            return null;
+            return cmd;
         }
         function refreshCmdSyntaxHint() {
             if (!graphCmdSyntaxEl) return;
