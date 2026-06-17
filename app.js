@@ -4831,7 +4831,17 @@
             }
         }
 
-        graphDrawBtn.addEventListener('click', updateGraph);
+        // [PL] Po „Uruchom" przewiń płynnie do karty wizualizacji (QoL — od razu widać efekt).
+        function scrollToGraph() {
+            var card = (graphCanvas && graphCanvas.closest) ? graphCanvas.closest('.card') : null;
+            var target = card || document.getElementById('graphContainer') || graphCanvas;
+            if (target && target.scrollIntoView) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        graphDrawBtn.addEventListener('click', function() {
+            updateGraph();
+            // poczekaj na układ po narysowaniu, potem przewiń
+            requestAnimationFrame(scrollToGraph);
+        });
         graphCommand.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' && !e.shiftKey) {
                 // Otwarte podpowiedzi — Enter wybiera sugestię (obsługuje autouzupełnianie), nie uruchamiaj
