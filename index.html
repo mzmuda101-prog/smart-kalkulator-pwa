@@ -139,10 +139,13 @@
                         <button class="zoom-btn no-haptic" id="graphZoomOutBtn" type="button" aria-label="Pomniejsz">−</button>
                         <span class="zoom-label" id="graphZoomLabel">100%</span>
                         <button class="zoom-btn no-haptic" id="graphZoomInBtn" type="button" aria-label="Powiększ">+</button>
-                        <button class="zoom-btn no-haptic zoom-reset" id="graphZoomResetBtn" type="button" aria-label="Resetuj widok">↺</button>
+                        <button class="zoom-btn no-haptic zoom-reset" id="graphZoomResetBtn" type="button" aria-label="Dopasuj widok" title="Dopasuj widok do treści">↺</button>
+                        <button class="zoom-btn no-haptic" id="graphGridBtn" type="button" aria-label="Siatka wł/wył" title="Siatka wł/wył" aria-pressed="true">▦</button>
+                        <button class="zoom-btn no-haptic" id="graphExportBtn" type="button" aria-label="Zapisz jako PNG" title="Zapisz jako PNG">⬇</button>
                         <button class="zoom-btn no-haptic canvas-fs-btn" id="graphFsBtn" type="button" aria-label="Pełny ekran">⛶</button>
                     </span>
                 </div>
+                <div class="graph-legend" id="graphLegend" hidden></div>
                 <div class="canvas-container" id="graphContainer">
                     <button class="zoom-btn no-haptic fs-exit-btn" id="graphFsExitBtn" type="button" aria-label="Wyjdź z pełnego ekranu">✕</button>
                     <div class="canvas-wrapper" id="graphCanvasWrapper">

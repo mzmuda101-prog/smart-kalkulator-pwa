@@ -325,6 +325,11 @@
             color: var(--primary);
             transform: scale(0.92);
         }
+        /* Przycisk-przełącznik w stanie wyłączonym (np. siatka off) */
+        .zoom-btn.zoom-btn-off {
+            opacity: 0.4;
+            text-decoration: line-through;
+        }
         .zoom-btn.zoom-reset {
             font-size: 1rem;
             margin-left: 2px;
@@ -1178,6 +1183,53 @@
             pointer-events: none; /* [EN] Clicks pass through to container for pan */
         }
 
+        /* ============================================================
+           [EN] Graph viewport (Komenda) — world-coordinate renderer.
+           Zoom/pan zmienia widoczny zakres i przerysowuje wektorowo,
+           BEZ transformacji CSS bitmapy. Canvas wypełnia kontener i jest
+           rysowany 1:1 w pikselach CSS → zawsze ostry, etykiety stałej
+           wielkości. Kontener trzyma proporcje, więc układ się nie skacze.
+           ============================================================ */
+        #graphContainer {
+            aspect-ratio: 900 / 520;
+            height: auto;
+        }
+        #graphContainer #graphCanvasWrapper {
+            width: 100%;
+            height: 100%;
+            transform: none !important;   /* viewport renderuje świat, nie skaluje bitmapy */
+            transition: none !important;
+        }
+        #graphContainer #graphCanvas {
+            width: 100% !important;
+            height: 100% !important;
+            display: block;
+        }
+        /* Pełny ekran — wypełnij ekran, proporcje liczone z realnego rozmiaru */
+        #graphContainer.fs-mode,
+        #graphContainer:fullscreen {
+            aspect-ratio: auto;
+            width: 100vw;
+            height: 100dvh;
+        }
+        /* Tryb belki (rozstaw 1D) jest poziomy — trzymaj szeroki, krótki kadr,
+           żeby nie tonął w pustej przestrzeni (zwłaszcza na mobilce). */
+        #graphContainer.scene-eng { aspect-ratio: 16 / 9; }
+        /* Na wąskich ekranach (mobilka, pion) daj więcej wysokości na rysunek */
+        @media (max-width: 620px) {
+            #graphContainer { aspect-ratio: 5 / 6; }
+            #graphContainer.scene-eng { aspect-ratio: 16 / 11; }
+            /* Mobilka: większe tap-targety paska i legendy; pasek może zejść pod tytuł. */
+            .card-header { flex-wrap: wrap; row-gap: 8px; }
+            .zoom-controls { margin-left: auto; }
+            .zoom-btn { width: 40px; height: 40px; font-size: 1.25rem; }
+            .zoom-btn.zoom-reset { padding-left: 8px; }
+            /* Specyficzność .graph-legend ... bije bazową regułę zdefiniowaną niżej w pliku. */
+            .graph-legend .legend-chip { min-height: 42px; font-size: 0.9375rem; padding: 6px 15px 6px 12px; }
+            .graph-legend .legend-dot { width: 15px; height: 15px; }
+            .graph-legend .legend-text { max-width: 60vw; }
+        }
+
         /* [EN] Results output */
         .eng-result {
             background: var(--success-light);
@@ -1224,6 +1276,49 @@
             border-color: var(--border-focus);
             transform: scale(0.97);
         }
+        /* ===== Legenda smart (HTML, klikalne serie) ===== */
+        .graph-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 12px 0 0;
+        }
+        .legend-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            min-height: 36px;
+            padding: 4px 13px 4px 11px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: #f8fafc;
+            color: var(--text-secondary);
+            font-family: var(--font);
+            font-size: 0.8125rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all var(--transition);
+            max-width: 100%;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .legend-chip:active { transform: scale(0.97); }
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            flex: 0 0 auto;
+            box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+        }
+        .legend-text {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 220px;
+        }
+        .legend-chip.is-hidden { opacity: 0.55; }
+        .legend-chip.is-hidden .legend-dot { background: #cbd5e1 !important; }
+        .legend-chip.is-hidden .legend-text { text-decoration: line-through; }
+
         .point-list {
             display: grid;
             gap: 6px;

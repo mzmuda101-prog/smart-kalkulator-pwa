@@ -2752,16 +2752,46 @@
             };
         }
 
+        // [EN] Twarda sanityzacja zakresu osi — żadne pole nie może rozwalić renderu:
+        // wartości skończone i ograniczone co do wielkości (±1e9), odwrócone min/max
+        // automatycznie zamieniane, a rozpiętość nigdy mniejsza niż 1e-6 (żeby mianowniki
+        // w worldToScreen nie eksplodowały ani nie dzieliły przez ~0). To fundament,
+        // na którym opiera się cała reszta zabezpieczeń.
+        var GRAPH_AXIS_LIMIT = 1e9;
         function getGraphBounds() {
-            var xMin = parseGraphNumber(graphXMin.value, -10);
-            var xMax = parseGraphNumber(graphXMax.value, 10);
-            var yMin = parseGraphNumber(graphYMin.value, -10);
-            var yMax = parseGraphNumber(graphYMax.value, 10);
-            if (xMin === xMax) xMax = xMin + 1;
-            if (yMin === yMax) yMax = yMin + 1;
+            function clampAxis(v, fb) {
+                if (!isFinite(v)) return fb;
+                return Math.max(-GRAPH_AXIS_LIMIT, Math.min(GRAPH_AXIS_LIMIT, v));
+            }
+            var xMin = clampAxis(parseGraphNumber(graphXMin.value, -10), -10);
+            var xMax = clampAxis(parseGraphNumber(graphXMax.value, 10), 10);
+            var yMin = clampAxis(parseGraphNumber(graphYMin.value, -10), -10);
+            var yMax = clampAxis(parseGraphNumber(graphYMax.value, 10), 10);
             if (xMin > xMax) { var tx = xMin; xMin = xMax; xMax = tx; }
             if (yMin > yMax) { var ty = yMin; yMin = yMax; yMax = ty; }
+            if (xMax - xMin < 1e-6) xMax = xMin + 1e-6;
+            if (yMax - yMin < 1e-6) yMax = yMin + 1e-6;
             return { xMin: xMin, xMax: xMax, yMin: yMin, yMax: yMax };
+        }
+
+        // [EN] Kadr dopasowany do chmury punktów (fit-to-content): bbox + ~12% marginesu.
+        // Dla zdegenerowanych przypadków (pojedynczy punkt / zerowa rozpiętość) daje sensowne
+        // okno wokół. Zwraca null, gdy brak skończonych punktów.
+        function fitBoundsToPoints(points) {
+            var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            for (var i = 0; i < points.length; i++) {
+                var p = points[i];
+                if (!p || !isFinite(p.x) || !isFinite(p.y)) continue;
+                if (p.x < minX) minX = p.x;
+                if (p.x > maxX) maxX = p.x;
+                if (p.y < minY) minY = p.y;
+                if (p.y > maxY) maxY = p.y;
+            }
+            if (!isFinite(minX)) return null;
+            var spanX = maxX - minX, spanY = maxY - minY;
+            var padX = spanX > 0 ? spanX * 0.12 : Math.max(1, Math.abs(maxX) * 0.5);
+            var padY = spanY > 0 ? spanY * 0.12 : Math.max(1, Math.abs(maxY) * 0.5);
+            return { xMin: minX - padX, xMax: maxX + padX, yMin: minY - padY, yMax: maxY + padY };
         }
 
         // [EN] Zrównuje skalę px/jednostkę na obu osiach (okrąg = okrąg, nie elipsa).
@@ -2808,25 +2838,26 @@
 
         var GRAPH_PAD = 46;
         var GRAPH_LOGICAL_W = 900, GRAPH_LOGICAL_H = 520;
+        var graphShowGrid = true;   // pasek narzędzi: siatka wł/wył (osie i liczby zostają)
 
-        // [EN] Smart-tekst etykiet wizualizacji: jeden współczynnik skali + flaga szczegółu.
-        // Przy zbliżeniu (zoom CSS) font logiczny maleje → etykiety zostają tej samej, czytelnej
-        // wielkości na ekranie (zoom realnie pomaga czytać tłok). Limity chronią przed za małym/
-        // za dużym. Przy oddaleniu drugorzędne podpisy są chowane (mniej tłoku).
+        // [EN] Etykiety wizualizacji: w viewporcie świata mają STAŁĄ wielkość na ekranie
+        // (graphLabelScale=1) — zoom zmienia zakres, nie skaluje bitmapy. Flaga szczegółu
+        // steruje gęstością podpisów zależnie od dostępnego miejsca (ekran/mobilka/fullscreen).
         var graphLabelScale = 1;
         var showLabelDetail = true;
-        var labelDetailLevel = 1;   // 0 = z daleka (mniej), 1 = normalnie, 2 = z bliska (więcej)
-        var graphLastZoomRendered = 1, graphLabelRedrawTimer = null;
+        var labelDetailLevel = 1;   // 0 = mniej podpisów (wąsko), 1 = normalnie, 2 = więcej (fullscreen)
         function computeLabelScale() {
-            var z = (typeof graphZoomState !== 'undefined' && graphZoomState && graphZoomState.scale) ? graphZoomState.scale : 1;
-            graphLabelScale = Math.max(0.62, Math.min(1.7, 1 / z));
+            // [EN] Viewport świata: zoom zmienia widoczny zakres i przerysowuje wektorowo,
+            // więc 1 px logiczny = 1 px CSS. Etykiety mają STAŁĄ wielkość (graphLabelScale=1)
+            // i zawsze są ostre — koniec z dzieleniem fontu przez skalę CSS.
+            graphLabelScale = 1;
             var fs = (typeof isGraphFsMode !== 'undefined' && isGraphFsMode);
             var compact = !fs && (typeof window !== 'undefined') &&
                 ((window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || window.innerWidth < 620);
-            // „Więcej" pokazujemy tylko na pełnym ekranie (jest miejsce). Poza nim: poziom 1
-            // (a na mobilkach/wąsko drugorzędne podpisy dopiero gdy nie ma tłoku). Oddalony = mniej.
-            labelDetailLevel = z < 0.82 ? 0 : (fs ? 2 : 1);
-            showLabelDetail = fs ? true : (compact ? (labelDetailLevel >= 2) : (labelDetailLevel >= 1));
+            // Poziom szczegółu zależy od dostępnego miejsca (ekran), nie od zoomu:
+            // pełny ekran = więcej podpisów, wąsko/mobilka = mniej (mniej tłoku).
+            labelDetailLevel = fs ? 2 : (compact ? 0 : 1);
+            showLabelDetail = labelDetailLevel >= 1;
         }
         function lblFont(weight, px) {
             var size = Math.max(8, Math.round(px * graphLabelScale));
@@ -2841,15 +2872,30 @@
         function setCanvasHiDPI(canvas, ctx) {
             canvas = canvas || graphCanvas;
             ctx = ctx || graphCtx;
-            if (!canvas._logicalW) { canvas._logicalW = canvas.width; canvas._logicalH = canvas.height; }
+            // [EN] Rozmiar logiczny = realny rozmiar CSS canvasa (responsywny — wypełnia
+            // kontener). Gdy element jest ukryty (rect=0), używamy ostatniego znanego /
+            // domyślnego, by nie rysować do bufora 0×0.
+            var rect = canvas.getBoundingClientRect();
+            var logicalW = Math.round(rect.width)  || canvas._logicalW || 900;
+            var logicalH = Math.round(rect.height) || canvas._logicalH || 520;
+            canvas._logicalW = logicalW;
+            canvas._logicalH = logicalH;
+            // Trzymaj globalne wymiary rysowania w zgodzie (czytane przez funkcje rysujące).
+            if (canvas === graphCanvas) { GRAPH_LOGICAL_W = logicalW; GRAPH_LOGICAL_H = logicalH; }
+            // Bufor = rozmiar logiczny × DPR (ostro na retinie). Brak supersamplingu — nie
+            // skalujemy już bitmapy CSS, więc nie ma potrzeby nadpróbkowania.
             var dpr = window.devicePixelRatio || 1;
-            var scale = Math.min(Math.max(dpr, 1) * 1.5, 3);
-            var W = Math.round(canvas._logicalW * scale);
-            var H = Math.round(canvas._logicalH * scale);
+            var scale = Math.min(Math.max(dpr, 1), 2.5);
+            // Limit bufora: na bardzo dużych ekranach/fullscreenie nie pozwól, by bok bufora
+            // przekroczył 4096 px — inaczej rośnie zużycie pamięci GPU i pojawiają się lagi.
+            var maxSide = Math.max(logicalW, logicalH) * scale;
+            if (maxSide > 4096) scale *= 4096 / maxSide;
+            var W = Math.round(logicalW * scale);
+            var H = Math.round(logicalH * scale);
             if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
             ctx.setTransform(scale, 0, 0, scale, 0, 0);
             computeLabelScale();   // skala etykiet aktualna przed każdym malowaniem canvasa
-            return { w: canvas._logicalW, h: canvas._logicalH };
+            return { w: logicalW, h: logicalH };
         }
 
         function drawGraphBase(bounds) {
@@ -2859,6 +2905,7 @@
             var h = dims.h;
             var pad = GRAPH_PAD;
             computeLabelScale();
+            resetGraphLabels();   // nowy render → czysty rejestr boksów etykiet (anty-nakładanie)
             ctx.clearRect(0, 0, w, h);
             ctx.fillStyle = '#f8fafc';
             ctx.fillRect(0, 0, w, h);
@@ -2878,10 +2925,12 @@
             var xStart = Math.ceil(bounds.xMin / xStep) * xStep;
             for (var x = xStart; x <= bounds.xMax + xStep * 0.25; x += xStep) {
                 var xs = graphToScreen(x, 0, bounds, w, h, pad).x;
-                ctx.beginPath();
-                ctx.moveTo(xs, pad);
-                ctx.lineTo(xs, h - pad);
-                ctx.stroke();
+                if (graphShowGrid) {
+                    ctx.beginPath();
+                    ctx.moveTo(xs, pad);
+                    ctx.lineTo(xs, h - pad);
+                    ctx.stroke();
+                }
                 ctx.fillText(formatNum(x), xs, h - pad + 8);
             }
 
@@ -2890,10 +2939,12 @@
             var yStart = Math.ceil(bounds.yMin / yStep) * yStep;
             for (var y = yStart; y <= bounds.yMax + yStep * 0.25; y += yStep) {
                 var ys = graphToScreen(0, y, bounds, w, h, pad).y;
-                ctx.beginPath();
-                ctx.moveTo(pad, ys);
-                ctx.lineTo(w - pad, ys);
-                ctx.stroke();
+                if (graphShowGrid) {
+                    ctx.beginPath();
+                    ctx.moveTo(pad, ys);
+                    ctx.lineTo(w - pad, ys);
+                    ctx.stroke();
+                }
                 ctx.fillText(formatNum(y), pad - 8, ys);
             }
 
@@ -3839,16 +3890,12 @@
                     ctx.closePath();
                     ctx.stroke();
                     ctx.setLineDash([]);
-                    // Wymiary — drugorzędne, chowane przy oddaleniu (progresywny szczegół).
+                    // Wymiary — drugorzędne: anty-kolizja, znikają przy tłoku (force:false), wracają przy zoomie.
                     if (showLabelDetail) {
-                        ctx.fillStyle = color;
-                        ctx.font = lblFont('', 11);
-                        ctx.textAlign = 'center';
                         var mid = graphToScreen(geo.ox + geo.w / 2, geo.oy, bounds, w, h, pad);
-                        ctx.fillText(formatNum(geo.w), mid.x, mid.y - 10);
+                        drawSmartLabel(ctx, formatNum(geo.w), mid.x, mid.y, { font: lblFont('', 11), fill: color, bg: 'rgba(255,255,255,0.62)', gap: 8, key: 'rw' + item.si });
                         var midL = graphToScreen(geo.ox, geo.oy + geo.h / 2, bounds, w, h, pad);
-                        ctx.textAlign = 'right';
-                        ctx.fillText(formatNum(geo.h), midL.x - 8, midL.y + 4);
+                        drawSmartLabel(ctx, formatNum(geo.h), midL.x, midL.y, { font: lblFont('', 11), fill: color, bg: 'rgba(255,255,255,0.62)', gap: 8, key: 'rh' + item.si });
                     }
                 }
 
@@ -3858,8 +3905,6 @@
                     var half = geo.fov * Math.PI / 360;
                     var steps = 64;
                     var axisLen = geo.range; // dokąd sięga oś kierunku (na ekranie)
-                    // Anty-nakładanie: kolejne serie (kamery) odsuwają etykiety w pionie, by się nie zlewały.
-                    var lblStagger = si * Math.round(13 * graphLabelScale);
                     if (geo.footprint) {
                         // Wierny keystone: bliski brzeg + boki jako proste; daleki brzeg prosty
                         // (gdy ogranicza go pionowy kąt) albo łuk zasięgu (gdy ucina go zasięg).
@@ -3896,13 +3941,7 @@
                             if (labelDetailLevel >= 2) {
                                 var nm = gs({ x: (f.nA.x + f.nB.x) / 2, y: (f.nA.y + f.nB.y) / 2 });
                                 var dzTxt = 'martwa ' + formatNum(Math.round(f.dNear * 10) / 10);
-                                ctx.font = lblFont('600', 9);
-                                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                                var dzw = ctx.measureText(dzTxt).width + 6;
-                                ctx.fillStyle = 'rgba(255,255,255,0.55)';
-                                ctx.fillRect(nm.x - dzw / 2, nm.y - Math.round(7 * graphLabelScale), dzw, Math.round(14 * graphLabelScale));
-                                ctx.fillStyle = color;
-                                ctx.fillText(dzTxt, nm.x, nm.y);
+                                drawSmartLabel(ctx, dzTxt, nm.x, nm.y, { font: lblFont('600', 9), fill: color, bg: 'rgba(255,255,255,0.62)', key: 'dz' + item.si });
                             }
                         }
                         axisLen = f.dFar;
@@ -3942,40 +3981,20 @@
                         ctx.beginPath(); ctx.moveTo(mL.x, mL.y); ctx.lineTo(mR.x, mR.y); ctx.stroke();
                         ctx.setLineDash([]);
                         var wTxt = formatNum(2 * halfW) + ' @ ' + formatNum(geo.markDist);
-                        ctx.font = lblFont('600', 10);
-                        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                        var twW = ctx.measureText(wTxt).width + 6;
-                        ctx.fillStyle = 'rgba(255,255,255,0.55)';
-                        ctx.fillRect(mC.x - twW / 2, mC.y - 8, twW, 16);
-                        ctx.fillStyle = color;
-                        ctx.fillText(wTxt, mC.x, mC.y);
+                        drawSmartLabel(ctx, wTxt, mC.x, mC.y, { font: lblFont('600', 10), fill: color, bg: 'rgba(255,255,255,0.62)', key: 'mark' + item.si });
                     }
-                    // Etykieta kąta przy wierzchołku
+                    // Etykieta kąta — drugorzędna (anty-kolizja, znika przy tłoku, wraca przy zoomie).
                     var midA = graphToScreen(geo.ox + axisLen * 0.28 * Math.cos(geo.dir), geo.oy + axisLen * 0.28 * Math.sin(geo.dir), bounds, w, h, pad);
-                    midA.y -= lblStagger;
-                    ctx.font = lblFont('600', 11);
-                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                     var angLabel = formatNum(geo.fov) + '°' + (geo.footprint ? '↔ ' + formatNum(geo.fovV) + '°↕' : '');
-                    var twA = ctx.measureText(angLabel).width + 6;
-                    ctx.fillStyle = 'rgba(255,255,255,0.55)';
-                    ctx.fillRect(midA.x - twA / 2, midA.y - 8, twA, 16);
-                    ctx.fillStyle = color;
-                    ctx.fillText(angLabel, midA.x, midA.y);
+                    drawSmartLabel(ctx, angLabel, midA.x, midA.y, { font: lblFont('600', 11), fill: color, bg: 'rgba(255,255,255,0.62)', key: 'ang' + item.si });
                     // Marker kamery (wierzchołek)
                     ctx.beginPath(); ctx.arc(apex.x, apex.y, 6, 0, Math.PI * 2);
                     ctx.fillStyle = color; ctx.fill();
                     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
-                    ctx.font = lblFont('700', 10);
-                    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
                     var camTxt = geo.label || '📷';
                     if (geo.oz > 0) camTxt += ' ↑' + formatNum(geo.oz);
-                    var camY = apex.y - 11 - lblStagger;
-                    var camFontPx = Math.max(8, Math.round(10 * graphLabelScale));
-                    var camW = ctx.measureText(camTxt).width + 6;
-                    ctx.fillStyle = 'rgba(255,255,255,0.55)';   // podkładka — oddziela ikonę/tekst od innych etykiet
-                    ctx.fillRect(apex.x - camW / 2, camY - camFontPx - 2, camW, camFontPx + 4);
-                    ctx.fillStyle = '#0f172a';
-                    ctx.fillText(camTxt, apex.x, camY);
+                    // Marker kamery — kluczowy (force:true): zawsze widoczny, odsuwany od innych.
+                    drawSmartLabel(ctx, camTxt, apex.x, apex.y, { font: lblFont('700', 10), fill: '#0f172a', bg: 'rgba(255,255,255,0.7)', anchorR: 6, gap: 5, force: true, key: 'cam' + item.si });
 
                     // Znacznik celu — żeby od razu było widać, gdzie kamera celuje (bez zgadywania z siatki).
                     if (geo.targetX != null && geo.targetY != null) {
@@ -3985,13 +4004,8 @@
                         ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
                         var celTxt = 'cel (' + formatNum(geo.targetX) + ', ' + formatNum(geo.targetY)
                             + (geo.targetZ ? ', ' + formatNum(geo.targetZ) : '') + ')';
-                        ctx.font = lblFont('600', 10);
-                        ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-                        var ctw = ctx.measureText(celTxt).width + 6;
-                        ctx.fillStyle = 'rgba(255,255,255,0.55)';
-                        ctx.fillRect(tp.x - ctw / 2, tp.y - 20 - lblStagger, ctw, 14);
-                        ctx.fillStyle = color;
-                        ctx.fillText(celTxt, tp.x, tp.y - 8 - lblStagger);
+                        // Cel — drugorzędny (anty-kolizja, znika przy tłoku, wraca przy zoomie).
+                        drawSmartLabel(ctx, celTxt, tp.x, tp.y, { font: lblFont('600', 10), fill: color, bg: 'rgba(255,255,255,0.62)', anchorR: 5, gap: 4, key: 'cel' + item.si });
                     }
                 }
 
@@ -4023,22 +4037,15 @@
                     } else {
                         txt = (pt.label || 'P') + (points.length > 1 ? (idx + 1) : '');
                     }
-                    ctx.fillStyle = '#0f172a';
-                    ctx.font = lblFont('700', 10);
-                    ctx.fillText(txt, p.x, p.y - radius - 3);
-                    // Plakietka wysokości (oś z) — figura/punkt nad płaszczyzną rzutu z góry. Drugorzędna.
+                    // Podpis punktu — szuka wolnego miejsca, by nie nakładać się na inne (force=kluczowy).
+                    drawSmartLabel(ctx, txt, p.x, p.y, { font: lblFont('700', 10), fill: '#0f172a', anchorR: radius, gap: 3, force: true, key: 'pt' + item.si + '_' + idx });
+                    // Plakietka wysokości (oś z) — drugorzędna, pomijana gdy brak miejsca.
                     if (geo.oz && showLabelDetail) {
-                        ctx.font = lblFont('600', 9);
-                        ctx.fillStyle = '#7c3aed';
-                        ctx.fillText('▲z=' + formatNum(geo.oz), p.x, p.y - radius - 14);
+                        drawSmartLabel(ctx, '▲z=' + formatNum(geo.oz), p.x, p.y, { font: lblFont('600', 9), fill: '#7c3aed', anchorR: radius, gap: 3, key: 'z' + item.si + '_' + idx });
                     }
-                    // Poziom 2 (z bliska) — współrzędne pod punktem (tylko dla pojedynczych punktów).
+                    // Poziom 2 (z bliska) — współrzędne, drugorzędne, pomijane przy kolizji.
                     if (labelDetailLevel >= 2 && geo.type === 'punkt') {
-                        ctx.textBaseline = 'top';
-                        ctx.font = lblFont('600', 8);
-                        ctx.fillStyle = '#64748b';
-                        ctx.fillText('(' + formatNum(pt.x) + ', ' + formatNum(pt.y) + ')', p.x, p.y + radius + 3);
-                        ctx.textBaseline = 'bottom';
+                        drawSmartLabel(ctx, '(' + formatNum(pt.x) + ', ' + formatNum(pt.y) + ')', p.x, p.y, { font: lblFont('600', 8), fill: '#64748b', anchorR: radius, gap: 3, key: 'co' + item.si + '_' + idx });
                     }
                     ctx.fillStyle = color;
                 });
@@ -4181,10 +4188,229 @@
         // ustawiane przy ręcznej edycji pól "Zakres widoku", żeby ich nie nadpisywać.
         var skipBoundsFit = false;
 
+        /* ============================================================
+           [EN] SCENA RYSUNKU — rozdzielenie PARSOWANIA od RYSOWANIA.
+           updateGraph() parsuje komendę raz i buduje `graphScene` (geometrie,
+           podziały, funkcje, legenda). renderGraphScene() rysuje scenę w danym
+           zakresie. Dzięki temu zoom/pan tylko przerysowują scenę w nowym
+           zakresie (ostro, bez ponownego parsowania i bez auto-dopasowania),
+           a dodanie nowego typu rysunku = nowy wpis sceny + gałąź renderu.
+           ============================================================ */
+        var graphScene = null;
+        var graphHome  = null;   // zakres „domowy" (po auto-dopasowaniu) — do resetu i % zoomu
+        var graphHiddenSeries = {};   // indeksy serii ukrytych klikiem w legendę
+        var graphLegendEl = $('#graphLegend');
+
+        function setGraphHome(b) {
+            graphHome = { xMin: b.xMin, xMax: b.xMax, yMin: b.yMin, yMax: b.yMax, spanX: b.xMax - b.xMin };
+            updateZoomLabel();
+        }
+        function updateZoomLabel() {
+            if (typeof graphZoomLabel === 'undefined' || !graphZoomLabel) return;
+            var b = getGraphBounds();
+            var cur = b.xMax - b.xMin;
+            var pct = (graphHome && graphHome.spanX > 0 && cur > 0) ? Math.round(graphHome.spanX / cur * 100) : 100;
+            graphZoomLabel.textContent = pct + '%';
+        }
+
+        // [EN] Nagłówek „Zakres X/Y" liczony z bieżącego zakresu — odświeżany też przy zoom/pan,
+        // żeby tekst pod rysunkiem zawsze zgadzał się z tym, co widać.
+        function graphRangeHeader(bounds) {
+            var xStepRaw = parseFloat(graphXStep && graphXStep.value);
+            var yStepRaw = parseFloat(graphYStep && graphYStep.value);
+            var xs = (isFinite(xStepRaw) && xStepRaw > 0) ? xStepRaw : niceGridStep(bounds.xMax - bounds.xMin);
+            var ys = (isFinite(yStepRaw) && yStepRaw > 0) ? yStepRaw : niceGridStep(bounds.yMax - bounds.yMin);
+            return '📊 Zakres X: ' + formatNum(bounds.xMin) + ' → ' + formatNum(bounds.xMax) + '   |   krok: ' + formatNum(xs) + '\n' +
+                   '📊 Zakres Y: ' + formatNum(bounds.yMin) + ' → ' + formatNum(bounds.yMax) + '   |   krok: ' + formatNum(ys) + '\n';
+        }
+        function setGraphResultText(scene, bounds) {
+            if (!scene || scene.type !== 'graph' || typeof scene.bodyText !== 'string') return;
+            graphResult.textContent = graphRangeHeader(bounds) + '\n' + scene.bodyText;
+        }
+
+        /* ============================================================
+           [EN] ANTY-NAKŁADANIE ETYKIET — czytelność na pierwszym miejscu.
+           Każda etykieta szuka wolnego miejsca wokół swojego punktu (góra/dół/
+           bok/skos). Jeśli wszędzie koliduje z już narysowaną etykietą, jest
+           pomijana (opts.force=true → mimo wszystko rysuje, dla podpisów
+           kluczowych). Rejestr boksów zerujemy na starcie każdego renderu.
+           ============================================================ */
+        var graphLabelBoxes = [];
+        var graphRenderedLabels = [];   // narysowane etykiety tej klatki (do klikania): {x1,y1,x2,y2,key}
+        var graphPinnedLabels = {};     // klucze etykiet „przypiętych" — rysują linię do swojej kotwicy
+        function resetGraphLabels() { graphLabelBoxes = []; graphRenderedLabels = []; }
+        function graphRectsOverlap(a, b, m) {
+            m = m || 0;
+            return !(a.x2 + m < b.x1 || a.x1 - m > b.x2 || a.y2 + m < b.y1 || a.y1 - m > b.y2);
+        }
+        function graphRegisterLabelBox(box) { graphLabelBoxes.push(box); }
+        // Rysuje `text` blisko (ax, ay), próbując kolejnych pozycji aż znajdzie wolną.
+        // opts: { font, fill, anchorR (promień markera), gap, force }. Zwraca true jeśli narysowano.
+        function drawSmartLabel(ctx, text, ax, ay, opts) {
+            opts = opts || {};
+            if (opts.font) ctx.font = opts.font;
+            var tw = ctx.measureText(text).width;
+            var th = opts.lineHeight || 12;
+            var r = opts.anchorR || 0;
+            var gap = (opts.gap != null) ? opts.gap : 4;
+            var off = r + gap;
+            var candidates = [
+                { dx: 0,    dy: -off, align: 'center', base: 'bottom' },
+                { dx: 0,    dy:  off, align: 'center', base: 'top'    },
+                { dx:  off, dy: 0,    align: 'left',   base: 'middle' },
+                { dx: -off, dy: 0,    align: 'right',  base: 'middle' },
+                { dx:  off, dy: -off, align: 'left',   base: 'bottom' },
+                { dx: -off, dy: -off, align: 'right',  base: 'bottom' },
+                { dx:  off, dy:  off, align: 'left',   base: 'top'    },
+                { dx: -off, dy:  off, align: 'right',  base: 'top'    }
+            ];
+            function boxFor(c) {
+                var cx = ax + c.dx, cy = ay + c.dy, x1, x2, y1, y2;
+                if (c.align === 'center') { x1 = cx - tw / 2; x2 = cx + tw / 2; }
+                else if (c.align === 'left') { x1 = cx; x2 = cx + tw; }
+                else { x1 = cx - tw; x2 = cx; }
+                if (c.base === 'bottom') { y1 = cy - th; y2 = cy; }
+                else if (c.base === 'top') { y1 = cy; y2 = cy + th; }
+                else { y1 = cy - th / 2; y2 = cy + th / 2; }
+                return { x1: x1, y1: y1, x2: x2, y2: y2, cx: cx, cy: cy, c: c };
+            }
+            function paint(box) {
+                graphLabelBoxes.push(box);
+                var key = opts.key || text;
+                var pinned = !!graphPinnedLabels[key];
+                var accent = opts.fill || '#475569';
+                var bx = box.x1 - 3, by = box.y1 - 2, bw = (box.x2 - box.x1) + 6, bh = (box.y2 - box.y1) + 4;
+                // Przypięta etykieta: linia do kotwicy (pod plakietką) + kropka na kotwicy.
+                if (pinned) {
+                    ctx.save();
+                    ctx.strokeStyle = accent; ctx.lineWidth = 1; ctx.setLineDash([3, 2]);
+                    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo((box.x1 + box.x2) / 2, (box.y1 + box.y2) / 2); ctx.stroke();
+                    ctx.setLineDash([]);
+                    ctx.beginPath(); ctx.arc(ax, ay, 2.5, 0, Math.PI * 2); ctx.fillStyle = accent; ctx.fill();
+                    ctx.restore();
+                }
+                if (opts.bg) {   // plakietka pod tekstem — oddziela go od linii i innych etykiet
+                    ctx.fillStyle = opts.bg;
+                    if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 3); ctx.fill(); }
+                    else ctx.fillRect(bx, by, bw, bh);
+                }
+                if (opts.fill) ctx.fillStyle = opts.fill;
+                ctx.textAlign = box.c.align; ctx.textBaseline = box.c.base;
+                ctx.fillText(text, box.cx, box.cy);
+                if (pinned) {   // obwódka — widać, że etykieta jest zaznaczona
+                    ctx.save();
+                    ctx.strokeStyle = accent; ctx.lineWidth = 1.5;
+                    if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 3); ctx.stroke(); }
+                    else ctx.strokeRect(bx, by, bw, bh);
+                    ctx.restore();
+                }
+                // Rejestr do klikania (najświeższa klatka).
+                graphRenderedLabels.push({ x1: box.x1, y1: box.y1, x2: box.x2, y2: box.y2, key: key });
+            }
+            for (var i = 0; i < candidates.length; i++) {
+                var box = boxFor(candidates[i]);
+                var hit = false;
+                for (var j = 0; j < graphLabelBoxes.length; j++) {
+                    if (graphRectsOverlap(box, graphLabelBoxes[j], 1)) { hit = true; break; }
+                }
+                if (!hit) { paint(box); return true; }
+            }
+            if (opts.force) paint(boxFor(candidates[0]));
+            return false;
+        }
+
+        // [EN] Legenda smart jako HTML (lekki UI): zawsze czytelna, zawija się, a klik w chip
+        // pokazuje/ukrywa serię (graphHiddenSeries). Nie zasłania rysunku jak legenda na canvasie.
+        function renderGraphLegendDOM(legend) {
+            if (!graphLegendEl) return;
+            if (!legend || !legend.length) { graphLegendEl.hidden = true; graphLegendEl.textContent = ''; return; }
+            graphLegendEl.hidden = false;
+            graphLegendEl.textContent = '';
+            legend.forEach(function(item) {
+                var hidden = !!graphHiddenSeries[item.si];
+                var chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = 'legend-chip' + (hidden ? ' is-hidden' : '');
+                chip.setAttribute('aria-pressed', hidden ? 'false' : 'true');
+                chip.title = hidden ? 'Pokaż serię' : 'Ukryj serię';
+                var dot = document.createElement('span');
+                dot.className = 'legend-dot';
+                dot.style.background = item.color;
+                var label = document.createElement('span');
+                label.className = 'legend-text';
+                label.textContent = item.text;
+                chip.appendChild(dot);
+                chip.appendChild(label);
+                chip.addEventListener('click', function() {
+                    graphHiddenSeries[item.si] = !graphHiddenSeries[item.si];
+                    redrawGraphView();   // przerysuje canvas i odświeży stan chipów
+                });
+                graphLegendEl.appendChild(chip);
+            });
+        }
+
+        function renderGraphScene(scene, bounds) {
+            if (!scene || scene.type === 'empty') { drawGraphBase(bounds); updateZoomLabel(); return; }
+            if (scene.type === 'engineering') { if (scene.render) scene.render(); return; }
+
+            drawGraphBase(bounds);
+            var ctx = graphCtx;
+            var w = GRAPH_LOGICAL_W, h = GRAPH_LOGICAL_H, pad = GRAPH_PAD;
+
+            // Filtr widoczności serii (klik w legendę chowa/pokazuje).
+            var visibleGeos = (scene.geos || []).filter(function(g) { return !graphHiddenSeries[g.si]; });
+            if (visibleGeos.length) drawGeometry(visibleGeos, bounds);
+
+            (scene.divisions || []).forEach(function(item) {
+                if (graphHiddenSeries[item.si]) return;
+                var pts = item.points, color = item.color, labelPrefix = item.labelPrefix || 'P';
+                pts.forEach(function(pt, idx) {
+                    var p = graphToScreen(pt.x, pt.y, bounds, w, h, pad);
+                    if (p.x < pad || p.x > w - pad || p.y < pad || p.y > h - pad) return;
+                    var radius = pt.r || 7;
+                    ctx.beginPath(); ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+                    ctx.fillStyle = color; ctx.fill();
+                    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+                    drawSmartLabel(ctx, (pt.label || labelPrefix) + (idx + 1), p.x, p.y,
+                        { font: lblFont('700', 12), fill: '#0f172a', anchorR: radius, gap: 4, force: true, key: 'div' + item.si + '_' + idx });
+                });
+            });
+
+            (scene.functions || []).forEach(function(item) {
+                if (graphHiddenSeries[item.si]) return;
+                var fn;
+                try { fn = compileGraphExpression(item.cmd); } catch (e) { return; }
+                // Próbki ~1/px, ale z górnym limitem — chroni przed zbędnym kosztem na
+                // bardzo szerokim kadrze (4K/fullscreen) i przy wielu funkcjach naraz.
+                var samples = Math.min(2400, Math.max(300, w - pad * 2));
+                var started = false;
+                ctx.strokeStyle = item.color; ctx.lineWidth = 3; ctx.beginPath();
+                for (var ii = 0; ii <= samples; ii++) {
+                    var xi = bounds.xMin + (ii / samples) * (bounds.xMax - bounds.xMin);
+                    var yi;
+                    try { yi = fn(xi); } catch (e2) { started = false; continue; }
+                    if (!isFinite(yi) || Math.abs(yi) > 1e8) { started = false; continue; }
+                    var p = graphToScreen(xi, yi, bounds, w, h, pad);
+                    if (!started) { ctx.moveTo(p.x, p.y); started = true; } else { ctx.lineTo(p.x, p.y); }
+                }
+                ctx.stroke();
+            });
+
+            renderGraphLegendDOM(scene.legend);
+
+            updateZoomLabel();
+        }
+
         function updateGraph() {
             var command = graphCommand.value.trim();
             var bounds = getGraphBounds();
             setCommandError('graph', '');
+            // Domyślnie kadr wykresu (pion na mobilce); belka 1D ustawi sobie szeroki kadr niżej.
+            if (typeof graphContainer !== 'undefined' && graphContainer) graphContainer.classList.remove('scene-eng');
+            // Nowa komenda = świeża widoczność serii i odpięte etykiety; legendę pokaże render.
+            graphHiddenSeries = {};
+            graphPinnedLabels = {};
+            if (graphLegendEl) { graphLegendEl.hidden = true; graphLegendEl.textContent = ''; }
             if (typeof updateGraphCmdBadge === 'function') updateGraphCmdBadge(command);
             STATE.graph.command = command;
             STATE.graph.xMin = bounds.xMin;
@@ -4194,6 +4420,8 @@
 
             if (!command) {
                 if (komendaViewCard) komendaViewCard.style.display = '';
+                graphScene = { type: 'empty' };
+                setGraphHome(bounds);
                 drawGraphBase(bounds);
                 graphResult.textContent = '';
                 return;
@@ -4205,6 +4433,9 @@
 
                 // Inteligentny routing: podział 1D → belka drewniana
                 if (isEngineeringCommand(parsedSeries)) {
+                    graphScene = { type: 'engineering', render: function() { renderAsEngineering(parsedSeries); } };
+                    // Szeroki, krótki kadr dla poziomej belki (przed rysowaniem — by rozmiar canvasa był poprawny).
+                    if (typeof graphContainer !== 'undefined' && graphContainer) graphContainer.classList.add('scene-eng');
                     renderAsEngineering(parsedSeries);
                     recordRecentCommand('graph', command);
                     return;
@@ -4223,6 +4454,7 @@
                 var hasFunction = false;
                 var hasProportional = false; // okrąg/wielokąt — wymaga równej skali osi
                 var fnCommands = [];
+                var fitPoints = [];          // punkty do fit-to-content (dopasowanie po pętli)
 
                 parsedSeries.forEach(function(item, si) {
                     var s = item.raw;
@@ -4234,7 +4466,7 @@
                         if (geo.error) throw new Error(geo.error);
                         var pts = buildGeometryPoints(geo);
                         if (geo.type === 'okrag' || geo.type === 'wielokat' || geo.type === 'trojkat' || geo.type === 'widok') hasProportional = true;
-                        allGeos.push({ geo: geo, points: pts, color: color });
+                        allGeos.push({ geo: geo, points: pts, color: color, si: si });
                         var summary;
                         if (geo.type === 'rect') {
                             summary = 'Prostokąt ' + formatNum(geo.w) + '×' + formatNum(geo.h);
@@ -4254,16 +4486,8 @@
                             summary = 'Punkt (' + formatNum(geo.x) + ', ' + formatNum(geo.y) + ')';
                         }
                         resultLines.push(summary);
-                        // Dopasuj bounds (pomiń przy ręcznej edycji pól zakresu)
-                        if (!skipBoundsFit) {
-                            pts.forEach(function(pt) {
-                                if (pt.x < bounds.xMin) { graphXMin.value = formatRawNum(pt.x - Math.abs(pt.x * 0.1) - 1); }
-                                if (pt.x > bounds.xMax) { graphXMax.value = formatRawNum(pt.x + Math.abs(pt.x * 0.1) + 1); }
-                                if (pt.y < bounds.yMin) { graphYMin.value = formatRawNum(pt.y - Math.abs(pt.y * 0.1) - 1); }
-                                if (pt.y > bounds.yMax) { graphYMax.value = formatRawNum(pt.y + Math.abs(pt.y * 0.1) + 1); }
-                            });
-                            bounds = getGraphBounds();
-                        }
+                        // Zbierz punkty — fit-to-content nastąpi raz, po całej pętli.
+                        for (var gi = 0; gi < pts.length; gi++) fitPoints.push(pts[gi]);
                         return;
                     }
 
@@ -4272,30 +4496,27 @@
                         hasDivision = true;
                         var division = item.data;
                         var pts = buildDivisionPoints(division);
-                        allGeos.push({ geo: { type: 'division', division: division }, points: pts, color: color });
+                        allGeos.push({ geo: { type: 'division', division: division }, points: pts, color: color, si: si });
                         resultLines.push(commandSummary(division, pts));
-                        if (pts.length && !skipBoundsFit) {
-                            var pxArr = pts.map(function(p) { return p.x; });
-                            var pyArr = pts.map(function(p) { return p.y; });
-                            var minX = Math.min.apply(Math, pxArr); var maxX = Math.max.apply(Math, pxArr);
-                            var minY = Math.min.apply(Math, pyArr); var maxY = Math.max.apply(Math, pyArr);
-                            if (minX < bounds.xMin || maxX > bounds.xMax) {
-                                graphXMin.value = formatRawNum(Math.min(0, minX));
-                                graphXMax.value = formatRawNum(maxX + Math.max(1, (maxX - minX) * 0.08));
-                            }
-                            if (minY <= bounds.yMin || maxY >= bounds.yMax) {
-                                graphYMin.value = formatRawNum(minY - 4);
-                                graphYMax.value = formatRawNum(maxY + 4);
-                            }
-                            bounds = getGraphBounds();
-                        }
+                        // Podziały (belka 1D w trybie wykresu) — punkty też do fit-to-content,
+                        // plus zero na osi X, by oś początku była widoczna.
+                        for (var di = 0; di < pts.length; di++) fitPoints.push(pts[di]);
+                        if (pts.length) fitPoints.push({ x: 0, y: pts[0].y });
                         return;
                     }
 
                     // 3. Funkcja matematyczna
                     hasFunction = true;
-                    fnCommands.push({ cmd: s, color: color });
+                    fnCommands.push({ cmd: s, color: color, si: si });
                 });
+
+                // Fit-to-content: dopasuj kadr do treści OD ZERA (nie zostawiamy zakresu po
+                // poprzedniej komendzie). Tylko geometria/podziały; funkcje korzystają z pól
+                // „Zakres widoku". Pomijamy przy ręcznej edycji pól (skipBoundsFit).
+                if (!skipBoundsFit && fitPoints.length) {
+                    var fitB = fitBoundsToPoints(fitPoints);
+                    if (fitB) { setGraphBounds(fitB); bounds = getGraphBounds(); }
+                }
 
                 // Okrąg/wielokąt — zrównaj skalę osi, żeby koło było okrągłe (nie elipsa)
                 if (hasProportional && !skipBoundsFit) {
@@ -4303,97 +4524,41 @@
                     bounds = getGraphBounds();
                 }
 
-                // Rysuj bazę i geometrię
-                drawGraphBase(bounds);
-
-                // Rysuj geometrie (rect, siatka, punkt, division)
+                // Złóż scenę (parse→scene) i wyrenderuj. Zoom/pan przerysują ją
+                // bez ponownego parsowania i bez auto-dopasowania zakresu.
                 var geosToRender = allGeos.filter(function(item) { return item.geo.type !== 'division'; });
                 var divisionsToRender = allGeos.filter(function(item) { return item.geo.type === 'division'; });
 
-                if (geosToRender.length > 0) {
-                    drawGeometry(geosToRender, bounds);
-                }
-
-                divisionsToRender.forEach(function(item) {
-                    var pts = item.points;
-                    var color = item.color;
-                    var labelPrefix = item.geo.division.label || 'P';
-                    // Rysuj punkty ręcznie z danym kolorem
-                    var ctx = graphCtx;
-                    var w = GRAPH_LOGICAL_W; var h = GRAPH_LOGICAL_H;
-                    var pad = 46;
-                    ctx.font = lblFont('700', 12);
-                    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-                    pts.forEach(function(pt, idx) {
-                        var p = graphToScreen(pt.x, pt.y, bounds, w, h, pad);
-                        if (p.x < pad || p.x > w - pad || p.y < pad || p.y > h - pad) return;
-                        var radius = pt.r || 7;
-                        ctx.beginPath();
-                        ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
-                        ctx.fillStyle = color; ctx.fill();
-                        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
-                        ctx.fillStyle = '#0f172a';
-                        ctx.fillText((pt.label || labelPrefix) + (idx + 1), p.x, p.y - radius - 5);
-                    });
-                });
-
-                // Rysuj funkcje (każda innym kolorem)
                 fnCommands.forEach(function(item) {
-                    // Rysuj funkcję BEZ czyszczenia canvasa (drawGraphBase już wywołane wyżej)
-                    var fn = compileGraphExpression(item.cmd);
-                    var ctx = graphCtx;
-                    var w = GRAPH_LOGICAL_W;
-                    var h = GRAPH_LOGICAL_H;
-                    var pad = 46;
-                    var samples = Math.max(300, w - pad * 2);
-                    var started = false;
-                    ctx.strokeStyle = item.color;
-                    ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    for (var ii = 0; ii <= samples; ii++) {
-                        var xi = bounds.xMin + (ii / samples) * (bounds.xMax - bounds.xMin);
-                        var yi = fn(xi);
-                        if (!isFinite(yi) || Math.abs(yi) > 1e8) { started = false; continue; }
-                        var p = graphToScreen(xi, yi, bounds, w, h, pad);
-                        if (!started) { ctx.moveTo(p.x, p.y); started = true; } else { ctx.lineTo(p.x, p.y); }
-                    }
-                    ctx.stroke();
                     resultLines.push('f(x) = ' + stripFunctionPrefix(item.cmd));
                 });
 
-                // Legenda jeśli wieloseria
-                if (rawSeries.length > 1) {
-                    var ctx = graphCtx;
-                    var pad = 46;
-                    rawSeries.forEach(function(s, si) {
-                        var color = colors[si % colors.length];
-                        var legendX = pad + 8 + si * 100;
-                        var legendY = 18;
-                        ctx.fillStyle = color;
-                        ctx.beginPath(); ctx.arc(legendX, legendY, 5, 0, Math.PI * 2); ctx.fill();
-                        ctx.fillStyle = '#1e293b';
-                        ctx.font = lblFont('', 11);
-                        ctx.textAlign = 'left';
-                        ctx.fillText(s.length > 14 ? s.slice(0, 14) + '…' : s, legendX + 9, legendY + 4);
-                    });
-                }
+                graphScene = {
+                    type: 'graph',
+                    geos: geosToRender,
+                    divisions: divisionsToRender.map(function(item) {
+                        return {
+                            points: item.points,
+                            color: item.color,
+                            si: item.si,
+                            labelPrefix: (item.geo.division && item.geo.division.label) || 'P'
+                        };
+                    }),
+                    functions: fnCommands,
+                    legend: (rawSeries.length > 1)
+                        ? rawSeries.map(function(s, si) { return { text: s, color: colors[si % colors.length], si: si }; })
+                        : null
+                };
 
-                var bounds2 = getGraphBounds();
-                var xStepRaw = parseFloat(graphXStep && graphXStep.value);
-                var yStepRaw = parseFloat(graphYStep && graphYStep.value);
-                var xStepInfo = (isFinite(xStepRaw) && xStepRaw > 0) ? xStepRaw : niceGridStep(bounds2.xMax - bounds2.xMin);
-                var yStepInfo = (isFinite(yStepRaw) && yStepRaw > 0) ? yStepRaw : niceGridStep(bounds2.yMax - bounds2.yMin);
-
-                var infoHeader = '📊 Zakres X: ' + formatNum(bounds2.xMin) + ' → ' + formatNum(bounds2.xMax) +
-                    '   |   krok: ' + formatNum(xStepInfo) + '\n' +
-                    '📊 Zakres Y: ' + formatNum(bounds2.yMin) + ' → ' + formatNum(bounds2.yMax) +
-                    '   |   krok: ' + formatNum(yStepInfo) + '\n';
-
-                graphResult.textContent = infoHeader + '\n' + (resultLines.join('\n\n') ||
-                    'Rysuję: ' + stripFunctionPrefix(command));
+                bounds = getGraphBounds();
+                setGraphHome(bounds);
+                graphScene.bodyText = resultLines.join('\n\n') || ('Rysuję: ' + stripFunctionPrefix(command));
+                renderGraphScene(graphScene, bounds);
+                setGraphResultText(graphScene, bounds);
                 recordRecentCommand('graph', command);
 
             } catch (err) {
+                graphScene = { type: 'empty' };
                 drawGraphBase(bounds);
                 setCommandError('graph', err.message || 'Nieprawidłowa komenda.');
                 graphResult.textContent = '⚠️ ' + err.message +
@@ -4814,78 +4979,156 @@
            [EN] Canvas Zoom & Pan — shared utilities + Komenda canvas
            ============================================================ */
         function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
-        var PAN_DAMPING   = 0.46;
-        var PINCH_DAMPING = 0.46;
-        var WHEEL_ZOOM_IN  = 1.0241;
-        var WHEEL_ZOOM_OUT = 0.97614;
-
-        function dampScale(startScale, rawScale, minScale, maxScale) {
-            return clamp(startScale + (rawScale - startScale) * PINCH_DAMPING, minScale, maxScale);
-        }
-
         /* ============================================================
-           Zoom & Pan — Komenda canvas
+           Zoom & Pan — Komenda canvas (viewport świata)
+           Zoom/pan zmieniają widoczny zakres (pola „Zakres widoku") i
+           przerysowują scenę wektorowo — bez transformacji CSS bitmapy.
         ============================================================ */
-        var graphZoomState = {
-            scale: 1, offsetX: 0, offsetY: 0,
-            minScale: 0.25, maxScale: 4, step: 0.15,
-        };
-
-        var graphContainer   = $('#graphContainer');
+        var graphContainer    = $('#graphContainer');
         var graphCanvasWrapper = $('#graphCanvasWrapper');
-        var graphZoomInBtn   = $('#graphZoomInBtn');
-        var graphZoomOutBtn  = $('#graphZoomOutBtn');
+        var graphZoomInBtn    = $('#graphZoomInBtn');
+        var graphZoomOutBtn   = $('#graphZoomOutBtn');
         var graphZoomResetBtn = $('#graphZoomResetBtn');
-        var graphZoomLabel   = $('#graphZoomLabel');
-        var graphFsBtn       = $('#graphFsBtn');
-        var graphFsExitBtn   = $('#graphFsExitBtn');
-        var isGraphFsMode    = false;
+        var graphZoomLabel    = $('#graphZoomLabel');
+        var graphFsBtn        = $('#graphFsBtn');
+        var graphFsExitBtn    = $('#graphFsExitBtn');
+        var isGraphFsMode     = false;
 
-        function applyGraphTransform(animate) {
-            if (!graphCanvasWrapper || !graphContainer) return;
-            var w = graphContainer.clientWidth;
-            var h = graphContainer.clientHeight;
-            var cw = GRAPH_LOGICAL_W  * graphZoomState.scale;
-            var ch = GRAPH_LOGICAL_H * graphZoomState.scale;
-            graphZoomState.offsetX = clamp(graphZoomState.offsetX, -cw + Math.min(w * 0.3, 80), w - Math.min(w * 0.3, 80));
-            graphZoomState.offsetY = clamp(graphZoomState.offsetY, -ch + Math.min(h * 0.3, 60), h - Math.min(h * 0.3, 60));
-            if (animate) {
-                graphCanvasWrapper.classList.add('animating');
-                clearTimeout(graphCanvasWrapper._animTimer);
-                graphCanvasWrapper._animTimer = setTimeout(function() {
-                    graphCanvasWrapper.classList.remove('animating');
-                }, 260);
-            } else {
-                graphCanvasWrapper.classList.remove('animating');
-            }
-            graphCanvasWrapper.style.transform =
-                'translate(' + graphZoomState.offsetX.toFixed(2) + 'px, ' +
-                            graphZoomState.offsetY.toFixed(2) + 'px) ' +
-                'scale(' + graphZoomState.scale.toFixed(4) + ')';
-            if (graphZoomLabel) graphZoomLabel.textContent = Math.round(graphZoomState.scale * 100) + '%';
-            // Smart-tekst: po zmianie zoomu przerysuj, by font ÷ skala dał stały rozmiar etykiet
-            // na ekranie (i progresywny szczegół). Debounce — raz, gdy zoom się ustabilizuje.
-            if (Math.abs(graphZoomState.scale - graphLastZoomRendered) > 0.001) {
-                graphLastZoomRendered = graphZoomState.scale;
-                clearTimeout(graphLabelRedrawTimer);
-                graphLabelRedrawTimer = setTimeout(function() {
-                    if (typeof STATE !== 'undefined' && STATE.activeTab === 'komenda') updateGraph();
-                }, 180);
+        // Limity rozpiętości zakresu — ochrona przed zoomem w nieskończoność i błędami float.
+        var GRAPH_MIN_SPAN = 1e-6, GRAPH_MAX_SPAN = 1e9;
+        // Czułość zoomu (im bliżej 1, tym łagodniej). Kółko/trackpad: krok na „ząbek".
+        // Pinch: tłumienie surowego stosunku odległości palców (0..1, mniej = wolniej).
+        var GRAPH_WHEEL_STEP = 1.06;
+        var GRAPH_PINCH_SENS = 0.45;
+
+        function graphCanvasSize() {
+            var r = graphCanvas.getBoundingClientRect();
+            return {
+                w: Math.round(r.width)  || graphCanvas._logicalW || GRAPH_LOGICAL_W,
+                h: Math.round(r.height) || graphCanvas._logicalH || GRAPH_LOGICAL_H
+            };
+        }
+        // Piksel ekranu (logiczny, w canvasie) → współrzędne świata.
+        function graphScreenToWorld(sx, sy) {
+            var b = getGraphBounds(), s = graphCanvasSize(), pad = GRAPH_PAD;
+            var iw = Math.max(1, s.w - pad * 2), ih = Math.max(1, s.h - pad * 2);
+            return {
+                x: b.xMin + ((sx - pad) / iw) * (b.xMax - b.xMin),
+                y: b.yMin + (((s.h - pad) - sy) / ih) * (b.yMax - b.yMin)
+            };
+        }
+        function setGraphBounds(b) {
+            graphXMin.value = formatRawNum(b.xMin);
+            graphXMax.value = formatRawNum(b.xMax);
+            graphYMin.value = formatRawNum(b.yMin);
+            graphYMax.value = formatRawNum(b.yMax);
+        }
+        function graphSpanOk(b) {
+            var sx = b.xMax - b.xMin, sy = b.yMax - b.yMin;
+            return sx > GRAPH_MIN_SPAN && sx < GRAPH_MAX_SPAN && sy > GRAPH_MIN_SPAN && sy < GRAPH_MAX_SPAN;
+        }
+
+        function redrawGraphView() {
+            if (typeof STATE !== 'undefined' && STATE.activeTab && STATE.activeTab !== 'komenda') return;
+            var b = getGraphBounds();
+            // Bariera bezpieczeństwa: błąd w rysowaniu sceny (np. nietypowe dane) NIE może
+            // wywalić interakcji ani zamrozić strony — w razie czego rysujemy samą bazę.
+            try {
+                renderGraphScene(graphScene, b);
+                if (graphScene && graphScene.type === 'graph') setGraphResultText(graphScene, b);
+            } catch (e) {
+                if (window.console && console.warn) console.warn('[graph] render error:', e);
+                try { drawGraphBase(b); } catch (_) {}
             }
         }
 
-        if (graphZoomInBtn)   graphZoomInBtn.addEventListener('click',   function() {
-            graphZoomState.scale = clamp(graphZoomState.scale + graphZoomState.step, graphZoomState.minScale, graphZoomState.maxScale);
-            applyGraphTransform(true);
-        });
-        if (graphZoomOutBtn)  graphZoomOutBtn.addEventListener('click',  function() {
-            graphZoomState.scale = clamp(graphZoomState.scale - graphZoomState.step, graphZoomState.minScale, graphZoomState.maxScale);
-            applyGraphTransform(true);
-        });
+        // [EN] Koalescencja renderu do jednej klatki (requestAnimationFrame). Zoom/pan/pinch
+        // potrafią wystrzelić dziesiątki zdarzeń na sekundę — bez tego każde robiłoby pełny
+        // redraw i ciężka scena by lagowała. Tu wiele zmian w jednej klatce = jeden render
+        // (na najświeższym zakresie). Fallback na setTimeout, gdy brak rAF.
+        var _graphRedrawPending = false;
+        var _graphRAF = (typeof window !== 'undefined' && window.requestAnimationFrame)
+            ? window.requestAnimationFrame.bind(window)
+            : function(cb) { return setTimeout(cb, 16); };
+        function scheduleGraphRedraw() {
+            if (_graphRedrawPending) return;
+            _graphRedrawPending = true;
+            _graphRAF(function() {
+                _graphRedrawPending = false;
+                redrawGraphView();
+            });
+        }
+
+        var GraphView = {
+            // factor > 1 = przybliż (mniejszy zakres) wokół punktu ekranu (sx, sy w px logicznych canvasa).
+            zoomAt: function(sx, sy, factor) {
+                if (!isFinite(factor) || factor <= 0) return;
+                var b = getGraphBounds(), wpt = graphScreenToWorld(sx, sy);
+                var nb = {
+                    xMin: wpt.x - (wpt.x - b.xMin) / factor,
+                    xMax: wpt.x + (b.xMax - wpt.x) / factor,
+                    yMin: wpt.y - (wpt.y - b.yMin) / factor,
+                    yMax: wpt.y + (b.yMax - wpt.y) / factor
+                };
+                if (!graphSpanOk(nb)) return;
+                setGraphBounds(nb);
+                scheduleGraphRedraw();
+            },
+            // Przesuń widok o (dxPx, dyPx) w pikselach ekranu — treść podąża za kursorem/palcem.
+            panByScreen: function(dxPx, dyPx) {
+                if (!isFinite(dxPx) || !isFinite(dyPx)) return;
+                var b = getGraphBounds(), s = graphCanvasSize(), pad = GRAPH_PAD;
+                var wx = (b.xMax - b.xMin) / Math.max(1, s.w - pad * 2);
+                var wy = (b.yMax - b.yMin) / Math.max(1, s.h - pad * 2);
+                var dX = -dxPx * wx, dY = dyPx * wy;
+                setGraphBounds({ xMin: b.xMin + dX, xMax: b.xMax + dX, yMin: b.yMin + dY, yMax: b.yMax + dY });
+                scheduleGraphRedraw();
+            }
+        };
+        // Stub zgodności (dawniej skalował bitmapę przez CSS — teraz viewport renderuje świat).
+        function applyGraphTransform() {}
+
+        function graphCanvasCenter() { var s = graphCanvasSize(); return { x: s.w / 2, y: s.h / 2 }; }
+        if (graphZoomInBtn)  graphZoomInBtn.addEventListener('click',  function() { var c = graphCanvasCenter(); GraphView.zoomAt(c.x, c.y, 1.25); });
+        if (graphZoomOutBtn) graphZoomOutBtn.addEventListener('click', function() { var c = graphCanvasCenter(); GraphView.zoomAt(c.x, c.y, 1 / 1.25); });
         if (graphZoomResetBtn) graphZoomResetBtn.addEventListener('click', function() {
-            graphZoomState.scale = 1; graphZoomState.offsetX = 0; graphZoomState.offsetY = 0;
-            applyGraphTransform(true);
+            if (graphHome) { setGraphBounds(graphHome); redrawGraphView(); }
+            else { updateGraph(); }
         });
+
+        // Pasek narzędzi: siatka wł/wył + eksport PNG
+        var graphGridBtn   = $('#graphGridBtn');
+        var graphExportBtn = $('#graphExportBtn');
+        if (graphGridBtn) graphGridBtn.addEventListener('click', function() {
+            graphShowGrid = !graphShowGrid;
+            graphGridBtn.setAttribute('aria-pressed', graphShowGrid ? 'true' : 'false');
+            graphGridBtn.classList.toggle('zoom-btn-off', !graphShowGrid);
+            redrawGraphView();
+        });
+        function exportGraphPNG() {
+            try {
+                var doDownload = function(url) {
+                    var a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'wizualizacja-' + new Date().toISOString().slice(0, 10) + '.png';
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                };
+                if (graphCanvas.toBlob) {
+                    graphCanvas.toBlob(function(blob) {
+                        if (!blob) return;
+                        var url = URL.createObjectURL(blob);
+                        doDownload(url);
+                        setTimeout(function() { URL.revokeObjectURL(url); }, 4000);
+                    }, 'image/png');
+                } else {
+                    doDownload(graphCanvas.toDataURL('image/png'));
+                }
+                if (typeof showToast === 'function') showToast('⬇ Zapisano PNG', '');
+            } catch (e) {
+                if (typeof showToast === 'function') showToast('⚠️ Nie udało się zapisać PNG', '');
+            }
+        }
+        if (graphExportBtn) graphExportBtn.addEventListener('click', exportGraphPNG);
 
         /* Pełny ekran */
         function enterGraphFs() {
@@ -4917,111 +5160,126 @@
             if (e.key === 'Escape' && isGraphFsMode) exitGraphFs();
         });
 
-        /* Pan — mysz */
+        // [EN] Kliknięcie (bez przeciągania) w etykietę → przypnij/odepnij ją: rysuje
+        // linię łączącą opis z obiektem, którego dotyczy (leader line jak w CAD). Klik w
+        // puste miejsce odpina wszystko. Hit-test po `graphRenderedLabels` ostatniej klatki.
+        function handleGraphTap(clientX, clientY) {
+            var r = graphCanvas.getBoundingClientRect();
+            var x = clientX - r.left, y = clientY - r.top;
+            for (var i = graphRenderedLabels.length - 1; i >= 0; i--) {
+                var L = graphRenderedLabels[i];
+                if (x >= L.x1 - 4 && x <= L.x2 + 4 && y >= L.y1 - 3 && y <= L.y2 + 3) {
+                    graphPinnedLabels[L.key] = !graphPinnedLabels[L.key];
+                    redrawGraphView();
+                    return;
+                }
+            }
+            if (Object.keys(graphPinnedLabels).length) { graphPinnedLabels = {}; redrawGraphView(); }
+        }
+
+        /* Pan — mysz (1:1 ze światem, bez tłumienia) */
         var isGraphDragging = false;
-        var gDragStartX = 0, gDragStartY = 0, gDragOffX = 0, gDragOffY = 0;
+        var gDragLastX = 0, gDragLastY = 0;
+        var gDownX = 0, gDownY = 0;   // pozycja wciśnięcia — do odróżnienia kliknięcia od przeciągnięcia
 
         if (graphContainer) {
             graphContainer.addEventListener('mousedown', function(e) {
                 if (e.button !== 0) return;
                 isGraphDragging = true;
                 graphContainer.classList.add('dragging');
-                gDragStartX = e.clientX; gDragStartY = e.clientY;
-                gDragOffX = graphZoomState.offsetX; gDragOffY = graphZoomState.offsetY;
+                gDragLastX = e.clientX; gDragLastY = e.clientY;
+                gDownX = e.clientX; gDownY = e.clientY;
                 e.preventDefault();
             });
         }
         window.addEventListener('mousemove', function(e) {
             if (!isGraphDragging) return;
-            graphZoomState.offsetX = gDragOffX + (e.clientX - gDragStartX) * PAN_DAMPING;
-            graphZoomState.offsetY = gDragOffY + (e.clientY - gDragStartY) * PAN_DAMPING;
-            applyGraphTransform(false);
+            GraphView.panByScreen(e.clientX - gDragLastX, e.clientY - gDragLastY);
+            gDragLastX = e.clientX; gDragLastY = e.clientY;
         });
-        window.addEventListener('mouseup', function() {
+        window.addEventListener('mouseup', function(e) {
             if (!isGraphDragging) return;
             isGraphDragging = false;
             if (graphContainer) graphContainer.classList.remove('dragging');
+            // Ledwie ruszony kursor = kliknięcie, nie przeciągnięcie.
+            if (Math.abs(e.clientX - gDownX) < 5 && Math.abs(e.clientY - gDownY) < 5) handleGraphTap(e.clientX, e.clientY);
         });
 
-        /* Pan + pinch — dotyk */
-        var gTouchId = null, gTouchStartDist = 0, gTouchStartScale = 1;
-        var gPinchMidX = 0, gPinchMidY = 0, gPinchOffX = 0, gPinchOffY = 0, gPinchScale = 1;
+        /* Pan + pinch — dotyk (zoom do środka palców, jednoczesny przesuw) */
+        var gPinchLastDist = 0, gPinchLastMidX = 0, gPinchLastMidY = 0;
+        var gWasPinch = false;   // czy gest był szczypaniem (wtedy touchend nie jest tapnięciem)
 
         if (graphContainer) {
             graphContainer.addEventListener('touchstart', function(e) {
                 if (e.touches.length === 1) {
                     if (e.target.closest('.fs-exit-btn')) return;
                     isGraphDragging = true;
+                    gWasPinch = false;
                     graphContainer.classList.add('dragging');
-                    gDragStartX = e.touches[0].clientX; gDragStartY = e.touches[0].clientY;
-                    gDragOffX = graphZoomState.offsetX;  gDragOffY = graphZoomState.offsetY;
-                    gTouchId = e.touches[0].identifier;
+                    gDragLastX = e.touches[0].clientX; gDragLastY = e.touches[0].clientY;
+                    gDownX = e.touches[0].clientX; gDownY = e.touches[0].clientY;
                     e.preventDefault();
                 } else if (e.touches.length === 2) {
                     isGraphDragging = false;
+                    gWasPinch = true;
                     graphContainer.classList.remove('dragging');
                     var dx = e.touches[1].clientX - e.touches[0].clientX;
                     var dy = e.touches[1].clientY - e.touches[0].clientY;
-                    gTouchStartDist  = Math.sqrt(dx*dx + dy*dy);
-                    gTouchStartScale = graphZoomState.scale;
-                    gPinchScale      = graphZoomState.scale;
-                    gPinchMidX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-                    gPinchMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-                    gPinchOffX = graphZoomState.offsetX; gPinchOffY = graphZoomState.offsetY;
-                    gTouchId = null;
+                    gPinchLastDist = Math.sqrt(dx*dx + dy*dy);
+                    gPinchLastMidX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                    gPinchLastMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                    e.preventDefault();
                 }
             }, { passive: false });
 
             graphContainer.addEventListener('touchmove', function(e) {
                 if (e.touches.length === 1 && isGraphDragging) {
-                    graphZoomState.offsetX = gDragOffX + (e.touches[0].clientX - gDragStartX) * PAN_DAMPING;
-                    graphZoomState.offsetY = gDragOffY + (e.touches[0].clientY - gDragStartY) * PAN_DAMPING;
-                    applyGraphTransform(false);
+                    GraphView.panByScreen(e.touches[0].clientX - gDragLastX, e.touches[0].clientY - gDragLastY);
+                    gDragLastX = e.touches[0].clientX; gDragLastY = e.touches[0].clientY;
                     e.preventDefault();
                 } else if (e.touches.length === 2) {
-                    var dx   = e.touches[1].clientX - e.touches[0].clientX;
-                    var dy   = e.touches[1].clientY - e.touches[0].clientY;
+                    var dx = e.touches[1].clientX - e.touches[0].clientX;
+                    var dy = e.touches[1].clientY - e.touches[0].clientY;
                     var dist = Math.sqrt(dx*dx + dy*dy);
-                    if (gTouchStartDist > 0) {
-                        var rawScale   = gTouchStartScale * (dist / gTouchStartDist);
-                        var newScale   = dampScale(gTouchStartScale, rawScale, graphZoomState.minScale, graphZoomState.maxScale);
-                        var scaleRatio = newScale / gPinchScale;
-                        graphZoomState.offsetX = gPinchMidX - scaleRatio * (gPinchMidX - gPinchOffX);
-                        graphZoomState.offsetY = gPinchMidY - scaleRatio * (gPinchMidY - gPinchOffY);
-                        graphZoomState.scale   = newScale;
-                        gPinchScale = newScale;
-                        gPinchOffX  = graphZoomState.offsetX; gPinchOffY = graphZoomState.offsetY;
-                        applyGraphTransform(false);
+                    var midClientX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                    var midClientY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                    var r = graphCanvas.getBoundingClientRect();
+                    if (gPinchLastDist > 0 && dist > 0) {
+                        // Tłumienie: surowy stosunek odległości palców → łagodniejszy współczynnik.
+                        var ratio = dist / gPinchLastDist;
+                        var factor = 1 + (ratio - 1) * GRAPH_PINCH_SENS;
+                        GraphView.zoomAt(midClientX - r.left, midClientY - r.top, factor);
                     }
+                    GraphView.panByScreen(midClientX - gPinchLastMidX, midClientY - gPinchLastMidY);
+                    gPinchLastDist = dist; gPinchLastMidX = midClientX; gPinchLastMidY = midClientY;
                     e.preventDefault();
                 }
             }, { passive: false });
 
             graphContainer.addEventListener('touchend', function(e) {
-                var found = false;
-                for (var i = 0; i < e.touches.length; i++) {
-                    if (e.touches[i].identifier === gTouchId) { found = true; break; }
-                }
-                if (!found) {
+                if (e.touches.length === 0) {
                     isGraphDragging = false;
                     graphContainer.classList.remove('dragging');
-                    gTouchId = null; gTouchStartDist = 0;
+                    gPinchLastDist = 0;
+                    // Tapnięcie (pojedynczy palec, bez przesunięcia, nie pinch) → klik w etykietę.
+                    var ct = e.changedTouches && e.changedTouches[0];
+                    if (ct && !gWasPinch && Math.abs(ct.clientX - gDownX) < 6 && Math.abs(ct.clientY - gDownY) < 6) {
+                        handleGraphTap(ct.clientX, ct.clientY);
+                    }
+                } else if (e.touches.length === 1) {
+                    // Z pinch wracamy do przesuwu jednym palcem.
+                    isGraphDragging = true;
+                    gDragLastX = e.touches[0].clientX; gDragLastY = e.touches[0].clientY;
+                    gPinchLastDist = 0;
                 }
             });
 
-            /* Scroll kółkiem na desktopie */
+            /* Scroll kółkiem na desktopie — zoom do kursora */
             graphContainer.addEventListener('wheel', function(e) {
                 e.preventDefault();
-                var rect     = graphContainer.getBoundingClientRect();
-                var mx       = e.clientX - rect.left;
-                var my       = e.clientY - rect.top;
-                var oldScale = graphZoomState.scale;
-                var newScale = clamp(oldScale * (e.deltaY < 0 ? WHEEL_ZOOM_IN : WHEEL_ZOOM_OUT), graphZoomState.minScale, graphZoomState.maxScale);
-                var ratio    = newScale / oldScale;
-                graphZoomState.offsetX = mx - ratio * (mx - graphZoomState.offsetX);
-                graphZoomState.offsetY = my - ratio * (my - graphZoomState.offsetY);
-                graphZoomState.scale   = newScale;
-                applyGraphTransform(false);
+                var r = graphCanvas.getBoundingClientRect();
+                var factor = e.deltaY < 0 ? GRAPH_WHEEL_STEP : 1 / GRAPH_WHEEL_STEP;
+                GraphView.zoomAt(e.clientX - r.left, e.clientY - r.top, factor);
             }, { passive: false });
         }
 
@@ -5029,9 +5287,11 @@
            [EN] Handle canvas resize
            ============================================================ */
         function handleCanvasResize() {
-            if (STATE.activeTab === 'komenda') {
-                updateGraph();
-            }
+            if (STATE.activeTab !== 'komenda') return;
+            // Zachowaj bieżący widok (zoom/pan) — przerysuj scenę w nowym rozmiarze
+            // canvasa. Bez sceny (lub inżynieria) wracamy do pełnego renderu.
+            if (graphScene && graphScene.type !== 'empty') redrawGraphView();
+            else updateGraph();
         }
 
         window.addEventListener('resize', function() {
