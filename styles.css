@@ -523,9 +523,11 @@
             -webkit-user-select: none;
             user-select: none;
         }
+
         .calc-help-btn:active {
             background: #bfdbfe;
             transform: scale(0.96);
+            /* transform: scaleX(6.96) translateX(-2.1rem) scaleY(15) translateY(-1rem); */
         }
         .history-open-btn {
             width: 100%;
