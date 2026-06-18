@@ -801,8 +801,8 @@
                     <div class="const-form-row">
                         <input type="text" id="constName" placeholder="Nazwa (np. Cena stali)" maxlength="40"
                             aria-label="Nazwa stałej">
-                        <input type="number" id="constValue" placeholder="Wartość" step="any" inputmode="decimal"
-                            aria-label="Wartość stałej">
+                        <input type="text" id="constValue" placeholder="Wartość lub wyrażenie (np. 23%, 5+5*2)" maxlength="80"
+                            aria-label="Wartość lub wyrażenie stałej">
                         <input type="text" id="constUnit" placeholder="j.m." maxlength="10"
                             aria-label="Jednostka stałej">
                     </div>
@@ -893,6 +893,14 @@
                     <p class="help-command" data-command="vat od 1000"><code>vat od 1000</code> sama kwota VAT = 230</p>
                     <p class="help-command" data-command="brutto 1000 vat 8%"><code>brutto 1000 vat 8%</code> własna stawka = 1080</p>
                     <p class="help-command" data-command="vat 8% od 1000"><code>vat 8% od 1000</code> = 80</p>
+                    <p class="help-command" data-command="100 - vat"><code>100 - vat</code> intuicyjnie jak <code>100 - 23%</code> = 77</p>
+                </section>
+                <section>
+                    <h4>Moje Stałe — własne nazwy (zakładka 📊)</h4>
+                    <p>Definiujesz w <strong>📊 Moje Stałe</strong>, używasz nazwą w działaniach (działają polskie znaki, np. <code>kwartał</code>).</p>
+                    <p><code>vat</code> = <code>23%</code> → <code>100 - vat</code> = 77 (wbudowane; możesz nadpisać własną stawką)</p>
+                    <p><code>cena</code> = <code>4,80</code> → <code>cena * 12</code> liczy na Twojej wartości</p>
+                    <p>Wartość może być wyrażeniem: <code>5+5*2</code>, a nawet wyrywkiem komendy: <code>belka</code> = <code>x=120/4 ,, @edges</code> (użyj w zakładce Komenda).</p>
                 </section>
                 <section>
                     <h4>Jednostki długości</h4>

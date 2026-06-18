@@ -474,6 +474,10 @@
             // sama kwota VAT od netto. „vat od 1000", „vat 1000", „vat 8% od 1000"
             raw = raw.replace(/\bvat\s+(?:([\d.,]+)%\s+)?(?:od\s+|z\s+)?([\d.,]+)/gi,
                 function(_, r, x) { return '(' + x.replace(',', '.') + '*' + _vatRate(r) + '/100)'; });
+            // Gołe „vat" (nieskonsumowane przez wzorce „vat <kwota>" i bez własnej stałej usera —
+            // stałe rozwijane są wcześniej) = domyślna stawka 23%. Dzięki temu „100 - vat" działa
+            // intuicyjnie jak „100 - 23%" (reguła „A ± B%" niżej dokończy resztę).
+            raw = raw.replace(/\bvat\b/gi, '23%');
 
             // "dodaj X% do Y"
             raw = raw.replace(/dodaj\s+([\d.,]+)%\s+do\s+([\d.,]+)/gi,
@@ -500,20 +504,30 @@
             return raw.replace(/\b(?:ans|wynik|poprzedni)\b/gi, '(' + String(STATE.calc.ans) + ')');
         }
 
+        // Stała może mieć wartość-LICZBĘ albo wartość-WYRAŻENIE/KOMENDĘ (np. „23%", „5+5*2",
+        // „5+5*vat"). Podstawiamy SUROWY tekst wartości: proste (liczba lub „N%") wstawiamy gołe,
+        // żeby reguły procentowe/VAT zadziałały (np. vat=„23%" → „100 - 23%”); złożone owijamy w
+        // nawias, by zachować kolejność działań (np. c=„5+5*2” → „2*(5+5*2)”). Iterujemy kilka razy,
+        // żeby obsłużyć stałą odwołującą się do innej stałej; stabilny wynik kończy pętlę.
+        var _CONST_SIMPLE_RE = /^-?[\d.,]+%?$/;
         function resolveCalcConstants(raw, constants) {
             if (!constants || !constants.length) return raw;
             var result = raw;
-            constants.forEach(function(c) {
-                if (!c.name) return;
-                var escaped = c.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                // [EN] Granice słowa ODPORNE NA POLSKIE ZNAKI. `\b` opiera się na [A-Za-z0-9_],
-                // więc ucinał nazwy z diakrytykami (np. „kwartał" — końcowe \b nie łapało po „ł”,
-                // przez co stała się nie podstawiała i wynik nie wychodził). Zamiast tego ręczne
-                // granice na klasie liter/cyfr Unicode (\p{L}\p{N}_, flaga u). Lewą granicę łapiemy
-                // w grupie (bez lookbehind = szersza zgodność przeglądarek), prawą lookaheadem.
-                var re = new RegExp('(^|[^\\p{L}\\p{N}_])(' + escaped + ')(?![\\p{L}\\p{N}_])', 'giu');
-                result = result.replace(re, function(_m, pre) { return pre + String(c.value); });
-            });
+            for (var pass = 0; pass < 5; pass++) {
+                var before = result;
+                constants.forEach(function(c) {
+                    if (!c.name) return;
+                    var escaped = c.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    var val = String(c.value).trim();
+                    var sub = _CONST_SIMPLE_RE.test(val) ? val : '(' + val + ')';
+                    // Granice słowa ODPORNE NA POLSKIE ZNAKI (\b opiera się tylko na [A-Za-z0-9_],
+                    // ucinał nazwy z diakrytykami jak „kwartał”). Klasa liter/cyfr Unicode (\p{L}\p{N}_,
+                    // flaga u); lewa granica w grupie (bez lookbehind = szersza zgodność), prawa lookaheadem.
+                    var re = new RegExp('(^|[^\\p{L}\\p{N}_])(' + escaped + ')(?![\\p{L}\\p{N}_])', 'giu');
+                    result = result.replace(re, function(_m, pre) { return pre + sub; });
+                });
+                if (result === before) break;
+            }
             return result;
         }
 
@@ -894,9 +908,11 @@
             }
             try {
                 var expr = original;
+                // Stałe NAJPIERW — ich wartości mogą zawierać „%", „vat", frazy naturalne, które
+                // dopiero kolejne etapy (parseNaturalShortcuts) zamienią na właściwą matematykę.
+                expr = resolveCalcConstants(expr, STATE.constants);
                 expr = parseNaturalShortcuts(expr);
                 expr = resolveCalcAnswer(expr);
-                expr = resolveCalcConstants(expr, STATE.constants);
                 // Duże liczby całkowite (+, −, ×): licz dokładnie BigInt-em, ale TYLKO gdy
                 // to potrzebne (liczba/wynik > 15 cyfr) — krótkie działania idą zwykłą
                 // ścieżką float, żeby zachować dotychczasowe formatowanie i testy.
@@ -3279,7 +3295,36 @@
                 .filter(Boolean);
         }
 
-        function parseCommandSeries(raw) {
+        // Stała może też trzymać WYRYWEK KOMENDY (np. belka = „x=120/4 ,, @edges"). W komendach
+        // podstawiamy DOSŁOWNIE (bez owijania w nawias — inaczej składnia komendy by się rozsypała),
+        // z tymi samymi granicami słowa odpornymi na polskie znaki. Iteracja: stała w stałej.
+        function resolveCommandConstants(raw, constants) {
+            if (!constants || !constants.length) return String(raw || '');
+            var result = String(raw || '');
+            for (var pass = 0; pass < 5; pass++) {
+                var before = result;
+                constants.forEach(function(c) {
+                    if (!c.name) return;
+                    var escaped = c.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    var re = new RegExp('(^|[^\\p{L}\\p{N}_])(' + escaped + ')(?![\\p{L}\\p{N}_])', 'giu');
+                    result = result.replace(re, function(_m, pre) { return pre + String(c.value); });
+                });
+                if (result === before) break;
+            }
+            return result;
+        }
+
+        function looksLikeCommand(s) {
+            if (/,,|;;|@|\|/.test(s)) return true;
+            try {
+                return parseCommandSeries(s, true).some(function(p) { return p.type === 'geometry' || p.type === 'division'; });
+            } catch (e) { return false; }
+        }
+
+        function parseCommandSeries(raw, _noConst) {
+            // Rozwiń stałe-komendy PRZED podziałem na serie (stała może wstrzyknąć całą serię z „;;").
+            // _noConst=true pomija rozwijanie (używane w looksLikeCommand, by uniknąć rekurencji).
+            if (!_noConst) raw = resolveCommandConstants(raw, STATE.constants);
             var series = splitCommandSeries(raw);
             return series.map(function(item) {
                 var geo = parseGeometryCommand(item);
@@ -4934,6 +4979,14 @@
         /* ============================================================
            [EN] CONSTANTS MODULE
            ============================================================ */
+        // Liczbowa wartość stałej — liczba wprost albo wynik policzenia wartości-wyrażenia
+        // („23%”→0.23, „5+5*2”→15). NaN, gdy nie sprowadza się do liczby poza kontekstem użycia.
+        function constNumericValue(c) {
+            if (typeof c.value === 'number') return c.value;
+            var r = evalCalcExpression(String(c.value));
+            return r && typeof r.value === 'number' && isFinite(r.value) ? r.value : NaN;
+        }
+
         function renderConstants() {
             if (STATE.constants.length === 0) {
                 // [EN] Safe DOM creation — no innerHTML, no XSS
@@ -4963,7 +5016,9 @@
                 nameDiv.textContent = c.name;
                 var detailDiv = document.createElement('div');
                 detailDiv.className = 'detail';
-                detailDiv.textContent = formatNum(c.value) + ' ' + (c.unit || '');
+                var rawVal = String(c.value);
+                var isPlainNum = /^-?[\d.,]+$/.test(rawVal);
+                detailDiv.textContent = (isPlainNum ? formatNum(parseFloat(rawVal.replace(',', '.'))) : rawVal) + (c.unit ? ' ' + c.unit : '');
                 infoDiv.appendChild(nameDiv);
                 infoDiv.appendChild(detailDiv);
 
@@ -5001,7 +5056,8 @@
                 var resultSpan = document.createElement('span');
                 resultSpan.className = 'quick-result';
                 resultSpan.id = 'quickResult' + idx;
-                resultSpan.textContent = '= ' + formatNum(c.value);
+                var nv0 = constNumericValue(c);
+                resultSpan.textContent = '= ' + (isFinite(nv0) ? formatNum(nv0) : rawVal);
                 quickDiv.appendChild(multLabel);
                 quickDiv.appendChild(multInput);
                 quickDiv.appendChild(resultSpan);
@@ -5022,8 +5078,11 @@
                     var mult = parseFloat(input.value) || 1;
                     var resultSpan = li.querySelector('.quick-result');
                     if (resultSpan && STATE.constants[idx]) {
-                        var result = STATE.constants[idx].value * mult;
-                        resultSpan.textContent = '= ' + formatNum(result) + ' ' + (STATE.constants[idx].unit || '');
+                        var nv = constNumericValue(STATE.constants[idx]);
+                        var result = nv * mult;
+                        resultSpan.textContent = isFinite(result)
+                            ? '= ' + formatNum(result) + (STATE.constants[idx].unit ? ' ' + STATE.constants[idx].unit : '')
+                            : '= ?';
                     }
                 });
 
@@ -5047,12 +5106,28 @@
                             var li = useBtn.closest('.const-item');
                             var multInput = li.querySelector('.quick-mult');
                             var mult = parseFloat(multInput.value) || 1;
-                            var finalVal = c.value * mult;
-                            calcExpr.value = String(finalVal);
+                            var nv = constNumericValue(c);
+                            // Stała-KOMENDA (nieliczbowa, wygląda jak komenda) → do pola Komendy,
+                            // nie do kalkulatora. Wstawiamy nazwę — rozwinie ją resolveCommandConstants.
+                            if (!isFinite(nv) && looksLikeCommand(String(c.value))) {
+                                graphCommand.value = c.name;
+                                switchTab('komenda');
+                                updateGraph();
+                                if (typeof updateGraphCmdBadge === 'function') updateGraphCmdBadge(graphCommand.value.trim());
+                                showToast('📐 Wstawiono komendę: ' + c.name, 'success');
+                                return;
+                            }
+                            // Mnożnik 1 → wstaw symbolicznie nazwę (rozwinie się na żywo i zostaje czytelna).
+                            // Inaczej: iloczyn liczbowy, a gdy wartość niesprowadzalna do liczby — „mult*nazwa".
+                            var insert, toastVal;
+                            if (mult === 1) { insert = c.name; toastVal = isFinite(nv) ? formatNum(nv) : c.name; }
+                            else if (isFinite(nv)) { insert = String(nv * mult); toastVal = formatNum(nv * mult); }
+                            else { insert = String(mult) + '*' + c.name; toastVal = insert; }
+                            calcExpr.value = insert;
                             calcExpr.setSelectionRange(calcExpr.value.length, calcExpr.value.length);
                             liveEval();
                             switchTab('calculator');
-                            showToast('📊 ' + c.name + ' × ' + mult + ' = ' + formatNum(finalVal), 'success');
+                            showToast('📊 ' + c.name + ' × ' + mult + ' = ' + toastVal, 'success');
                         }
                     }
                 });
@@ -5067,10 +5142,16 @@
             if (!name) { showToast('⚠️ Podaj nazwę stałej', 'error'); return; }
             if (!valueStr) { showToast('⚠️ Podaj wartość stałej', 'error'); return; }
 
-            var value = parseFloat(valueStr);
-            if (isNaN(value)) { showToast('⚠️ Nieprawidłowa wartość', 'error'); return; }
+            // Wartość: liczba ALBO wyrażenie/komenda („23%", „5+5*2", „5+5*vat", „100 - 23%").
+            // Akceptujemy, jeśli da się policzyć w bieżącym kontekście albo zawiera „%" (wynik
+            // zależny od kontekstu użycia). Zapisujemy SUROWY tekst — rozwija się przy każdym użyciu.
+            var probe = evalCalcExpression(valueStr);
+            var valueOk = (probe && (probe.value !== null || probe.text != null || probe.big))
+                || /%/.test(valueStr)
+                || looksLikeCommand(valueStr); // wyrywek komendy, np. „x=120/4 ,, @edges"
+            if (!valueOk) { showToast('⚠️ Nieprawidłowa wartość, wyrażenie lub komenda', 'error'); return; }
 
-            STATE.constants.push({ name: name, value: value, unit: unit });
+            STATE.constants.push({ name: name, value: valueStr, unit: unit });
             saveConstants();
             renderConstants();
             constName.value = '';
