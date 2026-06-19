@@ -2,16 +2,17 @@
    [EN] Service Worker — offline cache for Kalkulator by Matm0
    Caching strategy: Network First with cache fallback
    ============================================================ */
-const CACHE_NAME = 'matm0-calc-v28';
+const CACHE_NAME = 'matm0-calc-v29';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './manifest.json',
-    './icon-192.png',
-    './icon-512.png',
-    './logo-mateusz-transparent.png',
-    './logo-refresh.png',
+    './assets/img/icon-192.png',
+    './assets/img/icon-512.png',
+    './assets/img/logo-mateusz-transparent.png',
+    './assets/img/logo-refresh.png',
     './sw.js',
+    './js/data-tables.js',
     './command-definitions.js',
     './app.js',
     './styles.css'

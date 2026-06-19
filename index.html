@@ -13,8 +13,8 @@
     <meta name="format-detection" content="telephone=no">
     <meta name="description" content="Szwajcarski scyzoryk do obliczeń codziennych i technicznych">
     <link rel="manifest" href="manifest.json">
-    <link rel="icon" href="icon-192.png" type="image/png">
-    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="icon" href="assets/img/icon-192.png" type="image/png">
+    <link rel="apple-touch-icon" href="assets/img/icon-192.png">
     <title>Kalkulator by Matm0</title>
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -26,7 +26,7 @@
     ============================================================ -->
     <header class="app-header">
         <div class="header-row">
-            <img class="brand-mark" src="logo-mateusz-transparent.png" width="38" height="38" alt="" aria-hidden="true"
+            <img class="brand-mark" src="assets/img/logo-mateusz-transparent.png" width="38" height="38" alt="" aria-hidden="true"
                 style="width:38px;height:38px;max-width:38px;object-fit:contain;">
             <div class="brand-copy">
                 <h1>Kalkulator by Matm0</h1>
@@ -37,7 +37,7 @@
                     title="Zainstaluj aplikację" hidden>📲</button>
                 <button class="cache-refresh-btn" id="cacheRefreshBtn" type="button"
                     aria-label="Odśwież cache aplikacji" title="Odśwież cache">
-                    <img src="logo-refresh.png" width="28" height="28" alt="" aria-hidden="true"
+                    <img src="assets/img/logo-refresh.png" width="28" height="28" alt="" aria-hidden="true"
                         style="width:28px;height:28px;max-width:28px;object-fit:contain;">
                 </button>
             </div>
@@ -895,13 +895,15 @@
                     <p class="help-command" data-command="brutto 1000 vat 8%"><code>brutto 1000 vat 8%</code> własna stawka = 1080</p>
                     <p class="help-command" data-command="vat 8% od 1000"><code>vat 8% od 1000</code> = 80</p>
                     <p class="help-command" data-command="100 - vat"><code>100 - vat</code> intuicyjnie jak <code>100 - 23%</code> = 77</p>
+                    <p class="help-command" data-command="50 - vat 20%"><code>50 - vat 20%</code> własna stawka od bazy: 50 − 20% z 50 = 40</p>
                 </section>
                 <section>
                     <h4>Moje Stałe — własne nazwy (zakładka 📊)</h4>
                     <p>Definiujesz w <strong>📊 Moje Stałe</strong>, używasz nazwą w działaniach (działają polskie znaki, np. <code>kwartał</code>).</p>
                     <p><code>vat</code> = <code>23%</code> → <code>100 - vat</code> = 77 (wbudowane; możesz nadpisać własną stawką)</p>
-                    <p><code>cena</code> = <code>4,80</code> → <code>cena * 12</code> liczy na Twojej wartości</p>
+                    <p><code>cena</code> = <code>4,80</code> + jednostka <code>zł</code> → <code>cena * 12</code> = 57,6 zł (jednostka stałej zostaje); <code>dł</code> = <code>120</code> <code>cm</code> → <code>dł na m</code> = 1,2 m</p>
                     <p>Wartość może być wyrażeniem: <code>5+5*2</code>, a nawet wyrywkiem komendy: <code>belka</code> = <code>x=120/4 ,, @edges</code> (użyj w zakładce Komenda).</p>
+                    <p><strong>Operacja</strong> (niedokończone równanie zaczynające się od <code>× ÷ * / + ^</code>) podstawia się <strong>dosłownie</strong>, dopełniając wyrażenie: <code>marża</code> = <code>×5+2</code> → <code>100 marża</code> = 502; <code>narzut</code> = <code>×1,23</code> → <code>100 narzut</code> = 123.</p>
                 </section>
                 <section>
                     <h4>Jednostki długości</h4>
@@ -1359,6 +1361,7 @@
     ============================================================ -->
     <div class="toast" id="toast" aria-live="assertive"></div>
 
+    <script src="js/data-tables.js"></script>
     <script src="command-definitions.js"></script>
     <script src="app.js"></script>
 </body>

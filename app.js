@@ -2,6 +2,30 @@
         'use strict';
 
         /* ============================================================
+           [EN] SPIS TREŚCI app.js — skacz przez Ctrl-F do „[EN] <nazwa>".
+           Dane (jednostki, miesiące, waluty) wydzielone do js/data-tables.js;
+           definicje komend w command-definitions.js. Reszta to jeden IIFE
+           ze wspólnym domknięciem (STATE + helpery) — sekcje:
+
+             FUNDAMENT      Syntax Tokens · App State · DOM References
+                            Persistence — LocalStorage · Toast · Haptic'stics
+                            Tab Navigation
+             KALKULATOR     STANDARD CALCULATOR — Button Layout
+                            Calculator Logic (Raycast-style evaluator)
+                            Daty i czas · Waluty (NBP) · Calculator History
+             INŻYNIERIA     ENGINEERING MODULE — Logic · Event Binding
+             POMOC          Help System (Search · Drawer · Command Help)
+             WYKRES/GEOM    GRAPH MODULE · GRAPH 2D — Geometry parser
+                            SCENA RYSUNKU · ANTY-NAKŁADANIE ETYKIET
+             STAŁE          CONSTANTS MODULE (klasyfikator simple/op/expr)
+             PWA/UI         Keyboard · Service Worker · Install Prompt
+                            Lock body scroll · Canvas Zoom & Pan · Resize
+             START          Initialization
+             WARSZTAT       Sekcja 1: Powierzchnie i pokrycia (…)
+             DEBUG          Expose minimal API (window.__matm0)
+           ============================================================ */
+
+        /* ============================================================
             [EN] Syntax Tokens
             ============================================================ */
         var SYNTAX = { PIPE: ',,', SERIES: ';;', MODE: '@' };
@@ -431,47 +455,8 @@
         // ── Jednostki konwersji (kategorie) ─────────────────────────
         // factor = ile jednostek bazowych kategorii mieści się w 1 tej jednostce.
         // Temperatura jest skalą afiniczną (offset) → osobna obsługa niżej.
-        var CALC_UNIT_CATEGORIES = {
-            length: { base: 'mm', units: {
-                mm: 1, cm: 10, dm: 100, m: 1000, km: 1000000,
-                'in': 25.4, inch: 25.4, inches: 25.4, cal: 25.4, cale: 25.4,
-                ft: 304.8, feet: 304.8, foot: 304.8, stopa: 304.8, stopy: 304.8,
-                yd: 914.4, yard: 914.4, yards: 914.4, jard: 914.4, jardy: 914.4,
-                mila: 1609344, mile: 1609344, mil: 1609344,
-            } },
-            mass: { base: 'g', units: {
-                mg: 0.001, g: 1, dag: 10, dkg: 10, deko: 10, kg: 1000,
-                t: 1000000, tona: 1000000, tony: 1000000, ton: 1000000,
-                lb: 453.59237, lbs: 453.59237, funt: 453.59237, funty: 453.59237, funtow: 453.59237,
-                oz: 28.349523, uncja: 28.349523, uncje: 28.349523,
-            } },
-            time: { base: 's', units: {
-                ms: 0.001, s: 1, sek: 1, sekunda: 1, sekundy: 1,
-                min: 60, minuta: 60, minuty: 60,
-                h: 3600, godz: 3600, godzina: 3600, godziny: 3600,
-                doba: 86400, dzien: 86400, dni: 86400,
-                tydzien: 604800, tyg: 604800, week: 604800,
-                rok: 31557600, lata: 31557600, lat: 31557600, year: 31557600,
-            } },
-            volume: { base: 'ml', units: {
-                ml: 1, cl: 10, dl: 100, l: 1000, litr: 1000, litry: 1000, litrow: 1000,
-                hl: 100000, m3: 1000000,
-                gal: 3785.411784, galon: 3785.411784, gallon: 3785.411784,
-            } },
-            data: { base: 'B', units: {
-                // KB/MB/… traktowane binarnie (1024). Bity pominięte celowo —
-                // flaga „i" w regexie nie odróżnia b od B.
-                B: 1, KB: 1024, MB: 1048576, GB: 1073741824, TB: 1099511627776, PB: 1125899906842624,
-            } },
-            area: { base: 'm2', units: {
-                mm2: 0.000001, cm2: 0.0001, dm2: 0.01, m2: 1, ar: 100, ha: 10000, km2: 1000000,
-            } },
-            angle: { base: 'deg', units: {
-                deg: 1, '°': 1, stopnie: 1, stopni: 1,
-                rad: 180 / Math.PI, radian: 180 / Math.PI, radiany: 180 / Math.PI,
-                grad: 0.9, gon: 0.9,
-            } },
-        };
+        // Tablice danych przeniesione do js/data-tables.js (clean look) — czytamy z namespace.
+        var CALC_UNIT_CATEGORIES = (window.MATM0_DATA || {}).UNIT_CATEGORIES || {};
 
         // Płaska mapa: nazwa jednostki (lowercase) → { cat, factor, base }
         var CALC_UNITS = {};
@@ -543,6 +528,16 @@
                 function(_, x, r) { return '(' + x.replace(',', '.') + '/(1+' + _vatRate(r) + '/100))'; });
             raw = raw.replace(/([\d.,]+)\s+netto\b(?:\s+(?:z\s+)?vat\s+([\d.,]+)%?)?/gi,
                 function(_, x, r) { return '(' + x.replace(',', '.') + '/(1+' + _vatRate(r) + '/100))'; });
+            // VAT jako procent od POPRZEDZAJĄCEJ bazy. „50 - vat 20%" = 50 − 20% z 50 = 40,
+            // „50 + vat 20%" = 60. Forma inline analogiczna do Samsung-style „A ± B%" (linia niżej),
+            // ale stawkę bierzemy z „vat N%". MUSI iść przed ogólną regułą „vat <kwota>", bo inaczej
+            // ta złapałaby „vat 20" jako kwotę. Nie koliduje z „vat 20% od 1000" — tam nie ma
+            // poprzedzającej formy „liczba ±", baza jest jawna przez „od".
+            raw = raw.replace(/([\d.,]+)\s*([+\-])\s*vat\s+([\d.,]+)%/gi,
+                function(_, a, op, r) {
+                    a = a.replace(',', '.');
+                    return a + op + '(' + a + '*' + _vatRate(r) + '/100)';
+                });
             // sama kwota VAT od netto. „vat od 1000", „vat 1000", „vat 8% od 1000"
             raw = raw.replace(/\bvat\s+(?:([\d.,]+)%\s+)?(?:od\s+|z\s+)?([\d.,]+)/gi,
                 function(_, r, x) { return '(' + x.replace(',', '.') + '*' + _vatRate(r) + '/100)'; });
@@ -582,6 +577,32 @@
         // nawias, by zachować kolejność działań (np. c=„5+5*2” → „2*(5+5*2)”). Iterujemy kilka razy,
         // żeby obsłużyć stałą odwołującą się do innej stałej; stabilny wynik kończy pętlę.
         var _CONST_SIMPLE_RE = /^-?[\d.,]+%?$/;
+        // Klasyfikacja wartości stałej → jak ją PODSTAWIĆ w wyrażeniu kalkulatora.
+        //   • „simple"  — liczba albo „N%" (np. „4,80", „23%"): dosłownie, bez nawiasów.
+        //   • „op"      — NIEDOKOŃCZONA operacja: zaczyna się od operatora (× ÷ * / ^ +),
+        //                 np. „×5+2%", „*1,23", „+10": podstawiamy DOSŁOWNE (bez nawiasów),
+        //                 żeby dopełniało bieżące wyrażenie: „100 marża" → „100×5+2%".
+        //   • „expr"    — inne wyrażenie (np. „5+5*2"): owijamy w nawias, by zachować
+        //                 kolejność działań (np. „2*stała" → „2*(5+5*2)").
+        // Normalizujemy × → *, ÷ → / (operandy z klawiatury i z UI). UWAGA: „-5" to LICZBA
+        // (simple), nie operacja — minus wiodący przy gołej liczbie traktujemy jako znak.
+        function classifyConstValue(val) {
+            var norm = String(val).trim().replace(/×/g, '*').replace(/÷/g, '/');
+            if (_CONST_SIMPLE_RE.test(norm)) return { mode: 'simple', sub: norm, norm: norm };
+            if (/^[+*/^]/.test(norm) || /^-[^\d.,]/.test(norm)) return { mode: 'op', sub: norm, norm: norm };
+            return { mode: 'expr', sub: '(' + norm + ')', norm: norm };
+        }
+        // Jednostka stałej do doklejenia: tylko ROZPOZNANA (CALC_UNITS lub waluta) — inaczej
+        // zwracamy null i podstawiamy samą liczbę (żeby nieznana etykieta typu „szt" nie
+        // psuła dotąd działającej liczbowej stałej). [[project_kalkulator_constants_expressions]]
+        function _knownConstUnit(u) {
+            u = String(u || '').trim();
+            if (!u) return null;
+            var low = u.toLowerCase();
+            if (CALC_UNITS[low]) return u;
+            if (_currencyTokenMap()[low]) return u;
+            return null;
+        }
         function resolveCalcConstants(raw, constants) {
             if (!constants || !constants.length) return raw;
             var result = raw;
@@ -591,7 +612,16 @@
                     if (!c.name) return;
                     var escaped = c.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                     var val = String(c.value).trim();
-                    var sub = _CONST_SIMPLE_RE.test(val) ? val : '(' + val + ')';
+                    var info = classifyConstValue(val);
+                    var sub = info.sub;
+                    // Stała z JEDNOSTKĄ: dla GOŁEJ liczby doklejamy jednostkę, by silnik
+                    // jednostek/walut ją podchwycił — „cena"=4,80 zł → „cena*12" = 57,6 zł;
+                    // „dł"=120 cm → „dł na m" = 1,2 m. Tylko czyste liczby (operacje/wyrażenia/%
+                    // bez jednostki) i tylko rozpoznane jednostki.
+                    if (c.unit && info.mode === 'simple' && /^-?[\d.,]+$/.test(info.norm)) {
+                        var u = _knownConstUnit(c.unit);
+                        if (u) sub = info.norm + ' ' + u;
+                    }
                     // Granice słowa ODPORNE NA POLSKIE ZNAKI (\b opiera się tylko na [A-Za-z0-9_],
                     // ucinał nazwy z diakrytykami jak „kwartał”). Klasa liter/cyfr Unicode (\p{L}\p{N}_,
                     // flaga u); lewa granica w grupie (bez lookbehind = szersza zgodność), prawa lookaheadem.
@@ -699,15 +729,9 @@
         /* ============================================================
            [EN] Daty i czas — „za 3 tygodnie", „ile dni do 1.09", „dziś + 90 dni"
            ============================================================ */
-        var _PL_MONTHS = {
-            stycznia:1, styczen:1, 'styczeń':1, lutego:2, luty:2, marca:3, marzec:3,
-            kwietnia:4, kwiecien:4, 'kwiecień':4, maja:5, maj:5, czerwca:6, czerwiec:6,
-            lipca:7, lipiec:7, sierpnia:8, sierpien:8, 'sierpień':8,
-            wrzesnia:9, 'września':9, wrzesien:9, 'wrzesień':9,
-            pazdziernika:10, 'października':10, pazdziernik:10, 'październik':10,
-            listopada:11, listopad:11, grudnia:12, grudzien:12, 'grudzień':12,
-        };
-        var _PL_WEEKDAYS = ['niedziela','poniedziałek','wtorek','środa','czwartek','piątek','sobota'];
+        // _PL_MONTHS / _PL_WEEKDAYS przeniesione do js/data-tables.js (clean look).
+        var _PL_MONTHS = (window.MATM0_DATA || {}).PL_MONTHS || {};
+        var _PL_WEEKDAYS = (window.MATM0_DATA || {}).PL_WEEKDAYS || [];
 
         function _today() { var d = new Date(); d.setHours(0,0,0,0); return d; }
         function _validDMY(d, m, y) { return m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1 && y <= 9999; }
@@ -803,13 +827,8 @@
            ============================================================ */
         // Aliasy → kod ISO. Kody z NBP (np. CZK) dochodzą dynamicznie z pobranych kursów.
         // UWAGA: NIE mapujemy „funt" na GBP — „funt" to już jednostka masy.
-        var _CUR_ALIAS = {
-            'zł': 'PLN', 'zl': 'PLN', 'pln': 'PLN', 'złoty': 'PLN', 'złotych': 'PLN', 'zloty': 'PLN', 'zlotych': 'PLN',
-            '€': 'EUR', 'euro': 'EUR', 'eur': 'EUR',
-            '$': 'USD', 'usd': 'USD', 'dolar': 'USD', 'dolary': 'USD', 'dolarow': 'USD', 'dolarów': 'USD',
-            '£': 'GBP', 'gbp': 'GBP',
-            'chf': 'CHF', 'frank': 'CHF', 'franki': 'CHF',
-        };
+        // _CUR_ALIAS przeniesione do js/data-tables.js (clean look).
+        var _CUR_ALIAS = (window.MATM0_DATA || {}).CUR_ALIAS || {};
         var FX_TTL_MS = 6 * 3600 * 1000; // 6 h — po tym czasie odśwież w tle
 
         function _currencyTokenMap() {
@@ -5108,7 +5127,10 @@
                 detailDiv.className = 'detail';
                 var rawVal = String(c.value);
                 var isPlainNum = /^-?[\d.,]+$/.test(rawVal);
-                detailDiv.textContent = (isPlainNum ? formatNum(parseFloat(rawVal.replace(',', '.'))) : rawVal) + (c.unit ? ' ' + c.unit : '');
+                var clsInfo = classifyConstValue(rawVal);
+                detailDiv.textContent = (isPlainNum ? formatNum(parseFloat(rawVal.replace(',', '.'))) : rawVal)
+                    + (c.unit ? ' ' + c.unit : '')
+                    + (clsInfo.mode === 'op' ? '  ·  operacja' : '');
                 infoDiv.appendChild(nameDiv);
                 infoDiv.appendChild(detailDiv);
 
@@ -5209,8 +5231,11 @@
                             }
                             // Mnożnik 1 → wstaw symbolicznie nazwę (rozwinie się na żywo i zostaje czytelna).
                             // Inaczej: iloczyn liczbowy, a gdy wartość niesprowadzalna do liczby — „mult*nazwa".
+                            // Stała-OPERACJA (np. „×5+2%") potrzebuje lewego operandu — wstawiamy samą
+                            // nazwę (mnożnik nie ma sensu: „2*marża" → „2**5+2” byłoby błędne).
                             var insert, toastVal;
-                            if (mult === 1) { insert = c.name; toastVal = isFinite(nv) ? formatNum(nv) : c.name; }
+                            var isOpConst = classifyConstValue(String(c.value)).mode === 'op';
+                            if (isOpConst || mult === 1) { insert = c.name; toastVal = isFinite(nv) ? formatNum(nv) : c.name; }
                             else if (isFinite(nv)) { insert = String(nv * mult); toastVal = formatNum(nv * mult); }
                             else { insert = String(mult) + '*' + c.name; toastVal = insert; }
                             calcExpr.value = insert;
@@ -5232,14 +5257,24 @@
             if (!name) { showToast('⚠️ Podaj nazwę stałej', 'error'); return; }
             if (!valueStr) { showToast('⚠️ Podaj wartość stałej', 'error'); return; }
 
-            // Wartość: liczba ALBO wyrażenie/komenda („23%", „5+5*2", „5+5*vat", „100 - 23%").
-            // Akceptujemy, jeśli da się policzyć w bieżącym kontekście albo zawiera „%" (wynik
-            // zależny od kontekstu użycia). Zapisujemy SUROWY tekst — rozwija się przy każdym użyciu.
-            var probe = evalCalcExpression(valueStr);
-            var valueOk = (probe && (probe.value !== null || probe.text != null || probe.big))
-                || /%/.test(valueStr)
-                || looksLikeCommand(valueStr); // wyrywek komendy, np. „x=120/4 ,, @edges"
-            if (!valueOk) { showToast('⚠️ Nieprawidłowa wartość, wyrażenie lub komenda', 'error'); return; }
+            // Wartość: liczba ALBO wyrażenie/komenda/operacja („23%", „5+5*2", „5+5*vat",
+            // „100 - 23%", „×5+2%"). Akceptujemy, jeśli da się policzyć w bieżącym kontekście
+            // albo zawiera „%" (wynik zależny od kontekstu użycia). Zapisujemy SUROWY tekst —
+            // rozwija się przy każdym użyciu.
+            var cls = classifyConstValue(valueStr);
+            var valueOk;
+            if (cls.mode === 'op') {
+                // Niedokończona operacja — sama się nie policzy. Sprawdzamy po doklejeniu
+                // operandu (np. „×5+2%" → „1*5+2%"), żeby odrzucić śmieci typu „**5".
+                var probeOp = evalCalcExpression('1' + cls.norm);
+                valueOk = !!(probeOp && (probeOp.value !== null || probeOp.big)) || /%/.test(valueStr);
+            } else {
+                var probe = evalCalcExpression(valueStr);
+                valueOk = (probe && (probe.value !== null || probe.text != null || probe.big))
+                    || /%/.test(valueStr)
+                    || looksLikeCommand(valueStr); // wyrywek komendy, np. „x=120/4 ,, @edges"
+            }
+            if (!valueOk) { showToast('⚠️ Nieprawidłowa wartość, wyrażenie, operacja lub komenda', 'error'); return; }
 
             STATE.constants.push({ name: name, value: valueStr, unit: unit });
             saveConstants();
@@ -6684,6 +6719,9 @@
                 { expr: 'vat od 1000', value: 230 },
                 { expr: 'brutto 1000 vat 8%', value: 1080 },
                 { expr: 'vat 8% od 1000', value: 80 },
+                { expr: '50 - vat 20%', value: 40 },     // VAT 20% z bazy 50 = 10, odjęte
+                { expr: '50 + vat 20%', value: 60 },     // VAT 20% z bazy 50 = 10, dodane
+                { expr: '100 - vat', value: 77 },        // wbudowany 23% nietknięty
                 // daty — deterministyczny zakres
                 { expr: 'ile dni od 1.01.2026 do 1.02.2026', value: 31 },
             ];
@@ -6706,6 +6744,61 @@
             results.push({ expr: 'ans*2 (ans=15)', pass: evalCalcExpression('ans*2').value === 30, got: evalCalcExpression('ans*2').value });
             results.push({ expr: 'wynik+5 (ans=15)', pass: evalCalcExpression('wynik + 5').value === 20, got: evalCalcExpression('wynik + 5').value });
             STATE.calc.ans = savedAns;
+            // Stałe-OPERACJE (niedokończone równania) — podstawianie DOSŁOWNE bez nawiasów.
+            // Wstrzykujemy zestaw stałych, sprawdzamy użycie, przywracamy oryginalne.
+            var savedConsts = STATE.constants;
+            STATE.constants = [
+                { name: 'marża',    value: '×5+2',  unit: '' },   // operacja: ×5+2
+                { name: 'narzut',   value: '*1,23', unit: '' },   // operacja z przecinkiem
+                { name: 'bonus',    value: '+10',   unit: '' },   // operacja: +10
+                { name: 'ćwiartka', value: '/4',    unit: '' },   // operacja: /4 (polskie znaki)
+                { name: 'marpct',   value: '×5+2%', unit: '' },   // operacja z procentem
+                { name: 'ujemna',   value: '-5',    unit: '' },   // LICZBA -5 (nie operacja)
+                { name: 'wyr15',    value: '5+5*2', unit: '' },   // wyrażenie (owijane w nawias)
+            ];
+            var constCases = [
+                { expr: '100 marża',   value: 502 },      // 100×5+2
+                { expr: '100 narzut',  value: 123 },      // 100*1,23
+                { expr: '50 bonus',    value: 60 },       // 50+10
+                { expr: '200 ćwiartka', value: 50 },      // 200/4
+                { expr: '100 marpct',  value: 500.02 },   // 100×5 + 2% = 500 + 0,02
+                { expr: '100 ujemna',  value: 95 },       // 100 -5 — „-5" to LICZBA, podstawiana dosłownie
+                { expr: '2*wyr15',     value: 30 },       // 2*(5+5*2) — wyrażenie wciąż w nawiasie
+            ];
+            constCases.forEach(function(t) {
+                try {
+                    var v = evalCalcExpression(t.expr).value;
+                    results.push({ expr: t.expr + ' (stała-op)', pass: Math.abs(v - t.value) <= 1e-9, got: v });
+                } catch (err) {
+                    results.push({ expr: t.expr + ' (stała-op)', pass: false, error: err.message });
+                }
+            });
+            // Stałe z JEDNOSTKĄ — jednostka doklejana do podstawienia (luka #1 ToDo pkt 5).
+            // Waluty wymagają kursów → mockujemy fx na czas testów (zapis/odtworzenie).
+            var savedFx0 = STATE.fx.rates, savedFxTs0 = STATE.fx.ts;
+            STATE.fx.rates = { PLN: 1, EUR: 4.30, USD: 3.95 }; STATE.fx.ts = Date.now();
+            STATE.constants = [
+                { name: 'cena', value: '4,80', unit: 'zł' },   // liczba + waluta
+                { name: 'dł',   value: '120',  unit: 'cm' },   // liczba + jednostka długości
+                { name: 'sztuk', value: '5',   unit: 'szt' },  // NIEROZPOZNANA jednostka → ignorowana
+            ];
+            var unitCases = [
+                { expr: 'cena * 12',  value: 57.6, unit: 'zł' },   // 4,80 zł × 12 = 57,6 zł
+                { expr: 'cena na eur', value: 4.80 / 4.30, unit: 'EUR' }, // konwersja waluty
+                { expr: 'dł na m',    value: 1.2,  unit: 'm' },    // 120 cm = 1,2 m
+                { expr: 'sztuk * 12', value: 60,   unit: null },   // „szt" ignorowane → czysta liczba
+            ];
+            unitCases.forEach(function(t) {
+                try {
+                    var r = evalCalcExpression(t.expr);
+                    var pass = Math.abs(r.value - t.value) <= 1e-6 && r.unit === t.unit;
+                    results.push({ expr: t.expr + ' (stała-jednostka)', pass: pass, got: r.value + ' ' + r.unit });
+                } catch (err) {
+                    results.push({ expr: t.expr + ' (stała-jednostka)', pass: false, error: err.message });
+                }
+            });
+            STATE.fx.rates = savedFx0; STATE.fx.ts = savedFxTs0;
+            STATE.constants = savedConsts;
             // BigInt — dokładne duże liczby całkowite (+, −, ×)
             results.push({ expr: '99999999999999999+1 (BigInt)', pass: evalCalcExpression('99999999999999999+1').bigStr === '100000000000000000', got: evalCalcExpression('99999999999999999+1').bigStr });
             results.push({ expr: '123456789012345678+876543210987654322 (BigInt)', pass: evalCalcExpression('123456789012345678+876543210987654322').bigStr === '1000000000000000000', got: evalCalcExpression('123456789012345678+876543210987654322').bigStr });
