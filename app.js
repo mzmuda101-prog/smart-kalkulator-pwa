@@ -587,10 +587,67 @@
         // Normalizujemy × → *, ÷ → / (operandy z klawiatury i z UI). UWAGA: „-5" to LICZBA
         // (simple), nie operacja — minus wiodący przy gołej liczbie traktujemy jako znak.
         function classifyConstValue(val) {
-            var norm = String(val).trim().replace(/×/g, '*').replace(/÷/g, '/');
+            var raw = String(val).trim();
+            // Stała-FUNKCJA: wartość zawiera zmienną x i kompiluje się jako f(x).
+            if (_valueIsFunc(raw)) return { mode: 'func', sub: raw, norm: raw };
+            var norm = raw.replace(/×/g, '*').replace(/÷/g, '/');
             if (_CONST_SIMPLE_RE.test(norm)) return { mode: 'simple', sub: norm, norm: norm };
             if (/^[+*/^]/.test(norm) || /^-[^\d.,]/.test(norm)) return { mode: 'op', sub: norm, norm: norm };
             return { mode: 'expr', sub: '(' + norm + ')', norm: norm };
+        }
+        // ── Stałe-FUNKCJE = funkcje jednej zmiennej x, reużywają compileGraphExpression. BEZ markera „!":
+        // SMART, kontekstowo — wartość jest funkcją, gdy zawiera samodzielne „x" ORAZ kompiluje się jako f(x).
+        // To czysto oddziela funkcje od snippetów komend („x=120/4" ma x, ale się nie kompiluje → NIE funkcja).
+        //   • KALKULATOR (resolveFunctionConstants): „test"=„50-(20x+5)" wywoływalne — „test(3)", „test 3",
+        //     „3 test" → fn(3)=-15.
+        //   • KOMENDA (resolveCommandConstants): ta sama stała podstawia się DOSŁOWNIE (x = zmienna wykresu),
+        //     np. „f(x)=test" → „f(x)=50-(20x+5)".
+        // Ciało używa tylko x + funkcji matematycznych (jak graf); „×"/„÷" → „*"/„/". [[project_kalkulator_constants_expressions]]
+        function _valueIsFunc(val) {
+            var v = String(val == null ? '' : val).trim().replace(/×/g, '*').replace(/÷/g, '/').replace(/\s+/g, '').toLowerCase();
+            if (!/(^|[^a-z])x([^a-z]|$)/.test(v)) return false; // musi zawierać SAMODZIELNĄ zmienną x
+            try { compileGraphExpression(v); return true; } catch (e) { return false; }
+        }
+        function _isFuncConst(c) { return !!c && _valueIsFunc(c.value); }
+        function _funcConstBody(c) { return String(c.value).trim().replace(/×/g, '*').replace(/÷/g, '/'); }
+        // Wywołania stałych-funkcji w KALKULATORZE. Sąsiedztwo („test 3"/„3 test") działa tylko gdy
+        // operand jest po JEDNEJ stronie; operand z OBU stron („5 test 3") celowo NIE liczy się
+        // (zamiast zgadywać i dać zły wynik) — wtedy użytkownik daje nawiasy „test(3)".
+        function resolveFunctionConstants(raw, constants) {
+            var funcs = (constants || []).filter(_isFuncConst);
+            if (!funcs.length) return String(raw == null ? '' : raw);
+            var result = String(raw);
+            for (var pass = 0; pass < 5; pass++) {
+                var before = result;
+                funcs.forEach(function(c) {
+                    if (!c.name) return;
+                    var fn;
+                    try { fn = compileGraphExpression(_funcConstBody(c)); }
+                    catch (e) { return; }                       // niepoprawne ciało → pomijamy
+                    var nm = c.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    var B = '(?![\\p{L}\\p{N}_])';              // prawa granica nazwy
+                    var ARG = '(-?[\\d.,]+|[\\p{L}\\p{N}_]+)';  // liczba albo nazwa stałej
+                    function argNum(s) {
+                        if (/^-?[\d.,]+$/.test(s)) { var n = parseFloat(s.replace(',', '.')); return isFinite(n) ? n : null; }
+                        var k = constants.filter(function(d) { return !_isFuncConst(d); })
+                                         .filter(function(d) { return d.name && d.name.toLowerCase() === s.toLowerCase(); })[0];
+                        if (k) { var v = constNumericValue(k); return isFinite(v) ? v : null; }
+                        return null;
+                    }
+                    function out(a) { var v = fn(a); return isFinite(v) ? '(' + v + ')' : null; }
+                    // (a) nawiasy: NAME(ARG) — jednoznaczne, zawsze.
+                    result = result.replace(new RegExp('(^|[^\\p{L}\\p{N}_])' + nm + B + '\\s*\\(\\s*' + ARG + '\\s*\\)', 'giu'),
+                        function(m, pre, arg) { var a = argNum(arg); if (a == null) return m; var r = out(a); return r == null ? m : pre + r; });
+                    // (b) PO: <start|operator|(> NAME <sp> ARG — operand tylko z prawej.
+                    result = result.replace(new RegExp('(^|[-+*/^(]\\s*)' + nm + B + '\\s+' + ARG, 'giu'),
+                        function(m, pre, arg) { var a = argNum(arg); if (a == null) return m; var r = out(a); return r == null ? m : pre + r; });
+                    // (c) PRZED: ARG <sp> NAME <end|operator|)> — operand tylko z lewej.
+                    result = result.replace(new RegExp('(^|[^\\p{L}\\p{N}_)])' + ARG + '\\s+' + nm + B + '(?=\\s*(?:$|[-+*/^)]))', 'giu'),
+                        function(m, pre, arg) { var a = argNum(arg); if (a == null) return m; var r = out(a); return r == null ? m : pre + r; });
+                });
+                if (result === before) break;
+            }
+            return result;
         }
         // Jednostka stałej do doklejenia: tylko ROZPOZNANA (CALC_UNITS lub waluta) — inaczej
         // zwracamy null i podstawiamy samą liczbę (żeby nieznana etykieta typu „szt" nie
@@ -605,11 +662,12 @@
         }
         function resolveCalcConstants(raw, constants) {
             if (!constants || !constants.length) return raw;
-            var result = raw;
+            // Stałe-FUNKCJE najpierw: „test 3"/„test(3)" → fn(3). Reszta (zwykłe stałe) niżej.
+            var result = resolveFunctionConstants(raw, constants);
             for (var pass = 0; pass < 5; pass++) {
                 var before = result;
                 constants.forEach(function(c) {
-                    if (!c.name) return;
+                    if (!c.name || _isFuncConst(c)) return; // funkcje obsłużone wyżej
                     var escaped = c.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                     var val = String(c.value).trim();
                     var info = classifyConstValue(val);
@@ -5091,6 +5149,7 @@
         // Liczbowa wartość stałej — liczba wprost albo wynik policzenia wartości-wyrażenia
         // („23%”→0.23, „5+5*2”→15). NaN, gdy nie sprowadza się do liczby poza kontekstem użycia.
         function constNumericValue(c) {
+            if (_isFuncConst(c)) return NaN; // funkcja f(x) — nie ma jednej wartości
             if (typeof c.value === 'number') return c.value;
             var r = evalCalcExpression(String(c.value));
             return r && typeof r.value === 'number' && isFinite(r.value) ? r.value : NaN;
@@ -5130,7 +5189,8 @@
                 var clsInfo = classifyConstValue(rawVal);
                 detailDiv.textContent = (isPlainNum ? formatNum(parseFloat(rawVal.replace(',', '.'))) : rawVal)
                     + (c.unit ? ' ' + c.unit : '')
-                    + (clsInfo.mode === 'op' ? '  ·  operacja' : '');
+                    + (clsInfo.mode === 'op' ? '  ·  operacja'
+                       : clsInfo.mode === 'func' ? '  ·  funkcja f(x)' : '');
                 infoDiv.appendChild(nameDiv);
                 infoDiv.appendChild(detailDiv);
 
@@ -5219,6 +5279,16 @@
                             var multInput = li.querySelector('.quick-mult');
                             var mult = parseFloat(multInput.value) || 1;
                             var nv = constNumericValue(c);
+                            // Stała-FUNKCJA → wstaw „nazwa(" do kalkulatora, kursor w nawiasie (podaj x).
+                            if (_isFuncConst(c)) {
+                                var insF = c.name + '(';
+                                calcExpr.value = insF;
+                                switchTab('calculator');
+                                calcExpr.focus();
+                                calcExpr.setSelectionRange(insF.length, insF.length);
+                                showToast('🔢 ' + c.name + '( … ) — podaj x', '');
+                                return;
+                            }
                             // Stała-KOMENDA (nieliczbowa, wygląda jak komenda) → do pola Komendy,
                             // nie do kalkulatora. Wstawiamy nazwę — rozwinie ją resolveCommandConstants.
                             if (!isFinite(nv) && looksLikeCommand(String(c.value))) {
@@ -5263,7 +5333,10 @@
             // rozwija się przy każdym użyciu.
             var cls = classifyConstValue(valueStr);
             var valueOk;
-            if (cls.mode === 'op') {
+            if (cls.mode === 'func') {
+                // Funkcja jednej zmiennej x — _valueIsFunc już potwierdził kompilację jako f(x).
+                valueOk = true;
+            } else if (cls.mode === 'op') {
                 // Niedokończona operacja — sama się nie policzy. Sprawdzamy po doklejeniu
                 // operandu (np. „×5+2%" → „1*5+2%"), żeby odrzucić śmieci typu „**5".
                 var probeOp = evalCalcExpression('1' + cls.norm);
@@ -6803,6 +6876,37 @@
                 }
             });
             STATE.fx.rates = savedFx0; STATE.fx.ts = savedFxTs0;
+            // Stałe-FUNKCJE f(x) — wywołania w kalkulatorze (test(3)/test 3/3 test), argument-stała,
+            // oraz bezpieczne NIE-liczenie form dwuznacznych/bezargumentowych.
+            STATE.constants = [
+                { name: 'fnt',  value: '50-(20x+5)', unit: '' }, // f(x)=50-(20x+5)
+                { name: 'kw',   value: 'x^2',        unit: '' }, // f(x)=x^2
+                { name: 'baza', value: '4',          unit: '' }, // zwykła stała = argument
+            ];
+            var funcCases = [
+                { expr: 'fnt(3)',     value: -15 },   // 50-(20*3+5)
+                { expr: 'fnt 3',      value: -15 },   // sąsiedztwo po
+                { expr: '3 fnt',      value: -15 },   // sąsiedztwo przed
+                { expr: '5 + fnt(3)', value: -10 },   // w wyrażeniu
+                { expr: 'fnt 3 + 4',  value: -11 },   // arg po, potem +4
+                { expr: 'kw(4)',      value: 16 },
+                { expr: 'kw 5',       value: 25 },
+                { expr: '2*kw(3)',    value: 18 },
+                { expr: 'fnt baza',   value: -35 },   // argument = stała (4) → 50-(80+5)
+            ];
+            funcCases.forEach(function(t) {
+                try {
+                    var v = evalCalcExpression(t.expr).value;
+                    results.push({ expr: t.expr + ' (stała-funkcja)', pass: Math.abs(v - t.value) <= 1e-6, got: v });
+                } catch (err) {
+                    results.push({ expr: t.expr + ' (stała-funkcja)', pass: false, error: err.message });
+                }
+            });
+            // Formy, które MAJĄ się nie policzyć (bezpieczeństwo): dwuznaczność i brak argumentu.
+            ['5 fnt 3', 'fnt'].forEach(function(ex) {
+                var v = evalCalcExpression(ex).value;
+                results.push({ expr: ex + ' (funkcja: NIE liczy)', pass: v === null || !isFinite(v), got: v });
+            });
             STATE.constants = savedConsts;
             // BigInt — dokładne duże liczby całkowite (+, −, ×)
             results.push({ expr: '99999999999999999+1 (BigInt)', pass: evalCalcExpression('99999999999999999+1').bigStr === '100000000000000000', got: evalCalcExpression('99999999999999999+1').bigStr });

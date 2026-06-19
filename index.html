@@ -907,6 +907,7 @@
                     <p><code>cena</code> = <code>4,80</code> + jednostka <code>zł</code> → <code>cena * 12</code> = 57,6 zł (jednostka stałej zostaje); <code>dł</code> = <code>120</code> <code>cm</code> → <code>dł na m</code> = 1,2 m</p>
                     <p>Wartość może być wyrażeniem: <code>5+5*2</code>, a nawet wyrywkiem komendy: <code>belka</code> = <code>x=120/4 ,, @edges</code> (użyj w zakładce Komenda).</p>
                     <p><strong>Operacja</strong> (niedokończone równanie zaczynające się od <code>× ÷ * / + ^</code>) podstawia się <strong>dosłownie</strong>, dopełniając wyrażenie: <code>marża</code> = <code>×5+2</code> → <code>100 marża</code> = 502; <code>narzut</code> = <code>×1,23</code> → <code>100 narzut</code> = 123.</p>
+                    <p><strong>Funkcja</strong> (wartość zawiera zmienną <code>x</code>): <code>f</code> = <code>50-(20x+5)</code> → wywołaj podając <code>x</code>: <code>f(3)</code>, <code>f 3</code> albo <code>3 f</code> = −15 (argument może być stałą, np. <code>f cena</code>). Operand z <strong>obu</strong> stron (<code>5 f 3</code>) celowo nie liczy — użyj nawiasów. W <strong>komendach</strong> ta sama stała podstawia ciało: <code>g(x)=f</code> rysuje <code>50-(20x+5)</code>.</p>
                 </section>
                 <section>
                     <h4>Jednostki długości</h4>
@@ -1005,6 +1006,9 @@
                     <p>Wpisz nazwę stałej bezpośrednio w wyrażeniu.</p>
                     <p class="help-command" data-command="10*DESKA"><code>10 * DESKA</code> jeśli DESKA = 4,5 → 45</p>
                     <p class="help-command" data-command="CENA * 1.23"><code>CENA * 1,23</code> cena brutto z VAT 23%</p>
+                    <p><strong>Operacja</strong> — wartość od operatora (<code>×5+2</code>): podstawia się dosłownie, <code>100 marża</code> = 502.</p>
+                    <p><strong>Z jednostką</strong> — <code>cena</code> = <code>4,80 zł</code> → <code>cena * 12</code> = 57,6 zł (jednostka zostaje).</p>
+                    <p><strong>Funkcja</strong> — wartość ze zmienną <code>x</code> (<code>50-(20x+5)</code>): wywołaj <code>f(3)</code> / <code>f 3</code> / <code>3 f</code> = −15. W komendach podstawia ciało (<code>g(x)=f</code>).</p>
                 </section>
             </div>
             <div class="help-section" data-help="engineering">
