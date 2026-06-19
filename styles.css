@@ -193,6 +193,59 @@
             text-overflow: ellipsis;
         }
 
+        /* ── Zwijany górny pasek (uchwyt „grip") — tylko mobilki/wąskie (≤1023px) ──
+           Tapnięcie gripa zwija/rozwija; scroll w dół zwija, w górę rozwija (JS). Odzyskane
+           miejsce trafia do treści. Grip ukryty na desktopie (tam pasek zostaje na stałe). */
+        .header-grip {
+            display: none;
+            border: none;
+            background: transparent;
+            -webkit-tap-highlight-color: transparent;
+            cursor: pointer;
+        }
+        @media (max-width: 1023px) {
+            .app-header {
+                overflow: hidden;
+                height: var(--header-h, auto);   /* numeryczna wysokość → płynne zwijanie (JS mierzy) */
+                transition: height 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+                will-change: height;
+            }
+            .app-header .header-row {
+                transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+            }
+            .header-grip {
+                display: block;
+                position: absolute;
+                left: 50%;
+                bottom: 3px;
+                transform: translateX(-50%);
+                width: 56px;
+                height: 14px;
+                padding: 0;
+                z-index: 2;
+            }
+            .header-grip::before {
+                content: "";
+                display: block;
+                width: 42px;
+                height: 4px;
+                margin: 5px auto 0;
+                border-radius: 999px;
+                background: var(--border);
+                transition: background 0.2s;
+            }
+            /* stan zwinięty */
+            body.header-collapsed .app-header { height: calc(22px + var(--safe-top)); }
+            body.header-collapsed .app-header .header-row {
+                opacity: 0;
+                transform: translateY(-8px);
+                pointer-events: none;
+            }
+            body.header-collapsed .header-grip { bottom: calc((22px - 14px) / 2); }
+            body.header-collapsed .header-grip::before { background: var(--text-muted); }
+            body.header-collapsed .tab-nav { top: calc(22px + var(--safe-top)); }
+        }
+
         /* ============================================================
            [EN] Tab Navigation
            ============================================================ */

@@ -354,6 +354,45 @@
             else if (_wideMQ.addListener) _wideMQ.addListener(syncWideLayout);
         }
 
+        // [EN] Zwijany górny pasek na mobilkach (≤1023px): grip tapem zwija/rozwija; scroll w dół
+        // zwija, w górę rozwija. --header-h = zmierzona wysokość rozwiniętego paska (płynne zwijanie).
+        // Na desktopie pasek zostaje na stałe (CSS i guard niżej). Odzyskane miejsce idzie do treści.
+        var _narrowMQ = typeof matchMedia === 'function' ? matchMedia('(max-width: 1023px)') : null;
+        var appHeaderEl = document.querySelector('.app-header');
+        var headerGripEl = document.getElementById('headerGrip');
+        var panelsEl = document.querySelector('.panels');
+        function measureHeaderH() {
+            if (!appHeaderEl || document.body.classList.contains('header-collapsed')) return;
+            var h = appHeaderEl.getBoundingClientRect().height;
+            if (h) document.documentElement.style.setProperty('--header-h', Math.round(h) + 'px');
+        }
+        function setHeaderCollapsed(on) {
+            if (_narrowMQ && !_narrowMQ.matches) on = false; // desktop: zawsze rozwinięty
+            document.body.classList.toggle('header-collapsed', !!on);
+        }
+        if (appHeaderEl) {
+            measureHeaderH();
+            window.addEventListener('resize', function() {
+                if (!document.body.classList.contains('header-collapsed')) measureHeaderH();
+                if (_narrowMQ && !_narrowMQ.matches) setHeaderCollapsed(false);
+            });
+            if (headerGripEl) {
+                headerGripEl.addEventListener('click', function() {
+                    setHeaderCollapsed(!document.body.classList.contains('header-collapsed'));
+                });
+            }
+            if (panelsEl) {
+                var _lastScrollY = 0;
+                panelsEl.addEventListener('scroll', function() {
+                    if (_narrowMQ && !_narrowMQ.matches) return;
+                    var y = panelsEl.scrollTop;
+                    if (y > _lastScrollY + 6 && y > 40) setHeaderCollapsed(true);
+                    else if (y < _lastScrollY - 6) setHeaderCollapsed(false);
+                    _lastScrollY = y;
+                }, { passive: true });
+            }
+        }
+
         /* ============================================================
            [EN] STANDARD CALCULATOR — Button Layout
            ============================================================ */
