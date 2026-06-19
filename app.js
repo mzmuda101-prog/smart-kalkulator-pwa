@@ -321,6 +321,39 @@
             });
         });
 
+        // [EN] Dostosowania układu do SZEROKIEGO ekranu (≥1024px). Robione na starcie i przy
+        // przekroczeniu progu media-query (nie ciągle, więc ręczne zmiany usera zostają).
+        var _wideMQ = typeof matchMedia === 'function' ? matchMedia('(min-width: 1024px)') : null;
+        var _historyHome = null; // pierwotne miejsce szuflady historii (do przywrócenia na wąskim)
+        function syncWideLayout() {
+            var wide = _wideMQ && _wideMQ.matches;
+            // 1) Panel WEJŚCIA komendy domyślnie rozwinięty (sterowanie od razu widoczne obok wykresu).
+            var kc = document.getElementById('komendaInputCard');
+            if (kc && wide) kc.open = true;
+            // 2) Historia jako STAŁY panel boczny kalkulatora (dok) zamiast wysuwanej szuflady.
+            //    Przenosimy <aside> do #panel-calculator; CSS .history-drawer w środku panelu robi z niej
+            //    statyczny panel. Na wąskim wracamy do bottom-sheet w pierwotnym miejscu.
+            var panel = document.getElementById('panel-calculator');
+            var drawer = document.getElementById('historyDrawer');
+            if (panel && drawer) {
+                if (wide && drawer.parentElement !== panel) {
+                    _historyHome = { parent: drawer.parentElement, next: drawer.nextSibling };
+                    document.body.classList.remove('history-open');
+                    panel.appendChild(drawer);
+                    drawer.setAttribute('aria-hidden', 'false');
+                } else if (!wide && _historyHome && drawer.parentElement === panel) {
+                    _historyHome.parent.insertBefore(drawer, _historyHome.next);
+                    document.body.classList.remove('history-open');
+                    drawer.setAttribute('aria-hidden', 'true');
+                }
+            }
+        }
+        if (_wideMQ) {
+            syncWideLayout();
+            if (_wideMQ.addEventListener) _wideMQ.addEventListener('change', syncWideLayout);
+            else if (_wideMQ.addListener) _wideMQ.addListener(syncWideLayout);
+        }
+
         /* ============================================================
            [EN] STANDARD CALCULATOR — Button Layout
            ============================================================ */
