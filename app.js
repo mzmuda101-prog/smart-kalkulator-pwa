@@ -109,6 +109,13 @@
         const settingFxBackup = $('#settingFxBackup');
         const settingFxBackupRow = $('#settingFxBackupRow');
         const settingsFxStatus = $('#settingsFxStatus');
+        const settingsVersion = $('#settingsVersion');
+        const settingsCheckUpdate = $('#settingsCheckUpdate');
+
+        // Update banner
+        const updateBanner = $('#updateBanner');
+        const updateBannerBtn = $('#updateBannerBtn');
+        const updateBannerClose = $('#updateBannerClose');
 
         // Kreator (form fields in Komenda tab)
         const engLength = $('#engLength');
@@ -5593,7 +5600,62 @@
             });
         }
 
+        /* ============================================================
+           [EN] Graceful PWA update — baner zgody zamiast nagłego reloadu
+           ───────────────────────────────────────────────────────────
+           Wzorzec: nowy SW czeka (waiting) → pokazujemy baner „Odśwież" →
+           klik wysyła skip-waiting → nowy SW przejmuje kontrolę →
+           controllerchange przeładowuje stronę DOKŁADNIE RAZ (bez pętli,
+           bez gubienia wpisanego wyrażenia w trakcie pisania).
+           ============================================================ */
+        var swRegistration = null;
+        var swRefreshing = false;
+        var swWaitingWorker = null;
+
+        function showUpdateBanner(worker) {
+            swWaitingWorker = worker || (swRegistration && swRegistration.waiting) || null;
+            if (!updateBanner || !swWaitingWorker) return;
+            updateBanner.classList.add('is-visible');
+            updateBanner.setAttribute('aria-hidden', 'false');
+        }
+        function hideUpdateBanner() {
+            if (!updateBanner) return;
+            updateBanner.classList.remove('is-visible');
+            updateBanner.setAttribute('aria-hidden', 'true');
+        }
+        function applyUpdate() {
+            if (!swWaitingWorker) { hideUpdateBanner(); return; }
+            hideUpdateBanner();
+            showToast('🔄 Aktualizuję…', '');
+            swWaitingWorker.postMessage({ action: 'skip-waiting' });
+            // reload nastąpi w 'controllerchange' (poniżej), gdy nowy SW przejmie kontrolę.
+        }
+        function checkForUpdates(showFeedback) {
+            if (!swRegistration) { if (showFeedback) showToast('Brak aktywnej aktualizacji', ''); return; }
+            if (showFeedback) showToast('Sprawdzam aktualizacje…', '');
+            swRegistration.update().then(function() {
+                // Jeśli nic nie czeka po sprawdzeniu — poinformuj, że jest najnowsza.
+                if (showFeedback) setTimeout(function() {
+                    if (!(swRegistration && swRegistration.waiting) && !swWaitingWorker)
+                        showToast('✅ Masz najnowszą wersję', 'success');
+                }, 1200);
+            }).catch(function() {});
+        }
+        window.__checkForUpdates = checkForUpdates;
+
+        if (updateBannerBtn) updateBannerBtn.addEventListener('click', applyUpdate);
+        if (updateBannerClose) updateBannerClose.addEventListener('click', hideUpdateBanner);
+
         if ('serviceWorker' in navigator) {
+            // Reload RAZ po przejęciu kontroli przez nowy SW — tylko gdy wcześniej
+            // już był jakiś kontroler (czyli to AKTUALIZACJA, nie pierwsza instalacja).
+            var swHadController = !!navigator.serviceWorker.controller;
+            navigator.serviceWorker.addEventListener('controllerchange', function() {
+                if (swRefreshing || !swHadController) return;
+                swRefreshing = true;
+                window.location.reload();
+            });
+
             window.addEventListener('load', function() {
                 if (isDebugOrigin()) {
                     clearLocalServiceWorker().catch(function(err) {
@@ -5602,37 +5664,33 @@
                     return;
                 }
 
-                navigator.serviceWorker.register('sw.js', { scope: './' })
+                navigator.serviceWorker.register('sw.js', { scope: './', updateViaCache: 'none' })
                     .then(function(reg) {
+                        swRegistration = reg;
                         console.log('[EN] Service Worker registered:', reg.scope);
-                        // [EN] If there's a waiting worker (update pending), notify user
-                        if (reg.waiting) {
-                            showToast('🔄 Aktualizacja gotowa — kliknij 🔄', 'success');
-                        }
-                        // [EN] Listen for new SW updates
+                        // Update już czeka (np. zainstalowany w innej karcie).
+                        if (reg.waiting && navigator.serviceWorker.controller) showUpdateBanner(reg.waiting);
+                        // Nowy update w trakcie tej sesji.
                         reg.addEventListener('updatefound', function() {
                             var newWorker = reg.installing;
                             if (!newWorker) return;
                             newWorker.addEventListener('statechange', function() {
                                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    showToast('🔄 Aktualizacja gotowa — kliknij 🔄', 'success');
+                                    showUpdateBanner(newWorker);
                                 }
                             });
                         });
+                        checkForUpdates(false); // sprawdź od razu po starcie
                     })
                     .catch(function(err) {
                         console.warn('[EN] Service Worker registration failed:', err);
                     });
 
-                // [EN] Listen for messages from Service Worker (sw-updated notification)
-                navigator.serviceWorker.addEventListener('message', function(event) {
-                    if (event.data && event.data.action === 'sw-updated') {
-                        console.log('[EN] SW updated — refreshing page');
-                        window.location.reload();
-                    }
+                // Auto-sprawdzanie po powrocie do karty (długo otwarte karty też złapią update).
+                document.addEventListener('visibilitychange', function() {
+                    if (document.visibilityState === 'visible') checkForUpdates(false);
                 });
             });
-
         }
 
         // [EN] Cache Refresh Button — works regardless of SW presence
@@ -5739,6 +5797,7 @@
             radios.forEach(function(r) { r.checked = (r.value === STATE.settings.fxEngine); });
             syncFxBackupRow();
             updateFxStatusLine();
+            if (settingsVersion) settingsVersion.textContent = 'Wersja ' + (window.APP_VERSION || '—');
             document.body.classList.add('settings-open');
             settingsModal.setAttribute('aria-hidden', 'false');
             settingsBackdrop.setAttribute('aria-hidden', 'false');
@@ -5753,6 +5812,10 @@
 
         if (settingsBtn) settingsBtn.addEventListener('click', openSettings);
         if (settingsClose) settingsClose.addEventListener('click', closeSettings);
+        if (settingsCheckUpdate) settingsCheckUpdate.addEventListener('click', function() {
+            if (typeof window.__checkForUpdates === 'function') window.__checkForUpdates(true);
+            else showToast('Aktualizacje niedostępne (brak SW)', '');
+        });
         if (settingsBackdrop) settingsBackdrop.addEventListener('click', closeSettings);
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && document.body.classList.contains('settings-open')) closeSettings();

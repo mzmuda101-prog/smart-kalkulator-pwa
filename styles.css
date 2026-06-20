@@ -1858,6 +1858,78 @@
             color: var(--text-secondary);
             text-align: center;
         }
+        .settings-version {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 16px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border);
+            font-size: 0.82rem;
+            color: var(--text-muted);
+        }
+        .settings-version-btn {
+            border: 1.5px solid var(--border);
+            background: var(--bg);
+            color: var(--text-secondary);
+            font-size: 0.82rem;
+            padding: 7px 12px;
+            border-radius: var(--radius-pill);
+            cursor: pointer;
+            transition: all var(--transition);
+            -webkit-tap-highlight-color: transparent;
+        }
+        .settings-version-btn:active { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
+
+        /* ── Update banner (graceful PWA update) ──────────────────── */
+        .update-banner {
+            position: fixed;
+            left: 50%;
+            bottom: calc(16px + var(--safe-bottom));
+            transform: translateX(-50%) translateY(calc(100% + 24px));
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            max-width: min(94vw, 460px);
+            padding: 12px 14px 12px 18px;
+            background: var(--text);
+            color: #fff;
+            border-radius: var(--radius-pill);
+            box-shadow: 0 14px 34px rgba(15, 23, 42, 0.32);
+            opacity: 0;
+            pointer-events: none;
+            transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.24s ease;
+            z-index: 700;
+        }
+        .update-banner.is-visible {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .update-banner-text { font-size: 0.9rem; font-weight: 600; white-space: nowrap; }
+        .update-banner-btn {
+            border: none;
+            background: var(--primary);
+            color: #fff;
+            font-weight: 700;
+            font-size: 0.88rem;
+            padding: 8px 16px;
+            border-radius: var(--radius-pill);
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            transition: background var(--transition);
+        }
+        .update-banner-btn:active { background: var(--primary-hover); }
+        .update-banner-close {
+            border: none;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.95rem;
+            cursor: pointer;
+            padding: 4px 6px;
+            -webkit-tap-highlight-color: transparent;
+        }
 
         .toast.show { transform: translateX(-50%) translateY(0); }
         .toast.success { background: var(--success); }

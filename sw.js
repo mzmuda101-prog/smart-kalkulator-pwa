@@ -1,12 +1,15 @@
 /* ============================================================
    [EN] Service Worker — offline cache for Kalkulator by Matm0
-   Caching strategy: Network First with cache fallback
+   Caching strategy: Stale-While-Revalidate (instant z cache + odświeżenie w tle)
+   Wersja: JEDNO źródło prawdy w version.js (APP_VERSION).
    ============================================================ */
-const CACHE_NAME = 'matm0-calc-v35';
+importScripts('version.js'); // ustawia self.APP_VERSION (np. 'v36')
+const CACHE_NAME = 'matm0-calc-' + (self.APP_VERSION || 'v0');
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './manifest.json',
+    './version.js',
     './assets/img/icon-192.png',
     './assets/img/icon-512.png',
     './assets/img/logo-mateusz-transparent.png',
@@ -18,16 +21,14 @@ const ASSETS_TO_CACHE = [
     './styles.css'
 ];
 
-/* [EN] Install event — pre-cache essential assets */
+/* [EN] Install — pre-cache assetów. NIE robimy skipWaiting() automatycznie:
+   nowa wersja czeka (stan „waiting"), a strona pyta usera banerem „Odśwież".
+   Pierwsza instalacja (brak aktywnego SW) aktywuje się sama. */
 self.addEventListener('install', function(event) {
-    console.log('[SW] Install');
+    console.log('[SW] Install', CACHE_NAME);
     event.waitUntil(
         caches.open(CACHE_NAME).then(function(cache) {
-            console.log('[SW] Caching assets');
             return cache.addAll(ASSETS_TO_CACHE);
-        }).then(function() {
-            /* [EN] Activate immediately — skip waiting */
-            return self.skipWaiting();
         })
     );
 });
@@ -59,56 +60,47 @@ self.addEventListener('activate', function(event) {
     );
 });
 
-function cacheResponse(request, response) {
-    if (!response || response.status !== 200 || response.type !== 'basic') {
-        return response;
-    }
-    const responseClone = response.clone();
-    caches.open(CACHE_NAME).then(function(cache) {
-        cache.put(request, responseClone);
+/* [EN] Stale-While-Revalidate: oddaj z cache OD RAZU (jeśli jest), a w tle
+   dociągnij świeżą wersję do cache na następne wejście. Offline → cache. */
+function staleWhileRevalidate(request, navigateFallback) {
+    return caches.open(CACHE_NAME).then(function(cache) {
+        return cache.match(request).then(function(cached) {
+            var network = fetch(request).then(function(response) {
+                if (response && response.status === 200 &&
+                    (response.type === 'basic' || response.type === 'cors')) {
+                    cache.put(request, response.clone());
+                }
+                return response;
+            }).catch(function() {
+                // Offline: użyj cache; dla nawigacji spróbuj powłoki index.html.
+                return cached || (navigateFallback ? cache.match('./index.html') : undefined);
+            });
+            return cached || network;
+        });
     });
-    return response;
 }
 
-/* [EN] Fetch event — network-first to avoid stale debug builds */
 self.addEventListener('fetch', function(event) {
-    /* [EN] Only handle GET requests */
     if (event.request.method !== 'GET') return;
 
-    /* [EN] Skip non-http(s) requests (e.g. chrome-extension://) */
     const url = new URL(event.request.url);
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
-    /* [EN] For navigation requests (HTML shell), prefer the newest file */
+    /* [EN] Cross-origin (np. kursy NBP/Frankfurter) — czysta sieć, bez cache.
+       Offline odrzuci, a strona obsłuży to sama (fallback kursów w localStorage). */
+    if (url.origin !== self.location.origin) {
+        event.respondWith(fetch(event.request));
+        return;
+    }
+
+    /* [EN] Nawigacja (powłoka HTML) — SWR z fallbackiem do index.html. */
     if (event.request.mode === 'navigate') {
-            // Cache the navigation response using the original request to ensure proper caching
-            event.respondWith(
-                fetch(event.request, { cache: 'no-store' }).then(function(response) {
-                    return cacheResponse(event.request, response);
-                }).catch(function() {
-                    return caches.match(event.request);
-                })
-            );
+        event.respondWith(staleWhileRevalidate(event.request, true));
         return;
     }
 
-    /* [EN] For same-origin assets, prefer network so temporary servers do not look stale */
-    if (url.origin === self.location.origin) {
-        event.respondWith(
-            fetch(event.request, { cache: 'no-store' }).then(function(response) {
-                return cacheResponse(event.request, response);
-            }).catch(function() {
-                return caches.match(event.request).then(function(cached) {
-                    return cached || new Response('Offline — resource not cached', { status: 503 });
-                });
-            })
-        );
-        return;
-    }
-
-    /* [EN] For cross-origin requests (np. kursy NBP) — sieć; offline odrzuci, a strona
-       obsłuży błąd sama (loadFxRates → fallback na cache w localStorage). Bez cache'owania. */
-    event.respondWith(fetch(event.request));
+    /* [EN] Assety same-origin — SWR. */
+    event.respondWith(staleWhileRevalidate(event.request, false));
 });
 
 /* [EN] Message listener — allows page to trigger skipWaiting + cache purge */

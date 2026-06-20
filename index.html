@@ -1414,7 +1414,20 @@
                 </label>
             </div>
             <p class="settings-fxstatus" id="settingsFxStatus"></p>
+            <div class="settings-version">
+                <span id="settingsVersion">Wersja —</span>
+                <button class="settings-version-btn" id="settingsCheckUpdate" type="button">Sprawdź aktualizacje</button>
+            </div>
         </div>
+    </div>
+
+    <!-- ============================================================
+    [EN] Update banner — graceful PWA update prompt
+    ============================================================ -->
+    <div class="update-banner" id="updateBanner" role="status" aria-hidden="true">
+        <span class="update-banner-text">🔄 Dostępna nowa wersja</span>
+        <button class="update-banner-btn" id="updateBannerBtn" type="button">Odśwież</button>
+        <button class="update-banner-close" id="updateBannerClose" type="button" aria-label="Zamknij">✕</button>
     </div>
 
     <!-- ============================================================
@@ -1422,6 +1435,7 @@
     ============================================================ -->
     <div class="toast" id="toast" aria-live="assertive"></div>
 
+    <script src="version.js"></script>
     <script src="js/data-tables.js"></script>
     <script src="command-definitions.js"></script>
     <script src="app.js"></script>
