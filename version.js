@@ -4,7 +4,7 @@
    JAK I strona (index.html). Z tego buduje się nazwa cache i napis w UI.
    Konwencja: 'vN' (np. 'v36'). Bumpnij przy każdym wydaniu zmian w assetach.
    ============================================================ */
-var APP_VERSION = 'v50';
+var APP_VERSION = 'v51';
 
 /* Udostępnij w obu światach: SW (self) i okno przeglądarki (window). */
 if (typeof self !== 'undefined') { self.APP_VERSION = APP_VERSION; }

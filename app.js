@@ -645,17 +645,25 @@
             raw = raw.replace(/([\d.,]+)%\s+(?:z|of)\s+([\d.,]+)/gi, '($2*$1/100)');
             // "X% od Y" (rabat skrótowy)
             raw = raw.replace(/([\d.,]+)%\s+od\s+([\d.,]+)/gi, '($2*(1-$1/100))');
-            // „<wyrażenie> ± N%" — procent liczony OD bazy (jak w kalkulatorze telefonu i jak „± vat").
-            // Bazą może być CAŁE działanie, nie tylko jedna liczba: „3*160 + 12%" = 480 + 12%·480 =
-            // 537,6 (wcześniej „+ 12%" dodawało gołe 0,12 → błędne 480,12). Bazę podstawiamy DWUKROTNIE
-            // — to bezpieczne, bo waluty są już liczbami (resolveCalcCurrency biegnie wcześniej w
-            // evalCalcExpression), a własne jednostki są bezwymiarowe i policzą się tak samo w obu
-            // kopiach. [[project_kalkulator_notepad_planning]]
-            raw = raw.replace(/^(.+\S)\s*([+\-])\s*([\d.,]+)%\s*$/, function(m, base, op, b) {
-                if (/%/.test(base)) return m; // łańcuch „100+10%+5%" — zostaw dla reguły gołego %
-                return '(' + base + ')' + op + '((' + base + ')*' + b.replace(',', '.') + '/100)';
-            });
-            // Samodzielne "N%"
+            // „<wyrażenie> ± N%" — procent liczony OD CAŁEJ lewej bazy (jak w kalkulatorze telefonu i jak
+            // „± vat"), o ile po procencie jest granica ADYTYWNA (`+`, `−` lub koniec). Dzięki temu:
+            //   • „3*160 + 12%" = 480 + 12%·480 = 537,6 (procent od działania),
+            //   • „537 + 12% + 5" = (537+12%) + 5 = 606,44 — procent NIE „gubi się", gdy coś idzie po nim,
+            //   • „100 + 10% + 5%" = łańcuch (każdy procent od bieżącej bazy) = 115,5.
+            // Iterujemy od LEWEJ (baza bez `%` → zawsze najwcześniejszy procent), aż zniknie. Bazę
+            // podstawiamy dwukrotnie — bezpiecznie, bo waluty są już liczbami (resolveCalcCurrency biegnie
+            // wcześniej), a własne jednostki bezwymiarowe liczą się tak samo w obu kopiach. Po `×`/`÷`
+            // procent ZOSTAJE ułamkiem (`537 + 12%*12` = 537 + 0,12·12) — tam mnożenie przez ułamek jest
+            // jednoznaczne; kto chce „(537+12%)·12" daje nawias. [[project_kalkulator_notepad_planning]]
+            // UWAGA: baza to `[^%]*[^%\s]` (NIE `\S` na końcu — `\S` łapie też „%" i zjadałoby pierwszy
+            // procent w łańcuchu „100+10%+10%", psując wynik). Baza nie może kończyć się na „%" ani spacji.
+            var _pctRe = /^([^%]*[^%\s])\s*([+\-])\s*([\d.,]+)%(?=\s*(?:[+\-]|$))/;
+            for (var _pctGuard = 0; _pctRe.test(raw) && _pctGuard < 40; _pctGuard++) {
+                raw = raw.replace(_pctRe, function(_, base, op, b) {
+                    return '(' + base + ')' + op + '((' + base + ')*' + b.replace(',', '.') + '/100)';
+                });
+            }
+            // Samodzielne / pozostałe "N%" (po ×/÷, na początku wyrażenia itp.) → ułamek N/100
             raw = raw.replace(/([\d.,]+)%/g, '($1/100)');
 
             return raw;
@@ -6575,6 +6583,11 @@
             npEditor.addEventListener('focusin', function(e) {
                 if (e.target.classList && e.target.classList.contains('np-line')) _npAutoGrow(e.target);
             });
+            // Utrata fokusu: chip wraca do flow → pole WĘŻSZE → tekst może zawinąć się na więcej linii.
+            // Bez przeliczenia wysokość zostałaby z szerszego stanu i ucięłaby ostatnią linię (overflow:hidden).
+            npEditor.addEventListener('focusout', function(e) {
+                if (e.target.classList && e.target.classList.contains('np-line')) _npAutoGrow(e.target);
+            });
             npEditor.addEventListener('keydown', npRowKeydown);
             npEditor.addEventListener('click', function(e) {
                 var chip = e.target.closest('.np-res');
@@ -7973,6 +7986,20 @@
                 { expr: '1000 + vat 8%', value: 1080 },
                 { expr: 'vat od 1000', value: 230 },               // sama kwota podatku
                 { expr: 'vat 8% od 1000', value: 80 },
+                // procent OD bazy + operatory (regresja: procent nie może „gubić się", gdy coś idzie po nim)
+                { expr: '537 + 12%', value: 601.44, tol: 1e-6 },        // procent od liczby
+                { expr: '3*160 + 12%', value: 537.6, tol: 1e-6 },       // procent od DZIAŁANIA
+                { expr: '537 + 12% + 5', value: 606.44, tol: 1e-6 },    // (537+12%) potem +5 — NIE 542,12
+                { expr: '537 + 12% - 5', value: 596.44, tol: 1e-6 },
+                { expr: '100 + 10% + 10%', value: 121, tol: 1e-6 },     // łańcuch: każdy procent od bieżącej bazy
+                { expr: '200 + 10% + 10%', value: 242, tol: 1e-6 },
+                { expr: '100 + 10% + 5%', value: 115.5, tol: 1e-6 },
+                { expr: '100 + 20 + 10%', value: 132, tol: 1e-6 },      // baza = cała lewa strona (120)
+                { expr: '537*12 + 12%', value: 7217.28, tol: 1e-6 },    // procent od iloczynu
+                { expr: '537 + 12%*12', value: 538.44, tol: 1e-6 },     // po „×" procent ZOSTAJE ułamkiem
+                { expr: '100*50%', value: 50, tol: 1e-6 },              // 50% jako ułamek przy mnożeniu
+                { expr: '100/50%', value: 200, tol: 1e-6 },
+                { expr: '12%*100', value: 12, tol: 1e-6 },
                 // daty — deterministyczny zakres
                 { expr: 'ile dni od 1.01.2026 do 1.02.2026', value: 31 },
             ];

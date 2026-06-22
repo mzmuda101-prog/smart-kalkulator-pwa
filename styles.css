@@ -1940,7 +1940,7 @@
             border-radius: 999px;
             cursor: pointer;
             white-space: nowrap;
-            transition: background 0.12s ease;
+            transition: background 0.12s ease, opacity 0.15s ease;
             -webkit-tap-highlight-color: transparent;
         }
         .np-res:hover, .np-res:focus-visible { background: var(--primary-light, rgba(37, 99, 235, 0.12)); }
@@ -1949,11 +1949,9 @@
         .np-row:focus-within .np-res {
             position: absolute;
             right: 8px;
-            top: 1px;
+            bottom: 0.25rem;     /* ten sam poziom co w flow (flex-end + margin-bottom) → BEZ podskoku */
             margin: 0;
-            opacity: 0.5;
-            background: transparent;
-            color: var(--text-muted);
+            opacity: 0.45;       /* TYLKO przygaszenie, kolor zostaje niebieski (bez zmiany na szary) */
             pointer-events: none;
         }
         /* „razem"/„suma" zostają wyróżnione pełnym kafelkiem — to podsumowanie, nie zwykła pozycja. */
