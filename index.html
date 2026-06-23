@@ -1438,7 +1438,11 @@
                 <ul class="np-list" id="npListUl"></ul>
             </aside>
         </div>
-        <div class="np-tooltip" id="npTooltip" role="status" aria-hidden="true"></div>
+    </div>
+    <!-- Dymek kotwiczony silnika cursor-hint (rozpisane równanie chipów .np-res).
+         aria-hidden: dekoracyjny — tę samą treść niesie aria-label chipu (bez podwójnego odczytu). -->
+    <div class="cursor-hint" id="cursorHint" aria-hidden="true">
+        <div class="cursor-hint-scaler"><span>Kliknij</span></div>
     </div>
     <div class="settings-modal" id="settingsModal" role="dialog" aria-modal="true"
         aria-labelledby="settingsTitle" aria-hidden="true">
@@ -1522,6 +1526,7 @@
     <div class="toast" id="toast" aria-live="assertive"></div>
 
     <script src="version.js"></script>
+    <script src="js/cursor-hint.js"></script>
     <script src="js/data-tables.js"></script>
     <script src="command-definitions.js"></script>
     <script src="app.js"></script>

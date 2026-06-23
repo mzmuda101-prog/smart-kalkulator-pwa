@@ -15,6 +15,7 @@ const ASSETS_TO_CACHE = [
     './assets/img/logo-mateusz-transparent.png',
     './assets/img/logo-refresh.png',
     './sw.js',
+    './js/cursor-hint.js',
     './js/data-tables.js',
     './command-definitions.js',
     './app.js',

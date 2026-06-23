@@ -1942,6 +1942,10 @@
             white-space: nowrap;
             transition: background 0.12s ease, opacity 0.15s ease;
             -webkit-tap-highlight-color: transparent;
+            /* Przytrzymanie chipu (dotyk) ma pokazać dymek równania, nie zaznaczać tekstu / lupę iOS. */
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
         }
         .np-res:hover, .np-res:focus-visible { background: var(--primary-light, rgba(37, 99, 235, 0.12)); }
         /* Podczas EDYCJI wiersza wynik wychodzi z układu (prawy-górny róg, przygaszony) — pole tekstowe
@@ -1971,22 +1975,49 @@
         .np-editor.np-fold .np-row.np-has:not(:focus-within):not(.np-editing) .np-line { display: none; }
         .np-editor.np-fold .np-row.np-has:not(:focus-within):not(.np-editing) .np-label { display: inline-block; max-width: 60%; }
         .np-editor.np-fold .np-row.np-has:not(:focus-within):not(.np-editing) .np-res { margin-left: 8px; }
-        .np-tooltip {
+        /* ── Dymek silnika cursor-hint (js/cursor-hint.js) ────────────────
+           Zastępuje dawny .np-tooltip: kotwiczy się nad chipem .np-res, podąża/zanika
+           animacyjnie, a na dotyku rozróżnia tap (zerknięcie) od przytrzymania. Outer
+           .cursor-hint = warstwa pozycji (transform z JS), .cursor-hint-scaler = wygląd. */
+        .cursor-hint {
             position: fixed;
+            top: 0;
+            left: 0;
             z-index: 700;
-            display: none;
+            display: inline-flex;
+            pointer-events: none;
+            opacity: 0;
+            filter: blur(0px);
+            transition: opacity 140ms ease, filter 140ms ease;
+            will-change: transform, opacity;
+        }
+        .cursor-hint.is-fading {
+            opacity: 0 !important;
+            filter: blur(6px) !important;
+            transition: opacity var(--hint-fade-ms, 460ms) ease-out, filter var(--hint-fade-ms, 460ms) ease-out !important;
+        }
+        .cursor-hint-scaler {
+            display: inline-flex;
+            align-items: center;
             max-width: min(82vw, 440px);
             background: var(--text, #0f172a);
             color: #fff;
             font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
             font-size: 0.85rem;
+            line-height: 1.35;
             padding: 6px 10px;
             border-radius: 8px;
             box-shadow: var(--shadow-lg, 0 10px 28px rgba(15, 23, 42, 0.3));
-            pointer-events: none;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            white-space: nowrap;        /* krótkie równania w jednej linii */
+            transform-origin: left bottom;
+            transition: transform 140ms ease;
+        }
+        .cursor-hint.is-visible { opacity: 1; visibility: visible; }
+        /* Wariant chipów notatnika (data-hint-class="np-eq"): długie rozpisane równania
+           ZAWIJAJĄ się zamiast być ucinane wielokropkiem (naprawa dawnego nowrap+ellipsis). */
+        .cursor-hint.np-eq .cursor-hint-scaler {
+            white-space: normal;
+            word-break: break-word;
         }
         .np-hint {
             flex: 0 0 auto;

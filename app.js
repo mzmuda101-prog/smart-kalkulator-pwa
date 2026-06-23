@@ -111,7 +111,6 @@
         const notepadClose = $('#notepadClose');
         const npBackdrop = $('#npBackdrop');
         const npEditor = $('#npEditor');
-        const npTooltip = $('#npTooltip');
         const npListBtn = $('#npListBtn');
         const npFoldBtn = $('#npFoldBtn');
         const npNewBtn = $('#npNewBtn');
@@ -6275,6 +6274,16 @@
             res.className = 'np-res';
             res.tabIndex = -1;
             res.style.display = 'none';
+            // Dymek rozpisanego równania obsługuje silnik cursor-hint (js/cursor-hint.js):
+            // źródło tekstu = data-eq, kotwica nad chipem, dotyk = tap-zerknięcie / przytrzymanie,
+            // łagodne zanikanie. Klasa np-eq daje zawijanie długich równań (koniec ucinania).
+            res.setAttribute('data-hint', '');
+            res.setAttribute('data-hint-from', 'data-eq');
+            res.setAttribute('data-hint-anchor', 'element');
+            res.setAttribute('data-hint-touch', 'on');
+            res.setAttribute('data-hint-tap', '');
+            res.setAttribute('data-hint-fade', '');
+            res.setAttribute('data-hint-class', 'np-eq');
             row.appendChild(input);
             row.appendChild(label);
             row.appendChild(res);
@@ -6300,6 +6309,7 @@
                 label.textContent = info.labelPart || '';
             });
             npEditor.classList.toggle('np-fold', !!(STATE.settings && STATE.settings.notepadFold));
+            npBindHints(); // podepnij dymek równania do (nowych) chipów — idempotentnie
         }
         function npBuildRows(text) {
             if (!npEditor) return;
@@ -6473,28 +6483,20 @@
             npRecompute(); // natychmiast, bez zamykania notatnika
         }
 
-        // Dymek z rozpisanym równaniem (hover na desktopie / tap na tablecie).
-        var _npTipChip = null;
-        function npShowTip(chip) {
-            if (!npTooltip || !chip || !chip.dataset.eq) return;
-            npTooltip.textContent = chip.dataset.eq;
-            npTooltip.style.display = 'block';
-            npTooltip.setAttribute('aria-hidden', 'false');
-            var r = chip.getBoundingClientRect();
-            var tw = npTooltip.offsetWidth, th = npTooltip.offsetHeight;
-            var left = Math.min(Math.max(8, r.left + r.width / 2 - tw / 2), window.innerWidth - tw - 8);
-            var top = r.top - th - 8;
-            if (top < 8) top = r.bottom + 8;
-            npTooltip.style.left = left + 'px';
-            npTooltip.style.top = top + 'px';
-            _npTipChip = chip;
-        }
-        function npHideTip() {
-            if (!npTooltip) return;
-            npTooltip.style.display = 'none';
-            npTooltip.setAttribute('aria-hidden', 'true');
-            _npTipChip = null;
-        }
+        // Dymek z rozpisanym równaniem obsługuje silnik cursor-hint (js/cursor-hint.js):
+        // hover (desktop, kotwica nad chipem), tap = zerknięcie, przytrzymanie = trzymaj.
+        // Chipy .np-res same noszą atrybuty data-hint-* (patrz _npMakeRow). Wiążemy je LOKALNIE
+        // po każdym przeliczeniu wierszy (idempotentnie — silnik pomija już-podpięte), zamiast
+        // globalnego MutationObserver na body — kalkulator ma za dużo zmian DOM przy pisaniu.
+        var _npHintCtl = (window.MateuszCursorHint && window.MateuszCursorHint.createCursorHintController)
+            ? window.MateuszCursorHint.createCursorHintController({
+                cursorHint: document.getElementById('cursorHint'),
+                prefersReducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+                getFallbackHint: function() { return ''; }
+            })
+            : null;
+        function npBindHints() { if (_npHintCtl && npEditor) _npHintCtl.setupCursorHint(npEditor.querySelectorAll('.np-res')); }
+        function npHideTip() { if (_npHintCtl && _npHintCtl.hideHint) _npHintCtl.hideHint(); }
         function npRowKeydown(e) {
             var input = e.target;
             if (!input.classList || !input.classList.contains('np-line')) return;
@@ -6613,8 +6615,9 @@
             });
             npEditor.addEventListener('keydown', npRowKeydown);
             npEditor.addEventListener('click', function(e) {
-                var chip = e.target.closest('.np-res');
-                if (chip) { e.stopPropagation(); if (_npTipChip === chip) npHideTip(); else npShowTip(chip); return; }
+                // Tap/klik chipu wyniku obsługuje cursor-hint (zerknięcie/przytrzymanie) —
+                // nie wchodź w edycję wiersza i nie reaguj tu dodatkowo.
+                if (e.target.closest('.np-res')) { e.stopPropagation(); return; }
                 npHideTip();
                 var row = e.target.closest('.np-row'); // klik/tap w wiersz (tryb fold) → edycja
                 if (row) {
@@ -6641,14 +6644,15 @@
                     if (last) { last.focus(); var L = last.value.length; last.setSelectionRange(L, L); }
                 }
             });
-            npEditor.addEventListener('mouseover', function(e) { var c = e.target.closest('.np-res'); if (c) npShowTip(c); });
-            npEditor.addEventListener('mouseout', function(e) { var c = e.target.closest('.np-res'); if (c) npHideTip(); });
+            // Hover/dotyk chipów obsługuje silnik cursor-hint. Tu tylko chowamy dymek przy
+            // przewijaniu edytora (kotwica liczona z pozycji chipu zdezaktualizowałaby się).
             npEditor.addEventListener('scroll', npHideTip);
         }
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && document.body.classList.contains('notepad-open')) {
                 if (npListPanel && npListPanel.classList.contains('open')) { npCloseList(); return; } // najpierw lista
-                if (_npTipChip) { npHideTip(); return; }  // potem dymek
+                var ch = document.getElementById('cursorHint');
+                if (ch && ch.classList.contains('is-visible')) { npHideTip(); return; }  // potem dymek
                 closeNotepad();
             }
         });
