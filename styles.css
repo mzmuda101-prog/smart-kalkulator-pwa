@@ -802,6 +802,51 @@
             max-width: 42%;
             text-align: right;
         }
+        /* ── Historia: szukanie + przypnij + kopiuj ── */
+        .history-search {
+            flex: 0 0 auto;
+            padding: 0 12px 8px;
+        }
+        .history-search-input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--bg, #fff);
+            color: var(--text);
+            font-size: 0.9rem;
+            font-family: inherit;
+            -webkit-appearance: none;
+        }
+        .history-search-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        .history-item.is-pinned {
+            background: var(--primary-light, rgba(37, 99, 235, 0.08));
+        }
+        .history-item-actions {
+            flex: 0 0 auto;
+            display: flex;
+            gap: 2px;
+            align-items: center;
+        }
+        .history-item-btn {
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 0.95rem;
+            line-height: 1;
+            padding: 6px;
+            border-radius: var(--radius-sm);
+            opacity: 0.4;
+            -webkit-tap-highlight-color: transparent;
+            transition: opacity var(--transition), background var(--transition);
+        }
+        .history-item-btn:hover,
+        .history-item-btn:active { opacity: 1; background: var(--primary-light); }
+        .history-item-btn.hist-pin[aria-pressed="true"] { opacity: 1; }
 
         /* ============================================================
            [EN] Engineering Module — Inputs

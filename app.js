@@ -95,6 +95,7 @@
         const calcResult = $('#calcResult');
         const calcGrid = $('#calcGrid');
         const historyList = $('#historyList');
+        const historySearch = $('#historySearch');
         const clearHistoryBtn = $('#clearHistory');
         const openHistoryBtn = $('#openHistory');
         const closeHistoryBtn = $('#closeHistory');
@@ -204,7 +205,7 @@
         function loadFromStorage() {
             try {
                 const h = localStorage.getItem(STORAGE_KEYS.history);
-                if (h) STATE.history = JSON.parse(h);
+                if (h) STATE.history = JSON.parse(h).map(_histNormalize).filter(function(it) { return it.text; });
                 const c = localStorage.getItem(STORAGE_KEYS.constants);
                 if (c) STATE.constants = JSON.parse(c);
                 const r = localStorage.getItem(STORAGE_KEYS.recentCommands);
@@ -1030,6 +1031,82 @@
         }
 
         /* ============================================================
+           [EN] Czas zegarowy — „17:00 + 3h", „od 9:30 do 17:15", „teraz + 90 min", „17:00 - 9:30"
+           ============================================================ */
+        function _nowMinutes() { var d = new Date(); return d.getHours()*60 + d.getMinutes(); }
+        // Token zegara → minuty doby (0..1439) lub null. Akceptuje HH:MM oraz „teraz"/„now".
+        function _parseClockToken(str) {
+            var s = String(str).trim().toLowerCase();
+            if (s === 'teraz' || s === 'now') return _nowMinutes();
+            var m = s.match(/^(\d{1,2}):(\d{2})$/);
+            if (!m) return null;
+            var h = +m[1], mi = +m[2];
+            if (h > 23 || mi > 59) return null;
+            return h*60 + mi;
+        }
+        // Czas trwania → minuty lub null. „2h", „90 min", „1h30", „1:30", „2 godz 15 min".
+        function _parseDuration(str) {
+            var s = String(str).trim().toLowerCase().replace(/\s+/g, ' ');
+            if (!s) return null;
+            var m;
+            if ((m = s.match(/^(\d{1,3}):(\d{2})$/))) { var mm = +m[2]; if (mm > 59) return null; return (+m[1])*60 + mm; }
+            if ((m = s.match(/^(\d+)\s*(?:h|g|godz[a-ząćęłńóśźż]*)\s*(\d+)?\s*(?:m|min|minut[a-ząćęłńóśźż]*)?$/))) {
+                return (+m[1])*60 + (m[2] ? +m[2] : 0);
+            }
+            if ((m = s.match(/^(\d+)\s*(?:m|min|minut[a-ząćęłńóśźż]*)$/))) return +m[1];
+            return null;
+        }
+        function _fmtClock(mins) {
+            mins = ((Math.round(mins) % 1440) + 1440) % 1440; // zawijanie przez północ
+            var h = Math.floor(mins/60), mi = mins % 60;
+            return (h<10?'0':'')+h + ':' + (mi<10?'0':'')+mi;
+        }
+        function _fmtDuration(mins) {
+            mins = Math.round(Math.abs(mins));
+            var h = Math.floor(mins/60), mi = mins % 60;
+            if (h && mi) return h + ' h ' + mi + ' min';
+            if (h) return h + ' h';
+            return mi + ' min';
+        }
+        function evalClockExpression(raw) {
+            var s = String(raw || '').trim();
+            if (!s) return null;
+            var low = s.toLowerCase();
+            var m;
+            // „od HH:MM do HH:MM" → czas trwania (z przeskokiem przez północ)
+            if ((m = low.match(/^od\s+(.+?)\s+do\s+(.+)$/))) {
+                var a = _parseClockToken(m[1]), b = _parseClockToken(m[2]);
+                if (a != null && b != null) {
+                    var diff = b - a; if (diff < 0) diff += 1440;
+                    return { text: _fmtDuration(diff), value: diff };
+                }
+                return null;
+            }
+            // „HH:MM - HH:MM" → różnica (oba muszą być zegarem) — przed regułą odejmowania trwania
+            if ((m = low.match(/^(\d{1,2}:\d{2}|teraz|now)\s*-\s*(\d{1,2}:\d{2}|teraz|now)$/))) {
+                var a2 = _parseClockToken(m[1]), b2 = _parseClockToken(m[2]);
+                if (a2 != null && b2 != null) {
+                    var diff2 = a2 - b2; if (diff2 < 0) diff2 += 1440;
+                    return { text: _fmtDuration(diff2), value: diff2 };
+                }
+                return null;
+            }
+            // „HH:MM + <trwanie>" / „HH:MM - <trwanie>" → nowy czas zegarowy
+            if ((m = low.match(/^(\d{1,2}:\d{2}|teraz|now)\s*([+\-])\s*(.+)$/))) {
+                var base = _parseClockToken(m[1]);
+                var dur = _parseDuration(m[3]);
+                if (base != null && dur != null) {
+                    var res = base + (m[2] === '-' ? -dur : dur);
+                    return { text: _fmtClock(res), value: null };
+                }
+                return null;
+            }
+            // „teraz" / „now" samodzielnie → aktualny czas
+            if (low === 'teraz' || low === 'now') return { text: _fmtClock(_nowMinutes()), value: null };
+            return null;
+        }
+
+        /* ============================================================
            [EN] Waluty — „12 zł + 20 eur", „20 eur na zł" (kursy NBP, offline z cache)
            ============================================================ */
         // Aliasy → kod ISO. Kody z NBP (np. CZK) dochodzą dynamicznie z pobranych kursów.
@@ -1287,6 +1364,13 @@
         function evalCalcExpression(raw) {
             var original = String(raw || '').trim();
             if (!original) return { value: null, unit: null, error: null };
+            // Najpierw czas zegarowy („17:00 + 3h", „od 9:30 do 17:15") — krócej niż daty, ma własne tokeny.
+            var clockRes = evalClockExpression(original);
+            if (clockRes) {
+                STATE.calc.lastResult = clockRes.value;
+                STATE.calc.lastUnit = null;
+                return { value: clockRes.value, unit: null, text: clockRes.text, error: null };
+            }
             // Najpierw daty/czas — zanim „dni"/„za" trafią do matematyki/jednostek.
             var dateRes = evalDateExpression(original);
             if (dateRes) {
@@ -1662,41 +1746,64 @@
         /* ============================================================
            [EN] Calculator History
            ============================================================ */
+        // Pozycja historii to obiekt {text, pinned}. Stare wpisy (czyste stringi) migrują w locie.
+        function _histNormalize(item) {
+            if (typeof item === 'string') return { text: item, pinned: false };
+            return { text: (item && item.text) || '', pinned: !!(item && item.pinned) };
+        }
+        // Przypięte NIE liczą się do limitu i nigdy nie wypadają; trzymamy 50 najnowszych nieprzypiętych.
+        function _histEnforceCap() {
+            var kept = 0;
+            STATE.history = STATE.history.filter(function(it) {
+                if (it.pinned) return true;
+                kept++;
+                return kept <= 50;
+            });
+        }
         function addHistory(entry) {
-            STATE.history.unshift(entry);
-            if (STATE.history.length > 50) {
-                STATE.history = STATE.history.slice(0, 50);
-            }
+            STATE.history.unshift({ text: entry, pinned: false });
+            _histEnforceCap();
             saveHistory();
             renderHistory();
         }
 
+        var _historyQuery = '';
+        function _histEmptyState(icon, msg) {
+            var li = document.createElement('li');
+            li.className = 'empty-state';
+            var iconDiv = document.createElement('div');
+            iconDiv.className = 'icon';
+            iconDiv.textContent = icon;
+            var p = document.createElement('p');
+            p.textContent = msg;
+            li.appendChild(iconDiv);
+            li.appendChild(p);
+            return li;
+        }
+
         function renderHistory() {
-            if (historyCount) {
-                historyCount.textContent = String(STATE.history.length);
-            }
+            if (historyCount) historyCount.textContent = String(STATE.history.length);
+            historyList.replaceChildren();
             if (STATE.history.length === 0) {
-                // [EN] Safe DOM creation — no innerHTML, no XSS
-                var emptyLi = document.createElement('li');
-                emptyLi.className = 'empty-state';
-                var iconDiv = document.createElement('div');
-                iconDiv.className = 'icon';
-                iconDiv.textContent = '📝';
-                var emptyP = document.createElement('p');
-                emptyP.textContent = 'Brak historii — zacznij liczyć!';
-                emptyLi.appendChild(iconDiv);
-                emptyLi.appendChild(emptyP);
-                historyList.replaceChildren();
-                historyList.appendChild(emptyLi);
+                historyList.appendChild(_histEmptyState('📝', 'Brak historii — zacznij liczyć!'));
                 return;
             }
-            historyList.replaceChildren();
-            STATE.history.forEach(function(item, idx) {
+            // Przypięte na górze (zachowując kolejność), reszta poniżej; potem filtr szukania.
+            var pinned = STATE.history.filter(function(it) { return it.pinned; });
+            var rest = STATE.history.filter(function(it) { return !it.pinned; });
+            var ordered = pinned.concat(rest);
+            var q = _historyQuery || '';
+            if (q) ordered = ordered.filter(function(it) { return it.text.toLowerCase().indexOf(q) !== -1; });
+            if (ordered.length === 0) {
+                historyList.appendChild(_histEmptyState('🔍', 'Brak wyników dla „' + _historyQuery + '"'));
+                return;
+            }
+            ordered.forEach(function(item) {
                 var li = document.createElement('li');
-                li.className = 'history-item';
-                var parts = item.split(' = ');
-                var exprPart = parts[0] || item;
-                var resultPart = parts[1] || '';
+                li.className = 'history-item' + (item.pinned ? ' is-pinned' : '');
+                var parts = item.text.split(' = ');
+                var exprPart = parts[0] || item.text;
+                var resultPart = parts.length > 1 ? parts.slice(1).join(' = ') : '';
                 // [EN] Safe DOM creation — no innerHTML, no XSS
                 var spanExpr = document.createElement('span');
                 spanExpr.className = 'expr';
@@ -1704,11 +1811,42 @@
                 var spanResult = document.createElement('span');
                 spanResult.className = 'result';
                 spanResult.textContent = resultPart;
+
+                // Akcje pozycji: przypnij + kopiuj. stopPropagation, by nie odpalić reuse na klik wiersza.
+                var actions = document.createElement('div');
+                actions.className = 'history-item-actions';
+                var pinBtn = document.createElement('button');
+                pinBtn.type = 'button';
+                pinBtn.className = 'history-item-btn hist-pin';
+                pinBtn.textContent = '📌';
+                pinBtn.title = item.pinned ? 'Odepnij' : 'Przypnij';
+                pinBtn.setAttribute('aria-label', item.pinned ? 'Odepnij' : 'Przypnij');
+                pinBtn.setAttribute('aria-pressed', item.pinned ? 'true' : 'false');
+                pinBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    item.pinned = !item.pinned;
+                    _histEnforceCap();
+                    saveHistory();
+                    renderHistory();
+                });
+                var copyBtn = document.createElement('button');
+                copyBtn.type = 'button';
+                copyBtn.className = 'history-item-btn hist-copy';
+                copyBtn.textContent = '⧉';
+                copyBtn.title = 'Kopiuj';
+                copyBtn.setAttribute('aria-label', 'Kopiuj pozycję');
+                copyBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    copyText(item.text).then(function() { showToast('Skopiowano', 'success'); })
+                        .catch(function() { showToast('Nie udało się skopiować', 'error'); });
+                });
+                actions.appendChild(pinBtn);
+                actions.appendChild(copyBtn);
+
                 li.appendChild(spanExpr);
                 li.appendChild(spanResult);
-                bindLongPressCopy(li, function() {
-                    return item;
-                });
+                li.appendChild(actions);
+                bindLongPressCopy(li, function() { return item.text; });
                 li.addEventListener('click', function() {
                     if (li.dataset.longPressed === 'true') {
                         delete li.dataset.longPressed;
@@ -1749,11 +1887,18 @@
         }
 
         clearHistoryBtn.addEventListener('click', function() {
-            STATE.history = [];
+            var hadPins = STATE.history.some(function(it) { return it.pinned; });
+            STATE.history = STATE.history.filter(function(it) { return it.pinned; }); // przypięte zostają
             saveHistory();
             renderHistory();
-            showToast('🗑️ Historia wyczyszczona', '');
+            showToast(hadPins ? '🗑️ Wyczyszczono (przypięte zostają)' : '🗑️ Historia wyczyszczona', '');
         });
+        if (historySearch) {
+            historySearch.addEventListener('input', function() {
+                _historyQuery = historySearch.value.trim().toLowerCase();
+                renderHistory();
+            });
+        }
 
         if (openHistoryBtn) openHistoryBtn.addEventListener('click', openHistoryDrawer);
         if (closeHistoryBtn) closeHistoryBtn.addEventListener('click', closeHistoryDrawer);
@@ -6521,8 +6666,12 @@
             pinp.value = pinp.value + input.value;
             npEditor.removeChild(row);
             _npCommit();
+            // W trybie fold pole obliczonej linii ma display:none → focus byłby no-opem (kursor
+            // znikał, fokus uciekał na <body>). Odsłoń je ZANIM sfokusujesz, jak tap-do-edycji.
+            prev.classList.add('np-editing');
             _npAutoGrow(pinp);
-            pinp.focus(); pinp.setSelectionRange(at, at);
+            pinp.focus();
+            try { pinp.setSelectionRange(at, at); } catch (_) {}
             return true;
         }
         function npRowKeydown(e) {
@@ -8160,6 +8309,25 @@
             results.push({ expr: 'ans*2 (ans=15)', pass: evalCalcExpression('ans*2').value === 30, got: evalCalcExpression('ans*2').value });
             results.push({ expr: 'wynik+5 (ans=15)', pass: evalCalcExpression('wynik + 5').value === 20, got: evalCalcExpression('wynik + 5').value });
             STATE.calc.ans = savedAns;
+            // Czas zegarowy
+            [
+                { expr: '17:00 + 3h', text: '20:00' },
+                { expr: '17:00 + 90 min', text: '18:30' },
+                { expr: '9:30 + 1h30', text: '11:00' },
+                { expr: '23:00 + 3h', text: '02:00' },        // zawijanie przez północ
+                { expr: '08:15 - 45 min', text: '07:30' },
+                { expr: 'od 9:30 do 17:15', text: '7 h 45 min' },
+                { expr: 'od 22:00 do 6:00', text: '8 h' },     // nocna zmiana (przez północ)
+                { expr: '17:00 - 9:30', text: '7 h 30 min' },  // różnica dwóch zegarów
+                { expr: '10:00 + 2:30', text: '12:30' }        // trwanie w formacie H:MM
+            ].forEach(function(t) {
+                try {
+                    var rc = evalCalcExpression(t.expr);
+                    results.push({ expr: t.expr + ' (zegar)', pass: rc.text === t.text, got: rc.text });
+                } catch (err) { results.push({ expr: t.expr + ' (zegar)', pass: false, error: err.message }); }
+            });
+            // Czas: „16:9" to proporcja, NIE zegar (1-cyfrowe minuty) → zegar zwraca null
+            results.push({ expr: '16:9 nie jest zegarem', pass: evalClockExpression('16:9') === null, got: String(evalClockExpression('16:9')) });
             // Stałe-OPERACJE (niedokończone równania) — podstawianie DOSŁOWNE bez nawiasów.
             // Wstrzykujemy zestaw stałych, sprawdzamy użycie, przywracamy oryginalne.
             var savedConsts = STATE.constants;
