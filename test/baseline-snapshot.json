@@ -290,6 +290,26 @@
     "bigStr": null
   },
   {
+    "expr": "koszt trasy 300 km 7 l/100km 6,50 zł/l",
+    "value": 136.5,
+    "unit": "zł",
+    "text": "136,5 zł (paliwo: 21 l)",
+    "kind": "money",
+    "exact": true,
+    "big": false,
+    "bigStr": null
+  },
+  {
+    "expr": "paliwo na 100 km 8 l/100 7 zł/l",
+    "value": 56,
+    "unit": "zł",
+    "text": "56 zł (paliwo: 8 l)",
+    "kind": "money",
+    "exact": true,
+    "big": false,
+    "bigStr": null
+  },
+  {
     "expr": "5 km + 300 m",
     "value": 5300000,
     "unit": "mm",

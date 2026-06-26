@@ -185,11 +185,50 @@
         }
         return null;
     }
+    // PL dzień tygodnia (odmiany / bez diakrytyków) → indeks Date.getDay() (0=niedziela).
+    var _WD = [
+        { i: 0, re: /^niedziel/ },        // niedziela/niedzielę/niedziel
+        { i: 1, re: /^poniedzia[łl]/ },   // poniedziałek/poniedziałku
+        { i: 2, re: /^wtork?/ },          // wtorek/wtorku
+        { i: 3, re: /^[śs]rod/ },         // środa/środę/sroda
+        { i: 4, re: /^czwart/ },          // czwartek/czwartku
+        { i: 5, re: /^pi[ąa]t/ },         // piątek/piatek
+        { i: 6, re: /^sobot/ }            // sobota/sobotę
+    ];
+    function _parseWeekday(w) {
+        w = String(w).toLowerCase();
+        for (var i = 0; i < _WD.length; i++) if (_WD[i].re.test(w)) return _WD[i].i;
+        return -1;
+    }
+    // Następne (sign +1) / poprzednie (sign −1) wystąpienie dnia tygodnia wd względem dziś (ściśle).
+    function _weekdayDate(wd, sign) {
+        var t = _today();
+        var diff = sign > 0 ? ((wd - t.getDay() + 7) % 7) : ((t.getDay() - wd + 7) % 7);
+        if (diff === 0) diff = 7; // „najbliższy <dziś-dzień>" = za tydzień
+        t.setDate(t.getDate() + sign * diff);
+        return t;
+    }
+
     function evalDateExpression(raw) {
         var s = String(raw || '').trim();
         if (!s) return null;
         var low = s.toLowerCase();
         var m;
+        // DNI TYGODNIA — „najbliższy/następny/przyszły <wd>" → następne wystąpienie;
+        // „poprzedni/ostatni/miniony <wd>" → poprzednie. (PRZED matematyką dat.)
+        if ((m = low.match(/^(?:najbli[żz]sz[ayąeę]|nast[eę]pn[ayąeę]|przysz[łl][ayąeę])\s+([a-ząćęłńóśźż]+)\s*$/))) {
+            var wdN = _parseWeekday(m[1]);
+            if (wdN >= 0) return { text: _fmtDate(_weekdayDate(wdN, 1)), value: null };
+        }
+        if ((m = low.match(/^(?:poprzedni[aą]?|ostatni[aą]?|minion[ayąeę])\s+([a-ząćęłńóśźż]+)\s*$/))) {
+            var wdP = _parseWeekday(m[1]);
+            if (wdP >= 0) return { text: _fmtDate(_weekdayDate(wdP, -1)), value: null };
+        }
+        // „jaki/który dzień [tygodnia] [jest|to|wypada] <data>" → data z nazwą dnia.
+        if ((m = low.match(/^(?:jaki|kt[oó]ry)\s+(?:to\s+)?dzie[nń](?:\s+tygodnia)?\s+(?:jest\s+|to\s+|wypada\s+|b[eę]dzie\s+)?(.+)$/))) {
+            var dWd = _parseDateToken(m[1].trim());
+            if (dWd) return { text: _fmtDate(dWd.d), value: null };
+        }
         // „ile dni od A do B"
         if ((m = low.match(/^ile\s+dni\s+od\s+(.+?)\s+do\s+(.+)$/))) {
             var a = _parseDateToken(m[1]), b = _parseDateToken(m[2]);
@@ -231,11 +270,73 @@
         return null;
     }
 
+    /* ============================================================
+       [PL] Podsilnik STREF CZASOWYCH — OFFLINE przez Intl.DateTimeFormat (z DST, bez sieci).
+            „17:00 w Londynie na Tokio", „która godzina w Tokio".
+       ============================================================ */
+    // Klucze obejmują częste odmiany PL (miejscownik po „w": Warszawie; biernik po „na": Moskwę).
+    var _TZ_CITY = {
+        'warszawa': 'Europe/Warsaw', 'warszawie': 'Europe/Warsaw', 'warszawę': 'Europe/Warsaw', 'polska': 'Europe/Warsaw', 'polsce': 'Europe/Warsaw',
+        'londyn': 'Europe/London', 'londynie': 'Europe/London', 'london': 'Europe/London',
+        'paryż': 'Europe/Paris', 'paryz': 'Europe/Paris', 'paryżu': 'Europe/Paris', 'paryzu': 'Europe/Paris',
+        'berlin': 'Europe/Berlin', 'berlinie': 'Europe/Berlin',
+        'madryt': 'Europe/Madrid', 'madrycie': 'Europe/Madrid', 'rzym': 'Europe/Rome', 'rzymie': 'Europe/Rome',
+        'moskwa': 'Europe/Moscow', 'moskwie': 'Europe/Moscow', 'moskwę': 'Europe/Moscow', 'moscow': 'Europe/Moscow',
+        'kijów': 'Europe/Kiev', 'kijow': 'Europe/Kiev', 'kijowie': 'Europe/Kiev',
+        'nowy jork': 'America/New_York', 'nowym jorku': 'America/New_York', 'new york': 'America/New_York', 'nyc': 'America/New_York',
+        'los angeles': 'America/Los_Angeles', 'la': 'America/Los_Angeles', 'chicago': 'America/Chicago',
+        'tokio': 'Asia/Tokyo', 'tokyo': 'Asia/Tokyo',
+        'pekin': 'Asia/Shanghai', 'pekinie': 'Asia/Shanghai', 'szanghaj': 'Asia/Shanghai', 'szanghaju': 'Asia/Shanghai', 'shanghai': 'Asia/Shanghai',
+        'sydney': 'Australia/Sydney', 'dubaj': 'Asia/Dubai', 'dubaju': 'Asia/Dubai', 'dubai': 'Asia/Dubai',
+        'delhi': 'Asia/Kolkata', 'indie': 'Asia/Kolkata', 'indiach': 'Asia/Kolkata',
+        'utc': 'UTC', 'gmt': 'UTC'
+    };
+    function _tzLookup(name) { return _TZ_CITY[String(name).trim().toLowerCase()] || null; }
+    function _tzLabel(name) {
+        return String(name).trim().split(/\s+/).map(function (w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' ');
+    }
+    // Offset strefy (minuty względem UTC) dla danego momentu — uwzględnia DST.
+    function _tzOffsetMin(tz, date) {
+        try {
+            var dtf = new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23',
+                year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            var p = {}; dtf.formatToParts(date).forEach(function (x) { p[x.type] = x.value; });
+            var asUTC = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +(p.second || 0));
+            return Math.round((asUTC - date.getTime()) / 60000);
+        } catch (e) { return null; }
+    }
+    function evalTimezoneExpression(raw) {
+        var s = String(raw || '').trim(); if (!s) return null;
+        var low = s.toLowerCase(); var m;
+        // „HH:MM w <A> na/do <B>" — czas zegarowy w strefie A → strefa B.
+        if ((m = low.match(/^(\d{1,2}:\d{2})\s+(?:w|we)\s+(.+?)\s+(?:na|do)\s+(.+?)\s*$/))) {
+            var tzA = _tzLookup(m[2]), tzB = _tzLookup(m[3]);
+            var baseMin = _parseClockToken(m[1]);
+            if (tzA == null || tzB == null || baseMin == null) return null;
+            var now = new Date();
+            var offA = _tzOffsetMin(tzA, now), offB = _tzOffsetMin(tzB, now);
+            if (offA == null || offB == null) return null;
+            var resMin = baseMin + (offB - offA);
+            return { text: _fmtClock(resMin) + ' (' + _tzLabel(m[3]) + ')', value: null, kind: 'clock', exact: true };
+        }
+        // „która [jest] godzina w <A>" / „czas w <A>" → aktualny czas w strefie A.
+        if ((m = low.match(/^(?:kt[oó]ra\s+(?:jest\s+)?godzina|czas|godzina)\s+(?:w|we)\s+(.+?)\s*$/))) {
+            var tz = _tzLookup(m[1]); if (tz == null) return null;
+            var d = new Date();
+            var off = _tzOffsetMin(tz, d); if (off == null) return null;
+            var offLocal = -d.getTimezoneOffset();
+            var rm = d.getHours() * 60 + d.getMinutes() + (off - offLocal);
+            return { text: _fmtClock(rm) + ' (' + _tzLabel(m[1]) + ')', value: null, kind: 'clock', exact: true };
+        }
+        return null;
+    }
+
     var API = {
         time: _TIME,                       // prymityw czasu (parseSeconds, units, base)
         parseDurationMinutes: _parseDuration,
         evalClockExpression: evalClockExpression,
         evalDateExpression: evalDateExpression,
+        evalTimezoneExpression: evalTimezoneExpression,
         isDateUnit: _isDateUnit            // app.js używa go też w rozpoznawaniu tokenów notatnika
     };
     if (typeof window !== 'undefined') window.MATM0_PARSER = API;

@@ -951,6 +951,7 @@
         var _PARSER = (typeof window !== 'undefined' && window.MATM0_PARSER) || {};
         var evalClockExpression = _PARSER.evalClockExpression || function() { return null; };
         var evalDateExpression = _PARSER.evalDateExpression || function() { return null; };
+        var evalTimezoneExpression = _PARSER.evalTimezoneExpression || function() { return null; };
         var _isDateUnit = _PARSER.isDateUnit || function() { return false; };
 
         /* ============================================================
@@ -1273,6 +1274,24 @@
             return _pctResult(a / b * 100);
         }
 
+        // KOSZT TRASY / PALIWA — dystans (km) + spalanie (l/100km) + cena (zł/l) → koszt.
+        // Kolejność dowolna; np. „koszt trasy 300 km 7 l/100km 6,50 zł/l", „paliwo na 420 km
+        // przy 6 l/100 i 6,29 zł/l". litry = dystans/100·spalanie; koszt = litry·cena.
+        function evalRouteCost(raw) {
+            var s = String(raw || '').trim().toLowerCase().replace(',', ',');
+            if (!s) return null;
+            var dist = s.match(/([\d.,]+)\s*km\b/);
+            var cons = s.match(/([\d.,]+)\s*l(?:itr[a-ząćęłńóśźż]*)?\s*\/?\s*(?:na\s*)?100/);  // 7 l/100, 7l/100km, 6 l na 100
+            var price = s.match(/([\d.,]+)\s*(?:zł|zl|pln)\s*\/?\s*(?:l\b|litr[a-ząćęłńóśźż]*)/); // 6,50 zł/l, 6.29 zł/litr
+            if (!dist || !cons || !price) return null;
+            var D = parseFloat(dist[1].replace(',', '.')), C = parseFloat(cons[1].replace(',', '.')), P = parseFloat(price[1].replace(',', '.'));
+            if (!isFinite(D) || !isFinite(C) || !isFinite(P)) return null;
+            var liters = D / 100 * C, cost = liters * P;
+            STATE.calc.lastResult = cost; STATE.calc.lastUnit = 'zł';
+            return makeVal({ value: cost, unit: 'zł', kind: 'money',
+                text: formatLocaleNumber(cost, 2) + ' zł (paliwo: ' + formatLocaleNumber(liters, 2) + ' l)' });
+        }
+
         function evalCalcExpression(raw) {
             var original = String(raw || '').trim();
             if (!original) return makeVal({});
@@ -1282,6 +1301,12 @@
                 STATE.calc.lastResult = clockRes.value;
                 STATE.calc.lastUnit = null;
                 return makeVal({ value: clockRes.value, text: clockRes.text, kind: clockRes.kind || 'clock', exact: clockRes.exact, exactText: clockRes.exactText });
+            }
+            // Strefy czasowe („17:00 w Londynie na Tokio", „która godzina w Tokio") — po zegarze.
+            var tzRes = evalTimezoneExpression(original);
+            if (tzRes) {
+                STATE.calc.lastResult = null; STATE.calc.lastUnit = null;
+                return makeVal({ value: tzRes.value, text: tzRes.text, kind: tzRes.kind || 'clock', exact: tzRes.exact !== false });
             }
             // Najpierw daty/czas — zanim „dni"/„za" trafią do matematyki/jednostek.
             var dateRes = evalDateExpression(original);
@@ -1293,6 +1318,9 @@
             // „ile % stanowi A z B" / „A z B to ile %" — kierunek ODWROTNY do „X% z Y" (wynik = procent).
             var pctQ = evalPercentQuery(original);
             if (pctQ) return pctQ;
+            // Koszt trasy / paliwa: dystans + spalanie l/100km + cena zł/l → koszt (+ litry w dymku).
+            var routeQ = evalRouteCost(original);
+            if (routeQ) return routeQ;
             try {
                 var expr = original;
                 // Stałe NAJPIERW — ich wartości mogą zawierać „%", „vat", frazy naturalne, które
@@ -8395,6 +8423,9 @@
                 { expr: '20% z 100', value: 20, tol: 1e-6 },            // FORWARD nadal liczba (nie %)
                 // daty — deterministyczny zakres
                 { expr: 'ile dni od 1.01.2026 do 1.02.2026', value: 31 },
+                // koszt trasy/paliwa (deterministyczny): 300/100·7=21 l · 6,50 = 136,50 zł
+                { expr: 'koszt trasy 300 km 7 l/100km 6,50 zł/l', value: 136.5, tol: 1e-6, unit: 'zł' },
+                { expr: 'paliwo na 100 km 8 l/100 7 zł/l', value: 56, tol: 1e-6, unit: 'zł' },
             ];
             var results = cases.map(function(test) {
                 try {
@@ -8407,6 +8438,17 @@
                     return { expr: test.expr, pass: false, error: err.message };
                 }
             });
+            // Dni tygodnia (kotwice) — wynik zależy od „dziś", więc sprawdzamy POPRAWNY DZIEŃ
+            // (tekst zawiera właściwą nazwę), nie konkretną datę. Deterministyczne mimo dnia uruchomienia.
+            function wdText(expr) { try { var r = evalCalcExpression(expr); return r && r.text || ''; } catch (e) { return 'ERR'; } }
+            results.push({ expr: 'najbliższy poniedziałek → poniedziałek', pass: /poniedzia[łl]ek/.test(wdText('najbliższy poniedziałek')), got: wdText('najbliższy poniedziałek') });
+            results.push({ expr: 'następna środa → środa', pass: /środa/.test(wdText('następna środa')), got: wdText('następna środa') });
+            results.push({ expr: 'poprzedni piątek → piątek', pass: /pi[ąa]tek/.test(wdText('poprzedni piątek')), got: wdText('poprzedni piątek') });
+            results.push({ expr: 'który dzień tygodnia 25.12.2026 → piątek', pass: /25\.12\.2026.*pi[ąa]tek/.test(wdText('który dzień tygodnia 25.12.2026')), got: wdText('który dzień tygodnia 25.12.2026') });
+            // Strefy czasowe — offset Londyn↔Tokio zależy od DST (8h lato / 9h zima), więc nie
+            // sprawdzamy konkretnej godziny; sprawdzamy format HH:MM + etykietę strefy docelowej.
+            results.push({ expr: '17:00 w Londynie na Tokio → HH:MM (Tokio)', pass: /^\d{2}:\d{2} \(Tokio\)$/.test(wdText('17:00 w Londynie na Tokio')), got: wdText('17:00 w Londynie na Tokio') });
+            results.push({ expr: 'która godzina w Tokio → HH:MM (Tokio)', pass: /^\d{2}:\d{2} \(Tokio\)$/.test(wdText('która godzina w Tokio')), got: wdText('która godzina w Tokio') });
             // Domyślne jednostki wyświetlania (ustawienia) — gołe sumy zwijają się do preferowanej;
             // jawne „X na Y" wygrywa. Zapis/odtworzenie stanu, by nie wpłynąć na inne testy.
             var savedDU = STATE.settings.defaultUnits;

@@ -32,6 +32,8 @@ const EXPRESSIONS = [
     '100*50%', '100/50%', '12%*100', '20% z 100', '100 - 23%',
     // — „ile %" (kierunek odwrotny) —
     'ile % stanowi 25 z 200', '25 z 200 to ile %', '25 to ile % z 200', 'ile % stanowi 50 z 50',
+    // — koszt trasy / paliwo (deterministyczne) —
+    'koszt trasy 300 km 7 l/100km 6,50 zł/l', 'paliwo na 100 km 8 l/100 7 zł/l',
     // — jednostki: sumy / konwersje —
     '5 km + 300 m', '2 cm + 5 mm', '5 km na mile', '6 cali na mm', '2 kg + 300 g',
     '5 funtow na kg', '90 min na h', '2 h + 30 min', '300 s na min', '1.5 l na ml',
