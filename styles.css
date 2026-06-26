@@ -2,6 +2,9 @@
            [EN] CSS Custom Properties — global design tokens
            ============================================================ */
         :root {
+            /* Apka zaprojektowana na jasno — natywne kontrolki też renderują się jasno
+               w systemowym dark (patrz <meta name="color-scheme">). TODO: prawdziwy dark. */
+            color-scheme: light;
             --primary: #2563eb;
             --primary-hover: #1d4ed8;
             --primary-light: #dbeafe;
@@ -2666,6 +2669,37 @@
             }
             #panel-calculator .calc-tools {
                 flex: 0 0 auto;
+            }
+        }
+
+        /* ============================================================
+           [EN] KRÓTKIE telefony (np. starsze iPhone'y, SE) — kalkulator MUSI
+           zmieścić się bez scrolla podczas wpisywania/używania. Wiążemy panel
+           wysokością widoku, wyświetlacz ODDAJE miejsce (nie rośnie), a siatka
+           wypełnia resztę — klawisze tracą sztywny kwadrat i dostają dolny limit
+           tappable. Wyższe ekrany zostają przy układzie „wyświetlacz rośnie,
+           klawisze kwadratowe" (blok wyżej).
+           ============================================================ */
+        @media (max-width: 639px) and (max-height: 760px) {
+            /* height:100% (nie min-height) → panel = wysokość .panels → brak przewijania. */
+            #panel-calculator.active { height: 100%; min-height: 0; }
+            #panel-calculator .calc-display {
+                flex: 0 1 auto;          /* oddaje miejsce zamiast rosnąć */
+                min-height: 0;
+                padding: 12px 16px;
+                margin-bottom: 8px;
+            }
+            #panel-calculator .calc-grid {
+                flex: 1 1 auto;          /* wypełnia dostępną wysokość */
+                min-height: 0;
+                grid-auto-rows: 1fr;     /* 5 równych rzędów dzielących wysokość */
+                gap: 8px;
+            }
+            #panel-calculator .calc-btn {
+                aspect-ratio: auto;      /* zdejmij kwadrat — wysokość z dostępnego miejsca */
+                height: auto;
+                min-height: 44px;        /* nie schodź poniżej celu dotyku */
+                font-size: 1.2rem;
             }
         }
 
