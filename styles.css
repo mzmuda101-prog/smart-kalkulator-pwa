@@ -2349,26 +2349,31 @@
             color: var(--text-muted);
         }
         @media (max-width: 360px) { .settings-units { grid-template-columns: 1fr; } }
-        .settings-radios { display: flex; flex-direction: column; gap: 8px; }
+        .settings-radios { display: flex; flex-direction: column; gap: 6px; }
         /* Karty radio/checkbox dzielą wygląd z polami <select> reszty ustawień:
-           to samo szare wypełnienie (var(--bg)), ta sama ramka i promień. */
+           szare wypełnienie (var(--bg)), ta sama ramka/promień, ale KOMPAKTOWE
+           (mniejszy padding, drobniejszy tytuł/opis) — żeby były spójne i lekkie. */
         .settings-radio,
         .settings-check {
             display: flex;
             align-items: flex-start;
-            gap: 10px;
-            padding: 11px 12px;
-            border: 1.5px solid var(--border);
+            gap: 9px;
+            padding: 8px 11px;
+            border: 1px solid var(--border);
             border-radius: var(--radius-sm);
             background: var(--bg);
             cursor: pointer;
+            font-size: 0.9rem;
+            line-height: 1.3;
             transition: border-color var(--transition), background var(--transition);
         }
-        .settings-check { margin-top: 10px; }
+        .settings-check { margin-top: 8px; }
+        .settings-radio strong,
+        .settings-check strong { font-weight: 600; }
         .settings-radio input,
-        .settings-check input { margin-top: 3px; flex-shrink: 0; accent-color: var(--primary); }
+        .settings-check input { margin-top: 2px; flex-shrink: 0; accent-color: var(--primary); }
         .settings-radio small,
-        .settings-check small { color: var(--text-muted); font-size: 0.78rem; line-height: 1.3; }
+        .settings-check small { color: var(--text-muted); font-size: 0.74rem; line-height: 1.25; }
         /* Zaznaczone — spójny akcent (jak fokus pól): delikatny primary, bez krzykliwego bloku. */
         .settings-radio:has(input:checked),
         .settings-check:has(input:checked) {
