@@ -105,7 +105,6 @@
         const historyCount = $('#historyCount');
         const cacheRefreshBtn = $('#cacheRefreshBtn');
         const installAppBtn = $('#installAppBtn');
-        const orientationBtn = $('#orientationBtn');
 
         // Notatnik (nakładka) [[project_kalkulator_notepad_planning]]
         const notepadBtn = $('#notepadBtn');
@@ -153,7 +152,6 @@
         const fixedSpacingGroup = $('#fixedSpacingGroup');
 
         // Help drawer
-        const commandHelpOpen = null; // removed — help opens via graphCommandHelpOpen
         const commandHelpClose = $('#commandHelpClose');
         const commandHelpBackdrop = $('#commandHelpBackdrop');
         const commandHelpDrawer = $('#commandHelpDrawer');
@@ -419,7 +417,6 @@
         var NO_HAPTIC = [
             '.zoom-btn',          /* przyciski zoom na canvasie */
             '.sign-toggle',       /* przycisk ± przy polach marginesów */
-            '#orientationBtn',    /* przycisk orientacji ekranu */
             '#cacheRefreshBtn',   /* przycisk odświeżania cache */
             '#installAppBtn',     /* przycisk instalacji PWA */
             '#settingsBtn',       /* przycisk ustawień */
@@ -3219,7 +3216,10 @@
            [EN] Help System
         ============================================================ */
 
+        var _helpSystemReady = false;
         function initHelpSystem() {
+            if (_helpSystemReady) return;
+            _helpSystemReady = true;
             renderCommandHelpDefinitions();
 
             /* ---- Cache original help HTML for safe highlighting ---- */
@@ -3283,57 +3283,6 @@
             }
 
             /* ============================================================
-               [EN] Help Drawer Open / Close
-            ============================================================ */
-
-            if (commandHelpOpen) {
-                commandHelpOpen.addEventListener('click', function() {
-
-                    activeCommandTarget = 'engineering';
-
-                    openCommandHelp();
-
-                });
-            }
-
-            var calcHelpOpen = $('#calcHelpOpen');
-            if (calcHelpOpen) {
-                calcHelpOpen.addEventListener('click', function() {
-                    activeCommandTarget = 'calculator';
-                    openCommandHelp();
-                });
-            }
-
-            // Calculator example chips → fill calcExpr and evaluate
-            document.querySelectorAll('.calc-example-chip').forEach(function(chip) {
-                chip.addEventListener('click', function() {
-                    var expr = chip.getAttribute('data-expr') || '';
-                    if (!expr) return;
-                    calcExpr.value = expr;
-                    calcExpr.setSelectionRange(expr.length, expr.length);
-                    liveEval();
-                    calcExpr.focus();
-                });
-            });
-
-            var graphCommandHelpOpen = $('#graphCommandHelpOpen');
-
-            if (graphCommandHelpOpen) {
-                graphCommandHelpOpen.addEventListener('click', function() {
-                    activeCommandTarget = 'komenda';
-                    openCommandHelp();
-                });
-            }
-
-            if (commandHelpClose) {
-                commandHelpClose.addEventListener('click', closeCommandHelp);
-            }
-
-            if (commandHelpBackdrop) {
-                commandHelpBackdrop.addEventListener('click', closeCommandHelp);
-            }
-
-            /* ============================================================
                [EN] Command Help — Click To Apply
             ============================================================ */
 
@@ -3370,7 +3319,40 @@
 
         }
 
-        initHelpSystem();
+        function ensureHelpSystem() { initHelpSystem(); } // [EN] idempotent — heavy help init deferred off critical path
+
+        var calcHelpOpen = $('#calcHelpOpen');
+        if (calcHelpOpen) {
+            calcHelpOpen.addEventListener('click', function() {
+                ensureHelpSystem();
+                activeCommandTarget = 'calculator';
+                openCommandHelp();
+            });
+        }
+        var graphCommandHelpOpen = $('#graphCommandHelpOpen');
+        if (graphCommandHelpOpen) {
+            graphCommandHelpOpen.addEventListener('click', function() {
+                ensureHelpSystem();
+                activeCommandTarget = 'komenda';
+                openCommandHelp();
+            });
+        }
+        if (commandHelpClose) commandHelpClose.addEventListener('click', closeCommandHelp);
+        if (commandHelpBackdrop) commandHelpBackdrop.addEventListener('click', closeCommandHelp);
+
+        function bindCalcExampleChips() {
+            document.querySelectorAll('.calc-example-chip').forEach(function(chip) {
+                chip.addEventListener('click', function() {
+                    var expr = chip.getAttribute('data-expr') || '';
+                    if (!expr) return;
+                    calcExpr.value = expr;
+                    calcExpr.setSelectionRange(expr.length, expr.length);
+                    liveEval();
+                    calcExpr.focus();
+                });
+            });
+        }
+
         var graphCmdModeLabel = graphCmdModeBadge ? graphCmdModeBadge.querySelector('.mode-label') : null;
 
         function graphModeLabelFromParsed(parsed) {
@@ -8455,6 +8437,7 @@
             // interaktywny od razu po otwarciu PWA (osoba „wpadam policzyć i wypadam" nie czeka
             // na inicjalizację wykresu/Warsztatu/parsera, które są częścią innych zakładek).
             buildCalcButtons();
+            bindCalcExampleChips(); // [EN] chips on calc panel — sync in phase 1 (not deferred with help DOM)
             calcExpr.addEventListener('input', liveEval);
             calcExpr.addEventListener('keydown', function(e) {
                 if (e.key === 'Enter' || e.key === '=') { e.preventDefault(); handleCalcAction('='); }
@@ -8481,6 +8464,7 @@
         function runDeferredInit() {
             if (_deferredQueue !== null) return;
             _deferredQueue = [
+                function () { ensureHelpSystem(); }, // [EN] help DOM/search/commands — off critical path (open buttons call ensureHelpSystem lazily)
                 function () { updateGraph(); },
                 function () { renderConstants(); renderAllRecentCommands(); },
                 function () { initAutocomplete(graphCommand, $('#graphCommandAC')); },

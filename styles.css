@@ -450,8 +450,13 @@
         .panel {
             display: none;
             animation: fadeSlideIn 0.30s ease;
+            content-visibility: hidden; /* [EN] nieaktywne panele — brak layout/paint poza display:none */
         }
-        .panel.active { display: block; }
+        .panel.active {
+            display: block;
+            content-visibility: auto; /* [EN] duże panele (Warsztat/Komenda) — pomija off-screen przy scrollu */
+            contain-intrinsic-size: auto 600px;
+        }
         @keyframes fadeSlideIn {
             from { opacity: 0; transform: translateY(25px); }
             60%  { opacity: 1; transform: translateY(-5px); }
@@ -866,6 +871,10 @@
         }
         body.history-open .history-drawer {
             transform: translate(-50%, 0);
+        }
+        body:not(.history-open) .history-drawer {
+            content-visibility: hidden; /* [EN] szuflada poza ekranem — nie renderuj treści listy */
+            contain-intrinsic-size: auto 320px;
         }
         .drawer-handle {
             width: 44px;
@@ -1443,6 +1452,10 @@
         }
         body.help-open .command-help-drawer {
             transform: translate(-50%, 0);
+        }
+        body:not(.help-open) .command-help-drawer {
+            content-visibility: hidden; /* [EN] ściąga zamknięta — pomija ~550 linii help w paint */
+            contain-intrinsic-size: auto 400px;
         }
         .command-help-content {
             overflow-y: auto;
@@ -2884,6 +2897,7 @@
                 box-shadow: var(--shadow);
                 z-index: auto;
                 margin: 0;
+                content-visibility: visible; /* [EN] desktop: historia zadokowana — zawsze widoczna */
             }
             #panel-calculator > .history-drawer .drawer-handle,
             #panel-calculator > .history-drawer .history-close-btn { display: none; }
