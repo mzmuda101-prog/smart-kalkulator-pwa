@@ -2802,22 +2802,27 @@
                 min-height: 0;
                 margin-bottom: 0;
             }
-            /* Wyświetlacz rośnie i zabiera całą wolną przestrzeń; liczby trzymają się dołu
-               (calc-display ma justify-content:flex-end). */
+            #panel-calculator .card {
+                --calc-btn-scale: 1;
+            }
+            /* Wyświetlacz rośnie i zabiera wolną przestrzeń; liczby trzymają się dołu
+               (calc-display ma justify-content:flex-end). JS ustawia --calc-display-min/max. */
             #panel-calculator .calc-display {
                 flex: 1 1 auto;
-                min-height: 64px;
+                min-height: max(64px, var(--calc-display-min, 64px));
+                max-height: var(--calc-display-max, none);
                 margin-bottom: 12px;
             }
             /* Siatka przycisków: naturalna wysokość, NIE rozciąga się na wolne miejsce. */
             #panel-calculator .calc-grid {
                 flex: 0 0 auto;
             }
-            /* Klawisze kwadratowe (rozmiar wyznacza szerokość, nie wolna wysokość) — jak baza. */
+            /* Klawisze kwadratowe — lekko skalują się w dół gdy brakuje miejsca (JS --calc-btn-scale). */
             #panel-calculator .calc-btn {
                 aspect-ratio: 1;
                 height: auto;
-                min-height: 56px;
+                min-height: calc(56px * var(--calc-btn-scale, 1));
+                font-size: calc(1.3rem * var(--calc-btn-scale, 1));
             }
             #panel-calculator .calc-tools {
                 flex: 0 0 auto;
@@ -2837,8 +2842,9 @@
             /* height:100% (nie min-height) → panel = wysokość .panels → brak przewijania. */
             #panel-calculator.active { height: 100%; min-height: 0; }
             #panel-calculator .calc-display {
-                flex: 0 1 auto;          /* oddaje miejsce zamiast rosnąć */
-                min-height: 0;
+                flex: 1 1 auto;          /* rośnie do --calc-display-max (JS), nie oddaje całego miejsca */
+                min-height: max(56px, var(--calc-display-min, 56px));
+                max-height: var(--calc-display-max, 38vh);
                 padding: 12px 16px;
                 margin-bottom: 8px;
             }
@@ -2846,13 +2852,13 @@
                 flex: 1 1 auto;          /* wypełnia dostępną wysokość */
                 min-height: 0;
                 grid-auto-rows: 1fr;     /* 5 równych rzędów dzielących wysokość */
-                gap: 8px;
+                gap: calc(8px * var(--calc-btn-scale, 1));
             }
             #panel-calculator .calc-btn {
                 aspect-ratio: auto;      /* zdejmij kwadrat — wysokość z dostępnego miejsca */
                 height: auto;
-                min-height: 44px;        /* nie schodź poniżej celu dotyku */
-                font-size: 1.2rem;
+                min-height: max(44px, calc(44px * var(--calc-btn-scale, 1))); /* cel dotyku */
+                font-size: calc(1.2rem * var(--calc-btn-scale, 1));
             }
         }
 

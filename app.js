@@ -1713,10 +1713,23 @@
             _calcPhInner = _calcPh.firstElementChild;
             if (calcExpr.parentElement) calcExpr.parentElement.classList.add('has-ph');
             // Zmiana szerokości zmienia zawijanie → przelicz też auto-wysokość pola.
-            var onResize = function() { updatePlaceholderMarquee(); autoGrowExpr(); fitCalcResultSize(); };
+            var onResize = function() {
+                updatePlaceholderMarquee();
+                autoGrowExpr();
+                fitCalcExprFont();
+                autoGrowExpr();
+                fitCalcLayout();
+                fitCalcResultSize();
+            };
             window.addEventListener('resize', onResize);
             window.addEventListener('orientationchange', onResize);
             if (document.fonts && document.fonts.ready) document.fonts.ready.then(onResize).catch(function(){});
+            var calcDisplay = calcExpr.closest('.calc-display');
+            if (calcDisplay && typeof ResizeObserver !== 'undefined') {
+                var ro = new ResizeObserver(function() { onResize(); });
+                ro.observe(calcDisplay);
+                if (calcGrid) ro.observe(calcGrid);
+            }
             updatePlaceholderMarquee();
             autoGrowExpr();
             setTimeout(onResize, 300); // po ustaleniu layoutu/fontów
@@ -1734,10 +1747,84 @@
             calcExpr.style.height = 'auto';
             calcExpr.style.height = calcExpr.scrollHeight + 'px';
         }
+        // [EN] Mild expr font shrink when many wrapped lines — keeps display readable without overflow.
+        function fitCalcExprFont() {
+            if (!calcExpr) return;
+            calcExpr.style.fontSize = '';
+            if (_calcPh) _calcPh.style.fontSize = '';
+            if (!calcExpr.value) return;
+            var lh = parseFloat(getComputedStyle(calcExpr).lineHeight) || 20;
+            var lines = calcExpr.scrollHeight / lh;
+            if (lines <= 3.2) return;
+            var shrink = Math.max(1.05, 1.25 - (lines - 3) * 0.05); // rem — lekko, nie drastycznie
+            calcExpr.style.fontSize = shrink + 'rem';
+            if (_calcPh) _calcPh.style.fontSize = shrink + 'rem';
+        }
+        var _calcFitProbe = null;
+        function _calcResultFullText() {
+            return calcResult ? (calcResult.textContent || '') : '';
+        }
+        // [EN] Measure full result width (ignores DOM split into static text + animated span).
+        function _measureCalcResultWidth(text, fontSizePx, row) {
+            if (!calcResult || !row) return 0;
+            if (!_calcFitProbe) {
+                _calcFitProbe = document.createElement('span');
+                _calcFitProbe.setAttribute('aria-hidden', 'true');
+                _calcFitProbe.style.cssText = 'position:absolute;left:-9999px;top:0;visibility:hidden;white-space:nowrap;pointer-events:none;';
+                row.appendChild(_calcFitProbe);
+            }
+            var cs = getComputedStyle(calcResult);
+            _calcFitProbe.style.font = cs.font;
+            _calcFitProbe.style.fontSize = fontSizePx + 'px';
+            _calcFitProbe.style.letterSpacing = cs.letterSpacing;
+            _calcFitProbe.textContent = text;
+            return _calcFitProbe.offsetWidth;
+        }
+        // [EN] Mobile: grow display for expr+result; gently shrink keypad when vertical space is tight.
+        function fitCalcLayout() {
+            var panel = document.getElementById('panel-calculator');
+            if (!panel || !calcGrid) return;
+            var card = panel.querySelector('.card');
+            var display = card && card.querySelector('.calc-display');
+            if (!card || !display) return;
+            if (window.innerWidth > 639 || !panel.classList.contains('active')) {
+                card.style.removeProperty('--calc-btn-scale');
+                display.style.removeProperty('--calc-display-min');
+                display.style.removeProperty('--calc-display-max');
+                display.style.removeProperty('min-height');
+                return;
+            }
+            var cardH = card.clientHeight;
+            if (cardH < 100) return;
+            var tools = card.querySelector('.calc-tools');
+            var toolsH = tools ? tools.offsetHeight : 0;
+            var exprWrap = display.querySelector('.calc-expr-wrap');
+            var resultRow = display.querySelector('.calc-result-row');
+            var pad = 28;
+            var contentH = (exprWrap ? exprWrap.offsetHeight : 0) + (resultRow ? resultRow.offsetHeight : 0) + pad;
+            var shortScreen = window.innerHeight <= 760;
+            var gridFloor = shortScreen ? 200 : 220;
+            var displayMax = Math.round(Math.min(cardH * (shortScreen ? 0.4 : 0.46), cardH - toolsH - gridFloor));
+            displayMax = Math.max(72, displayMax);
+            var displayMin = Math.max(64, Math.min(contentH, displayMax));
+            card.style.setProperty('--calc-btn-scale', '1'); // zmierz siatkę w pełnej skali
+            display.style.setProperty('--calc-display-min', displayMin + 'px');
+            display.style.setProperty('--calc-display-max', displayMax + 'px');
+            display.style.minHeight = displayMin + 'px';
+            var availableForGrid = cardH - displayMin - toolsH - 16;
+            var gridH = calcGrid.offsetHeight;
+            if (gridH > availableForGrid && availableForGrid > 120) {
+                var scale = Math.max(0.88, Math.min(1, availableForGrid / gridH));
+                card.style.setProperty('--calc-btn-scale', String(Math.round(scale * 1000) / 1000));
+            }
+        }
 
         function liveEval() {
             updatePlaceholderMarquee();
             autoGrowExpr();
+            fitCalcExprFont();
+            autoGrowExpr();
+            fitCalcLayout();
             // Wyrażenia z samych liczb całkowitych i +,−,×,() liczymy BigInt-em (dokładnie,
             // dowolna długość) — NIE obcinamy ich. Pozostałe (ułamki/dzielenie/funkcje) idą
             // przez float: tam liczba > 16 cyfr przekracza dokładność JS, więc tniemy nadmiar.
@@ -1758,6 +1845,7 @@
                 calcResult.textContent = STATE.fx.error && !_fxReady() ? 'Kursy: brak połączenia' : 'Pobieram kursy…';
                 calcResult.classList.remove('small', 'xsmall', 'xxsmall');
                 calcResult.classList.add('small');
+                fitCalcLayout();
                 fitCalcResultSize();
                 _setApproxMark(false);
                 return;
@@ -1768,6 +1856,7 @@
             var display = hasResult ? formatCalcResult(res) : (calcExpr.value === '' ? '0' : '');
             renderCalcResult(calcResult.textContent, display);
             _setApproxMark(hasResult && res.exact === false, res.exactText);
+            fitCalcLayout();
             fitCalcResultSize();
         }
         // Znacznik „≈" (wynik zaokrąglony stratnie, np. sekundy → minuta). Dymek na tap/hover
@@ -1796,6 +1885,7 @@
             var maxW = row.clientWidth;
             if (calcApprox && !calcApprox.hidden) maxW -= calcApprox.offsetWidth + 8;
             if (maxW <= 0) return;
+            var fullText = _calcResultFullText();
             var rootFs = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
             var basePx = parseFloat(getComputedStyle(calcResult).fontSize) || rootFs * 2.5;
             var minPx = Math.max(20, rootFs * 1.3); // nie schodź poniżej ~20px — czytelność
@@ -1804,12 +1894,23 @@
             var freeH = display.clientHeight - (exprWrap ? exprWrap.offsetHeight : 0) - 12;
             var fs = basePx;
             if (freeH > basePx * 1.2) fs = Math.min(maxPx, Math.max(basePx, freeH * 0.42)); // najpierw wykorzystaj wysokość wyświetlacza
-            calcResult.style.fontSize = fs + 'px';
             var guard = 0;
-            while (calcResult.scrollWidth > maxW + 1 && fs > minPx && guard++ < 16) {
-                fs = Math.max(minPx, fs - 1.5); // łagodne kroki, nie skokowe ×0.9
-                calcResult.style.fontSize = fs + 'px';
+            while (_measureCalcResultWidth(fullText, fs, row) > maxW + 1 && fs > minPx && guard++ < 24) {
+                fs = Math.max(minPx, fs - 1.5);
             }
+            calcResult.style.fontSize = fs + 'px';
+            // drugi przebieg po animacji znaku / pojawieniu się „≈"
+            requestAnimationFrame(function() {
+                if (!calcResult) return;
+                var maxW2 = row.clientWidth;
+                if (calcApprox && !calcApprox.hidden) maxW2 -= calcApprox.offsetWidth + 8;
+                var fs2 = parseFloat(calcResult.style.fontSize) || fs;
+                var g2 = 0;
+                while (_measureCalcResultWidth(_calcResultFullText(), fs2, row) > maxW2 + 1 && fs2 > minPx && g2++ < 8) {
+                    fs2 = Math.max(minPx, fs2 - 1.5);
+                    calcResult.style.fontSize = fs2 + 'px';
+                }
+            });
         }
         // *------------ Logika Animacji pojawiania się liczb/wyrażeń/wyniku* ----------------*
         // [EN] Render wyniku z lekką animacją pojawienia (Samsung-style) TYLKO zmienionej końcówki —
@@ -6489,11 +6590,42 @@
         var swRefreshing = false;
         var swWaitingWorker = null;
 
+        function fetchRemoteAppVersion() {
+            return fetch('./version.js?_v=' + Date.now(), { cache: 'no-store' })
+                .then(function(r) { return r.ok ? r.text() : ''; })
+                .then(function(text) {
+                    var m = text && text.match(/APP_VERSION\s*=\s*['"]([^'"]+)['"]/);
+                    return m ? m[1] : null;
+                })
+                .catch(function() { return null; });
+        }
+        function getCachedAppVersions() {
+            if (!('caches' in window)) return Promise.resolve([]);
+            return caches.keys().then(function(keys) {
+                return keys
+                    .filter(function(k) { return k.indexOf('matm0-calc-') === 0; })
+                    .map(function(k) { return k.replace(/^matm0-calc-/, ''); });
+            });
+        }
+        function newestVersionLabel(labels) {
+            if (!labels || !labels.length) return null;
+            var cmp = typeof compareAppVersions === 'function' ? compareAppVersions : null;
+            var best = labels[0];
+            if (!cmp) return best;
+            for (var i = 1; i < labels.length; i++) {
+                if (cmp(labels[i], best) > 0) best = labels[i];
+            }
+            return best;
+        }
         function showUpdateBanner(worker) {
             swWaitingWorker = worker || (swRegistration && swRegistration.waiting) || null;
             if (!updateBanner || !swWaitingWorker) return;
             updateBanner.classList.add('is-visible');
             updateBanner.setAttribute('aria-hidden', 'false');
+            fetchRemoteAppVersion().then(function(ver) {
+                var label = updateBanner.querySelector('.update-banner-text');
+                if (label && ver) label.textContent = '🔄 Dostępna wersja ' + ver;
+            });
         }
         function hideUpdateBanner() {
             if (!updateBanner) return;
@@ -6510,11 +6642,38 @@
         function checkForUpdates(showFeedback) {
             if (!swRegistration) { if (showFeedback) showToast('Brak aktywnej aktualizacji', ''); return; }
             if (showFeedback) showToast('Sprawdzam aktualizacje…', '');
-            swRegistration.update().then(function() {
-                // Jeśli nic nie czeka po sprawdzeniu — poinformuj, że jest najnowsza.
+            var localVer = window.APP_VERSION || 'v0';
+            var cmp = typeof compareAppVersions === 'function' ? compareAppVersions : null;
+            Promise.all([
+                swRegistration.update(),
+                fetchRemoteAppVersion(),
+                getCachedAppVersions()
+            ]).then(function(results) {
+                var remoteVer = results[1];
+                var cacheVers = results[2];
+                var installedVer = newestVersionLabel(cacheVers) || localVer;
+                var serverNewer = remoteVer && cmp && cmp(remoteVer, localVer) > 0;
+                var cacheStale = remoteVer && cmp && cmp(remoteVer, installedVer) > 0;
+                if ((swRegistration.waiting || swWaitingWorker) && navigator.serviceWorker.controller) {
+                    if (!swWaitingWorker && swRegistration.waiting) showUpdateBanner(swRegistration.waiting);
+                    if (showFeedback) showToast('🔄 Dostępna wersja ' + (remoteVer || installedVer), '');
+                    return;
+                }
+                if (serverNewer || cacheStale) {
+                    return swRegistration.update().then(function() {
+                        if (showFeedback) setTimeout(function() {
+                            if (swRegistration.waiting) {
+                                showUpdateBanner(swRegistration.waiting);
+                                showToast('🔄 Nowa wersja ' + (remoteVer || '') + ' — odśwież', '');
+                            } else {
+                                showToast('🔄 Wykryto ' + (remoteVer || 'nowszą wersję') + ' — odśwież stronę', '');
+                            }
+                        }, 800);
+                    });
+                }
                 if (showFeedback) setTimeout(function() {
                     if (!(swRegistration && swRegistration.waiting) && !swWaitingWorker)
-                        showToast('✅ Masz najnowszą wersję', 'success');
+                        showToast('✅ Masz najnowszą wersję (' + localVer + ')', 'success');
                 }, 1200);
             }).catch(function() {});
         }
