@@ -2809,26 +2809,26 @@
                 padding: 14px 16px;
                 --calc-btn-scale: 1;
             }
-            /* Wyświetlacz: rośnie z treścią, ale nie zabiera miejsca klawiszom/narzędziom. */
+            /* Wyświetlacz: sufit z JS; min stały — treść nie rozpycha layoutu przy wpisywaniu. */
             #panel-calculator .calc-display {
                 flex: 0 1 auto;
-                min-height: max(56px, var(--calc-display-min, 56px));
+                min-height: 64px;
                 max-height: var(--calc-display-max, 35%);
-                margin-bottom: 8px;
+                margin-bottom: 12px;
             }
-            /* Siatka pochłania wolne miejsce; JS może lekko zmniejszyć klawisze (--calc-btn-scale ≥0.7). */
+            /* Siatka: oryginalny rozmiar (56px kwadrat); skala tylko gdy JS wykryje brak miejsca. */
             #panel-calculator .calc-grid {
-                flex: 1 1 auto;
-                min-height: 0;
-                grid-auto-rows: minmax(calc(44px * var(--calc-btn-scale, 1)), 1fr);
-                gap: calc(8px * var(--calc-btn-scale, 1));
+                flex: 0 0 auto;
+                gap: calc(10px * var(--calc-btn-scale, 1));
             }
             #panel-calculator .calc-btn {
-                aspect-ratio: auto;
+                aspect-ratio: 1;
                 height: auto;
-                min-height: calc(44px * var(--calc-btn-scale, 1));
-                max-height: calc(58px * var(--calc-btn-scale, 1));
-                font-size: calc(1.25rem * var(--calc-btn-scale, 1));
+                min-height: calc(56px * var(--calc-btn-scale, 1));
+                font-size: calc(1.3rem * var(--calc-btn-scale, 1));
+            }
+            #panel-calculator .calc-result {
+                font-size: 2.5rem; /* domyślny wynik — bez zaniżania na mobile */
             }
             #panel-calculator .calc-tools {
                 flex: 0 0 auto;
