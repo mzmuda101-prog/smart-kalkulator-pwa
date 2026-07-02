@@ -2,6 +2,8 @@
   "name": "smart-kalkulator-pwa",
   "private": true,
   "scripts": {
+    "dev": "python3 -m http.server 3000 --bind 127.0.0.1",
+    "serve": "python3 -m http.server 3000 --bind 127.0.0.1",
     "test": "npm run test:all",
     "test:smoke": "node test/smoke-node.js",
     "test:prop": "node test/property.js",
