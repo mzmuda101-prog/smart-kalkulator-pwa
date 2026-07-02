@@ -491,6 +491,7 @@
                 }, 0);
             } else {
                 document.body.classList.remove('calc-panel-active');
+                document.body.classList.remove('calc-expr-focused');
             }
         }
 
@@ -1712,8 +1713,10 @@
             _calcPh.classList.toggle('is-visible', empty);
             _calcPh.classList.remove('is-scrolling', 'is-wrapped');
             _calcPh.style.removeProperty('--ph-shift');
-            if (wrap) wrap.style.minHeight = '';
-            if (!empty) return;
+            if (!empty) {
+                if (wrap) wrap.style.minHeight = '';
+                return;
+            }
             var phWidth = _calcPh.clientWidth;
             if (phWidth <= 0) return;
             if (!_calcPhWrapProbe) {
@@ -1727,16 +1730,12 @@
             _calcPhWrapProbe.style.lineHeight = getComputedStyle(_calcPh).lineHeight;
             _calcPhWrapProbe.textContent = _calcPhInner.textContent;
             var wrappedH = _calcPhWrapProbe.offsetHeight;
+            var lineH = _calcPhInner.offsetHeight || wrappedH;
+            var needH = Math.max(lineH, wrappedH);
+            if (wrap) wrap.style.minHeight = needH + 'px';
             var over = _calcPhInner.offsetWidth - phWidth;
-            var display = calcExpr.closest('.calc-display');
-            var resultRow = display && display.querySelector('.calc-result-row');
-            var availH = 9999;
-            if (display) {
-                availH = Math.max(28, _syncExprWrapBounds(display, resultRow));
-            }
-            if (over > 2 && wrappedH <= availH + 1) {
+            if (over > 2 && wrappedH <= needH + 1) {
                 _calcPh.classList.add('is-wrapped');
-                if (wrap) wrap.style.minHeight = Math.max(28, Math.min(wrappedH, availH)) + 'px';
                 return;
             }
             if (over > 2) {
@@ -1755,8 +1754,20 @@
                 updatePlaceholderMarquee();
                 fitCalcLayout();
             };
+            var onExprFocusChange = function() {
+                if (!_isCalcMobileLayout()) return;
+                fitCalcDisplay();
+            };
             window.addEventListener('resize', onResize);
             window.addEventListener('orientationchange', onResize);
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener('resize', onResize);
+            }
+            calcExpr.addEventListener('focus', onExprFocusChange);
+            calcExpr.addEventListener('blur', function() {
+                if (!_isCalcMobileLayout()) return;
+                setTimeout(onExprFocusChange, 120);
+            });
             if (document.fonts && document.fonts.ready) document.fonts.ready.then(onResize).catch(function(){});
             var calcDisplay = calcExpr.closest('.calc-display');
             var calcPanel = document.getElementById('panel-calculator');
@@ -1803,10 +1814,27 @@
             if (!display) return;
             display.style.setProperty('--calc-result-reserve', _calcResultReserve(display, resultRow) + 'px');
         }
+        function _syncExprFieldToWrap(wrap) {
+            if (!calcExpr || !wrap) return 0;
+            calcExpr.style.width = '100%';
+            if (!_isCalcMobileLayout()) {
+                calcExpr.style.height = '';
+                calcExpr.style.maxHeight = '';
+                return Math.max(wrap.clientHeight, wrap.scrollHeight, 28);
+            }
+            calcExpr.style.height = '100%';
+            calcExpr.style.maxHeight = '100%';
+            return wrap.clientHeight || 0;
+        }
         // [EN] Pusty ekran: budżet placeholdera. Aktywny: grid przydziela wiersz — bez sztucznego max.
         function _syncExprWrapBounds(display, resultRow) {
             var wrap = calcExpr && calcExpr.parentElement;
             if (!display || !wrap) return 0;
+            if (!_isCalcMobileLayout()) {
+                wrap.style.minHeight = '';
+                wrap.style.maxHeight = '';
+                return _calcExprMaxH(display, resultRow, wrap);
+            }
             var t = getCalcLayoutTune();
             if (!_calcIsEmpty()) {
                 wrap.style.minHeight = '';
@@ -1818,24 +1846,24 @@
             var boost = t.exprBudgetBoost != null ? t.exprBudgetBoost : 0;
             var exprMin = t.exprMinHeight != null ? t.exprMinHeight : 28;
             var maxH = Math.max(exprMin, innerH - reserve + boost);
+            if (_isCalcMobileLayout() && wrap.clientHeight >= exprMin) maxH = Math.max(maxH, wrap.clientHeight);
             wrap.style.maxHeight = maxH + 'px';
-            var phMin = t.placeholderAreaMin != null ? t.placeholderAreaMin : 28;
-            wrap.style.minHeight = Math.min(maxH, phMin) + 'px';
+            wrap.style.minHeight = '';
             if (t.debug) {
                 console.log('[calc-expr-bounds]', { innerH: innerH, reserve: reserve, maxH: maxH, empty: true });
             }
             return maxH;
         }
-        // [EN] Active: wysokość z wiersza grid (wykorzystuje pustą przestrzeń u góry na dużych ekranach).
+        // [EN] Active: mobile grid row height; desktop uses display budget (not current wrap — avoids ~28px trap).
         function _calcExprMaxH(display, resultRow, wrap) {
             var t = getCalcLayoutTune();
             var boost = t.exprBudgetBoost != null ? t.exprBudgetBoost : 0;
             var exprMin = t.exprMinHeight != null ? t.exprMinHeight : 28;
-            var fromGrid = wrap ? wrap.clientHeight : 0;
-            if (fromGrid >= exprMin) return fromGrid;
             var innerH = _calcDisplayInnerH(display);
             var reserve = _calcResultReserve(display, resultRow);
-            return Math.max(exprMin, innerH - reserve + boost);
+            var budget = Math.max(exprMin, innerH - reserve + boost);
+            if (window.innerWidth < 640 && wrap && wrap.clientHeight >= exprMin) return Math.max(budget, wrap.clientHeight);
+            return budget;
         }
         // [EN] Last resort: wynik wyszedł poza .calc-display — zmniejsz textarea.
         function _clampResultInDisplay() {
@@ -1847,12 +1875,13 @@
             var rr = resultRow.getBoundingClientRect();
             if (rr.bottom <= dr.bottom + 1) return false;
             var over = Math.ceil(rr.bottom - dr.bottom) + 2;
-            var curMax = parseFloat(calcExpr.style.maxHeight);
-            if (!isFinite(curMax)) curMax = calcExpr.offsetHeight;
-            calcExpr.style.maxHeight = Math.max(22, curMax - over) + 'px';
-            calcExpr.style.height = 'auto';
-            var h = Math.min(calcExpr.scrollHeight, parseFloat(calcExpr.style.maxHeight));
-            calcExpr.style.height = h + 'px';
+            var wrap = calcExpr.parentElement;
+            if (wrap && wrap.clientHeight > 22) {
+                wrap.style.maxHeight = Math.max(22, wrap.clientHeight - over) + 'px';
+            }
+            var maxH = _syncExprFieldToWrap(wrap);
+            if (!maxH) return false;
+            var h = maxH;
             calcExpr.classList.toggle('is-clipped', calcExpr.scrollHeight > h + 1);
             calcExpr.scrollTop = calcExpr.scrollHeight - h;
             return true;
@@ -1862,51 +1891,37 @@
             if (!calcExpr) return;
             var display = calcExpr.closest('.calc-display');
             var resultRow = display && display.querySelector('.calc-result-row');
-            if (!calcExpr.value) {
-                calcExpr.style.height = '';
-                calcExpr.style.maxHeight = '';
-                calcExpr.style.fontSize = '';
-                calcExpr.classList.remove('is-clipped');
-                if (_calcPh) _calcPh.style.fontSize = '';
-                if (display && resultRow) {
-                    _syncResultReserve(display, resultRow);
-                    _syncExprWrapBounds(display, resultRow);
-                }
-                return;
-            }
+            var wrap = calcExpr.parentElement;
             calcExpr.style.fontSize = '';
             if (_calcPh) _calcPh.style.fontSize = '';
-            var wrap = calcExpr.parentElement;
-            var maxExprH = 9999;
-            if (display) {
+            calcExpr.classList.remove('is-clipped');
+            if (display && resultRow) {
                 _syncResultReserve(display, resultRow);
-                maxExprH = _syncExprWrapBounds(display, resultRow);
+                _syncExprWrapBounds(display, resultRow);
             }
-            calcExpr.style.maxHeight = maxExprH + 'px';
-            calcExpr.style.height = 'auto';
+            var maxExprH = _syncExprFieldToWrap(wrap);
+            if (!maxExprH) {
+                calcExpr.style.height = '';
+                calcExpr.style.maxHeight = '';
+                calcExpr.style.width = '';
+                return;
+            }
+            if (!calcExpr.value) return;
             var fs = 1.25;
-            var minFs = 0.9;
+            var minFs = _isCalcMobileLayout() ? 1 : 0.9; // [EN] Mobile ≥16px — bez zoomu WebKit przy shrink
             var sh = calcExpr.scrollHeight;
             while (sh > maxExprH && fs > minFs) {
                 fs = Math.round((fs - 0.05) * 100) / 100;
                 calcExpr.style.fontSize = fs + 'rem';
                 if (_calcPh) _calcPh.style.fontSize = fs + 'rem';
-                calcExpr.style.height = 'auto';
                 sh = calcExpr.scrollHeight;
             }
-            // [EN] Po zawinięciu scrollHeight rośnie — kilka przebiegów aż stabilne (nie wypycha wyniku).
-            var h = Math.min(sh, maxExprH);
-            var stable = 0;
-            while (stable < 4) {
-                calcExpr.style.height = h + 'px';
-                var sh2 = calcExpr.scrollHeight;
-                if (sh2 <= h + 1) break;
-                h = Math.min(sh2, maxExprH);
-                stable++;
-            }
-            var clipped = calcExpr.scrollHeight > h + 1;
+            var clipped = calcExpr.scrollHeight > maxExprH + 1;
             calcExpr.classList.toggle('is-clipped', clipped);
-            calcExpr.scrollTop = clipped ? calcExpr.scrollHeight - h : 0;
+            var atEnd = document.activeElement === calcExpr
+                && calcExpr.selectionStart != null
+                && calcExpr.selectionStart >= calcExpr.value.length;
+            calcExpr.scrollTop = (clipped || atEnd) ? calcExpr.scrollHeight - maxExprH : 0;
         }
         var _calcFitProbe = null;
         function _calcResultFullText() {
@@ -1931,19 +1946,33 @@
         // [EN] Mobile layout — values in js/calc-layout-tune.js (CALC_LAYOUT_TUNE.mobile).
         var _calcBtnScale = 1;
         var _calcWasEmpty = true;
+        function _isCalcMobileLayout() {
+            return window.innerWidth < 640;
+        }
         function getCalcLayoutTune() {
             var root = window.CALC_LAYOUT_TUNE;
             return (root && root.mobile) ? root.mobile : {};
         }
         function applyCalcLayoutTune(card) {
-            if (!card) return;
+            if (typeof window.applyCalcLayoutTuneTokens === 'function') {
+                window.applyCalcLayoutTuneTokens(card);
+            }
+        }
+        function _syncKeypadFontScale(card, panelH) {
+            if (!calcGrid || !card || !_isCalcMobileLayout()) return;
             var t = getCalcLayoutTune();
-            var groups = t.groups || {};
-            ['fn', 'number', 'operator', 'equals', 'clear'].forEach(function(name) {
-                var cfg = groups[name] || {};
-                var mul = cfg.fontScale != null ? cfg.fontScale : 1;
-                card.style.setProperty('--calc-g-' + name + '-font', String(mul));
-            });
+            var base = t.btnRowBase != null ? t.btnRowBase : 56;
+            var btn = calcGrid.querySelector('.calc-btn');
+            if (!btn) return;
+            var rowH = btn.getBoundingClientRect().height;
+            if (rowH < 8) return;
+            var rowScale = rowH / base;
+            var scale = typeof window.resolveKeypadFontScale === 'function'
+                ? window.resolveKeypadFontScale(panelH || 640, rowScale, t)
+                : rowScale;
+            _calcBtnScale = scale;
+            card.style.setProperty('--calc-btn-scale', String(scale));
+            applyCalcLayoutTune(card);
         }
         function fitCalcLayout() {
             var panel = document.getElementById('panel-calculator');
@@ -1951,69 +1980,60 @@
             var card = panel.querySelector('.card');
             var display = card && card.querySelector('.calc-display');
             if (!card || !display) return;
-            if (window.innerWidth > 639 || !panel.classList.contains('active')) {
+            document.body.classList.remove('calc-expr-focused');
+            calcGrid.style.removeProperty('display');
+            if (!_isCalcMobileLayout() || !panel.classList.contains('active')) {
                 document.body.classList.remove('calc-panel-active');
                 card.style.removeProperty('--calc-btn-scale');
+                card.style.removeProperty('--calc-font-base');
                 ['fn', 'number', 'operator', 'equals', 'clear'].forEach(function(n) {
                     card.style.removeProperty('--calc-g-' + n + '-font');
                 });
                 display.style.removeProperty('max-height');
                 display.style.removeProperty('min-height');
+                display.style.removeProperty('height');
+                display.style.removeProperty('flex');
+                calcGrid.style.removeProperty('flex');
+                calcGrid.style.removeProperty('min-height');
+                card.style.removeProperty('--calc-expr-min');
+                card.style.removeProperty('--calc-display-gap');
+                card.style.removeProperty('--calc-grid-gap');
+                card.style.removeProperty('--calc-display-pad-y');
+                card.style.removeProperty('--calc-display-pad-x');
                 _calcBtnScale = 1;
+                requestAnimationFrame(function() { fitCalcDisplay(); });
                 return;
             }
             document.body.classList.add('calc-panel-active');
             var t = getCalcLayoutTune();
+            applyCalcLayoutTune(card);
             var availH = panel.clientHeight;
             if (availH < 120) return;
-            var tools = card.querySelector('.calc-tools');
-            var toolsH = tools ? tools.offsetHeight : 48;
-            var cardCs = getComputedStyle(card);
-            var cardPad = (parseFloat(cardCs.paddingTop) || 0) + (parseFloat(cardCs.paddingBottom) || 0);
-            var btnRowBase = t.btnRowBase != null ? t.btnRowBase : 56;
-            var gridGapBase = t.gridGapBase != null ? t.gridGapBase : 8;
-            var rows = t.rows != null ? t.rows : 5;
-            var gaps = t.gaps != null ? t.gaps : 4;
-            var keypadBase = rows * btnRowBase + gaps * gridGapBase;
             var isEmpty = !calcExpr || !calcExpr.value;
-            var displayMin = isEmpty
-                ? (t.displayMinEmpty != null ? t.displayMinEmpty : 88)
-                : (t.displayMinActive != null ? t.displayMinActive : 104);
-            var layoutGap = t.layoutGap != null ? t.layoutGap : 16;
-            var scaleMin = t.scaleMin != null ? t.scaleMin : 0.7;
-            var scaleMax = t.scaleMax != null ? t.scaleMax : 1.35;
-            var targetKeypad = availH - cardPad - toolsH - layoutGap - displayMin;
-            if (isEmpty && t.keypadBoostEmpty) targetKeypad += t.keypadBoostEmpty;
-            var scale = targetKeypad / keypadBase;
-            scale = Math.max(scaleMin, Math.min(scaleMax, scale));
-            scale = Math.round(scale * 1000) / 1000;
-            _calcBtnScale = scale;
-            applyCalcLayoutTune(card);
-            card.style.setProperty('--calc-btn-scale', String(scale));
-            display.style.minHeight = displayMin + 'px';
-            if (isEmpty && t.displayMaxEmptyRatio) {
-                display.style.maxHeight = Math.max(displayMin, Math.floor(availH * t.displayMaxEmptyRatio)) + 'px';
-            } else {
-                display.style.removeProperty('max-height');
-            }
+            var budget = typeof window.resolveCalcDisplayBudget === 'function'
+                ? window.resolveCalcDisplayBudget(availH, !isEmpty, t)
+                : { height: 120 };
+            var displayH = budget.height;
+            display.style.flex = '0 0 auto';
+            display.style.height = displayH + 'px';
+            display.style.minHeight = displayH + 'px';
+            display.style.maxHeight = displayH + 'px';
+            calcGrid.style.flex = '1 1 auto';
+            calcGrid.style.minHeight = '0';
             if (t.debug) {
                 console.log('[calc-layout]', {
-                    empty: isEmpty, displayMin: displayMin, scale: scale,
-                    availH: availH, keypadPx: Math.round(keypadBase * scale),
-                    displayH: display.offsetHeight, maxH: display.style.maxHeight || '—'
+                    empty: isEmpty, displayH: displayH, rawPx: budget.rawPx, limit: budget.limit, availH: availH,
                 });
             }
             requestAnimationFrame(function() {
+                _syncKeypadFontScale(card, availH);
                 fitCalcDisplay();
             });
         }
 
         function liveEval() {
             var empty = !calcExpr.value;
-            if (empty !== _calcWasEmpty) {
-                _calcWasEmpty = empty;
-                fitCalcLayout(); // pusty ↔ aktywny — inny budżet wyświetlacza (tune panel)
-            }
+            _calcWasEmpty = empty;
             updatePlaceholderMarquee();
             // fitCalcLayout poza zmianą pusty/aktywny tylko przy resize/zakładce (unika skakania UI).
             // Wyrażenia z samych liczb całkowitych i +,−,×,() liczymy BigInt-em (dokładnie,
@@ -2078,7 +2098,7 @@
             var rootFs = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
             var basePx = parseFloat(getComputedStyle(calcResult).fontSize) || rootFs * 2.5;
             var minPx = Math.max(20, rootFs * 1.3);
-            var mobileCalc = window.innerWidth <= 639;
+            var mobileCalc = _isCalcMobileLayout();
             var fs = basePx;
             // Na mobile: zostaw domyślne 2.5rem — tylko szerokość może wymusić lekkie zmniejszenie.
             if (!mobileCalc) {
@@ -9744,6 +9764,13 @@
                 fitCalcLayout: fitCalcLayout,
                 fitCalcDisplay: fitCalcDisplay,
                 calcLayoutTune: function() { return window.CALC_LAYOUT_TUNE; },
+                reapplyCalcTune: window.reapplyCalcLayoutTune,
+                previewCurrentCalcLayout: window.previewCurrentCalcLayout,
+                previewDisplayCurve: window.previewCalcDisplayCurve,
+                plotDisplayCurve: window.plotCalcDisplayCurve,
+                previewKeypadFontCurve: window.previewKeypadFontCurve,
+                resolveDisplayBudget: window.resolveCalcDisplayBudget,
+                resolveKeypadFontScale: window.resolveKeypadFontScale,
                 switchTab: switchTab,
                 updateGraph: updateGraph,
                 renderConstants: renderConstants,
