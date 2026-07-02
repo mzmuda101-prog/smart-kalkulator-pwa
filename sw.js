@@ -16,6 +16,7 @@ const ASSETS_TO_CACHE = [
     './assets/img/logo-mateusz-transparent-pod-loading.png',
     './assets/img/logo-refresh.png',
     './sw.js',
+    './js/theme-init.js',
     './js/calc-layout-tune.js',
     './js/cursor-hint.js',
     './js/data-tables.js',

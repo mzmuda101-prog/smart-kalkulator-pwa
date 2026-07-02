@@ -8,6 +8,9 @@
          color-scheme na :root / [data-theme="dark"], więc selecty/inputy/scrollbary pasują
          do wybranego motywu (nie do systemu). -->
     <meta name="color-scheme" content="light dark">
+    <!-- [EN] CSP — app is fully local/offline, so everything locks to 'self'.
+         style-src 'unsafe-inline' bo kilka legacy atrybutów style="" w markupie. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Smart Kalkulator">
@@ -15,17 +18,9 @@
     <meta name="theme-color" content="#2563eb" id="metaThemeColor">
     <!-- Ustaw motyw NATYCHMIAST (przed CSS/paint), by splash i pierwsza klatka nie mignęły
          jasnym tłem przy wybranym/systemowym dark. Lekki klucz osobny (matm0_theme):
-         'dark' | 'light' | brak = auto (śledzi system). -->
-    <script>
-        (function () {
-            try {
-                var pref = localStorage.getItem('matm0_theme');
-                var dark = pref === 'dark' || (pref !== 'light' &&
-                    window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-                if (dark) document.documentElement.setAttribute('data-theme', 'dark');
-            } catch (e) {}
-        })();
-    </script>
+         'dark' | 'light' | brak = auto (śledzi system).
+         [EN] External file (not inline) so CSP stays script-src 'self'; sync load before CSS. -->
+    <script src="js/theme-init.js"></script>
     <meta name="application-name" content="Smart Kalkulator">
     <meta name="format-detection" content="telephone=no">
     <meta name="description" content="Szwajcarski scyzoryk do obliczeń codziennych i technicznych">
