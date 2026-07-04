@@ -686,6 +686,10 @@
         });
 
         function parseNaturalShortcuts(raw) {
+            // --- Normalizacja klawiaturowego minusa: „−" (U+2212) → „-" ---
+            // Reguły niżej (procenty „100-10%", VAT „1560 - vat") łapią tylko ASCII „-";
+            // bez tej zamiany minus z keypada omijał je i dawał zły wynik (100−10% = 99,9).
+            raw = raw.replace(/−/g, '-');
             // --- Normalizacja: "10 procent" → "10%" (przed resztą) ---
             raw = raw.replace(/([\d.,]+)\s+procent[a-z]*/gi, function(_, n) { return n + '%'; });
 
@@ -2440,22 +2444,11 @@
             }
 
             if (action === '%') {
-                var trimmed = expr.trim();
-                // Samsung-style: detect BASE [+|-] NUMBER at the end of expression
-                var addSubM = trimmed.match(/^([\s\S]+?)([+\-−])([\d.,]+)\s*$/);
-                if (addSubM) {
-                    var baseE = addSubM[1];
-                    var opE   = addSubM[2];
-                    var pctE  = addSubM[3].replace(',', '.');
-                    // A + B → A + (A * B/100)
-                    calcExpr.value = baseE + opE + '(' + baseE + '*' + pctE + '/100)';
-                } else if (/^[\d.,]+$/.test(trimmed)) {
-                    // Standalone number: 25 → (25/100)
-                    calcExpr.value = '(' + trimmed.replace(',', '.') + '/100)';
-                } else {
-                    insertAtCursor(calcExpr, '%');
-                }
-                calcExpr.setSelectionRange(calcExpr.value.length, calcExpr.value.length);
+                // [EN] Insert literal '%' — parseNaturalShortcuts already implements the Samsung
+                // semantics („100+10%" = 110, łańcuch „100+10%+5%" = 115,5) POPRAWNIE. Wcześniejsze
+                // rozwijanie w tym miejscu dublowało tę logikę z błędem (baza bez nawiasów → „210,5"),
+                // psuło drugi tap % i zawsze przeskakiwało kursor na koniec.
+                insertAtCursor(calcExpr, '%');
                 liveEval();
                 return;
             }
