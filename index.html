@@ -8,9 +8,9 @@
          color-scheme na :root / [data-theme="dark"], więc selecty/inputy/scrollbary pasują
          do wybranego motywu (nie do systemu). -->
     <meta name="color-scheme" content="light dark">
-    <!-- [EN] CSP — app is fully local/offline, so everything locks to 'self'.
+    <!-- [EN] CSP — app is local/offline except FX rates APIs (NBP + Frankfurter) in connect-src.
          style-src 'unsafe-inline' bo kilka legacy atrybutów style="" w markupie. -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://api.nbp.pl https://api.frankfurter.dev; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Smart Kalkulator">

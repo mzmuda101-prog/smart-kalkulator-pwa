@@ -1153,6 +1153,7 @@
         function _currencyDisplay(code) { return code === 'PLN' ? 'zł' : code; }
         function _fxReady() { return STATE.fx.rates && Object.keys(STATE.fx.rates).length > 1; }
         function _fxFresh() { return STATE.fx.ts && (Date.now() - STATE.fx.ts) < FX_TTL_MS; }
+        function _needsFxTable(code) { return code && code !== 'PLN'; } // [EN] PLN rate is always 1 — no API fetch
 
         function _currencyTokenRe() {
             var map = _currencyTokenMap();
@@ -1180,7 +1181,7 @@
                 var inner = resolveCalcCurrency(cm[1].trim());
                 if (inner.hasCurrency) {
                     var tRate = _currencyRate(targetCode);
-                    if (inner.pending || !_fxReady() || tRate == null) {
+                    if (inner.pending || tRate == null || (_needsFxTable(targetCode) && !_fxReady())) {
                         return { expr: raw, unit: null, hasCurrency: true, pending: true };
                     }
                     var converted = inner.valueInBase / tRate;
@@ -1199,7 +1200,7 @@
                 hasCurrency = true;
                 var code = map[tok.toLowerCase()];
                 var rate = _currencyRate(code);
-                if (!_fxReady() || rate == null) { pending = true; return m; }
+                if (rate == null || (_needsFxTable(code) && !_fxReady())) { pending = true; return m; }
                 if (workRate == null) workRate = rate; // waluta robocza = pierwsza napotkana
                 var n = parseFloat(num.replace(',', '.'));
                 totalPln += n * rate;
@@ -1270,12 +1271,16 @@
             if (STATE.fx.loading) return;
             if (typeof fetch !== 'function') { STATE.fx.error = 'no-fetch'; return; }
             STATE.fx.loading = true; STATE.fx.error = null;
+            STATE.fx.lastTry = Date.now(); // [EN] Throttle anchor — ensureFxRates skips retry right after failure
             var mode = (STATE.settings && STATE.settings.fxEngine) || 'auto';
 
             function done() {
                 STATE.fx.loading = false;
-                if (typeof liveEval === 'function') liveEval();
+                // [EN] Defer liveEval — sync chain loadFx→done→liveEval→loadFx zatyka wątek (np. 50eur bez cache).
                 try { document.dispatchEvent(new CustomEvent('matm0-fx-updated')); } catch (e) {}
+                requestAnimationFrame(function() {
+                    if (typeof liveEval === 'function') liveEval();
+                });
             }
             function fail(err) { STATE.fx.error = (err && err.message) || 'fetch-error'; }
 
@@ -1319,9 +1324,11 @@
             return '—';
         }
         // Pobierz gdy trzeba: brak kursów lub przeterminowane (i nie trwa już pobieranie).
+        var FX_RETRY_MS = 10 * 1000; // [EN] Po nieudanym fetchu nie ponawiaj częściej niż co 10 s (anty-pętla przy offline/CSP)
         function ensureFxRates() {
             if (STATE.fx.loading) return;
             if (_fxReady() && _fxFresh()) return;
+            if (STATE.fx.error && STATE.fx.lastTry && (Date.now() - STATE.fx.lastTry) < FX_RETRY_MS) return;
             loadFxRates();
         }
 
@@ -1749,10 +1756,15 @@
             _calcPhInner = _calcPh.firstElementChild;
             if (calcExpr.parentElement) calcExpr.parentElement.classList.add('has-ph');
             // Zmiana szerokości zmienia zawijanie → przelicz też auto-wysokość pola.
+            var _calcResizeRaf = 0;
             var onResize = function() {
-                _calcBtnScale = 1;
-                updatePlaceholderMarquee();
-                fitCalcLayout();
+                if (_calcResizeRaf) return; // [EN] Coalesce RO + resize — jeden fitCalcLayout na klatkę
+                _calcResizeRaf = requestAnimationFrame(function() {
+                    _calcResizeRaf = 0;
+                    _calcBtnScale = 1;
+                    updatePlaceholderMarquee();
+                    fitCalcLayout();
+                });
             };
             var onExprFocusChange = function() {
                 fitCalcDisplay();
@@ -1983,6 +1995,7 @@
         }
         var _calcFitProbe = null;
         var _calcResultWrapLines = 1;
+        var _calcResultFitPending = 0; // [EN] Bounded rAF retries when result row width not ready yet
         function _calcResultFullText() {
             return calcResult ? (calcResult.textContent || '') : '';
         }
@@ -1990,7 +2003,7 @@
             if (!row) return 0;
             var maxW = row.clientWidth;
             if (calcApprox && !calcApprox.hidden) maxW -= calcApprox.offsetWidth + 8;
-            return maxW;
+            return Math.max(0, maxW); // [EN] Never negative — ujemne maxW = nieskończona pętla rAF w fitCalcResultSize
         }
         // [EN] Measure one result line width (probe — bez skracania fontu).
         function _measureCalcResultWidth(text, fontSizePx, row) {
@@ -2125,9 +2138,15 @@
             if (!row) return;
             var maxW = _calcResultMaxWidth(row);
             if (maxW <= 0) {
-                requestAnimationFrame(fitCalcResultSize);
+                // [EN] Row may be 0px wide for one frame during layout (waluta → nowy wynik).
+                // Cap retries — bez limitu rAF zapycha wątek i blokuje wpisywanie (np. 100PLN).
+                if (_calcResultFitPending < 12) {
+                    _calcResultFitPending++;
+                    requestAnimationFrame(fitCalcResultSize);
+                }
                 return;
             }
+            _calcResultFitPending = 0;
             var flat = _calcResultFullText().replace(/\n/g, ' ').trim();
             var prevLines = _calcResultWrapLines;
             var basePx = _calcResultBaseFontPx();
