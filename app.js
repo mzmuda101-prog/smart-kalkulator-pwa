@@ -685,6 +685,46 @@
             });
         });
 
+        // [EN] Plain decimal string — no exponential notation (shared by shorthands + units).
+        function _plainDecimalStr(x) {
+            if (!isFinite(x)) return '0';
+            var s = String(x);
+            if (s.indexOf('e') === -1 && s.indexOf('E') === -1) return s;
+            var neg = x < 0, es = Math.abs(x).toExponential();
+            var m = es.match(/^(\d)(?:\.(\d+))?e([+-]\d+)$/);
+            if (!m) return s;
+            var digits = m[1] + (m[2] || ''), exp = parseInt(m[3], 10), pointPos = 1 + exp, out;
+            if (pointPos <= 0) out = '0.' + '0'.repeat(-pointPos) + digits;
+            else if (pointPos >= digits.length) out = digits + '0'.repeat(pointPos - digits.length);
+            else out = digits.slice(0, pointPos) + '.' + digits.slice(pointPos);
+            return (neg ? '-' : '') + out;
+        }
+
+        // [EN] tys/mln/k → liczby PRZED resolveCalcCurrency („2,5k zł" musi stać się „2500 zł").
+        // k tylko sklejone z liczbą (10k), nie „10 K" (kelwin).
+        function expandNumericShorthands(raw) {
+            raw = raw.replace(/([\d.,]+)\s*(?:tys\.?|tysi[aą]c[a-z]*)\b/gi,
+                function(_, n) { return _plainDecimalStr(parseFloat(n.replace(',', '.')) * 1000); });
+            raw = raw.replace(/([\d.,]+)\s*(?:mln\.?|milion[a-z]*)\b/gi,
+                function(_, n) { return _plainDecimalStr(parseFloat(n.replace(',', '.')) * 1000000); });
+            raw = raw.replace(/([\d.,]+)[kK](?![a-zA-Ząćęłńóśźż0-9])/g,
+                function(_, n) { return _plainDecimalStr(parseFloat(n.replace(',', '.')) * 1000); });
+            return raw;
+        }
+
+        // [EN] sin(30 deg) → sin(radiany) zanim resolveCalcUnits zdejmie „deg" jako etykietę wyniku.
+        function resolveTrigDegrees(raw) {
+            return String(raw).replace(
+                /\b(sin|cos|tan)\s*\(\s*([^()]+?)\s*\)/gi,
+                function(match, fn, inner) {
+                    var dm = inner.trim().match(/^([\d.,]+)\s*(?:deg|°|stopni(?:e|a|ach)?)\s*$/i);
+                    if (!dm) return match;
+                    var deg = parseFloat(dm[1].replace(',', '.'));
+                    if (!isFinite(deg)) return match;
+                    return fn + '(' + (deg * Math.PI / 180) + ')';
+                });
+        }
+
         function parseNaturalShortcuts(raw) {
             // --- Normalizacja klawiaturowego minusa: „−" (U+2212) → „-" ---
             // Reguły niżej (procenty „100-10%", VAT „1560 - vat") łapią tylko ASCII „-";
@@ -692,15 +732,6 @@
             raw = raw.replace(/−/g, '-');
             // --- Normalizacja: "10 procent" → "10%" (przed resztą) ---
             raw = raw.replace(/([\d.,]+)\s+procent[a-z]*/gi, function(_, n) { return n + '%'; });
-
-            // --- Normalizacja skrótów liczbowych: tys / mln ---
-            raw = raw.replace(/([\d.,]+)\s*(?:tys\.?|tysi[aą]c[a-z]*)\b/gi,
-                function(_, n) { return '(' + n.replace(',', '.') + '*1000)'; });
-            raw = raw.replace(/([\d.,]+)\s*(?:mln\.?|milion[a-z]*)\b/gi,
-                function(_, n) { return '(' + n.replace(',', '.') + '*1000000)'; });
-            // K notation (angielski): 10K → 10000
-            raw = raw.replace(/([\d.,]+)\s*[kK](?!\w)/g,
-                function(_, n) { return '(' + n.replace(',', '.') + '*1000)'; });
 
             // --- Ułamki PL + EN ---
             raw = raw.replace(/\bpo[łl]owa\s+([\d.,]+)/gi,        '($1/2)');  // połowa / polowa
@@ -1047,6 +1078,7 @@
             // Dla + − / pojedynczej jednostki to daje DOKŁADNIE to samo co dawne „licz w bazie".
             var totalBase = 0;
             var workFactor = null; // współczynnik (do bazy) jednostki roboczej; null = brak jednostek
+            var workUnitLabel = null; // [EN] Etykieta pierwszej jednostki (Raycast: wynik w tym samym wymiarze)
             var cat = null;
             var baseUnit = null;
             var hasUnits = false;
@@ -1057,21 +1089,13 @@
             // zwykły dziesiętny zapis (bez notacji wykładniczej). Inaczej np. „1 ha + 1 mm²"
             // dałoby intermediat 1e-10 → „1e-10", a parser wyrażeń traktuje „e" jak stałą
             // Eulera i liczyłby kompletny śmieć (1ha+1mm2 → 171828 zamiast 10000,000001).
-            function _plainNum(x) {
-                if (!isFinite(x)) return '0';
-                var s = String(x);
-                if (s.indexOf('e') === -1 && s.indexOf('E') === -1) return s;
-                var neg = x < 0, es = Math.abs(x).toExponential();
-                var m = es.match(/^(\d)(?:\.(\d+))?e([+-]\d+)$/);
-                if (!m) return s;
-                var digits = m[1] + (m[2] || ''), exp = parseInt(m[3], 10), pointPos = 1 + exp, out;
-                if (pointPos <= 0) out = '0.' + '0'.repeat(-pointPos) + digits;
-                else if (pointPos >= digits.length) out = digits + '0'.repeat(pointPos - digits.length);
-                else out = digits.slice(0, pointPos) + '.' + digits.slice(pointPos);
-                return (neg ? '-' : '') + out;
-            }
-            function _emitUnit(numStr, factor, catName, base) {
-                if (workFactor == null) workFactor = factor; // pierwsza jednostka = robocza
+            function _plainNum(x) { return _plainDecimalStr(x); }
+            function _emitUnit(numStr, factor, catName, base, unitKey) {
+                if (workFactor == null) {
+                    workFactor = factor;
+                    var uk = String(unitKey || base).toLowerCase();
+                    workUnitLabel = CALC_UNIT_DISPLAY[uk] || unitKey || base;
+                }
                 cat = catName; baseUnit = base; hasUnits = true;
                 var n = parseFloat(String(numStr).replace(',', '.'));
                 totalBase += n * factor;                  // suma bazowa (dla „na" przy sumach)
@@ -1081,11 +1105,11 @@
             // Notacja stóp (N') i cali (N") — zawsze długość
             expr = expr.replace(/([\d.,]+)\s*'/g, function(_, n) {
                 if (cat && cat !== 'length') { mixed = true; return _; }
-                return _emitUnit(n, 304.8, 'length', 'mm');
+                return _emitUnit(n, 304.8, 'length', 'mm', 'ft');
             });
             expr = expr.replace(/([\d.,]+)\s*"/g, function(_, n) {
                 if (cat && cat !== 'length') { mixed = true; return _; }
-                return _emitUnit(n, 25.4, 'length', 'mm');
+                return _emitUnit(n, 25.4, 'length', 'mm', 'in');
             });
 
             // Nazwane jednostki. Lookahead (?![A-Za-z0-9]) zamiast \b — obsługuje też „°".
@@ -1094,7 +1118,7 @@
                 var def = CALC_UNITS[unit.toLowerCase()];
                 if (!def) return m;
                 if (cat && def.cat !== cat) { mixed = true; return m; } // miks kategorii
-                return _emitUnit(numStr, def.factor, def.cat, def.base);
+                return _emitUnit(numStr, def.factor, def.cat, def.base, unit);
             });
 
             // Miks kategorii (kg + cm) nie ma sensu → zwróć surowiec bez wyniku jednostkowego.
@@ -1106,6 +1130,10 @@
             // evalCalcExpression, przez ile podzielić wartość bazową, by pokazać w preferowanej.
             var pref = _preferredDisplayUnit(cat);
             if (pref) return { expr: expr, unit: pref.label, cat: cat, valueInBase: totalBase, displayFactor: pref.factor, workFactor: workFactor };
+            // [EN] Bez ustawień: pokaż w jednostce roboczej (pierwsza wpisana), nie w bazie mm/g — Raycast-style.
+            if (workUnitLabel && workFactor) {
+                return { expr: expr, unit: workUnitLabel, cat: cat, valueInBase: totalBase, displayFactor: workFactor, workFactor: workFactor };
+            }
             return { expr: expr, unit: baseUnit, cat: cat, valueInBase: totalBase, workFactor: workFactor };
         }
 
@@ -1606,6 +1634,7 @@
                 // Stałe NAJPIERW — ich wartości mogą zawierać „%", „vat", frazy naturalne, które
                 // dopiero kolejne etapy (parseNaturalShortcuts) zamienią na właściwą matematykę.
                 expr = resolveCalcConstants(expr, STATE.constants);
+                expr = expandNumericShorthands(expr); // [EN] k/tys przed tokenami walut („2,5k zł")
                 // Waluty NAJPIERW (zaraz po stałych, PRZED parserem naturalnym): zamieniamy kwoty
                 // walutowe na liczby (wartość w PLN / konwersja „na X") i zapamiętujemy docelową
                 // jednostkę. Dzięki temu finanse/procenty/matematyka komponują się z walutą — token
@@ -1615,6 +1644,7 @@
                 expr = curRes.expr;
                 expr = parseNaturalShortcuts(expr);
                 expr = resolveCalcAnswer(expr);
+                expr = resolveTrigDegrees(expr); // [EN] sin(30 deg) → radiany, zanim jednostki zdejmą „deg"
                 // Duże liczby całkowite (+, −, ×): licz dokładnie BigInt-em, ale TYLKO gdy
                 // to potrzebne (liczba/wynik > 15 cyfr) — krótkie działania idą zwykłą
                 // ścieżką float, żeby zachować dotychczasowe formatowanie i testy.
@@ -1655,18 +1685,19 @@
                 if (curRes.hasCurrency && curRes.curMul && isFinite(value)) value = value * curRes.curMul;
                 // Waluty: zaokrąglij do 2 miejsc po przecinku (grosze).
                 if (curRes.hasCurrency && isFinite(value)) value = Math.round(value * 100) / 100;
+                var valueBase = value; // [EN] Wartość w jednostce bazowej kategorii — dla __auto__ (przed displayFactor).
                 // Wartość jest teraz BAZOWA. Jeśli resolveCalcUnits wskazał preferowaną jednostkę
                 // wyświetlania (ustawienia), przelicz wartość.
                 if (!curRes.hasCurrency && unitResult.displayFactor) value = value / unitResult.displayFactor;
                 // Autodobór czytelnej jednostki — ustawienie „Czytelnie (auto)" per kategoria
                 // ('__auto__'). Domyślnie kategorie = '' (baza), więc to nie rusza baseline.
-                // Wybór jednostki liczymy z FINALNEJ wartości bazowej (MATM0_QTY.chooseUnit).
+                // Wybór jednostki liczymy z wartości BAZOWEJ (MATM0_QTY.chooseUnit), nie roboczej.
                 var _QTY = (typeof window !== 'undefined' && window.MATM0_QTY) || null;
-                if (!curRes.hasCurrency && unitResult.cat && isFinite(value) && _QTY &&
+                if (!curRes.hasCurrency && unitResult.cat && isFinite(valueBase) && _QTY &&
                     (STATE.settings.defaultUnits || {})[unitResult.cat] === '__auto__') {
-                    var _autoU = _QTY.chooseUnit(unitResult.cat, value);
+                    var _autoU = _QTY.chooseUnit(unitResult.cat, valueBase);
                     var _autoInfo = _autoU && _QTY.unitInfo(_autoU);
-                    if (_autoInfo) { value = value / _autoInfo.factor; unit = CALC_UNIT_DISPLAY[_autoU] || _autoU; }
+                    if (_autoInfo) { value = valueBase / _autoInfo.factor; unit = CALC_UNIT_DISPLAY[_autoU] || _autoU; }
                 }
                 if (!isFinite(value)) return makeVal({ value: Infinity, unit: unit, error: '∞', kind: 'number' });
                 // Dokładne liczby całkowite do MAX_SAFE_INTEGER (16 cyfr) zostaw bez
@@ -9464,13 +9495,13 @@
 
         function runCalcSmokeTests() {
             var cases = [
-                // długość (zachowane stare zachowanie — baza mm)
-                { expr: '2 cm + 5 mm', value: 25, unit: 'mm' },
+                // długość — jednostka robocza (pierwsza wpisana), Raycast-style
+                { expr: '2 cm + 5 mm', value: 2.5, unit: 'cm' },
                 { expr: '5 km na mile', value: 3.106856, unit: 'mile', tol: 1e-3 },
-                { expr: "5' + 6\"", value: 1676.4, unit: 'mm' },
+                { expr: "5' + 6\"", value: 5.5, unit: 'ft' },
                 { expr: '6 cali na mm', value: 152.4, unit: 'mm' },   // PL formy cala: cal/cale/cali
                 // masa
-                { expr: '2 kg + 300 g', value: 2300, unit: 'g' },
+                { expr: '2 kg + 300 g', value: 2.3, unit: 'kg' },
                 { expr: '5 funtow na kg', value: 2.267962, unit: 'kg', tol: 1e-4 },
                 // czas
                 { expr: '90 min na h', value: 1.5, unit: 'h' },
@@ -9498,7 +9529,7 @@
                 { expr: '1 węzeł na km/h', value: 1.852, unit: 'km/h', tol: 1e-6 },
                 { expr: '10 kn na m/s', value: 5.144444, unit: 'm/s', tol: 1e-5 },
                 { expr: '1 ft/s na cm/s', value: 30.48, unit: 'cm/s', tol: 1e-6 },
-                { expr: '36 km/h', value: 10, unit: 'm/s', tol: 1e-9 },               // sumowanie → baza m/s
+                { expr: '36 km/h', value: 36, unit: 'km/h', tol: 1e-9 },               // jednostka robocza km/h
                 { expr: '2 mil na km', value: 3.218688, unit: 'km', tol: 1e-6 },      // regresja: „mil" dalej = mile (długość)
                 // miks kategorii → brak konwersji (nie wybucha, po prostu bez wyniku jednostkowego)
                 { expr: '2 kg + 3 cm', unit: null },
@@ -9616,16 +9647,16 @@
                 var pass = r.unit === t.unit && Math.abs(r.value - t.value) <= (t.tol || 1e-9);
                 results.push({ expr: t.expr + ' (domyślna jednostka)', pass: pass, got: r.value + ' ' + r.unit });
             });
-            // Pusta domyślna (auto) = zachowanie bazowe.
+            // Pusta domyślna = jednostka robocza (pierwsza wpisana), nie baza kategorii.
             STATE.settings.defaultUnits = { speed: '', length: '', mass: '', volume: '', time: '' };
             var rAuto = evalCalcExpression('36 km/h');
-            results.push({ expr: '36 km/h @auto (baza)', pass: rAuto.unit === 'm/s' && Math.abs(rAuto.value - 10) < 1e-9, got: rAuto.value + ' ' + rAuto.unit });
-            var rTimeAuto = evalCalcExpression('5h');   // time:'' → baza s
-            results.push({ expr: '5h @time:auto (baza s = 18000)', pass: rTimeAuto.unit === 's' && rTimeAuto.value === 18000, got: rTimeAuto.value + ' ' + rTimeAuto.unit });
-            // Niepasująca jednostka w ustawieniu (np. speed='kg') → ignorowana, baza.
+            results.push({ expr: '36 km/h @auto (robocza)', pass: rAuto.unit === 'km/h' && Math.abs(rAuto.value - 36) < 1e-9, got: rAuto.value + ' ' + rAuto.unit });
+            var rTimeAuto = evalCalcExpression('5h');
+            results.push({ expr: '5h @time:auto (robocza h)', pass: rTimeAuto.unit === 'h' && rTimeAuto.value === 5, got: rTimeAuto.value + ' ' + rTimeAuto.unit });
+            // Niepasująca jednostka w ustawieniu (np. speed='kg') → ignorowana, jednostka robocza.
             STATE.settings.defaultUnits = { speed: 'kg', length: '', mass: '', volume: '' };
             var rBad = evalCalcExpression('36 km/h');
-            results.push({ expr: "36 km/h @speed='kg' (ignoruje)", pass: rBad.unit === 'm/s' && Math.abs(rBad.value - 10) < 1e-9, got: rBad.value + ' ' + rBad.unit });
+            results.push({ expr: "36 km/h @speed='kg' (ignoruje)", pass: rBad.unit === 'km/h' && Math.abs(rBad.value - 36) < 1e-9, got: rBad.value + ' ' + rBad.unit });
             STATE.settings.defaultUnits = savedDU;
             // REGRESJE jednostek (2026-06-27):
             //  1) Autodobór NIE awansuje do większej jednostki, gdy psuje to czytelność:
@@ -9649,15 +9680,17 @@
                 });
                 STATE.settings.defaultUnits = { length: '', mass: '', volume: '', area: '', data: '', time: '', speed: '' };
                 var sciCases = [
-                    { expr: '1ha+1mm2', value: 10000.000001 },
-                    { expr: '1km+1mm', value: 1000001 },
-                    { expr: '1t+1mg', value: 1000000.001 },
-                    { expr: '1GB+1B', value: 1073741825 },
-                    { expr: '1000km+1mm', value: 1000000001 },
+                    { expr: '1ha+1mm2', value: 1.0000000001, unit: 'ha' },
+                    { expr: '1km+1mm', value: 1.000001, unit: 'km' },
+                    { expr: '1t+1mg', value: 1.000000001, unit: 't' },
+                    { expr: '1GB+1B', value: 1.00000000093132, unit: 'GB' },
+                    { expr: '1000km+1mm', value: 1000.000001, unit: 'km' },
                 ];
                 sciCases.forEach(function(t) {
                     var r = evalCalcExpression(t.expr);
-                    results.push({ expr: t.expr + ' (bez 1e-… → Euler)', pass: Math.abs(r.value - t.value) <= Math.max(1e-6, Math.abs(t.value) * 1e-9), got: r.value + ' ' + r.unit });
+                    var pass = Math.abs(r.value - t.value) <= Math.max(1e-6, Math.abs(t.value) * 1e-9);
+                    if (t.unit) pass = pass && r.unit === t.unit;
+                    results.push({ expr: t.expr + ' (bez 1e-… → Euler)', pass: pass, got: r.value + ' ' + r.unit });
                 });
                 STATE.settings.defaultUnits = savedDU2;
             })();
@@ -9977,6 +10010,13 @@
             // Etykiety źródeł kursów.
             results.push({ expr: 'fxSourceLabel(merge)', pass: fxSourceLabel('merge') === 'NBP + Frankfurter', got: fxSourceLabel('merge') });
             results.push({ expr: 'fxSourceLabel(frankfurter)', pass: fxSourceLabel('frankfurter') === 'Frankfurter (EBC)', got: fxSourceLabel('frankfurter') });
+            // regresja Raycast-style (07.2026): stopnie w trig, k+waluta, jednostka robocza
+            var sDeg = evalCalcExpression('sin(30 deg)');
+            results.push({ expr: 'sin(30 deg)', pass: Math.abs(sDeg.value - 0.5) < 1e-9 && !sDeg.unit, got: sDeg.value + ' ' + sDeg.unit });
+            var sKzl = evalCalcExpression('2,5k zł');
+            results.push({ expr: '2,5k zł', pass: sKzl.unit === 'zł' && Math.abs(sKzl.value - 2500) < 1e-6, got: sKzl.value + ' ' + sKzl.unit });
+            var sPctU = evalCalcExpression('19m + 47%');
+            results.push({ expr: '19m + 47%', pass: sPctU.unit === 'm' && Math.abs(sPctU.value - 27.93) < 1e-6, got: sPctU.value + ' ' + sPctU.unit });
             STATE.fx.rates = savedFx; STATE.fx.ts = savedFxTs;
             return results;
         }

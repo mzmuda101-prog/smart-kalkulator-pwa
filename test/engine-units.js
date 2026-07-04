@@ -24,14 +24,16 @@ function expect(expr, value, unit) {
     else { fail++; fails.push({ expr: expr, want: value + ' ' + unit, got: r.value + ' ' + r.unit }); }
 }
 
-// ── Tryb BAZOWY (domyślny): wynik w jednostce bazowej (mm/g), ale WARTOŚĆ wg etykiety ──
+// ── Tryb domyślny (Raycast): wynik w jednostce roboczej (pierwsza wpisana) ──
 setLen(''); setMass('');
-expect('10 km / 2 km', 5000000, 'mm');   // 5 km w bazie (było błędnie „5 mm"!)
-expect('5 km * 2 km', 10000000, 'mm');   // 10 km w bazie (był nonsens)
-expect('10 m / 5 m', 2000, 'mm');        // 2 m w bazie (było „2 mm")
-expect('6 km / 2', 3000000, 'mm');       // 3 km
-expect('5 km + 300 m', 5300000, 'mm');   // 5,3 km — sumy bez zmian
-expect('12 km - 12 km', 0, 'mm');
+expect('10 km / 2 km', 5, 'km');
+expect('5 km * 2 km', 10, 'km');
+expect('10 m / 5 m', 2, 'm');
+expect('6 km / 2', 3, 'km');
+expect('5 km + 300 m', 5.3, 'km');
+expect('12 km - 12 km', 0, 'km');
+expect('19m + 47%', 27.93, 'm');
+expect('2 cm + 5 mm', 2.5, 'cm');
 
 // ── Tryb KONKRETNEJ jednostki (km) ──
 setLen('km');
