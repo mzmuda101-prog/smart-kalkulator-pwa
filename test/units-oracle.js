@@ -89,6 +89,22 @@ const SAFE_UNITS = {
     data: ['B', 'KB', 'MB'],
 };
 function factorOf(cat, u) { return DATA[cat].units[u]; }
+const DISP = (global.window.MATM0_DATA || {}).CALC_UNIT_DISPLAY || {};
+function unitKeyFromLabel(cat, label) {
+    if (!label || !DATA[cat]) return label;
+    const units = DATA[cat].units;
+    if (units[label] != null) return label;
+    for (const k of Object.keys(units)) {
+        if ((DISP[k] || k) === label) return k;
+    }
+    return label;
+}
+function displayToBase(cat, value, unitLabel) {
+    if (value == null || !cat || !DATA[cat]) return value;
+    const key = unitKeyFromLabel(cat, unitLabel);
+    const f = factorOf(cat, key);
+    return f != null ? value * f : value;
+}
 
 const oracleFails = [];
 function runOracle() {
@@ -114,7 +130,8 @@ function runOracle() {
         });
         const r = api.evalCalcExpression(expr) || {};
         if (r.value == null) return true; // ścieżka BigInt/odmowa — pomijamy
-        const ok = near(r.value, expected);
+        const gotBase = displayToBase(cat, r.value, r.unit);
+        const ok = near(gotBase, expected);
         if (!ok) oracleFails.push({ expr, expected, got: r.value, unit: r.unit, base: DATA[cat].base });
         return ok;
     });

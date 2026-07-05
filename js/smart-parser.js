@@ -83,11 +83,41 @@
         if (h) return h + ' h';
         return mi + ' min';
     }
-    // [EN] Seconds → czytelny timespan („145 min" → „2 h 25 min") — Raycast-style.
+    // [EN] Long spans: days/weeks/years — „1000 h" → „41 dni 16 h", not „1000 h".
+    function _fmtDurationLong(mins) {
+        mins = Math.round(Math.abs(mins));
+        if (mins < 60) return mins + ' min';
+        var parts = [];
+        var DOBA = 1440, TYG = 10080, ROK = 525960; // [EN] factors from MATM0_DATA time base (s→min)
+        if (mins >= ROK) {
+            var y = Math.floor(mins / ROK);
+            mins -= y * ROK;
+            parts.push(y + ' ' + (y === 1 ? 'rok' : (y >= 2 && y <= 4 ? 'lata' : 'lat')));
+        }
+        if (mins >= TYG) {
+            var w = Math.floor(mins / TYG);
+            mins -= w * TYG;
+            parts.push(w + ' tyg');
+        }
+        if (mins >= DOBA) {
+            var d = Math.floor(mins / DOBA);
+            mins -= d * DOBA;
+            parts.push(d + ' ' + (d === 1 ? 'doba' : 'dni'));
+        }
+        if (mins >= 60) {
+            var hr = Math.floor(mins / 60);
+            mins -= hr * 60;
+            if (hr) parts.push(hr + ' h');
+        }
+        if (mins > 0) parts.push(mins + ' min');
+        return parts.length ? parts.join(' ') : '0 min';
+    }
+    // [EN] Seconds → czytelny timespan; krótkie → h+min, długie → dni/tyg/lata.
     function formatDurationSeconds(sec) {
         sec = Math.round(Math.abs(sec));
         if (sec < 60) return sec + ' s';
-        return _fmtDuration(sec / 60);
+        var mins = sec / 60;
+        return mins >= 1440 ? _fmtDurationLong(mins) : _fmtDuration(mins);
     }
     // Dokładny czas zegarowy z SEKUNDAMI (HH:MM:SS) — do pokazania, „z czego" zaokrąglono.
     function _fmtClockSec(mins) {

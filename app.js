@@ -51,10 +51,10 @@
             //   defaultCurrency — kod ISO waluty, do której zwijają się gołe sumy walutowe.
             //   fxEngine — 'auto' (NBP priorytet, Frankfurter dla reszty+backup) | 'nbp' | 'frankfurter'.
             //   fxBackup — dla trybów 'nbp'/'frankfurter': gdy główny silnik padnie, dobierz z drugiego.
-            //   defaultUnits — domyślna jednostka WYŚWIETLANIA per kategoria fizyczna (np. speed→'km/h').
-            //     '' = jednostka bazowa (jak dotąd). Dotyczy tylko gołych sum; jawne „X na Y" wygrywa.
+            //   defaultUnits — domyślna jednostka WYŚWIETLANIA per kategoria; '__auto__' = czytelny autodobór.
             settings: { defaultCurrency: 'PLN', fxEngine: 'auto', fxBackup: true,
-                        defaultUnits: { speed: '', length: '', mass: '', volume: '', time: 'h', area: '', data: '', angle: '' },
+                        defaultUnits: { speed: '__auto__', length: '__auto__', mass: '__auto__', volume: '__auto__',
+                                      time: '__auto__', area: '__auto__', data: '__auto__', angle: '' },
                         notepadFold: false, // notatnik: zwijaj wyrażenia do wyników (tryb fold)
                         notepadAutoUnit: 'safe' }, // notatnik: auto-jednostki niezdefiniowane — 'safe' | 'full'
             // Komenda tab (merged Engineering + Graph)
@@ -1093,7 +1093,7 @@
                 if (inner.unit !== null && targetDef && inner.cat === targetDef.cat) {
                     var converted = inner.valueInBase / targetDef.factor;
                     var targetKey = naMatch[2].toLowerCase();
-                    return { expr: String(converted), unit: CALC_UNIT_DISPLAY[targetKey] || targetKey, cat: targetDef.cat, valueInBase: inner.valueInBase };
+                    return { expr: String(converted), unit: CALC_UNIT_DISPLAY[targetKey] || targetKey, cat: targetDef.cat, valueInBase: inner.valueInBase, explicitConvert: true };
                 }
             }
 
@@ -1169,7 +1169,7 @@
         function _preferredDisplayUnit(cat) {
             var du = (STATE.settings && STATE.settings.defaultUnits) || {};
             var name = du[cat];
-            if (!name) return null;
+            if (!name || name === '__auto__') return null; // [EN] __auto__ handled separately (chooseUnit / readable time)
             var key = String(name).toLowerCase();
             var def = CALC_UNITS[key];
             if (!def || def.cat !== cat) return null; // nieznana/niepasująca → ignoruj (bezpiecznie)
@@ -1762,8 +1762,11 @@
                 // ('__auto__'). Domyślnie kategorie = '' (baza), więc to nie rusza baseline.
                 // Wybór jednostki liczymy z wartości BAZOWEJ (MATM0_QTY.chooseUnit), nie roboczej.
                 var _QTY = (typeof window !== 'undefined' && window.MATM0_QTY) || null;
+                // Autodobór liczbowy (chooseUnit) — poza czasem; czas __auto__ = format czytelny h/min/dni.
+                var _autoMode = (STATE.settings.defaultUnits || {})[unitResult.cat] === '__auto__';
                 if (!curRes.hasCurrency && unitResult.cat && isFinite(valueBase) && _QTY &&
-                    (STATE.settings.defaultUnits || {})[unitResult.cat] === '__auto__') {
+                    _autoMode && unitResult.cat !== 'time' && !unitResult.explicitConvert &&
+                    Math.abs(valueBase) > 0) { // [EN] 0 zostaje w jednostce roboczej (np. 12 km − 12 km → 0 km)
                     var _autoU = _QTY.chooseUnit(unitResult.cat, valueBase);
                     var _autoInfo = _autoU && _QTY.unitInfo(_autoU);
                     if (_autoInfo) { value = valueBase / _autoInfo.factor; unit = CALC_UNIT_DISPLAY[_autoU] || _autoU; }
@@ -1780,9 +1783,12 @@
                 STATE.calc.lastUnit = unit;
                 // kind: waluta→money, fizyczna jednostka→physical, inaczej czysta liczba.
                 var valKind = curRes.hasCurrency ? 'money' : (unitResult.cat ? (unitResult.cat === 'time' ? 'duration' : 'physical') : 'number');
-                // Czytelny timespan dla czasu: „145 min" → tekst „2 h 25 min" (Raycast-style).
+                // Czytelny czas: tryb '' lub __auto__ (nie jawna konwersja „na X", nie sztywna jednostka z ⚙️).
+                var _timeDu = (STATE.settings.defaultUnits || {}).time;
                 var readableTime = null;
-                if (!curRes.hasCurrency && unitResult.cat === 'time' && isFinite(unitResult.valueInBase) && typeof formatDurationSeconds === 'function') {
+                if (!curRes.hasCurrency && unitResult.cat === 'time' && !unitResult.explicitConvert &&
+                    (_timeDu === '' || _timeDu === '__auto__') && !_preferredDisplayUnit('time') &&
+                    isFinite(unitResult.valueInBase) && typeof formatDurationSeconds === 'function') {
                     readableTime = formatDurationSeconds(unitResult.valueInBase);
                 }
                 // OGÓLNY sygnał ≈: gdy wyświetlenie (6 miejsc po przecinku, jak formatCalcResult)
@@ -2838,6 +2844,7 @@
                         return;
                     }
                     if (li._swipeHandled) return;                       // świeży swipe — nie traktuj jako klik
+                    if (li._swipeJustOpened && (Date.now() - li._swipeJustOpened) < 400) return; // [EN] tap right after swipe ≠ close
                     if (li.classList.contains('swiped') || li.classList.contains('confirming')) {
                         _histSwipeClose(li, content);                  // odsłonięte → klik chowa, nie przywraca
                         return;
@@ -2860,9 +2867,11 @@
                         showToast('📋 Przywrócono wynik', 'success');
                     }
                 });
-                delBtn.addEventListener('click', function(e) {
+                delBtn.addEventListener('pointerdown', function(e) {
+                    e.preventDefault();
                     e.stopPropagation();
-                    li.classList.add('confirming'); // pokaż „ekranik" potwierdzenia
+                    if (!li.classList.contains('swiped') && !li.classList.contains('swiping')) return;
+                    li.classList.add('confirming');
                     hapticTap(15);
                     _histArmConfirmAutoClose(li, content);
                 });
@@ -2897,17 +2906,29 @@
             if (_histConfirmTimer) { clearTimeout(_histConfirmTimer); _histConfirmTimer = null; }
             _histSetX(content, 0, true);
         }
-        function _histSwipeOpen(li, content) {
+        function _histSwipeOpen(li, content, markFresh) {
             li.classList.remove('swiping');
             li.classList.add('swiped');
             _histSetX(content, _HIST_SWIPE_OPEN, true);
+            if (markFresh) li._swipeJustOpened = Date.now();
         }
         function _histArmConfirmAutoClose(li, content) {
             if (_histConfirmTimer) clearTimeout(_histConfirmTimer);
             _histConfirmTimer = setTimeout(function() { _histSwipeClose(li, content); }, 5000);
         }
         function _bindHistorySwipe(li, content) {
+            var delBtn = li.querySelector('.history-item-delete');
             var startX = 0, startY = 0, dragging = false, decided = false, horizontal = false, curX = 0;
+            function _openConfirmFromRelease(e) {
+                if (!delBtn || li.classList.contains('confirming')) return;
+                var rect = delBtn.getBoundingClientRect();
+                if (e.clientX >= rect.left && e.clientX <= rect.right &&
+                    e.clientY >= rect.top && e.clientY <= rect.bottom) {
+                    li.classList.add('confirming');
+                    hapticTap(15);
+                    _histArmConfirmAutoClose(li, content);
+                }
+            }
             content.addEventListener('pointerdown', function(e) {
                 if (e.pointerType === 'mouse' && e.button !== 0) return;
                 startX = e.clientX; startY = e.clientY;
@@ -2938,20 +2959,27 @@
                 curX = x;
                 _histSetX(content, x, false);
             });
-            function settle() {
+            function settle(e) {
                 if (!dragging) return;
                 dragging = false;
                 if (!horizontal) return;
                 li._swipeHandled = true;                                // zablokuj klik-reuse tuż po swipe
                 setTimeout(function() { li._swipeHandled = false; }, 60);
-                if (curX <= _HIST_SWIPE_OPEN / 2) _histSwipeOpen(li, content);
-                else _histSwipeClose(li, content);
+                if (curX <= _HIST_SWIPE_OPEN / 2) {
+                    _histSwipeOpen(li, content, true);
+                    if (e) _openConfirmFromRelease(e);                  // [EN] release on „Usuń" = confirm in one gesture
+                } else _histSwipeClose(li, content);
             }
             content.addEventListener('pointerup', settle);
-            content.addEventListener('pointercancel', function() {
+            content.addEventListener('pointercancel', function(e) {
                 if (!dragging) return;
                 dragging = false;
-                if (horizontal) { if (curX <= _HIST_SWIPE_OPEN / 2) _histSwipeOpen(li, content); else _histSwipeClose(li, content); }
+                if (horizontal) {
+                    if (curX <= _HIST_SWIPE_OPEN / 2) {
+                        _histSwipeOpen(li, content, true);
+                        if (e) _openConfirmFromRelease(e);
+                    } else _histSwipeClose(li, content);
+                }
             });
         }
 
@@ -3925,6 +3953,7 @@
                 graph: [
                     { syntax: 'f(x)=x', command: 'f(x)=x^2', description: 'funkcja matematyczna.', terms: ['f(x)='] },
                     { syntax: 'sin cos tan sqrt abs log ln exp', command: 'f(x)=sqrt(abs(x))', description: 'obslugiwane funkcje w wykresach.', terms: ['sin cos tan sqrt abs log ln exp'] },
+                    { syntax: 'asin acos atan sinh cosh tanh cot csc', command: 'f(x)=asin(x)', description: 'odwrotna i hiperboliczna trygonometria w wykresach.', terms: ['asin acos atan sinh cosh tanh'] },
                     { syntax: 'floor ceil round', command: 'f(x)=floor(x)', description: 'zaokraglenia.', terms: ['floor ceil round'] },
                     { syntax: 'pi / π / e', command: 'f(x)=sin(pi*x)', description: 'stale matematyczne.', terms: ['pi'] },
                     { syntax: 'punkt=150;200', command: 'punkt=150;200 | opis=A', description: 'punkt 2D.', terms: ['punkt=150;200'] },
@@ -7391,6 +7420,9 @@
         // Wypełnia selecty domyślnych jednostek z CALC_UNIT_CATEGORIES (DRY — bez listy w HTML).
         // Pierwsza opcja = „Bazowa (auto)" (''); dalej po jednej pozycji na DISTINCT współczynnik
         // (aliasy typu kn/kt/węzły zwijają się do jednej). Sama baza pomijana (jest jako „auto").
+        // Kategorie z sensownym autodoborem (drabinka ≥2 sensowne stopnie). Kąt: tylko deg — pomijamy.
+        var _AUTO_UNIT_CATS = { speed: 1, length: 1, mass: 1, volume: 1, time: 1, area: 1, data: 1 };
+
         function buildUnitOptions() {
             if (!settingUnitSelects.length) return;
             settingUnitSelects.forEach(function(sel) {
@@ -7400,13 +7432,14 @@
                 sel.innerHTML = '';
                 var base = document.createElement('option');
                 base.value = '';
-                base.textContent = 'Bazowa: ' + def.base;
+                base.textContent = 'Jednostka robocza (pierwsza wpisana)';
                 sel.appendChild(base);
-                // Autodobór czytelnej jednostki wg wielkości (np. 1500 mm → „1,5 m"). Opt-in.
-                var autoOpt = document.createElement('option');
-                autoOpt.value = '__auto__';
-                autoOpt.textContent = 'Czytelnie (auto-dobór)';
-                sel.appendChild(autoOpt);
+                if (_AUTO_UNIT_CATS[cat]) {
+                    var autoOpt = document.createElement('option');
+                    autoOpt.value = '__auto__';
+                    autoOpt.textContent = 'Czytelnie (auto-dobór)';
+                    sel.appendChild(autoOpt);
+                }
                 var baseKey = String(def.base).toLowerCase();
                 var seenFactor = {};
                 Object.keys(def.units).forEach(function(u) {
@@ -9585,17 +9618,17 @@
 
         function runCalcSmokeTests() {
             var cases = [
-                // długość — jednostka robocza (pierwsza wpisana), Raycast-style
+                // długość — domyślnie __auto__ (czytelny autodobór); Raycast-style konwersje jawne
                 { expr: '2 cm + 5 mm', value: 2.5, unit: 'cm' },
                 { expr: '5 km na mile', value: 3.106856, unit: 'mile', tol: 1e-3 },
-                { expr: "5' + 6\"", value: 5.5, unit: 'ft' },
+                { expr: "5' + 6\"", value: 167.64, unit: 'cm' }, // 5 ft 6 in → 1676,4 mm → 167,64 cm
                 { expr: '6 cali na mm', value: 152.4, unit: 'mm' },   // PL formy cala: cal/cale/cali
                 // masa
                 { expr: '2 kg + 300 g', value: 2.3, unit: 'kg' },
                 { expr: '5 funtow na kg', value: 2.267962, unit: 'kg', tol: 1e-4 },
                 // czas
                 { expr: '90 min na h', value: 1.5, unit: 'h' },
-                { expr: '2 h + 30 min', value: 2.5, unit: 'h' },   // domyślna time:'h' → goła suma w godzinach
+                { expr: '2 h + 30 min', value: 2.5, unit: 'h' },   // @auto: text „2 h 30 min", value nadal 2,5 h
                 // temperatura (offset)
                 { expr: '20 C na F', value: 68, unit: '°F' },
                 { expr: '100 C na K', value: 373.15, unit: 'K' },
@@ -9738,11 +9771,13 @@
                 results.push({ expr: t.expr + ' (domyślna jednostka)', pass: pass, got: r.value + ' ' + r.unit });
             });
             // Pusta domyślna = jednostka robocza (pierwsza wpisana), nie baza kategorii.
-            STATE.settings.defaultUnits = { speed: '', length: '', mass: '', volume: '', time: '' };
+            STATE.settings.defaultUnits = { speed: '', length: '', mass: '', volume: '', time: '', area: '', data: '', angle: '' };
             var rAuto = evalCalcExpression('36 km/h');
             results.push({ expr: '36 km/h @auto (robocza)', pass: rAuto.unit === 'km/h' && Math.abs(rAuto.value - 36) < 1e-9, got: rAuto.value + ' ' + rAuto.unit });
+            var rFtIn = evalCalcExpression("5' + 6\"");
+            results.push({ expr: "5' + 6\" @robocza (ft)", pass: rFtIn.unit === 'ft' && Math.abs(rFtIn.value - 5.5) < 1e-9, got: rFtIn.value + ' ' + rFtIn.unit });
             var rTimeAuto = evalCalcExpression('5h');
-            results.push({ expr: '5h @time:auto (robocza h)', pass: rTimeAuto.unit === 'h' && rTimeAuto.value === 5, got: rTimeAuto.value + ' ' + rTimeAuto.unit });
+            results.push({ expr: '5h @time:robocza (h)', pass: rTimeAuto.unit === 'h' && rTimeAuto.value === 5, got: rTimeAuto.value + ' ' + rTimeAuto.unit });
             // Niepasująca jednostka w ustawieniu (np. speed='kg') → ignorowana, jednostka robocza.
             STATE.settings.defaultUnits = { speed: 'kg', length: '', mass: '', volume: '' };
             var rBad = evalCalcExpression('36 km/h');
@@ -10120,8 +10155,22 @@
             results.push({ expr: 'różnica % między 30 a 90', pass: pctDiff.unit === '%' && Math.abs(pctDiff.value - 200) < 1e-6, got: pctDiff.value + ' ' + pctDiff.unit });
             var pctDiffEn = evalCalcExpression('percent difference between 30 and 90');
             results.push({ expr: 'percent difference between 30 and 90', pass: pctDiffEn.unit === '%' && Math.abs(pctDiffEn.value - 200) < 1e-6, got: pctDiffEn.value + ' ' + pctDiffEn.unit });
+            var savedTRead = STATE.settings.defaultUnits.time;
+            STATE.settings.defaultUnits.time = '__auto__';
             var dur145 = evalCalcExpression('145 min');
-            results.push({ expr: '145 min (czytelny timespan)', pass: dur145.text === '2 h 25 min', got: dur145.text });
+            results.push({ expr: '145 min (czytelny @auto)', pass: dur145.text === '2 h 25 min', got: dur145.text });
+            var dur1000h = evalCalcExpression('1000h');
+            results.push({ expr: '1000h (@auto → tyg+dni+h)', pass: dur1000h.text === '5 tyg 6 dni 16 h', got: dur1000h.text });
+            var dur1000min = evalCalcExpression('1000min');
+            results.push({ expr: '1000min (@auto → h+min)', pass: dur1000min.text === '16 h 40 min', got: dur1000min.text });
+            STATE.settings.defaultUnits.time = savedTRead;
+            var conv800s = evalCalcExpression('800min na s');
+            results.push({ expr: '800min na s (jawna → s, nie readable)', pass: conv800s.unit === 's' && conv800s.value === 48000 && conv800s.text == null, got: conv800s.value + ' ' + conv800s.unit + ' text=' + conv800s.text });
+            var savedDUtime = STATE.settings.defaultUnits.time;
+            STATE.settings.defaultUnits.time = 's';
+            var dur145s = evalCalcExpression('145 min');
+            results.push({ expr: '145 min @default s (liczba, nie readable)', pass: dur145s.unit === 's' && dur145s.value === 8700 && dur145s.text == null, got: dur145s.value + ' ' + dur145s.unit });
+            STATE.settings.defaultUnits.time = savedDUtime;
             var _parser = (typeof window !== 'undefined' && window.MATM0_PARSER) || null;
             if (_parser && _parser.setTodayForTests) {
                 _parser.setTodayForTests(new Date(2026, 6, 1));

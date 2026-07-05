@@ -1027,6 +1027,7 @@
             -webkit-tap-highlight-color: transparent;
             opacity: 0;             /* w spoczynku ukryty — żaden czerwony prześwit spod treści */
             pointer-events: none;
+            touch-action: manipulation; /* [EN] bez 300 ms opóźnienia — jeden tap na „Usuń" */
             transition: opacity 0.12s ease;
         }
         .history-item.swiping .history-item-delete,

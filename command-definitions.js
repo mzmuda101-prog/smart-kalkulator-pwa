@@ -79,6 +79,7 @@
                 items: [
                     { syntax: 'f(x)=wyrażenie', command: 'f(x)=x^2', description: 'rysuje wykres funkcji zmiennej x. ^ = potęgowanie (x^3 = x³).' },
                     { syntax: 'sin cos tan sqrt abs log ln exp', command: 'f(x)=sqrt(abs(x))', description: 'sin/cos/tan w radianach, sqrt = pierwiastek, abs = moduł, log = log dziesiętny, ln = naturalny, exp(x) = eˣ.' },
+                    { syntax: 'asin acos atan sinh cosh tanh cot csc', command: 'f(x)=asin(x)', description: 'asin/acos/atan = odwrotna trygonometria, sinh/cosh/tanh = hiperboliczne, cot/csc = cotangens/cosecans.' },
                     { syntax: 'floor ceil round', command: 'f(x)=floor(x)', description: 'floor = w dół, ceil = w górę, round = do najbliższej całości.' },
                 ],
             },
