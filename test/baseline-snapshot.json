@@ -373,8 +373,8 @@
     "expr": "90 min na h",
     "value": 1.5,
     "unit": "h",
-    "text": null,
-    "kind": "physical",
+    "text": "1 h 30 min",
+    "kind": "duration",
     "exact": true,
     "big": false,
     "bigStr": null
@@ -383,8 +383,8 @@
     "expr": "2 h + 30 min",
     "value": 2.5,
     "unit": "h",
-    "text": null,
-    "kind": "physical",
+    "text": "2 h 30 min",
+    "kind": "duration",
     "exact": true,
     "big": false,
     "bigStr": null
@@ -393,8 +393,8 @@
     "expr": "300 s na min",
     "value": 5,
     "unit": "min",
-    "text": null,
-    "kind": "physical",
+    "text": "5 min",
+    "kind": "duration",
     "exact": true,
     "big": false,
     "bigStr": null

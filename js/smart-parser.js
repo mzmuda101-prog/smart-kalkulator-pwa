@@ -83,6 +83,12 @@
         if (h) return h + ' h';
         return mi + ' min';
     }
+    // [EN] Seconds → czytelny timespan („145 min" → „2 h 25 min") — Raycast-style.
+    function formatDurationSeconds(sec) {
+        sec = Math.round(Math.abs(sec));
+        if (sec < 60) return sec + ' s';
+        return _fmtDuration(sec / 60);
+    }
     // Dokładny czas zegarowy z SEKUNDAMI (HH:MM:SS) — do pokazania, „z czego" zaokrąglono.
     function _fmtClockSec(mins) {
         var totalSec = ((Math.round(mins * 60) % 86400) + 86400) % 86400;
@@ -246,8 +252,17 @@
         if (s === 'jutro' || s === 'tomorrow')    { var j = _today(); j.setDate(j.getDate() + 1); return { d: j, hasYear: true }; }
         if (s === 'pojutrze') { var p = _today(); p.setDate(p.getDate() + 2); return { d: p, hasYear: true }; }
         if (s === 'wczoraj' || s === 'yesterday')  { var w = _today(); w.setDate(w.getDate() - 1); return { d: w, hasYear: true }; }
-        var m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/); // ISO
+        var m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/); // ISO date
         if (m) { var y = +m[1], mo = +m[2], da = +m[3]; if (_validDMY(da, mo, y)) return { d: new Date(y, mo - 1, da), hasYear: true }; return null; }
+        // ISO 8601 Zulu: 2026-03-15T14:30:00Z
+        m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})t(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?z$/);
+        if (m) {
+            var yZ = +m[1], moZ = +m[2], daZ = +m[3], hZ = +m[4], miZ = +m[5], sZ = +(m[6] || 0);
+            if (_validDMY(daZ, moZ, yZ) && hZ <= 23 && miZ <= 59 && sZ <= 59) {
+                return { d: new Date(Date.UTC(yZ, moZ - 1, daZ, hZ, miZ, sZ)), hasYear: true, moment: true };
+            }
+            return null;
+        }
         m = s.match(/^(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?$/); // DD.MM(.YYYY)
         if (m) {
             var d1 = +m[1], m1 = +m[2], y1 = m[3] ? +m[3] : _today().getFullYear();
@@ -300,6 +315,17 @@
         if ((m = low.match(/^(?:poprzedni[aą]?|ostatni[aą]?|minion[ayąeę]|last|previous)\s+([a-ząćęłńóśźż]+)\s*$/))) {
             var wdP = _parseWeekday(m[1]);
             if (wdP >= 0) return { text: _fmtDate(_weekdayDate(wdP, -1)), value: null };
+        }
+        // Dzień tygodnia + offset: „poniedziałek za 3 tygodnie" / „monday in 3 weeks"
+        if ((m = low.match(/^([a-ząćęłńóśźż]+)\s+(?:za|in)\s*([\d.,]+)\s*([a-ząćęłńóśźż]+)\s*$/))) {
+            var wdOff = _parseWeekday(m[1]);
+            if (wdOff >= 0 && _isDateUnit(m[3])) {
+                var dWdOff = _today();
+                _applyDateUnit(dWdOff, parseFloat(m[2].replace(',', '.')), m[3], 1);
+                var diffWd = (wdOff - dWdOff.getDay() + 7) % 7;
+                dWdOff.setDate(dWdOff.getDate() + diffWd);
+                return { text: _fmtDate(dWdOff), value: null };
+            }
         }
         // „jaki/który/which/what day … <data>"
         if ((m = low.match(/^(?:jaki|kt[oó]ry|which|what)\s+(?:to\s+)?(?:day(?:\s+of\s+week)?|dzie[nń](?:\s+tygodnia)?)\s+(?:jest\s+|is\s+|to\s+|wypada\s+|b[eę]dzie\s+)?(.+)$/))) {
@@ -357,7 +383,32 @@
                 return { text: _fmtDateResult(d5, !!left.moment), value: null };
             }
         }
+        // Samodzielny token daty/czasu (ISO Zulu, DD.MM.YYYY, …)
+        var dAlone = _parseDateToken(s);
+        if (dAlone) return { text: _fmtDateResult(dAlone.d, !!dAlone.moment), value: null };
         return null;
+    }
+
+    // Procent upływu okresu: „ile % dnia", „ile % roku minęło", „day percentage".
+    function evalPeriodPercentage(raw) {
+        var s = String(raw || '').trim().toLowerCase();
+        if (!s) return null;
+        var now = _now();
+        var pct, label;
+        if (/^(?:ile\s+%\s+dni[aą]|ile\s+procent\s+dni[aą]|day\s+percentage|what\s+percent\s+of\s+the\s+day|what\s+%\s+of\s+the\s+day)\s*$/.test(s)) {
+            var dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            var dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1);
+            pct = (now - dayStart) / (dayEnd - dayStart) * 100;
+            label = 'dnia';
+        } else if (/^(?:ile\s+%\s+roku(?:\s+min[eę][łl]o)?|ile\s+procent\s+roku(?:\s+min[eę][łl]o)?|year\s+percentage|year\s+%|what\s+percent\s+of\s+the\s+year|what\s+%\s+of\s+the\s+year)\s*$/.test(s)) {
+            var yearStart = new Date(now.getFullYear(), 0, 1);
+            var yearEnd = new Date(now.getFullYear() + 1, 0, 1);
+            pct = (now - yearStart) / (yearEnd - yearStart) * 100;
+            label = 'roku';
+        } else return null;
+        if (!isFinite(pct)) return null;
+        pct = parseFloat(pct.toPrecision(12));
+        return { value: pct, unit: '%', kind: 'percent', label: label };
     }
 
     /* ============================================================
@@ -426,6 +477,8 @@
         parseDurationMinutes: _parseDuration,
         evalClockExpression: evalClockExpression,
         evalDateExpression: evalDateExpression,
+        evalPeriodPercentage: evalPeriodPercentage,
+        formatDurationSeconds: formatDurationSeconds,
         evalTimezoneExpression: evalTimezoneExpression,
         isDateUnit: _isDateUnit,           // app.js używa go też w rozpoznawaniu tokenów notatnika
         setTodayForTests: function(d) { _todayOverride = d ? new Date(d.getTime()) : null; },

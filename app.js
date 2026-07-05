@@ -712,17 +712,44 @@
             return raw;
         }
 
-        // [EN] sin(30 deg) → sin(radiany) zanim resolveCalcUnits zdejmie „deg" jako etykietę wyniku.
+        // [EN] Waluta przed k: „usd 1k" → „usd 1000" (expandNumericShorthands łapie tylko „1k usd").
+        function expandCurrencyShorthands(raw) {
+            var tokenRe = _currencyTokenRe();
+            if (!tokenRe) return raw;
+            return raw.replace(new RegExp('\\b(' + tokenRe + ')\\s*([\\d.,]+)[kK](?![a-zA-Ząćęłńóśźż0-9])', 'gi'),
+                function(_, tok, n) { return tok + ' ' + _plainDecimalStr(parseFloat(n.replace(',', '.')) * 1000); });
+        }
+
+        // [EN] sin(30 deg), sind(30), asind(0.5) — stopnie przed compileGraphExpression.
         function resolveTrigDegrees(raw) {
-            return String(raw).replace(
-                /\b(sin|cos|tan)\s*\(\s*([^()]+?)\s*\)/gi,
+            raw = String(raw);
+            // Odwrotne/hiperboliczne w stopniach: asind(x) → asin(x)*180/π
+            raw = raw.replace(
+                /\b(asind|acosd|atand)\s*\(\s*([^()]+?)\s*\)/gi,
+                function(_, fn, inner) {
+                    var core = fn.replace(/d$/i, '');
+                    return '(' + core + '(' + inner.trim().replace(/,/g, '.') + ')*180/pi)';
+                });
+            // Bezpośrednie w stopniach: sind(x) → sin(x*π/180)
+            raw = raw.replace(
+                /\b(sind|cosd|tand)\s*\(\s*([^()]+?)\s*\)/gi,
+                function(_, fn, inner) {
+                    var core = fn.replace(/d$/i, '');
+                    return core + '(' + inner.trim().replace(/,/g, '.') + '*pi/180)';
+                });
+            // sin(30 deg) / cos(45°) — jawna etykieta stopni w nawiasie
+            raw = raw.replace(
+                /\b(sin|cos|tan|asin|acos|atan)\s*\(\s*([^()]+?)\s*\)/gi,
                 function(match, fn, inner) {
                     var dm = inner.trim().match(/^([\d.,]+)\s*(?:deg|°|stopni(?:e|a|ach)?)\s*$/i);
                     if (!dm) return match;
                     var deg = parseFloat(dm[1].replace(',', '.'));
                     if (!isFinite(deg)) return match;
-                    return fn + '(' + (deg * Math.PI / 180) + ')';
+                    var rad = deg + '*pi/180';
+                    if (/^a/.test(fn)) return '(' + fn + '(' + rad + ')*180/pi)'; // arc → wynik w stopniach
+                    return fn + '(' + rad + ')';
                 });
+            return raw;
         }
 
         function parseNaturalShortcuts(raw) {
@@ -1158,6 +1185,8 @@
         var _PARSER = (typeof window !== 'undefined' && window.MATM0_PARSER) || {};
         var evalClockExpression = _PARSER.evalClockExpression || function() { return null; };
         var evalDateExpression = _PARSER.evalDateExpression || function() { return null; };
+        var evalPeriodPercentage = _PARSER.evalPeriodPercentage || function() { return null; };
+        var formatDurationSeconds = _PARSER.formatDurationSeconds || function() { return null; };
         var evalTimezoneExpression = _PARSER.evalTimezoneExpression || function() { return null; };
         var _isDateUnit = _PARSER.isDateUnit || function() { return false; };
 
@@ -1228,6 +1257,7 @@
             // „100 usd * 4 usd" (był nonsens „6241 zł") i trzyma + − bez zmian.
             var totalPln = 0, hasCurrency = false, pending = false, workRate = null;
             var amountRe = new RegExp('([\\d.,]+)\\s*(' + tokenRe + ')(?![a-ząćęłńóśźż0-9])', 'gi');
+            var revAmountRe = new RegExp('\\b(' + tokenRe + ')\\s*([\\d.,]+)(?![a-ząćęłńóśźż0-9])', 'gi');
             var expr = raw.replace(amountRe, function(m, num, tok) {
                 hasCurrency = true;
                 var code = map[tok.toLowerCase()];
@@ -1237,6 +1267,16 @@
                 var n = parseFloat(num.replace(',', '.'));
                 totalPln += n * rate;
                 return String(n * rate / workRate); // kwota w walucie roboczej
+            });
+            expr = expr.replace(revAmountRe, function(m, tok, num) {
+                hasCurrency = true;
+                var code = map[tok.toLowerCase()];
+                var rate = _currencyRate(code);
+                if (rate == null || (_needsFxTable(code) && !_fxReady())) { pending = true; return m; }
+                if (workRate == null) workRate = rate;
+                var n = parseFloat(num.replace(',', '.'));
+                totalPln += n * rate;
+                return String(n * rate / workRate);
             });
             if (!hasCurrency) return { expr: raw, unit: null, hasCurrency: false, pending: false };
             if (pending) return { expr: raw, unit: null, hasCurrency: true, pending: true };
@@ -1503,6 +1543,26 @@
             return _pctResult(a / b * 100);
         }
 
+        // Różnica procentowa między wartościami: (B−A)/A·100 — Raycast-style.
+        function evalPercentDifference(raw) {
+            var s = String(raw || '').trim().toLowerCase();
+            if (!s || !/(%|procent|percent|różnica|róznica|difference|change)/i.test(s)) return null;
+            var P = '([\\d.,]+)';
+            var m;
+            if ((m = s.match(new RegExp('^(?:różnica|róznica|percent\\s+(?:difference|change))\\s*(?:%|procent[a-ząćęłńóśźż]*)?\\s*(?:między|between|from)\\s+' + P + '\\s+(?:a|and|to)\\s+' + P + '\\s*$')))) {
+                return _pctDiff(m[1], m[2]);
+            }
+            if ((m = s.match(new RegExp('^' + P + '\\s+(?:to|na|→)\\s+' + P + '\\s+(?:percent\\s+)?(?:difference|change|różnica|róznica)\\s*$')))) {
+                return _pctDiff(m[1], m[2]);
+            }
+            return null;
+        }
+        function _pctDiff(aStr, bStr) {
+            var a = parseFloat(String(aStr).replace(',', '.')), b = parseFloat(String(bStr).replace(',', '.'));
+            if (!isFinite(a) || !isFinite(b) || a === 0) return null;
+            return _pctResult((b - a) / a * 100);
+        }
+
         // „Baza procentowa" — znasz ułamek (X% = Y), szukasz innej części całości (domyślnie 100%).
         function _pctBaseCurrencyUnit(tok) {
             if (!tok) return null;
@@ -1626,6 +1686,14 @@
             if (pctBaseQ) return pctBaseQ;
             var pctQ = evalPercentQuery(original);
             if (pctQ) return pctQ;
+            var pctDiffQ = evalPercentDifference(original);
+            if (pctDiffQ) return pctDiffQ;
+            var periodPctQ = evalPeriodPercentage(original);
+            if (periodPctQ) {
+                STATE.calc.lastResult = periodPctQ.value;
+                STATE.calc.lastUnit = periodPctQ.unit;
+                return makeVal({ value: periodPctQ.value, unit: periodPctQ.unit, kind: periodPctQ.kind || 'percent' });
+            }
             // Koszt trasy / paliwa: dystans + spalanie l/100km + cena zł/l → koszt (+ litry w dymku).
             var routeQ = evalRouteCost(original);
             if (routeQ) return routeQ;
@@ -1635,6 +1703,7 @@
                 // dopiero kolejne etapy (parseNaturalShortcuts) zamienią na właściwą matematykę.
                 expr = resolveCalcConstants(expr, STATE.constants);
                 expr = expandNumericShorthands(expr); // [EN] k/tys przed tokenami walut („2,5k zł")
+                expr = expandCurrencyShorthands(expr); // [EN] „usd 1k" przed resolveCalcCurrency
                 // Waluty NAJPIERW (zaraz po stałych, PRZED parserem naturalnym): zamieniamy kwoty
                 // walutowe na liczby (wartość w PLN / konwersja „na X") i zapamiętujemy docelową
                 // jednostkę. Dzięki temu finanse/procenty/matematyka komponują się z walutą — token
@@ -1710,7 +1779,12 @@
                 STATE.calc.lastResult = value;
                 STATE.calc.lastUnit = unit;
                 // kind: waluta→money, fizyczna jednostka→physical, inaczej czysta liczba.
-                var valKind = curRes.hasCurrency ? 'money' : (unitResult.cat ? 'physical' : 'number');
+                var valKind = curRes.hasCurrency ? 'money' : (unitResult.cat ? (unitResult.cat === 'time' ? 'duration' : 'physical') : 'number');
+                // Czytelny timespan dla czasu: „145 min" → tekst „2 h 25 min" (Raycast-style).
+                var readableTime = null;
+                if (!curRes.hasCurrency && unitResult.cat === 'time' && isFinite(unitResult.valueInBase) && typeof formatDurationSeconds === 'function') {
+                    readableTime = formatDurationSeconds(unitResult.valueInBase);
+                }
                 // OGÓLNY sygnał ≈: gdy wyświetlenie (6 miejsc po przecinku, jak formatCalcResult)
                 // gubi realne cyfry → wynik PRZYBLIŻONY (np. 1/3, √2, waluta z wieloma groszami).
                 // NIE dotyczy czyszczenia szumu float — to już wyczyszczone wyżej (round-trip = dokładny).
@@ -1722,7 +1796,7 @@
                         exactNumText = formatLocaleNumber(value, 15) + (unit ? ' ' + unit : '');
                     }
                 }
-                return makeVal({ value: value, unit: unit, kind: valKind, exact: !approxNum, exactText: exactNumText });
+                return makeVal({ value: value, unit: unit, text: readableTime, kind: valKind, exact: !approxNum, exactText: exactNumText });
             } catch (err) {
                 return makeVal({});
             }
@@ -4404,7 +4478,7 @@
         }
 
         function insertImplicitMultiplication(expr) {
-            var names = '(x|pi|e|sin|cos|tan|sqrt|abs|log|ln|exp|floor|ceil|round)';
+            var names = '(x|pi|e|sin|cos|tan|asin|acos|atan|sinh|cosh|tanh|cot|csc|sqrt|abs|log|ln|exp|floor|ceil|round)';
             expr = expr.replace(new RegExp('(\\d|\\)|x|pi|e)(?=' + names + '|\\()', 'g'), '$1*');
             expr = expr.replace(new RegExp('(\\))(?=(\\d|' + names + '))', 'g'), '$1*');
             return expr;
@@ -4424,6 +4498,14 @@
                 sin: true,
                 cos: true,
                 tan: true,
+                asin: true,
+                acos: true,
+                atan: true,
+                sinh: true,
+                cosh: true,
+                tanh: true,
+                cot: true,
+                csc: true,
                 sqrt: true,
                 abs: true,
                 log: true,
@@ -4575,6 +4657,14 @@
                     case 'sin': return Math.sin(arg);
                     case 'cos': return Math.cos(arg);
                     case 'tan': return Math.tan(arg);
+                    case 'asin': return Math.asin(arg);
+                    case 'acos': return Math.acos(arg);
+                    case 'atan': return Math.atan(arg);
+                    case 'sinh': return Math.sinh(arg);
+                    case 'cosh': return Math.cosh(arg);
+                    case 'tanh': return Math.tanh(arg);
+                    case 'cot': return 1 / Math.tan(arg);
+                    case 'csc': return 1 / Math.sin(arg);
                     case 'sqrt': return Math.sqrt(arg);
                     case 'abs': return Math.abs(arg);
                     case 'log': return Math.log10(arg);
@@ -10017,6 +10107,34 @@
             results.push({ expr: '2,5k zł', pass: sKzl.unit === 'zł' && Math.abs(sKzl.value - 2500) < 1e-6, got: sKzl.value + ' ' + sKzl.unit });
             var sPctU = evalCalcExpression('19m + 47%');
             results.push({ expr: '19m + 47%', pass: sPctU.unit === 'm' && Math.abs(sPctU.value - 27.93) < 1e-6, got: sPctU.value + ' ' + sPctU.unit });
+            // Raycast luki (07.2026 v0.99.29): trig rozszerzony, waluta k, daty, procent okresu, timespan
+            var aSin = evalCalcExpression('asin(0.5)');
+            results.push({ expr: 'asin(0.5)', pass: Math.abs(aSin.value - Math.PI / 6) < 1e-9, got: aSin.value });
+            var sInd = evalCalcExpression('sind(30)');
+            results.push({ expr: 'sind(30)', pass: Math.abs(sInd.value - 0.5) < 1e-9, got: sInd.value });
+            var usdK = evalCalcExpression('1k usd');
+            results.push({ expr: '1k usd', pass: usdK.unit === 'zł' && Math.abs(usdK.value - 3950) < 1e-6, got: usdK.value + ' ' + usdK.unit });
+            var usdK2 = evalCalcExpression('usd 1k');
+            results.push({ expr: 'usd 1k', pass: usdK2.unit === 'zł' && Math.abs(usdK2.value - 3950) < 1e-6, got: usdK2.value + ' ' + usdK2.unit });
+            var pctDiff = evalCalcExpression('różnica % między 30 a 90');
+            results.push({ expr: 'różnica % między 30 a 90', pass: pctDiff.unit === '%' && Math.abs(pctDiff.value - 200) < 1e-6, got: pctDiff.value + ' ' + pctDiff.unit });
+            var pctDiffEn = evalCalcExpression('percent difference between 30 and 90');
+            results.push({ expr: 'percent difference between 30 and 90', pass: pctDiffEn.unit === '%' && Math.abs(pctDiffEn.value - 200) < 1e-6, got: pctDiffEn.value + ' ' + pctDiffEn.unit });
+            var dur145 = evalCalcExpression('145 min');
+            results.push({ expr: '145 min (czytelny timespan)', pass: dur145.text === '2 h 25 min', got: dur145.text });
+            var _parser = (typeof window !== 'undefined' && window.MATM0_PARSER) || null;
+            if (_parser && _parser.setTodayForTests) {
+                _parser.setTodayForTests(new Date(2026, 6, 1));
+                var wdOff = evalCalcExpression('poniedziałek za 3 tygodnie');
+                results.push({ expr: 'poniedziałek za 3 tygodnie', pass: /27\.7\.2026.*poniedzia[łl]ek/.test(wdOff.text || ''), got: wdOff.text });
+                _parser.setNowForTests(new Date(2026, 6, 1, 12, 0, 0));
+                var dayPct = evalCalcExpression('ile % dnia');
+                results.push({ expr: 'ile % dnia @ południe', pass: dayPct.unit === '%' && Math.abs(dayPct.value - 50) < 0.5, got: dayPct.value + ' ' + dayPct.unit });
+                _parser.clearTodayForTests();
+                _parser.clearNowForTests();
+            }
+            var isoRes = evalCalcExpression('2026-03-15T14:30:00Z');
+            results.push({ expr: '2026-03-15T14:30:00Z (ISO Zulu)', pass: isoRes.kind === 'date' && /15\.3\.(2026|26)/.test(isoRes.text || ''), got: isoRes.text });
             STATE.fx.rates = savedFx; STATE.fx.ts = savedFxTs;
             return results;
         }

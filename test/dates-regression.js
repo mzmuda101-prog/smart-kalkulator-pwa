@@ -85,6 +85,11 @@ const CASES = [
   { expr: 'teraz-56godzin', text: '29.6.26 06:35', kind: 'date' },
   { expr: 'teraz + 90 min', text: '1.7.26 16:05', kind: 'date' },
   { expr: 'teraz+90min', text: '1.7.26 16:05', kind: 'date' },
+  // dzień tygodnia + offset (kotwica 1.07.2026 + 3 tyg → 27.07 poniedziałek)
+  { expr: 'poniedziałek za 3 tygodnie', text: '27.7.2026 (poniedziałek)', kind: 'date' },
+  { expr: 'monday in 3 weeks', text: '27.7.2026 (poniedziałek)', kind: 'date' },
+  // ISO 8601 Zulu — wyświetlanie w strefie lokalnej Node (UTC → lokalnie)
+  { expr: '2026-03-15T14:30:00Z', textMatch: /15\.3\.(2026|26)/, kind: 'date' },
 ];
 
 let pass = 0, fail = 0;
@@ -93,7 +98,9 @@ const fails = [];
 CASES.forEach(function (c) {
   const gotText = evalText(c.expr);
   const gotKind = evalKind(c.expr);
-  let ok = gotText === c.text && gotKind === c.kind;
+  let ok = gotKind === c.kind;
+  if (c.textMatch) ok = ok && c.textMatch.test(gotText || '');
+  else ok = ok && gotText === c.text;
   if (ok && c.value != null) {
     const r = api.evalCalcExpression(c.expr);
     ok = r && r.value === c.value;
