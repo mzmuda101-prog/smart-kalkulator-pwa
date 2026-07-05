@@ -420,17 +420,51 @@
             }
             return out;
         }
-        function _setResultMarkup(el, plain) {
-            if (!el) return;
-            if (!_needsTightMarkup(plain)) { el.textContent = plain; return; }
+        function _appendResultMarkup(el, plain) {
+            if (!el || !plain) return;
             var parts = String(plain).split('\n');
-            el.textContent = '';
             parts.forEach(function(line, i) {
                 if (i > 0) el.appendChild(document.createTextNode('\n'));
-                var wrap = document.createElement('span');
-                wrap.innerHTML = _htmlTightResult(line); // [EN] spaces inside — textContent copy still works
-                while (wrap.firstChild) el.appendChild(wrap.firstChild);
+                if (!_needsTightMarkup(line)) el.appendChild(document.createTextNode(line));
+                else {
+                    var wrap = document.createElement('span');
+                    wrap.innerHTML = _htmlTightResult(line); // [EN] tight seps — copy via textContent still works
+                    while (wrap.firstChild) el.appendChild(wrap.firstChild);
+                }
             });
+        }
+        function _formattedIdxForCoreCount(text, coreCount) {
+            var idx = 0, counted = 0;
+            while (idx < text.length && counted < coreCount) {
+                if (!/\s/.test(text.charAt(idx))) counted++;
+                idx++;
+            }
+            while (idx < text.length && /\s/.test(text.charAt(idx))) idx++;
+            return idx;
+        }
+        function _setResultMarkup(el, plain) {
+            if (!el) return;
+            el.textContent = '';
+            if (plain) _appendResultMarkup(el, plain);
+        }
+        function _appendAnimatedDigits(parent, text) {
+            if (!parent || !text) return;
+            var s = String(text);
+            for (var i = 0; i < s.length; i++) {
+                var ch = s.charAt(i);
+                if (ch === '\n') { parent.appendChild(document.createTextNode('\n')); continue; }
+                if (ch === '\u00a0' || ch === '\u202f' || ch === ' ') {
+                    var sep = document.createElement('span');
+                    sep.className = ch === '\u00a0' ? 'num-grp-sep' : 'txt-sep';
+                    if (ch === '\u00a0') sep.innerHTML = '\u00a0'; else sep.textContent = ch;
+                    parent.appendChild(sep);
+                    continue;
+                }
+                var span = document.createElement('span');
+                span.className = 'calc-result-new'; // [EN] jeden span na cyfrę — Samsung-style
+                span.textContent = ch;
+                parent.appendChild(span);
+            }
         }
 
         /* ============================================================
@@ -1429,8 +1463,48 @@
             loadFxRates();
         }
 
+        // ── Limity wpisywania (jak zaawansowane kalkulatory: Samsung ~15, tu więcej dzięki BigInt) ──
+        var CALC_MAX_DIGITS_BIGINT = 30; // [EN] +, −, ×, () — dokładna ścieżka BigInt
+        var CALC_MAX_DIGITS_FLOAT = 15;  // [EN] float / jednostki — sensowna precyzja JS
+        var CALC_MAX_EXPR_CHARS = 240;   // [EN] całe wyrażenie (wklejka, historia)
+        function _calcExprBigEligible(val) {
+            return /^[\s0-9+\-*()×−]+$/.test(val) && /\d/.test(val);
+        }
+        function _calcMaxDigitsPerRun(val) {
+            return _calcExprBigEligible(val) ? CALC_MAX_DIGITS_BIGINT : CALC_MAX_DIGITS_FLOAT;
+        }
+        function _calcDigitRunBounds(val, idx) {
+            var start = Math.max(0, Math.min(idx, val.length - 1));
+            if (!val.length || !/\d/.test(val.charAt(start))) {
+                start = Math.min(idx, val.length);
+                var end0 = start;
+                while (start > 0 && /\d/.test(val.charAt(start - 1))) start--;
+                while (end0 < val.length && /\d/.test(val.charAt(end0))) end0++;
+                return { start: start, end: end0, len: end0 - start };
+            }
+            var end = start + 1;
+            while (start > 0 && /\d/.test(val.charAt(start - 1))) start--;
+            while (end < val.length && /\d/.test(val.charAt(end))) end++;
+            return { start: start, end: end, len: end - start };
+        }
+        function clampCalcExprInput(val) {
+            if (!val) return val;
+            var maxD = _calcMaxDigitsPerRun(val);
+            var re = new RegExp('\\d{' + (maxD + 1) + ',}', 'g');
+            var out = val.replace(re, function(run) { return run.slice(0, maxD); });
+            if (out.length > CALC_MAX_EXPR_CHARS) out = out.slice(0, CALC_MAX_EXPR_CHARS);
+            return out;
+        }
+        function _calcWouldExceedDigitLimit(val, start, end, ch) {
+            if (!/^\d$/.test(ch)) return false;
+            var next = val.slice(0, start) + ch + val.slice(end);
+            if (next.length > CALC_MAX_EXPR_CHARS) return true;
+            var run = _calcDigitRunBounds(next, start + ch.length - 1);
+            return run.len > _calcMaxDigitsPerRun(next);
+        }
+
         // ── Dokładne liczenie na DUŻYCH liczbach całkowitych (BigInt) ──
-        // Obsługuje +, −, × i nawiasy na liczbach całkowitych o DOWOLNEJ długości.
+        // Obsługuje +, −, × i nawiasy na liczbach całkowitych (do CALC_MAX_DIGITS_BIGINT cyfr).
         // Zwraca string z cyframi wyniku albo null, gdy wyrażenie się nie kwalifikuje
         // (ułamki, dzielenie, jednostki, funkcje → null, leci zwykłą ścieżką float).
         function tryBigIntCalc(raw) {
@@ -1949,7 +2023,7 @@
         function _calcResultReserve(display, resultRow) {
             var t = getCalcLayoutTune();
             var gap = t.exprResultGap != null ? t.exprResultGap : 6;
-            var rh = calcResult ? Math.max(calcResult.offsetHeight || 0, resultRow ? resultRow.offsetHeight : 0) : 0;
+            var rh = _calcResultRowHeight();
             if (_calcIsEmpty()) {
                 if (t.resultReserveEmpty != null) return t.resultReserveEmpty;
                 var slackE = t.resultAnimSlackEmpty != null ? t.resultAnimSlackEmpty : 0;
@@ -1960,9 +2034,36 @@
             var minR = t.resultReserveMin != null ? t.resultReserveMin : 36;
             return Math.max(minR, rh) + gap + slack;
         }
+        // [EN] Stable row height when JS fitted inline font — avoids reserve yo-yo during CSS transition
+        function _calcResultStableLinePx(fsPx) {
+            var fs = fsPx;
+            if (!isFinite(fs) || fs <= 0) {
+                if (!calcResult) return 44;
+                fs = parseFloat(getComputedStyle(calcResult).fontSize) || 40;
+            }
+            return Math.ceil(fs * 1.1); // [EN] matches .calc-result { line-height: 1.1 }
+        }
+        function _calcResultRowHeight() {
+            if (!calcResult) return 0;
+            var inlineFs = parseFloat(calcResult.style.fontSize);
+            if (isFinite(inlineFs) && inlineFs > 0) {
+                return _calcResultStableLinePx(inlineFs) * (_calcResultWrapLines || 1);
+            }
+            var row = calcResult.closest('.calc-result-row');
+            return Math.max(calcResult.offsetHeight || 0, row ? row.offsetHeight : 0);
+        }
         function _calcResultPaintedHeight() {
             if (!calcResult) return 0;
+            var inlineFs = parseFloat(calcResult.style.fontSize);
+            if (isFinite(inlineFs) && inlineFs > 0) {
+                return _calcResultStableLinePx(inlineFs) * (_calcResultWrapLines || 1);
+            }
             return Math.ceil(calcResult.getBoundingClientRect().height || calcResult.offsetHeight || 0);
+        }
+        function _applyResultFontPx(px) {
+            if (!calcResult || !isFinite(px)) return;
+            calcResult.style.fontSize = px + 'px';
+            calcResult.style.minHeight = (_calcResultStableLinePx(px) * (_calcResultWrapLines || 1)) + 'px';
         }
         function _syncResultReserve(display, resultRow) {
             if (!display || !calcResult) return;
@@ -2136,6 +2237,7 @@
         var _calcFitProbe = null;
         var _calcResultWrapLines = 1;
         var _calcResultFitPending = 0; // [EN] Bounded rAF retries when result row width not ready yet
+        var _calcResultTargetDisplay = ''; // [EN] latest formatted result — fit renders markup from this
         function _calcResultFullText() {
             return calcResult ? (calcResult.textContent || '') : '';
         }
@@ -2228,6 +2330,13 @@
         function _resetCalcResultFont() {
             if (!calcResult) return;
             calcResult.style.removeProperty('font-size');
+            calcResult.style.removeProperty('min-height');
+            calcResult.style.removeProperty('white-space');
+        }
+        function _syncResultWhiteSpace() {
+            if (!calcResult) return;
+            // [EN] pre-line wraps at spaces — probe uses nowrap, so shrink pass lied about 1 line
+            calcResult.style.whiteSpace = (_calcResultWrapLines || 1) > 1 ? 'pre-line' : 'nowrap';
         }
         function _joinCalcResultFlat(flat) {
             var tokens = String(flat || '').trim().split(/[ \t\r\n\u00a0\u202f]+/).filter(Boolean);
@@ -2247,6 +2356,7 @@
         function _largestResultFontForLine(maxW, floorPx, basePx, line, row) {
             if (!_calcResultOverflows(maxW, row, line, basePx)) {
                 calcResult.style.removeProperty('font-size');
+                calcResult.style.removeProperty('min-height');
                 return basePx;
             }
             var lo = floorPx, hi = basePx, best = floorPx;
@@ -2255,12 +2365,13 @@
                 if (_calcResultOverflows(maxW, row, line, mid)) hi = mid;
                 else { best = mid; lo = mid; }
             }
-            calcResult.style.fontSize = best + 'px';
+            _applyResultFontPx(best);
             return best;
         }
         function _largestResultFontForLines(maxW, floorPx, basePx, lines, row) {
             if (!_linesOverflow(maxW, row, lines, basePx)) {
                 calcResult.style.removeProperty('font-size');
+                calcResult.style.removeProperty('min-height');
                 return basePx;
             }
             var lo = floorPx, hi = basePx, best = floorPx;
@@ -2269,7 +2380,7 @@
                 if (_linesOverflow(maxW, row, lines, mid)) hi = mid;
                 else { best = mid; lo = mid; }
             }
-            calcResult.style.fontSize = best + 'px';
+            _applyResultFontPx(best);
             return best;
         }
         function fitCalcResultSize() {
@@ -2288,26 +2399,39 @@
                 return;
             }
             _calcResultFitPending = 0;
-            var flat = _calcResultFullText().replace(/\n/g, ' ').trim();
             var prevLines = _calcResultWrapLines;
             var basePx = _calcResultBaseFontPx();
             var floorPx = _calcResultFloorPx();
+            var flatSrc = _calcResultTargetDisplay || _calcResultFullText();
+            var flat = String(flatSrc).replace(/\n/g, ' ').trim();
+            var prevRendered = _calcResultFullText(); // [EN] stan sprzed tego fit — jeden render z animacją
             if (_isDefaultResultFlat(flat)) {
                 _resetCalcResultFont();
                 _calcResultWrapLines = 1;
+                _syncResultWhiteSpace();
+                calcResult.classList.remove('small', 'xsmall', 'xxsmall');
+                _setResultMarkup(calcResult, '0'); // [EN] AC / puste pole — wynik też na 0, nie stary wynik
                 var disp0 = calcResult.closest('.calc-display');
                 if (disp0) _syncResultWrapLayout(disp0);
                 return;
             }
             var line = _joinCalcResultFlat(flat);
+            var targetMarkup = line;
             _calcResultWrapLines = 1;
+            _syncResultWhiteSpace(); // [EN] nowrap before probe — matches _measureCalcResultWidth
             var fs = _largestResultFontForLine(maxW, floorPx, basePx, line, row);
             if (_calcResultOverflows(maxW, row, line, fs) && _resultMaxLines() > 1) {
                 var lines = _wrapCalcResultLines(flat, maxW, row, _resultMaxLines(), fs);
-                _setResultMarkup(calcResult, lines.join('\n'));
+                targetMarkup = lines.join('\n');
                 _calcResultWrapLines = lines.length;
+                _syncResultWhiteSpace();
+                calcResult.style.minHeight = (_calcResultStableLinePx(fs) * _calcResultWrapLines) + 'px'; // [EN] reserve 2 rows before paint — avoids clip
                 _largestResultFontForLines(maxW, floorPx, basePx, lines, row);
+                var dispWrap = calcResult.closest('.calc-display');
+                if (dispWrap) _syncResultWrapLayout(dispWrap);
             }
+            renderCalcResult(prevRendered, targetMarkup);
+            _syncResultWhiteSpace();
             if (_calcResultWrapLines !== prevLines && _usesCalcFlexSplit()) fitCalcLayout();
         }
         // [EN] Sync result + expr — jeden przebieg fit na żywo DOM.
@@ -2474,13 +2598,9 @@
             updatePlaceholderMarquee();
             // fitCalcLayout poza zmianą pusty/aktywny tylko przy resize/zakładce (unika skakania UI).
             // Wyrażenia z samych liczb całkowitych i +,−,×,() liczymy BigInt-em (dokładnie,
-            // dowolna długość) — NIE obcinamy ich. Pozostałe (ułamki/dzielenie/funkcje) idą
-            // przez float: tam liczba > 16 cyfr przekracza dokładność JS, więc tniemy nadmiar.
+            // do CALC_MAX_DIGITS_BIGINT cyfr). Pozostałe idą przez float — krótszy limit cyfr.
             var rawVal = calcExpr.value;
-            var bigEligible = /^[\s0-9+\-*()×−]+$/.test(rawVal) && /\d/.test(rawVal);
-            var clamped = bigEligible
-                ? rawVal
-                : rawVal.replace(/\d{17,}/g, function(run) { return run.slice(0, 16); });
+            var clamped = clampCalcExprInput(rawVal);
             if (clamped !== calcExpr.value) {
                 var atEnd = calcExpr.selectionStart >= calcExpr.value.length;
                 calcExpr.value = clamped;
@@ -2501,9 +2621,8 @@
             if (calcExpr.value && _fxReady() && !_fxFresh() && _inputHasCurrency(calcExpr.value)) ensureFxRates();
             var hasResult = res.value !== null || res.text != null;
             var display = hasResult ? formatCalcResult(res) : (calcExpr.value === '' ? '0' : '');
-            var prevDisplay = _calcResultFullText();
+            _calcResultTargetDisplay = display;
             _setApproxMark(hasResult && res.exact === false, res.exactText); // przed fit — poprawna szerokość dla „≈"
-            renderCalcResult(prevDisplay, display);
             fitCalcDisplay();
         }
         // Znacznik „≈" (wynik zaokrąglony stratnie, np. sekundy → minuta). Dymek na tap/hover
@@ -2528,41 +2647,50 @@
         // wstawieniu — bez hacka z reflow). Definicja animacji + reduced-motion żyją w styles.css.
         // textContent czytany gdzie indziej (kopiowanie, „=") nadal zwraca pełny wynik.
         function renderCalcResult(prev, next) {
-            if (next === '' || next === prev) {
+            if (next === '') {
                 _setResultMarkup(calcResult, next);
                 return;
             }
-            if (!_needsTightMarkup(next)) {
-                // Animujemy DOKŁADNIE te znaki, które się realnie zmieniły. Diff liczymy na RDZENIU
-                // (po usunięciu separatorów tysięcy — \s obejmuje też nbsp/wąską spację), bo „1 222"↔„12 222"
-                // przesuwa separator i psułby porównanie po pozycjach. Wspólny prefiks rdzeni = część stała;
-                // resztę animujemy. Dzięki temu: cały nowy wynik (45×9→405) animuje się w całości,
-                // dopisanie cyfry (405→4275) animuje tylko zmienioną końcówkę, a pojedyncza cyfra na końcu
-                // (1 222) tylko ją. Skrócenie (backspace) — nic nowego w rdzeniu → bez animacji.
-                var pCore = prev.replace(/\s/g, ''), nCore = next.replace(/\s/g, '');
-                var c = 0, lim = Math.min(pCore.length, nCore.length);
-                while (c < lim && pCore.charAt(c) === nCore.charAt(c)) c++;
-                if (c >= nCore.length) { calcResult.textContent = next; return; }
-                var idx = 0, counted = 0;
-                while (idx < next.length && counted < c) {
-                    if (!/\s/.test(next.charAt(idx))) counted++;
-                    idx++;
+            if (next === prev) return; // [EN] drugi fit — nie kasuj świeżych spanów animacji
+            var prevNL = prev.indexOf('\n') >= 0;
+            var nextNL = next.indexOf('\n') >= 0;
+            // [EN] Diff on digit core (ignore sep shuffles); animate each new digit — also with tight markup
+            var pCore = prev.replace(/\s/g, ''), nCore = next.replace(/\s/g, '');
+            var c = 0, lim = Math.min(pCore.length, nCore.length);
+            while (c < lim && pCore.charAt(c) === nCore.charAt(c)) c++;
+            if (c >= nCore.length) {
+                // [EN] liveEval single-line format — nie zwijaj 2 wierszy przed fit
+                if (!nextNL && prevNL && pCore === nCore) return;
+                // [EN] samo złamanie 1→2 wiersz — animuj każdą cyfrę drugiej linii
+                if (!prevNL && nextNL && pCore === nCore) {
+                    var nlIdx = next.indexOf('\n');
+                    calcResult.textContent = '';
+                    _appendResultMarkup(calcResult, next.slice(0, nlIdx));
+                    calcResult.appendChild(document.createTextNode('\n'));
+                    _appendAnimatedDigits(calcResult, next.slice(nlIdx + 1));
+                    return;
                 }
-                while (idx < next.length && /\s/.test(next.charAt(idx))) idx++;
-                calcResult.textContent = next.slice(0, idx);
-                var span = document.createElement('span');
-                span.className = 'calc-result-new';
-                span.textContent = next.slice(idx);
-                calcResult.appendChild(span);
+                _setResultMarkup(calcResult, next);
                 return;
             }
-            _setResultMarkup(calcResult, next); // [EN] tight seps (groups / „16 h 40 min") — no char animation
+            var splitIdx = _formattedIdxForCoreCount(next, c);
+            var prefix = next.slice(0, splitIdx);
+            var suffix = next.slice(splitIdx);
+            calcResult.textContent = '';
+            _appendResultMarkup(calcResult, prefix);
+            _appendAnimatedDigits(calcResult, suffix);
         }
         // *---------------------------------------------------------------------------------*
         function handleCalcAction(action) {
             var expr = calcExpr.value;
 
             if ((action >= '0' && action <= '9') || action === '.') {
+                if (action >= '0' && action <= '9') {
+                    var focusedD = document.activeElement === calcExpr;
+                    var sd = focusedD && calcExpr.selectionStart != null ? calcExpr.selectionStart : calcExpr.value.length;
+                    var ed = focusedD && calcExpr.selectionEnd != null ? calcExpr.selectionEnd : calcExpr.value.length;
+                    if (_calcWouldExceedDigitLimit(calcExpr.value, sd, ed, action)) return;
+                }
                 insertAtCursor(calcExpr, action);
                 liveEval();
                 return;

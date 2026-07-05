@@ -681,6 +681,10 @@
             transition: font-size 0.12s ease-out;
             cursor: pointer;
         }
+        /* [EN] JS fit sets inline font-size — transition fights binary search and clips mid-frame */
+        .calc-result[style*="font-size"] { transition: none; }
+        /* [EN] 2-line result — don't clip second row while layout reserve catches up */
+        .calc-result[style*="white-space: pre-line"] { overflow: visible; }
         /* Zapasowe klasy — JS nie stosuje ich prewencyjnie; tylko gdy brak inline font-size. */
         .calc-result.small { font-size: 2.1rem; }
         .calc-result.xsmall { font-size: 1.75rem; }

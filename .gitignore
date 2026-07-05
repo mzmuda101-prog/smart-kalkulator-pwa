@@ -60,4 +60,7 @@ out/
 *.ipr
 *.iws
 target
-*.env        
+*.env
+
+# Lokalne artefakty z testów wizualnych (GIF/MP4) — nie commitować na GitHub
+test/output/
