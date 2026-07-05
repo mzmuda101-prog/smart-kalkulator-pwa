@@ -23,11 +23,21 @@
    ─ resultWrapExprMinPx (root)       — niższy --calc-expr-min przy 2 liniach (więcej
                                         miejsca na wynik; ekranik rośnie w dół)
 
+   ODSTĘPY W WYNIKU — resultGaps (wspólne mobile + desktop):
+   ─ mode ('em' | 'percent')            — sposób edycji (resultGapsMode)
+   ─ em: numGroupEm, textEm             — bezpośrednio w em
+   ─ percent: numGroupPct, textPct      — 100 = domyślna spacja; 92 = 8% wężej
+   ─ baselineEm (percent)               — szerokość „100%" w em (domyślnie 0.28)
+   Po edycji: reapplyCalcLayoutTune() — od razu widać w polu wyniku.
+
    Sekcje:  mobile (<640 px)  |  desktop (≥640 px, flexSplit: true)
 
    Po edycji w konsoli:
      CALC_LAYOUT_TUNE.mobile.displayCurve.maxPx = 170
      CALC_LAYOUT_TUNE.mobile.resultWrapPadBottom = 8
+     CALC_LAYOUT_TUNE.resultGaps.mode = 'percent'
+     CALC_LAYOUT_TUNE.resultGaps.numGroupPct = 92
+     CALC_LAYOUT_TUNE.resultGaps.textPct = 95
      reapplyCalcLayoutTune()
      previewCurrentCalcLayout()
 
@@ -49,6 +59,18 @@
    ============================================================================= */
 
 window.CALC_LAYOUT_TUNE = {
+
+    /* Odstępy w polu wyniku / notatniku.
+       mode 'em' → numGroupEm / textEm (bezpośrednio).
+       mode 'percent' → numGroupPct / textPct; 100% = baselineEm (= domyślna spacja). */
+    resultGaps: {
+        mode: 'percent',  // 'em' | 'percent'  (alias w docs: resultGapsMode)
+        baselineEm: 0.28, // [percent] szerokość spacji przy 100%
+        numGroupPct: 70,  // [percent] grupy tysięcy: 1 234 567 (~89% ≈ to było 0.25em)
+        textPct: 85,      // [percent] tekst/czas: 16 h 40 min (~93% ≈ to było 0.26em)
+        numGroupEm: 0.25, // [em] gdy mode === 'em'
+        textEm: 0.26,     // [em] gdy mode === 'em'
+    },
 
     /* ── MOBILE: szerokość okna < 640 px ── */
     mobile: {
@@ -420,9 +442,41 @@ window.resolveCalcAvailHeightDetail = function resolveCalcAvailHeightDetail(pane
     return _resolveCalcAvailHeightDetail(panel, card, tune);
 };
 
+/** resultGaps.mode 'em' | 'percent' → { mode, numGroupEm, textEm, … } dla CSS tokenów. */
+function _resolveResultGaps(gaps) {
+    gaps = gaps || {};
+    var mode = String(gaps.mode || 'percent').toLowerCase();
+    if (mode === 'em') {
+        return {
+            mode: 'em',
+            numGroupEm: gaps.numGroupEm != null ? gaps.numGroupEm : 0.25,
+            textEm: gaps.textEm != null ? gaps.textEm : 0.26,
+        };
+    }
+    var base = gaps.baselineEm != null ? gaps.baselineEm : 0.28;
+    var numPct = gaps.numGroupPct != null ? gaps.numGroupPct : 89;
+    var txtPct = gaps.textPct != null ? gaps.textPct : 93;
+    function pctToEm(pct) { return Math.round(base * pct / 100 * 1000) / 1000; }
+    return {
+        mode: 'percent',
+        baselineEm: base,
+        numGroupPct: numPct,
+        textPct: txtPct,
+        numGroupEm: pctToEm(numPct),
+        textEm: pctToEm(txtPct),
+    };
+}
+window.resolveResultGaps = function resolveResultGaps(gaps) {
+    return _resolveResultGaps(gaps || (window.CALC_LAYOUT_TUNE && window.CALC_LAYOUT_TUNE.resultGaps));
+};
+
 window.applyCalcLayoutTuneTokens = function applyCalcLayoutTuneTokens(card, tune) {
-    if (!card) return;
     tune = tune || window.getCalcLayoutTuneSection();
+    var resolved = _resolveResultGaps((window.CALC_LAYOUT_TUNE && window.CALC_LAYOUT_TUNE.resultGaps) || {});
+    var root = document.documentElement;
+    root.style.setProperty('--calc-num-grp-sep', resolved.numGroupEm + 'em');
+    root.style.setProperty('--calc-txt-sep', resolved.textEm + 'em');
+    if (!card) return;
     var kf = tune.keypadFont || {};
     var df = tune.displayFont || {};
     var exprMin = tune.exprMinHeight != null ? tune.exprMinHeight : 44;
@@ -552,6 +606,8 @@ window.previewCurrentCalcLayout = function previewCurrentCalcLayout() {
     var btnScale = resolveKeypadFontScale(availH, rowH / (t.btnRowBase || 56), t);
     var baseRem = t.keypadFont && t.keypadFont.baseRem != null ? t.keypadFont.baseRem : 1.35;
     var cardH = card ? card.clientHeight : 0;
+    var gapResolved = _resolveResultGaps((window.CALC_LAYOUT_TUNE && window.CALC_LAYOUT_TUNE.resultGaps) || {});
+    var gapCfg = (window.CALC_LAYOUT_TUNE && window.CALC_LAYOUT_TUNE.resultGaps) || {};
     var row = {
         section: section,
         viewportW: window.innerWidth,
@@ -573,6 +629,11 @@ window.previewCurrentCalcLayout = function previewCurrentCalcLayout() {
         numberFontRem: (baseRem * btnScale * ((t.keypadFont.groups && t.keypadFont.groups.number.fontScale) || 1)).toFixed(2),
         exprFontRem: (t.displayFont && t.displayFont.exprRem != null ? t.displayFont.exprRem : 1.25),
         resultFontRem: (t.displayFont && t.displayFont.resultRem != null ? t.displayFont.resultRem : 2.5),
+        resultGapsMode: gapResolved.mode,
+        numGroupGapEm: gapResolved.numGroupEm,
+        textGapEm: gapResolved.textEm,
+        numGroupGapPct: gapCfg.numGroupPct,
+        textGapPct: gapCfg.textPct,
     };
     console.table([row]);
     return row;
@@ -597,3 +658,9 @@ window.CALC_LAYOUT_TUNE.resolveKeypadFont = window.resolveKeypadFontScale;
 window.CALC_LAYOUT_TUNE.resolveAvailHeight = window.resolveCalcAvailHeight;
 window.CALC_LAYOUT_TUNE.resolveAvailHeightDetail = window.resolveCalcAvailHeightDetail;
 window.CALC_LAYOUT_TUNE.scrollOverflowOpts = _calcScrollOverflowOpts;
+window.CALC_LAYOUT_TUNE.resolveResultGaps = window.resolveResultGaps;
+
+(function _initResultGapTokens() {
+    if (typeof document === 'undefined') return;
+    window.applyCalcLayoutTuneTokens(null);
+})();

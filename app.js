@@ -407,6 +407,31 @@
                 useGrouping: true,
             });
         }
+        // [EN] Tight display gaps — CSS clip inside fixed-width spans; copy via textContent unchanged.
+        function _needsTightMarkup(text) { return !!text && /[\u00a0 \u202f]/.test(String(text)); }
+        function _htmlTightResult(text) {
+            var out = '';
+            var s = String(text);
+            for (var i = 0; i < s.length; i++) {
+                var ch = s.charAt(i);
+                if (ch === '\u00a0') out += '<span class="num-grp-sep">\u00a0</span>';
+                else if (ch === '\u202f' || ch === ' ') out += '<span class="txt-sep">' + ch + '</span>';
+                else out += ch;
+            }
+            return out;
+        }
+        function _setResultMarkup(el, plain) {
+            if (!el) return;
+            if (!_needsTightMarkup(plain)) { el.textContent = plain; return; }
+            var parts = String(plain).split('\n');
+            el.textContent = '';
+            parts.forEach(function(line, i) {
+                if (i > 0) el.appendChild(document.createTextNode('\n'));
+                var wrap = document.createElement('span');
+                wrap.innerHTML = _htmlTightResult(line); // [EN] spaces inside — textContent copy still works
+                while (wrap.firstChild) el.appendChild(wrap.firstChild);
+            });
+        }
 
         /* ============================================================
            [EN] Haptic'stics — Selective Vibration on Interactions
@@ -2133,7 +2158,8 @@
             _calcFitProbe.style.font = cs.font;
             _calcFitProbe.style.fontSize = fontSizePx != null ? (fontSizePx + 'px') : cs.fontSize;
             _calcFitProbe.style.letterSpacing = cs.letterSpacing;
-            _calcFitProbe.textContent = text;
+            if (_needsTightMarkup(text)) _calcFitProbe.innerHTML = _htmlTightResult(text);
+            else _calcFitProbe.textContent = text;
             return _calcFitProbe.offsetWidth;
         }
         function _calcResultLineHeightPx() {
@@ -2278,7 +2304,7 @@
             var fs = _largestResultFontForLine(maxW, floorPx, basePx, line, row);
             if (_calcResultOverflows(maxW, row, line, fs) && _resultMaxLines() > 1) {
                 var lines = _wrapCalcResultLines(flat, maxW, row, _resultMaxLines(), fs);
-                calcResult.textContent = lines.join('\n');
+                _setResultMarkup(calcResult, lines.join('\n'));
                 _calcResultWrapLines = lines.length;
                 _largestResultFontForLines(maxW, floorPx, basePx, lines, row);
             }
@@ -2503,31 +2529,34 @@
         // textContent czytany gdzie indziej (kopiowanie, „=") nadal zwraca pełny wynik.
         function renderCalcResult(prev, next) {
             if (next === '' || next === prev) {
-                calcResult.textContent = next;
+                _setResultMarkup(calcResult, next);
                 return;
             }
-            // Animujemy DOKŁADNIE te znaki, które się realnie zmieniły. Diff liczymy na RDZENIU
-            // (po usunięciu separatorów tysięcy — \s obejmuje też nbsp/wąską spację), bo „1 222"↔„12 222"
-            // przesuwa separator i psułby porównanie po pozycjach. Wspólny prefiks rdzeni = część stała;
-            // resztę animujemy. Dzięki temu: cały nowy wynik (45×9→405) animuje się w całości,
-            // dopisanie cyfry (405→4275) animuje tylko zmienioną końcówkę, a pojedyncza cyfra na końcu
-            // (1 222) tylko ją. Skrócenie (backspace) — nic nowego w rdzeniu → bez animacji.
-            var pCore = prev.replace(/\s/g, ''), nCore = next.replace(/\s/g, '');
-            var c = 0, lim = Math.min(pCore.length, nCore.length);
-            while (c < lim && pCore.charAt(c) === nCore.charAt(c)) c++;
-            if (c >= nCore.length) { calcResult.textContent = next; return; }
-            // przelicz c (liczba niezmienionych znaczących znaków) na pozycję w SFORMATOWANYM next
-            var idx = 0, counted = 0;
-            while (idx < next.length && counted < c) {
-                if (!/\s/.test(next.charAt(idx))) counted++;
-                idx++;
+            if (!_needsTightMarkup(next)) {
+                // Animujemy DOKŁADNIE te znaki, które się realnie zmieniły. Diff liczymy na RDZENIU
+                // (po usunięciu separatorów tysięcy — \s obejmuje też nbsp/wąską spację), bo „1 222"↔„12 222"
+                // przesuwa separator i psułby porównanie po pozycjach. Wspólny prefiks rdzeni = część stała;
+                // resztę animujemy. Dzięki temu: cały nowy wynik (45×9→405) animuje się w całości,
+                // dopisanie cyfry (405→4275) animuje tylko zmienioną końcówkę, a pojedyncza cyfra na końcu
+                // (1 222) tylko ją. Skrócenie (backspace) — nic nowego w rdzeniu → bez animacji.
+                var pCore = prev.replace(/\s/g, ''), nCore = next.replace(/\s/g, '');
+                var c = 0, lim = Math.min(pCore.length, nCore.length);
+                while (c < lim && pCore.charAt(c) === nCore.charAt(c)) c++;
+                if (c >= nCore.length) { calcResult.textContent = next; return; }
+                var idx = 0, counted = 0;
+                while (idx < next.length && counted < c) {
+                    if (!/\s/.test(next.charAt(idx))) counted++;
+                    idx++;
+                }
+                while (idx < next.length && /\s/.test(next.charAt(idx))) idx++;
+                calcResult.textContent = next.slice(0, idx);
+                var span = document.createElement('span');
+                span.className = 'calc-result-new';
+                span.textContent = next.slice(idx);
+                calcResult.appendChild(span);
+                return;
             }
-            while (idx < next.length && /\s/.test(next.charAt(idx))) idx++; // separator → do części stałej
-            calcResult.textContent = next.slice(0, idx);  // statyczna, niezmieniona część
-            var span = document.createElement('span');
-            span.className = 'calc-result-new';
-            span.textContent = next.slice(idx);           // świeży <span> sam odpala animację CSS
-            calcResult.appendChild(span);
+            _setResultMarkup(calcResult, next); // [EN] tight seps (groups / „16 h 40 min") — no char animation
         }
         // *---------------------------------------------------------------------------------*
         function handleCalcAction(action) {
@@ -7773,7 +7802,10 @@
                 var has = !!info.text;
                 row.classList.toggle('np-has', has);
                 row.classList.toggle('np-total', !!info.isTotal);
-                res.textContent = has ? info.text : '';
+                if (has) {
+                    if (_needsTightMarkup(info.text)) _setResultMarkup(res, info.text);
+                    else res.textContent = info.text;
+                } else res.textContent = '';
                 res.style.display = has ? '' : 'none';
                 if (has) {
                     res.dataset.eq = info.resolved || info.exprPart || '';

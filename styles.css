@@ -685,6 +685,19 @@
         .calc-result.small { font-size: 2.1rem; }
         .calc-result.xsmall { font-size: 1.75rem; }
         .calc-result.xxsmall { font-size: 1.45rem; }
+        /* [EN] Thousand/text gaps — tune: CALC_LAYOUT_TUNE.resultGaps → --calc-*-sep tokens */
+        .num-grp-sep {
+            display: inline-block;
+            width: var(--calc-num-grp-sep, 0.25em);
+            overflow: hidden;
+            vertical-align: baseline;
+        }
+        .txt-sep {
+            display: inline-block;
+            width: var(--calc-txt-sep, 0.26em);
+            overflow: hidden;
+            vertical-align: baseline;
+        }
         /* Wiersz wyniku: opcjonalny znacznik „≈" (zaokrąglenie) tuż przed liczbą, do prawej. */
         .calc-result-row {
             display: flex;
