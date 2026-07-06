@@ -290,7 +290,7 @@
     // → { d: Date, hasYear: bool, moment?: bool, relDay?: bool } albo null. moment=true → kotwica z godziną („teraz").
     function _parseDateToken(str) {
         var s = String(str).trim().toLowerCase();
-        if (s === 'teraz' || s === 'now') return { d: _now(), hasYear: true, moment: true };
+        if (s === 'teraz' || s === 'now' || s === 'czas' || s === 'time') return { d: _now(), hasYear: true, moment: true };
         if (/^dzi[sś]$|^dzisiaj$|^today$/.test(s)) return { d: _today(), hasYear: true, relDay: true };
         if (s === 'jutro' || s === 'tomorrow')    { var j = _today(); j.setDate(j.getDate() + 1); return { d: j, hasYear: true, relDay: true }; }
         if (s === 'pojutrze') { var p = _today(); p.setDate(p.getDate() + 2); return { d: p, hasYear: true, relDay: true }; }
@@ -382,7 +382,7 @@
             return null;
         }
         // „ile dni do B" / „how many days until B" / „ile dni od dziś do B"
-        if ((m = low.match(/^(?:ile\s+dni|how\s+many\s+days)\s+(?:(?:od|from)\s+(?:dzi[sś]|dzisiaj|today|teraz|now)\s+)?(?:(?:do|zosta[łl]o\s+do|pozosta[łl]o\s+do)|(?:until|to|left\s+to))\s+(.+)$/))) {
+        if ((m = low.match(/^(?:ile\s+dni|how\s+many\s+days)\s+(?:(?:od|from)\s+(?:dzi[sś]|dzisiaj|today|teraz|now|czas|time)\s+)?(?:(?:do|zosta[łl]o\s+do|pozosta[łl]o\s+do)|(?:until|to|left\s+to))\s+(.+)$/))) {
             var b2 = _parseDateToken(m[1]);
             if (b2) {
                 if (!b2.hasYear && b2.d < _today()) b2.d.setFullYear(b2.d.getFullYear() + 1);
@@ -401,13 +401,13 @@
             var d4 = _today(); _applyDateUnit(d4, parseFloat(m[1].replace(',', '.')), m[2], -1);
             return { text: _fmtDate(d4), value: null };
         }
-        // „dziś / teraz / today …" samodzielnie
-        if ((m = low.match(/^(teraz|now|dzi[sś]|dzisiaj|today|jutro|tomorrow|pojutrze|wczoraj|yesterday)\s*$/))) {
+        // „dziś / teraz / czas / time …" samodzielnie
+        if ((m = low.match(/^(teraz|now|czas|time|dzi[sś]|dzisiaj|today|jutro|tomorrow|pojutrze|wczoraj|yesterday)\s*$/))) {
             var d6 = _parseDateToken(m[1]);
             if (d6) return { text: d6.moment ? _fmtNow(d6.d) : _fmtDate(d6.d), value: null };
         }
         // „90 dni + dziś" / „3 weeks + today" — offset przed kotwicą
-        if ((m = low.match(/^([\d.,]+)\s*([a-ząćęłńóśźż]+)\s*\+\s*(teraz|now|dzi[sś]|dzisiaj|today|jutro|tomorrow|pojutrze|wczoraj|yesterday)\s*$/))) {
+        if ((m = low.match(/^([\d.,]+)\s*([a-ząćęłńóśźż]+)\s*\+\s*(teraz|now|czas|time|dzi[sś]|dzisiaj|today|jutro|tomorrow|pojutrze|wczoraj|yesterday)\s*$/))) {
             var offRev = _parseDateOffsetOperand(m[1] + ' ' + m[2]);
             var anch = _parseDateToken(m[3]);
             if (offRev && anch) {
@@ -451,25 +451,33 @@
     }
 
     /* ============================================================
-       [PL] Podsilnik STREF CZASOWYCH — OFFLINE przez Intl.DateTimeFormat (z DST, bez sieci).
-            „17:00 w Londynie na Tokio", „która godzina w Tokio".
+       [PL] Podsilnik STREF CZASOWYCH — OFFLINE przez Intl (z DST, bez sieci).
+            Raycast-style: „time in Tokyo", „czas w Kioto", „5pm ldn in sf" (zegar).
+            Skróty miast w _TZ_CITY; pre pozycje: w / we / in / w/in.
        ============================================================ */
-    // Klucze obejmują częste odmiany PL (miejscownik po „w": Warszawie; biernik po „na": Moskwę).
+    var _TZ_PREP = '(?:w\\/in|w|we|in)'; // [EN] PL „w" + EN „in" (+ opcjonalnie „w/in")
     var _TZ_CITY = {
-        'warszawa': 'Europe/Warsaw', 'warszawie': 'Europe/Warsaw', 'warszawę': 'Europe/Warsaw', 'polska': 'Europe/Warsaw', 'polsce': 'Europe/Warsaw',
-        'londyn': 'Europe/London', 'londynie': 'Europe/London', 'london': 'Europe/London',
-        'paryż': 'Europe/Paris', 'paryz': 'Europe/Paris', 'paryżu': 'Europe/Paris', 'paryzu': 'Europe/Paris',
+        'warszawa': 'Europe/Warsaw', 'warszawie': 'Europe/Warsaw', 'warszawę': 'Europe/Warsaw',
+        'warsaw': 'Europe/Warsaw', 'polska': 'Europe/Warsaw', 'polsce': 'Europe/Warsaw', 'pl': 'Europe/Warsaw',
+        'kraków': 'Europe/Warsaw', 'krakow': 'Europe/Warsaw', 'krakowie': 'Europe/Warsaw',
+        'londyn': 'Europe/London', 'londynie': 'Europe/London', 'london': 'Europe/London', 'ldn': 'Europe/London',
+        'paryż': 'Europe/Paris', 'paryz': 'Europe/Paris', 'paryżu': 'Europe/Paris', 'paryzu': 'Europe/Paris', 'paris': 'Europe/Paris',
         'berlin': 'Europe/Berlin', 'berlinie': 'Europe/Berlin',
-        'madryt': 'Europe/Madrid', 'madrycie': 'Europe/Madrid', 'rzym': 'Europe/Rome', 'rzymie': 'Europe/Rome',
+        'madryt': 'Europe/Madrid', 'madrycie': 'Europe/Madrid', 'madrid': 'Europe/Madrid',
+        'rzym': 'Europe/Rome', 'rzymie': 'Europe/Rome', 'rome': 'Europe/Rome',
         'moskwa': 'Europe/Moscow', 'moskwie': 'Europe/Moscow', 'moskwę': 'Europe/Moscow', 'moscow': 'Europe/Moscow',
-        'kijów': 'Europe/Kiev', 'kijow': 'Europe/Kiev', 'kijowie': 'Europe/Kiev',
-        'nowy jork': 'America/New_York', 'nowym jorku': 'America/New_York', 'new york': 'America/New_York', 'nyc': 'America/New_York',
-        'los angeles': 'America/Los_Angeles', 'la': 'America/Los_Angeles', 'chicago': 'America/Chicago',
-        'tokio': 'Asia/Tokyo', 'tokyo': 'Asia/Tokyo',
-        'pekin': 'Asia/Shanghai', 'pekinie': 'Asia/Shanghai', 'szanghaj': 'Asia/Shanghai', 'szanghaju': 'Asia/Shanghai', 'shanghai': 'Asia/Shanghai',
-        'sydney': 'Australia/Sydney', 'dubaj': 'Asia/Dubai', 'dubaju': 'Asia/Dubai', 'dubai': 'Asia/Dubai',
+        'kijów': 'Europe/Kiev', 'kijow': 'Europe/Kiev', 'kijowie': 'Europe/Kiev', 'kyiv': 'Europe/Kiev',
+        'nowy jork': 'America/New_York', 'nowym jorku': 'America/New_York', 'new york': 'America/New_York',
+        'nyc': 'America/New_York', 'jfk': 'America/New_York',
+        'los angeles': 'America/Los_Angeles', 'la': 'America/Los_Angeles', 'lax': 'America/Los_Angeles',
+        'san francisco': 'America/Los_Angeles', 'sf': 'America/Los_Angeles', 'sfo': 'America/Los_Angeles',
+        'chicago': 'America/Chicago',
+        'tokio': 'Asia/Tokyo', 'tokyo': 'Asia/Tokyo', 'kioto': 'Asia/Tokyo', 'kyoto': 'Asia/Tokyo',
+        'pekin': 'Asia/Shanghai', 'pekinie': 'Asia/Shanghai', 'beijing': 'Asia/Shanghai',
+        'szanghaj': 'Asia/Shanghai', 'szanghaju': 'Asia/Shanghai', 'shanghai': 'Asia/Shanghai',
+        'sydney': 'Australia/Sydney', 'dubaj': 'Asia/Dubai', 'dubaju': 'Asia/Dubai', 'dubai': 'Asia/Dubai', 'dxb': 'Asia/Dubai',
         'delhi': 'Asia/Kolkata', 'indie': 'Asia/Kolkata', 'indiach': 'Asia/Kolkata',
-        'utc': 'UTC', 'gmt': 'UTC'
+        'utc': 'UTC', 'gmt': 'UTC', 'zulu': 'UTC'
     };
     function _tzLookup(name) { return _TZ_CITY[String(name).trim().toLowerCase()] || null; }
     function _tzLabel(name) {
@@ -489,7 +497,7 @@
         var s = String(raw || '').trim(); if (!s) return null;
         var low = s.toLowerCase(); var m;
         // „HH:MM w <A> na/do <B>" / „HH:MM in <A> to <B>"
-        if ((m = low.match(/^(\d{1,2}:\d{2})\s+(?:w|we|in)\s+(.+?)\s+(?:na|do|to)\s+(.+?)\s*$/))) {
+        if ((m = low.match(new RegExp('^(\\d{1,2}:\\d{2})\\s+' + _TZ_PREP + '\\s+(.+?)\\s+(?:na|do|to)\\s+(.+?)\\s*$')))) {
             var tzA = _tzLookup(m[2]), tzB = _tzLookup(m[3]);
             var baseMin = _parseClockToken(m[1]);
             if (tzA == null || tzB == null || baseMin == null) return null;
@@ -499,8 +507,8 @@
             var resMin = baseMin + (offB - offA);
             return { text: _fmtClock(resMin) + ' (' + _tzLabel(m[3]) + ')', value: null, kind: 'clock', exact: true };
         }
-        // „która godzina w <A>" / „what time in <A>"
-        if ((m = low.match(/^(?:(?:kt[oó]ra\s+(?:jest\s+)?godzina|czas|godzina)|(?:what(?:'s|\s+is)?\s+(?:the\s+)?time|what\s+time|time))\s+(?:w|we|in)\s+(.+?)\s*$/))) {
+        // „czas w <A>" / „time in <A>" / „która godzina w <A>" (Raycast-style)
+        if ((m = low.match(new RegExp('^(?:(?:kt[oó]ra\\s+(?:jest\\s+)?godzina|czas|godzina)|(?:what(?:\'s|\\s+is)?\\s+(?:the\\s+)?time|what\\s+time|time))\\s+' + _TZ_PREP + '\\s+(.+?)\\s*$')))) {
             var tz = _tzLookup(m[1]); if (tz == null) return null;
             var d = new Date();
             var off = _tzOffsetMin(tz, d); if (off == null) return null;

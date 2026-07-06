@@ -79,6 +79,8 @@ const CASES = [
   // „teraz" — pełny moment (kotwica 14:35)
   { expr: 'teraz', text: '1.7.26 14:35 (środa)', kind: 'date' },
   { expr: 'now', text: '1.7.26 14:35 (środa)', kind: 'date' },
+  { expr: 'czas', text: '1.7.26 14:35 (środa)', kind: 'date' },
+  { expr: 'time', text: '1.7.26 14:35 (środa)', kind: 'date' },
   { expr: 'teraz - 2 dni', text: '29.6.26 14:35 (poniedziałek)', kind: 'date' },
   { expr: 'teraz-2dni', text: '29.6.26 14:35 (poniedziałek)', kind: 'date' },
   { expr: 'teraz - 56h', text: '29.6.26 06:35 (poniedziałek)', kind: 'date' },
