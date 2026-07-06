@@ -2408,8 +2408,88 @@
             padding: 6px 2px;
             -webkit-overflow-scrolling: touch;
         }
-        /* Swipe usuń wiersz — wzór z historii */
-        .np-row-wrap {
+        .np-editor-inner {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: start;
+            min-height: 100%;
+        }
+        .np-mirror, .np-fold-layer, .np-text {
+            grid-column: 1;
+            grid-row: 1;
+            min-width: 0;
+        }
+        .np-gutter {
+            grid-column: 2;
+            grid-row: 1;
+            flex: 0 0 auto;
+            overflow: hidden;
+            padding: 6px 0;
+        }
+        .np-mirror {
+            visibility: hidden;
+            pointer-events: none;
+            padding: 6px 8px;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+            font-size: 1rem;
+            line-height: 2;
+        }
+        .np-mirror-line {
+            min-height: 2rem;
+            line-height: 2;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+        .np-text {
+            width: 100%;
+            min-height: 48px;
+            max-height: none;
+            border: none;
+            outline: none;
+            background: transparent;
+            color: var(--text);
+            padding: 6px 8px;
+            margin: 0;
+            resize: none;
+            overflow: hidden;
+            font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+            font-size: 1rem;
+            line-height: 2;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            user-select: text;
+            -webkit-user-select: text;
+            -webkit-touch-callout: default;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
+        }
+        .np-fold-layer {
+            padding: 6px 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        .np-fold-row {
+            display: block;
+            width: 100%;
+            border: none;
+            background: transparent;
+            color: var(--text);
+            text-align: left;
+            font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+            font-size: 1rem;
+            line-height: 2;
+            padding: 0 8px;
+            cursor: pointer;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .np-fold-row:active { background: var(--primary-light, rgba(37, 99, 235, 0.08)); }
+        /* Swipe usuń wiersz — na gutterze (obok chipu wyniku) */
+        .np-gutter-wrap, .np-row-wrap {
             position: relative;
             overflow: hidden;
             touch-action: pan-y;
@@ -2431,22 +2511,47 @@
             transition: opacity 0.12s ease;
             -webkit-tap-highlight-color: transparent;
         }
+        .np-gutter-wrap.swiping .np-row-delete,
+        .np-gutter-wrap.swiped .np-row-delete,
         .np-row-wrap.swiping .np-row-delete,
         .np-row-wrap.swiped .np-row-delete { opacity: 1; pointer-events: auto; }
         .np-row-delete:active { background: var(--danger-hover, #b91c1c); }
-        .np-row-shell {
+        .np-gutter-shell, .np-row-shell {
             position: relative;
             background: var(--bg, #fff);
             will-change: transform;
         }
-        .np-row {
-            position: relative;      /* kotwica dla chipu wyniku podczas edycji */
+        .np-gutter-row, .np-row {
+            position: relative;
             display: flex;
-            align-items: flex-end;   /* chip wyniku przy OSTATNIEJ linii zawiniętego wiersza */
+            align-items: flex-end;
             gap: 8px;
-            padding: 0 8px;
-            min-height: 2rem;        /* dotykowy cel; 1rem × line-height 2 */
+            padding: 0 8px 0 4px;
+            min-height: 2rem;
         }
+        .np-gutter-row.np-total .np-res { background: var(--primary); color: #fff; }
+        .np-gutter-row.np-subtotal .np-res { background: var(--primary-light, rgba(37, 99, 235, 0.18)); color: var(--primary); }
+        .np-gutter-row.np-warn .np-res.np-res-warn {
+            display: inline-block;
+            color: var(--text-muted);
+            font-weight: 500;
+            opacity: 0.65;
+            pointer-events: none;
+        }
+        .np-gutter-row:not(.np-has):not(.np-warn) .np-res { display: none; }
+        .np-gutter-row:not(.np-has).np-warn .np-res { display: inline-block; }
+        .np-editor.np-editing .np-gutter-row .np-res {
+            opacity: 0.45;
+            pointer-events: none;
+        }
+        /* Tryb fold: ukryj treść, pokaż etykiety; tap → edycja */
+        .np-editor.np-fold:not(.np-editing) .np-text {
+            color: transparent;
+            caret-color: transparent;
+        }
+        .np-editor.np-fold:not(.np-editing) .np-fold-layer { pointer-events: auto; }
+        .np-editor.np-fold.np-editing .np-fold-layer { opacity: 0; pointer-events: none; }
+        /* Legacy row styles (tests / stare klasy) */
         .np-line, .np-label {
             font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
             font-size: 1rem;
@@ -2471,6 +2576,10 @@
             overflow: hidden;
             white-space: pre-wrap;
             overflow-wrap: anywhere;
+            user-select: text;
+            -webkit-user-select: text;
+            -webkit-touch-callout: default; /* iOS: zaznacz / kopiuj przy long-press w polu */
+            touch-action: manipulation;
         }
         .np-label {
             display: none;            /* widoczna tylko w trybie fold (zamiast inputu) */
@@ -2537,10 +2646,7 @@
             margin-left: 2px;
             padding-left: 8px;
         }
-        /* Tryb fold: zwiń wyrażenie do wyniku; tap/klik w wiersz odsłania input do edycji.
-           UWAGA: `.np-editing` (dodawana przy tapie) MUSI odsłonić pole ZANIM je sfokusujemy — nie da się
-           sfokusować elementu `display:none`, więc samo `:focus-within` nie wystarcza (był bug: trzeba było
-           przytrzymać palcem zamiast tapnąć). [[project_kalkulator_notepad_planning]] */
+        /* Tryb fold (legacy .np-row — zachowane dla kompatybilności) */
         .np-editor.np-fold .np-row.np-has:not(:focus-within):not(.np-editing) .np-line { display: none; }
         .np-editor.np-fold .np-row.np-has:not(:focus-within):not(.np-editing) .np-label {
             display: block;

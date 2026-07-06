@@ -7793,6 +7793,7 @@
             wsFovResult: 'FOV', wsFovNeedResult: 'FOV potrzebny', wsElResult: 'Przewód',
             wsEnResult: 'Energia', wsVdResult: 'Spadek napięcia', wsConvResult: 'Konwersja'
         };
+        var npBody = null, npMirror = null, npGutter = null, npFoldLayer = null; // [EN] jedno pole — zaznaczanie wielu linii
         function appendToNotepad(lineOrLines, opts) { // T1-2 — dopisz linię(e) do aktywnej notatki
             opts = opts || {};
             var lines = (Array.isArray(lineOrLines) ? lineOrLines : [lineOrLines])
@@ -7803,21 +7804,18 @@
                 _npCurrentId = _npNotes[0].id;
             }
             var notepadOpen = document.body.classList.contains('notepad-open');
-            if (notepadOpen && npEditor) {
+            if (notepadOpen) {
+                setupNpEditor();
                 _npStashCurrent();
-                lines.forEach(function(line) { npEditor.appendChild(_npMakeRow(line)); });
+                var curOpen = npBody.value;
+                var addOpen = lines.join('\n');
+                npBody.value = curOpen ? (curOpen.replace(/\n$/, '') + '\n' + addOpen) : addOpen;
                 _npCommit();
-                _npGrowAll();
                 if (opts.focus !== false) {
-                    var lastInp = npEditor.querySelector('.np-row-wrap:last-child .np-line');
-                    if (lastInp) {
-                        var row = lastInp.closest('.np-row');
-                        if (row) row.classList.add('np-editing');
-                        lastInp.focus();
-                        var L = lastInp.value.length;
-                        try { lastInp.setSelectionRange(L, L); } catch (e) {}
-                        requestAnimationFrame(function() { try { row.scrollIntoView({ block: 'nearest' }); } catch (e2) {} });
-                    }
+                    npBody.focus();
+                    var L = npBody.value.length;
+                    try { npBody.setSelectionRange(L, L); } catch (e) {}
+                    requestAnimationFrame(function() { try { npBody.scrollIntoView({ block: 'nearest' }); } catch (e2) {} });
                 }
             } else {
                 var n = _npCurrentNote();
@@ -8191,66 +8189,80 @@
             return 'header';
         }
 
-        // ── Edytor wierszowy: każdy wiersz = natywny <input> (najlepsze odczucie edycji/dotyku)
-        // + chip wyniku na końcu linii. Hover/tap chipu → dymek z rozpisanym równaniem. Tryb fold
-        // (ustawienie) chowa wyrażenie i pokazuje sam wynik, aż klikniesz wiersz. [[project_kalkulator_notepad_planning]]
+        // ── Edytor: jedno textarea (zaznaczanie wielu linii) + gutter z wynikami per linia [[project_kalkulator_notepad_planning]]
+        function setupNpEditor() {
+            if (!npEditor || npBody) return;
+            npEditor.replaceChildren();
+            var inner = document.createElement('div');
+            inner.className = 'np-editor-inner';
+            npMirror = document.createElement('div');
+            npMirror.className = 'np-mirror';
+            npMirror.setAttribute('aria-hidden', 'true');
+            npFoldLayer = document.createElement('div');
+            npFoldLayer.className = 'np-fold-layer';
+            npFoldLayer.setAttribute('aria-hidden', 'true');
+            npBody = document.createElement('textarea');
+            npBody.className = 'np-text'; // [EN] not .np-body — that class is the modal shell in index.html
+            npBody.setAttribute('aria-label', 'Notatnik');
+            npBody.setAttribute('enterkeyhint', 'enter');
+            npBody.setAttribute('placeholder', 'Pisz… np. „Nocleg: 3 * 180", potem „razem"   (Enter = nowa linia)');
+            npBody.spellcheck = false;
+            npBody.autocapitalize = 'off';
+            npBody.autocomplete = 'off';
+            npBody.rows = 1;
+            npGutter = document.createElement('div');
+            npGutter.className = 'np-gutter';
+            inner.appendChild(npMirror);
+            inner.appendChild(npFoldLayer);
+            inner.appendChild(npBody);
+            inner.appendChild(npGutter);
+            npEditor.appendChild(inner);
+            npBody.addEventListener('input', function() { _npCommit(); });
+            npEditor.addEventListener('scroll', function() { _npSyncEditorScroll(); npHideTip(); });
+            npBody.addEventListener('focus', function() {
+                if (npEditor) npEditor.classList.add('np-editing');
+                requestAnimationFrame(function() { try { npBody.scrollIntoView({ block: 'nearest' }); } catch (_) {} });
+            });
+            npBody.addEventListener('blur', function() { if (npEditor) npEditor.classList.remove('np-editing'); });
+            npFoldLayer.addEventListener('click', function(e) {
+                var row = e.target.closest('[data-np-line]');
+                if (row) _npFocusLine(parseInt(row.getAttribute('data-np-line'), 10));
+            });
+            window.addEventListener('resize', function() {
+                if (npBody && document.body.classList.contains('notepad-open')) npRecompute();
+            });
+        }
         function _npSerialize() {
-            if (!npEditor) return '';
-            return Array.prototype.map.call(npEditor.querySelectorAll('.np-line'), function(inp) { return inp.value; }).join('\n');
+            return npBody ? npBody.value : '';
         }
-        // Wiersz = <textarea rows=1> (NIE <input>): zawija długie linie zamiast je ucinać i — kluczowe
-        // na telefonach — daje na klawiaturze realny klawisz „Enter/↵", a nie „Dalej" (który w <input>
-        // przeskakuje fokus i blokował pisanie w kolejnych liniach). Wysokość auto-rośnie do treści.
-        function _npMeasure(el) {
-            el.style.height = 'auto';
-            el.style.height = el.scrollHeight + 'px';
-            // Odróżnij ZAWINIĘTY wiersz (jedna pozycja na kilku liniach) od osobnych „enterów":
-            // wieloliniowy wiersz dostaje subtelną lewą listwę, żeby było widać, że to wciąż JEDNA linia.
-            var row = el.closest && el.closest('.np-row');
-            if (row) {
-                var lh = parseFloat(getComputedStyle(el).lineHeight) || 32;
-                row.classList.toggle('np-wrapped', el.scrollHeight > lh * 1.4);
-            }
+        function _npFocusLine(idx) {
+            if (!npBody || !isFinite(idx)) return;
+            var parts = npBody.value.split('\n');
+            var pos = 0;
+            for (var i = 0; i < idx && i < parts.length; i++) pos += parts[i].length + 1;
+            npBody.focus();
+            try { npBody.setSelectionRange(pos, pos); } catch (e) {}
         }
-        function _npAutoGrow(el) {
-            if (!el) return;
-            _npMeasure(el);
-            // Druga miara po reflow: część mobilnych przeglądarek zwraca tuż po „input" jeszcze STARY
-            // scrollHeight (zawinięta linia bywała niewidoczna do następnego zdarzenia/Entera) — rAF to łata.
-            requestAnimationFrame(function() { _npMeasure(el); });
+        function _npDeleteLineAt(idx) {
+            if (!npBody || !isFinite(idx)) return;
+            var parts = npBody.value.split('\n');
+            if (parts.length <= 1) parts[0] = '';
+            else parts.splice(idx, 1);
+            npBody.value = parts.join('\n');
+            _npCommit();
         }
-        function _npGrowAll() {
+        function _npSyncEditorScroll() {
             if (!npEditor) return;
-            Array.prototype.forEach.call(npEditor.querySelectorAll('.np-line'), _npAutoGrow);
+            var st = npEditor.scrollTop;
+            if (npMirror) npMirror.scrollTop = st;
+            if (npFoldLayer) npFoldLayer.scrollTop = st;
+            if (npGutter) npGutter.scrollTop = st;
         }
-        function _npMakeRow(text) {
-            var wrap = document.createElement('div');
-            wrap.className = 'np-row-wrap';
-            var delBtn = document.createElement('button');
-            delBtn.type = 'button';
-            delBtn.className = 'np-row-delete';
-            delBtn.textContent = 'Usuń';
-            delBtn.setAttribute('aria-label', 'Usuń wiersz');
-            delBtn.tabIndex = -1;
-            var shell = document.createElement('div');
-            shell.className = 'np-row-shell';
-            var row = document.createElement('div');
-            row.className = 'np-row';
-            var input = document.createElement('textarea');
-            input.className = 'np-line';
-            input.rows = 1;
-            input.value = text || '';
-            input.autocapitalize = 'off'; input.autocomplete = 'off'; input.spellcheck = false;
-            input.setAttribute('enterkeyhint', 'enter'); // mobilna klawiatura: „↵" zamiast „Dalej"
-            input.setAttribute('aria-label', 'Linia notatnika');
-            var label = document.createElement('span'); // widoczna tylko w trybie fold (zamiast inputu)
-            label.className = 'np-label';
-            label.setAttribute('aria-hidden', 'true');
+        function _npMakeResChip(info, kind) {
             var res = document.createElement('button');
             res.type = 'button';
             res.className = 'np-res';
             res.tabIndex = -1;
-            res.style.display = 'none';
             res.setAttribute('data-hint', '');
             res.setAttribute('data-hint-from', 'data-eq');
             res.setAttribute('data-hint-anchor', 'element');
@@ -8258,50 +8270,32 @@
             res.setAttribute('data-hint-tap', '');
             res.setAttribute('data-hint-fade', '');
             res.setAttribute('data-hint-class', 'np-eq');
-            row.appendChild(input);
-            row.appendChild(label);
-            row.appendChild(res);
-            shell.appendChild(row);
-            wrap.appendChild(delBtn);
-            wrap.appendChild(shell);
-            _bindNpRowSwipe(wrap, shell, delBtn);
-            return wrap;
+            if (kind === 'warn') {
+                res.textContent = '—';
+                res.classList.add('np-res-warn');
+            } else if (kind === 'calc' || kind === 'total' || kind === 'subtotal') {
+                if (_needsTightMarkup(info.text)) _setResultMarkup(res, info.text);
+                else res.textContent = info.text;
+                res.dataset.eq = info.resolved || info.exprPart || '';
+                res.setAttribute('aria-label', 'Wynik ' + info.text + (res.dataset.eq ? ', z: ' + res.dataset.eq : ''));
+            }
+            return res;
         }
         var _NP_ROW_SWIPE_OPEN = -72;
-        function _npRowSetX(shell, x, animate) {
-            shell.style.transition = animate ? '' : 'none';
-            shell.style.transform = x ? ('translateX(' + x + 'px)') : '';
+        function _npRowSetX(el, x, animate) {
+            el.style.transition = animate ? '' : 'none';
+            el.style.transform = x ? ('translateX(' + x + 'px)') : '';
         }
-        function _npRowSwipeClose(wrap, shell) {
-            wrap.classList.remove('swiped', 'swiping');
-            _npRowSetX(shell, 0, true);
-        }
-        function _npRowSwipeOpen(wrap, shell) {
-            wrap.classList.remove('swiping');
-            wrap.classList.add('swiped');
-            _npRowSetX(shell, _NP_ROW_SWIPE_OPEN, true);
-        }
-        function _npDeleteRowWrap(wrap) {
-            if (!npEditor || !wrap) return;
-            var wraps = npEditor.querySelectorAll('.np-row-wrap');
-            if (wraps.length <= 1) {
-                var inp = wrap.querySelector('.np-line');
-                if (inp) inp.value = '';
-            } else npEditor.removeChild(wrap);
-            _npCommit();
-            _npGrowAll();
-        }
-        function _bindNpRowSwipe(wrap, shell, delBtn) {
+        function _bindNpGutterSwipe(wrap, shell, delBtn, lineIdx) {
             var startX = 0, startY = 0, dragging = false, decided = false, horizontal = false, curX = 0;
             delBtn.addEventListener('click', function(e) {
                 e.preventDefault(); e.stopPropagation();
                 if (!wrap.classList.contains('swiped') && !wrap.classList.contains('swiping')) return;
                 hapticTap(20);
-                _npDeleteRowWrap(wrap);
+                _npDeleteLineAt(lineIdx);
             });
             shell.addEventListener('pointerdown', function(e) {
                 if (e.target.closest('.np-res')) return;
-                if (e.target.closest('.np-line')) return; // [EN] native text selection in textarea — no swipe/long-press hijack
                 if (e.pointerType === 'mouse' && e.button !== 0) return;
                 startX = e.clientX; startY = e.clientY;
                 dragging = true; decided = false; horizontal = false;
@@ -8315,7 +8309,6 @@
                     decided = true;
                     horizontal = Math.abs(dx) > Math.abs(dy);
                     if (horizontal) {
-                        try { shell.dispatchEvent(new Event('pointerleave')); } catch (_) {}
                         try { shell.setPointerCapture(e.pointerId); } catch (_) {}
                         wrap.classList.add('swiping');
                     }
@@ -8333,58 +8326,96 @@
                 if (!dragging) return;
                 dragging = false;
                 if (!horizontal) return;
-                if (curX <= _NP_ROW_SWIPE_OPEN / 2) _npRowSwipeOpen(wrap, shell);
-                else _npRowSwipeClose(wrap, shell);
+                if (curX <= _NP_ROW_SWIPE_OPEN / 2) {
+                    wrap.classList.remove('swiping');
+                    wrap.classList.add('swiped');
+                    _npRowSetX(shell, _NP_ROW_SWIPE_OPEN, true);
+                } else {
+                    wrap.classList.remove('swiped', 'swiping');
+                    _npRowSetX(shell, 0, true);
+                }
             }
             shell.addEventListener('pointerup', settle);
             shell.addEventListener('pointercancel', settle);
             shell.addEventListener('click', function() {
-                if (wrap.classList.contains('swiped')) _npRowSwipeClose(wrap, shell);
+                if (wrap.classList.contains('swiped')) {
+                    wrap.classList.remove('swiped', 'swiping');
+                    _npRowSetX(shell, 0, true);
+                }
             });
         }
-        function npRecompute() {
-            if (!npEditor) return;
-            var wraps = npEditor.querySelectorAll('.np-row-wrap');
-            var infos = evalNotepadLines(_npSerialize());
-            wraps.forEach(function(wrap, i) {
-                var row = wrap.querySelector('.np-row');
-                if (!row) return;
-                var info = infos[i] || {};
-                var res = row.querySelector('.np-res');
-                var label = row.querySelector('.np-label');
-                var lineTrim = String((infos[i] && infos[i].raw) || '').trim();
-                var kind = _npLineKind(info, lineTrim);
-                var has = kind === 'calc' || kind === 'total' || kind === 'subtotal';
-                row.classList.toggle('np-has', has);
-                row.classList.toggle('np-total', kind === 'total');
-                row.classList.toggle('np-subtotal', kind === 'subtotal');
-                row.classList.toggle('np-header', kind === 'header');
-                row.classList.toggle('np-section', kind === 'section');
-                row.classList.toggle('np-warn', kind === 'warn');
-                res.classList.remove('np-res-warn');
-                if (kind === 'warn') {
-                    res.textContent = '—';
-                    res.classList.add('np-res-warn');
-                    res.style.display = '';
-                    delete res.dataset.eq;
-                    res.removeAttribute('aria-label');
-                } else if (has) {
-                    if (_needsTightMarkup(info.text)) _setResultMarkup(res, info.text);
-                    else res.textContent = info.text;
-                    res.style.display = '';
-                    res.dataset.eq = info.resolved || info.exprPart || '';
-                    res.setAttribute('aria-label', 'Wynik ' + info.text + (res.dataset.eq ? ', z: ' + res.dataset.eq : ''));
-                } else {
-                    res.textContent = '';
-                    res.style.display = 'none';
-                    delete res.dataset.eq;
-                    res.removeAttribute('aria-label');
-                }
-                label.textContent = info.labelPart || (kind === 'section' ? '— — —' : '');
+        function _npRenderEditorChrome(lines, infos) {
+            if (!npBody || !npMirror || !npGutter || !npFoldLayer) return;
+            var folded = !!(STATE.settings && STATE.settings.notepadFold);
+            npMirror.replaceChildren();
+            npGutter.replaceChildren();
+            npFoldLayer.replaceChildren();
+            if (!lines.length) lines = [''];
+            lines.forEach(function(line, i) {
+                var md = document.createElement('div');
+                md.className = 'np-mirror-line';
+                md.textContent = line.length ? line : '\u00a0';
+                npMirror.appendChild(md);
             });
-            npEditor.classList.toggle('np-fold', !!(STATE.settings && STATE.settings.notepadFold));
+            var mirrorLines = npMirror.querySelectorAll('.np-mirror-line');
+            mirrorLines.forEach(function(md, i) {
+                var h = md.offsetHeight || 32;
+                var info = infos[i] || {};
+                var lineTrim = String((info.raw != null ? info.raw : lines[i]) || '').trim();
+                var kind = _npLineKind(info, lineTrim);
+                var gWrap = document.createElement('div');
+                gWrap.className = 'np-gutter-wrap';
+                gWrap.style.height = h + 'px';
+                gWrap.style.minHeight = h + 'px';
+                var delBtn = document.createElement('button');
+                delBtn.type = 'button';
+                delBtn.className = 'np-row-delete';
+                delBtn.textContent = 'Usuń';
+                delBtn.setAttribute('aria-label', 'Usuń wiersz');
+                delBtn.tabIndex = -1;
+                var shell = document.createElement('div');
+                shell.className = 'np-gutter-shell';
+                var gRow = document.createElement('div');
+                gRow.className = 'np-gutter-row np-' + kind + (kind === 'calc' || kind === 'total' || kind === 'subtotal' ? ' np-has' : '') + (kind === 'warn' ? ' np-warn' : '');
+                var hasChip = kind === 'calc' || kind === 'total' || kind === 'subtotal' || kind === 'warn';
+                if (hasChip) gRow.appendChild(_npMakeResChip(info, kind));
+                shell.appendChild(gRow);
+                gWrap.appendChild(delBtn);
+                gWrap.appendChild(shell);
+                _bindNpGutterSwipe(gWrap, shell, delBtn, i);
+                npGutter.appendChild(gWrap);
+                if (folded) {
+                    var fRow = document.createElement('button');
+                    fRow.type = 'button';
+                    fRow.className = 'np-fold-row';
+                    fRow.setAttribute('data-np-line', String(i));
+                    fRow.style.height = h + 'px';
+                    fRow.style.minHeight = h + 'px';
+                    var labelTxt = (info.labelPart && info.labelPart.replace(/:\s*$/, '').trim()) || lineTrim;
+                    if (kind === 'section') labelTxt = '— — —';
+                    fRow.textContent = labelTxt || '\u00a0';
+                    npFoldLayer.appendChild(fRow);
+                }
+            });
+            npBody.style.height = 'auto';
+            npBody.style.height = Math.max(npMirror.scrollHeight, 48) + 'px';
+            _npSyncEditorScroll();
+        }
+        function npRecompute() {
+            if (!npBody) return;
+            var text = npBody.value;
+            var lines = text.split('\n');
+            var infos = evalNotepadLines(text);
+            _npRenderEditorChrome(lines, infos);
+            if (npEditor) npEditor.classList.toggle('np-fold', !!(STATE.settings && STATE.settings.notepadFold));
             npBindHints();
             npRenderVarsPanel();
+        }
+        function npBuildRows(text) {
+            setupNpEditor();
+            if (!npBody) return;
+            npBody.value = String(text == null ? '' : text);
+            npRecompute();
         }
         function npRenderVarsPanel() {
             if (!npVarsPanel) return;
@@ -8418,52 +8449,15 @@
             fillChips(npVarsLocalChips, lKeys, data.locals, data.localUnits);
         }
         function _npInsertVarName(name) {
-            if (!npEditor) return;
+            if (!npBody) return;
             var token = '@' + String(name || '').replace(/^@+/, '');
-            var active = document.activeElement;
-            var inp = (active && active.classList && active.classList.contains('np-line'))
-                ? active : npEditor.querySelector('.np-row-wrap:last-child .np-line');
-            if (!inp) return;
-            var start = inp.selectionStart != null ? inp.selectionStart : inp.value.length;
-            var end = inp.selectionEnd != null ? inp.selectionEnd : start;
-            var v = inp.value;
-            inp.value = v.slice(0, start) + token + v.slice(end);
+            var start = npBody.selectionStart != null ? npBody.selectionStart : npBody.value.length;
+            var end = npBody.selectionEnd != null ? npBody.selectionEnd : start;
+            var v = npBody.value;
+            npBody.value = v.slice(0, start) + token + v.slice(end);
             var pos = start + token.length;
-            try { inp.focus(); inp.setSelectionRange(pos, pos); } catch (e) {}
-            _npAutoGrow(inp);
+            try { npBody.focus(); npBody.setSelectionRange(pos, pos); } catch (e) {}
             _npCommit();
-        }
-        function npBuildRows(text) {
-            if (!npEditor) return;
-            npEditor.replaceChildren();
-            var lines = String(text == null ? '' : text).split('\n');
-            if (!lines.length) lines = [''];
-            lines.forEach(function(l) { npEditor.appendChild(_npMakeRow(l)); });
-            var first = npEditor.querySelector('.np-line');
-            if (first) first.placeholder = 'Pisz… np. „Nocleg: 3 * 180", potem „razem"   (Enter = nowa linia)';
-            npRecompute();
-            _npGrowAll();
-        }
-        // Rozbij wartość zawierającą „\n" na osobne wiersze. Potrzebne na telefonach: część klawiatur
-        // (Android) wstawia znak nowej linii zamiast wywołać keydown „Enter" — łapiemy to w „input"
-        // i dzielimy wiersz tak samo, jakby naciśnięto Enter. [[project_kalkulator_notepad_planning]]
-        function _npSplitNewlines(el) {
-            var row = el.closest('.np-row');
-            var wrap = el.closest('.np-row-wrap');
-            if (!row || !wrap) return;
-            var parts = el.value.split('\n');
-            el.value = parts[0];
-            var ref = wrap.nextSibling, lastNew = null;
-            for (var i = 1; i < parts.length; i++) {
-                var nr = _npMakeRow(parts[i]);
-                if (ref) npEditor.insertBefore(nr, ref); else npEditor.appendChild(nr);
-                lastNew = nr;
-            }
-            _npCommit();
-            _npGrowAll();
-            var focusWrap = lastNew || wrap;
-            var fi = focusWrap.querySelector('.np-line');
-            if (fi) { fi.focus(); fi.setSelectionRange(0, 0); }
         }
         // ── Wiele notatek ─────────────────────────────────────────────
         function _npNewId() { return 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
@@ -8561,8 +8555,8 @@
             flushNotepadPersist();
             _npLoadCurrent();
             npCloseList();
-            var f = npEditor && npEditor.querySelector('.np-line');
-            if (f) { f.focus(); var L = f.value.length; f.setSelectionRange(L, L); }
+            var f = npBody;
+            if (f) { f.focus(); var L = f.value.length; try { f.setSelectionRange(L, L); } catch (_) {} }
         }
         function npNewNote() {
             _npStashCurrent();
@@ -8572,8 +8566,7 @@
             flushNotepadPersist();
             _npLoadCurrent();
             npCloseList();
-            var f = npEditor && npEditor.querySelector('.np-line');
-            if (f) f.focus();
+            if (npBody) npBody.focus();
         }
         function npDeleteNote(id) {
             var wasCurrent = id === _npCurrentId;
@@ -8686,15 +8679,11 @@
             syncFoldSetting(STATE.settings.notepadFold); // sync ⚙️
             updateFoldBtn();
             npRecompute(); // natychmiast, bez zamykania notatnika
-            // Przy wyłączeniu fold linie wracają z display:none → ich wysokość była zmierzona jako 0
-            // (textarea ukryta nie ma scrollHeight). Bez ponownego pomiaru tekst zostałby NIEWIDOCZNY
-            // (wysokość 0) aż do tapnięcia. _npGrowAll mierzy je teraz, gdy są już widoczne.
-            _npGrowAll();
         }
 
         // Dymek z rozpisanym równaniem obsługuje silnik cursor-hint (js/cursor-hint.js):
         // hover (desktop, kotwica nad chipem), tap = zerknięcie, przytrzymanie = trzymaj.
-        // Chipy .np-res same noszą atrybuty data-hint-* (patrz _npMakeRow). Wiążemy je LOKALNIE
+        // Chipy .np-res same noszą atrybuty data-hint-* (patrz _npMakeResChip). Wiążemy je LOKALNIE
         // po każdym przeliczeniu wierszy (idempotentnie — silnik pomija już-podpięte), zamiast
         // globalnego MutationObserver na body — kalkulator ma za dużo zmian DOM przy pisaniu.
         var _npHintCtl = (window.MateuszCursorHint && window.MateuszCursorHint.createCursorHintController)
@@ -8707,69 +8696,6 @@
         function npBindHints() { if (_npHintCtl && npEditor) _npHintCtl.setupCursorHint(npEditor.querySelectorAll('.np-res')); }
         if (_npHintCtl && calcApprox) _npHintCtl.setupCursorHint([calcApprox]); // dymek dokładnej wartości przy ≈
         function npHideTip() { if (_npHintCtl && _npHintCtl.hideHint) _npHintCtl.hideHint(); }
-        // Scala bieżący wiersz z poprzednim (kursor na początku linii → Backspace przenosi w górę).
-        // Wydzielone, bo wołane z DWÓCH ścieżek: keydown (laptop) i beforeinput (mobilne klawiatury,
-        // które nie zawsze wysyłają keydown 'Backspace'). Zwraca true gdy scalono (caller robi preventDefault).
-        // Czy keydown to „backspace"? Na PUSTYM polu klawiatury Androida (Samsung/Gboard) często
-        // wysyłają keyCode 8 z key='Unidentified' (samo e.key==='Backspace' nie wystarcza), a
-        // beforeinput/deleteContentBackward NIE odpala, bo nie ma czego usunąć. NIE łapiemy 229 —
-        // to kompozycja IME przy normalnym pisaniu (inaczej pierwsza litera scalałaby wiersz w górę).
-        function _npIsBackspaceKey(e) {
-            return e.key === 'Backspace' || e.keyCode === 8 || e.which === 8;
-        }
-        function _npMergeBack(input) {
-            var row = input.closest('.np-row');
-            var wrap = input.closest('.np-row-wrap');
-            if (!row || !wrap) return false;
-            var prevWrap = wrap.previousElementSibling;
-            if (!prevWrap) return false;
-            var pinp = prevWrap.querySelector('.np-line');
-            var prevRow = prevWrap.querySelector('.np-row');
-            var at = pinp.value.length;
-            pinp.value = pinp.value + input.value;
-            npEditor.removeChild(wrap);
-            _npCommit();
-            if (prevRow) prevRow.classList.add('np-editing');
-            _npAutoGrow(pinp);
-            pinp.focus();
-            try { pinp.setSelectionRange(at, at); } catch (_) {}
-            return true;
-        }
-        function npRowKeydown(e) {
-            var input = e.target;
-            if (!input.classList || !input.classList.contains('np-line')) return;
-            var row = input.closest('.np-row');
-            var wrap = input.closest('.np-row-wrap');
-            if (!row || !wrap) return;
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                var pos = input.selectionStart != null ? input.selectionStart : input.value.length;
-                var left = input.value.slice(0, pos), right = input.value.slice(pos);
-                input.value = left;
-                var newWrap = _npMakeRow(right);
-                if (wrap.nextSibling) npEditor.insertBefore(newWrap, wrap.nextSibling);
-                else npEditor.appendChild(newWrap);
-                _npCommit();
-                _npAutoGrow(input);
-                var ni = newWrap.querySelector('.np-line');
-                _npAutoGrow(ni);
-                ni.focus(); ni.setSelectionRange(0, 0);
-            } else if (_npIsBackspaceKey(e) && input.selectionStart === 0 && input.selectionEnd === 0) {
-                if (_npMergeBack(input)) e.preventDefault();
-            } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-                var goUp = e.key === 'ArrowUp';
-                var atStart = input.selectionStart === 0 && input.selectionEnd === 0;
-                var atEnd = input.selectionStart === input.value.length && input.selectionEnd === input.value.length;
-                if ((goUp && !atStart) || (!goUp && !atEnd)) return;
-                var sibWrap = goUp ? wrap.previousElementSibling : wrap.nextElementSibling;
-                if (sibWrap) {
-                    e.preventDefault();
-                    var s = sibWrap.querySelector('.np-line');
-                    var col = Math.min(input.selectionStart || 0, s.value.length);
-                    s.focus(); s.setSelectionRange(col, col);
-                }
-            }
-        }
         // Klawiatura ekranowa na telefonie zasłaniałaby dolne wiersze (nakładka jest fixed/inset:0,
         // więc rośnie pod klawiaturę). Kurczymy nakładkę do OBSZARU WIDOCZNEGO (visualViewport) —
         // tak jak natywny notatnik: pisana linia zawsze nad klawiaturą. Brak API = no-op (desktop OK).
@@ -8819,8 +8745,7 @@
             // ukrytego pola (inaczej aria-hidden + fokus = ostrzeżenie a11y).
             setTimeout(function() {
                 if (!document.body.classList.contains('notepad-open')) return;
-                var first = npEditor && npEditor.querySelector('.np-line');
-                if (first) { first.focus(); var L = first.value.length; first.setSelectionRange(L, L); }
+                if (npBody) { npBody.focus(); var L = npBody.value.length; try { npBody.setSelectionRange(L, L); } catch (_) {} }
             }, 60);
         }
         function closeNotepad() {
@@ -8933,77 +8858,10 @@
             });
         }
         if (npEditor) {
-            // Backspace na początku linii — niezawodnie na MOBILE. Wiele klawiatur ekranowych
-            // (Android/IME, część iOS) nie wysyła keydown 'Backspace' (keyCode 229), więc scalanie
-            // wsteczne z npRowKeydown nie odpalało. beforeinput/deleteContentBackward łapie intencję
-            // usunięcia także gdy w polu nie ma co usuwać (kursor na pozycji 0) → scalamy w górę.
-            npEditor.addEventListener('beforeinput', function(e) {
-                var el = e.target;
-                if (!el.classList || !el.classList.contains('np-line')) return;
-                if ((e.inputType === 'deleteContentBackward' || e.inputType === 'deleteWordBackward')
-                    && el.selectionStart === 0 && el.selectionEnd === 0) {
-                    if (_npMergeBack(el)) e.preventDefault();
-                }
-            });
-            npEditor.addEventListener('input', function(e) {
-                var el = e.target;
-                if (!el.classList || !el.classList.contains('np-line')) return;
-                if (el.value.indexOf('\n') !== -1) { _npSplitNewlines(el); return; } // „Enter/Dalej" na mobile
-                _npAutoGrow(el);
-                _npCommit();
-            });
-            // Fokus (klik/tab/programowo) na wierszu → dopasuj wysokość (np. po odsłonięciu z trybu fold)
-            // i przewiń aktywny wiersz do widoku (po skurczeniu nakładki nad klawiaturę), jak natywny notatnik.
-            npEditor.addEventListener('focusin', function(e) {
-                if (!e.target.classList || !e.target.classList.contains('np-line')) return;
-                _npAutoGrow(e.target);
-                var row = e.target.closest('.np-row');
-                if (row) requestAnimationFrame(function() { try { row.scrollIntoView({ block: 'nearest' }); } catch (_) {} });
-            });
-            // Utrata fokusu: chip wraca do flow → pole WĘŻSZE → tekst może zawinąć się na więcej linii.
-            // Bez przeliczenia wysokość zostałaby z szerszego stanu i ucięłaby ostatnią linię (overflow:hidden).
-            npEditor.addEventListener('focusout', function(e) {
-                if (e.target.classList && e.target.classList.contains('np-line')) {
-                    _npAutoGrow(e.target);
-                    var r = e.target.closest('.np-row'); // zdejmij bridge edycji → wiersz znów się zwija (fold)
-                    if (r) r.classList.remove('np-editing');
-                }
-            });
-            npEditor.addEventListener('keydown', npRowKeydown);
             npEditor.addEventListener('click', function(e) {
-                // Tap/klik chipu wyniku obsługuje cursor-hint (zerknięcie/przytrzymanie) —
-                // nie wchodź w edycję wiersza i nie reaguj tu dodatkowo.
                 if (e.target.closest('.np-res')) { e.stopPropagation(); return; }
-                if (e.target.closest('.np-line')) return; // [EN] tap/drag in textarea — native caret & selection
                 npHideTip();
-                var row = e.target.closest('.np-row'); // klik/tap w wiersz (tryb fold) → edycja
-                if (row) {
-                    var inp = row.querySelector('.np-line');
-                    if (inp && document.activeElement !== inp) {
-                        row.classList.add('np-editing'); // odsłoń ZANIM sfokusujesz (display:none blokuje focus)
-                        _npAutoGrow(inp);
-                        inp.focus();
-                        var L = inp.value.length; try { inp.setSelectionRange(L, L); } catch (e2) {}
-                    }
-                    return;
-                }
-                // Klik w PUSTE miejsce edytora (pod ostatnią linią) → kursor w ostatniej linii, jak w
-                // Apple Notes; gdy ostatnia linia niepusta, dorzuć świeżą poniżej. [[project_kalkulator_notepad_planning]]
-                if (e.target === npEditor) {
-                    var lines = npEditor.querySelectorAll('.np-line');
-                    var last = lines[lines.length - 1];
-                    if (last && last.value.trim() !== '') {
-                        var nr = _npMakeRow('');
-                        npEditor.appendChild(nr);
-                        _npCommit();
-                        last = nr.querySelector('.np-line');
-                    }
-                    if (last) { last.focus(); var L = last.value.length; last.setSelectionRange(L, L); }
-                }
             });
-            // Hover/dotyk chipów obsługuje silnik cursor-hint. Tu tylko chowamy dymek przy
-            // przewijaniu edytora (kotwica liczona z pozycji chipu zdezaktualizowałaby się).
-            npEditor.addEventListener('scroll', npHideTip);
         }
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && document.body.classList.contains('notepad-open')) {
