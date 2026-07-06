@@ -1011,9 +1011,10 @@
                     <p>Otwórz <strong>📝</strong> obok ⚙️. Każda linia liczy się sama (cała moc kalkulatora: jednostki, waluty, daty, stałe, własne jednostki), a wynik pojawia się na końcu linii. <strong>Naprowadź lub dotknij wynik</strong> — dymek pokaże, z jakiego równania pochodzi (np. <code>razem</code> → <code>294 + 540</code>). Stan zapisuje się sam.</p>
                     <p><strong>Wiele notatek:</strong> <strong>＋</strong> w nagłówku tworzy nową, <strong>📋</strong> otwiera listę wszystkich (tytuł = pierwsza linia) — dotknij, by przełączyć, kosz, by usunąć.</p>
                     <p><strong>Etykieta: działanie</strong> — tekst przed dwukropkiem pomijany w liczeniu: <code>Nocleg: 3 * 180</code> → 540. Linia bez działania (np. nagłówek <code>Wyjazd w góry</code>) zostaje czystym tekstem.</p>
-                    <p><strong>razem</strong> (lub <strong>suma</strong>) — suma wyników linii powyżej; działa też wewnątrz działania: <code>na osobę: razem / 5 os.</code> (linie używające „razem" nie wliczają się ponownie do sumy).</p>
-                    <p><strong>Etykiety-zmienne:</strong> jednowyrazowa etykieta staje się zmienną dla kolejnych linii <strong>tej samej notatki</strong>: <code>Paliwo: 294</code> → potem <code>paliwo * 2</code> = 588, <code>budżet - paliwo</code>. Działają w dół (po zdefiniowaniu).</p>
-                    <p><strong>Zmienna dzielona między notatkami:</strong> z prefiksem <code>@</code> — <code>@stawka: 50</code> jest widoczna we <strong>wszystkich</strong> notatkach (np. <code>stawka * 8</code> w innej). Nadal działa tylko w notatniku, nie w kalkulatorze standardowym.</p>
+                    <p><strong>razem</strong> (lub <strong>suma</strong>) — suma wyników linii powyżej od ostatniego <code>---</code>; <strong>półsuma</strong>/<strong>subtotal</strong> działają podobnie (inny styl). Linia <code>---</code> zaczyna nową sekcję (zeruje sumę).</p>
+                    <p><strong>Edycja:</strong> przesuń wiersz w lewo (poza polem tekstu), by usunąć. Tekst zaznaczasz normalnie — jak w zwykłym notatniku. Tytuł notatki zmienisz dotykając nagłówka.</p>
+                    <p><strong>Etykiety-zmienne:</strong> jednowyrazowa etykieta (<code>Paliwo: 294</code>) tworzy zmienną — używasz jej jako <code>@paliwo</code> w kolejnych liniach (sam tekst <code>paliwo</code> już NIE podstawia wartości). <code>półsuma</code>, <code>razem</code>, <code>suma:</code> też trafiają do panelu Zmienne.</p>
+                    <p><strong>Zmienna dzielona między notatkami:</strong> <code>@stawka: 50</code> (definicja) i potem <code>@stawka * 8</code> w innej notatce.</p>
                     <p>Tryb <strong>fold</strong> — linia pokazuje sam wynik zamiast działania (kliknij wiersz, by edytować). Przełączasz on/off przyciskiem <strong>⊟</strong> w nagłówku notatnika (działa od razu) albo w ⚙️ Ustawieniach.</p>
                     <p><strong>Niezdefiniowane jednostki</strong> wpisane wprost (np. <code>3 os</code>, <code>5 paczek</code>) liczą się jako bezwymiarowe — <code>3 os</code> → 3 os, <code>3 os × 180 zł</code> → 540 zł. W ⚙️ wybierzesz tryb: <strong>zachowawczo</strong> (proza bez wyniku) lub <strong>pełne auto</strong>.</p>
                 </section>
@@ -1470,11 +1471,12 @@
     ============================================================ -->
     <div class="np-backdrop" id="npBackdrop" aria-hidden="true"></div>
     <div class="notepad-modal" id="notepadModal" role="dialog" aria-modal="true"
-        aria-labelledby="npTitle" aria-hidden="true">
+        aria-labelledby="npTitleBtn" aria-hidden="true">
         <div class="np-head">
             <button class="np-head-btn" id="npListBtn" type="button" aria-label="Lista notatek" title="Notatki">📋</button>
             <button class="np-head-btn" id="npFoldBtn" type="button" aria-pressed="false" aria-label="Zwiń wyrażenia do wyników" title="Zwiń wyrażenia do wyników">⊟</button>
-            <h3 id="npTitle" class="np-title">📝 Notatnik</h3>
+            <button type="button" id="npTitleBtn" class="np-title-btn" aria-label="Tytuł notatki — dotknij, by zmienić">📝 Notatnik</button>
+            <input type="text" id="npTitleInput" class="np-title-input" hidden maxlength="80" aria-label="Edytuj tytuł notatki" autocomplete="off">
             <button class="np-head-btn" id="npExportBtn" type="button" aria-label="Eksportuj notatki" title="Eksportuj">⬆</button>
             <button class="np-head-btn" id="npNewBtn" type="button" aria-label="Nowa notatka" title="Nowa notatka">＋</button>
             <button class="settings-close" id="notepadClose" type="button" aria-label="Zamknij">✕</button>
@@ -1485,12 +1487,32 @@
             </div>
         </div>
         <div class="np-body">
+            <aside class="np-vars-panel" id="npVarsPanel" aria-label="Aktywne zmienne" hidden>
+                <button type="button" class="np-vars-toggle" id="npVarsToggle" aria-expanded="true">
+                    <span class="np-vars-toggle-label">Zmienne</span>
+                    <span class="np-vars-toggle-icon" aria-hidden="true">▾</span>
+                </button>
+                <div class="np-vars-body" id="npVarsBody">
+                    <div class="np-vars-group" id="npVarsGlobal" hidden>
+                        <span class="np-vars-group-label">@globalne</span>
+                        <div class="np-vars-chips" id="npVarsGlobalChips"></div>
+                    </div>
+                    <div class="np-vars-group" id="npVarsLocal" hidden>
+                        <span class="np-vars-group-label">w tej notatce</span>
+                        <div class="np-vars-chips" id="npVarsLocalChips"></div>
+                    </div>
+                </div>
+            </aside>
             <div class="np-editor" id="npEditor"></div>
-            <p class="np-hint">Każda linia liczy się osobno; wynik na końcu linii. <strong>Naprowadź lub dotknij wynik</strong>, by zobaczyć z jakiego równania pochodzi. <strong>Etykieta: działanie</strong> pomija etykietę; <strong>razem</strong>/<strong>suma</strong> = suma linii powyżej (też w działaniu: <code>na osobę: razem / 5 os.</code>). Własne jednostki (np. <code>os.</code>) dodasz w 📊 Moje Stałe.</p>
+            <details class="np-hint-details">
+                <summary>Porady notatnika</summary>
+                <p class="np-hint">Każda linia liczy się osobno; wynik na końcu linii. Zmienne używasz jako <code>@nazwa</code> (np. <code>@gips + @półsuma</code>). <strong>Przesuń wiersz w lewo</strong>, by usunąć; <strong>przytrzymaj wiersz</strong>, by powielić. <strong>razem</strong>/<strong>półsuma</strong> sumują od ostatniego <code>---</code> i trafiają do panelu Zmienne.</p>
+            </details>
             <aside class="np-list-panel" id="npListPanel" aria-hidden="true" aria-label="Twoje notatki">
                 <div class="np-list-head">Nowa z szablonu</div>
                 <div class="np-template-list" id="npTemplateList" role="list"></div>
                 <div class="np-list-head">Twoje notatki</div>
+                <input type="search" id="npListSearch" class="np-list-search" placeholder="Szukaj notatek…" autocomplete="off" enterkeyhint="search">
                 <ul class="np-list" id="npListUl"></ul>
             </aside>
         </div>

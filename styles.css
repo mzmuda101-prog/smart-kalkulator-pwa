@@ -2167,7 +2167,7 @@
             position: relative; /* anchor for export menu */
         }
         .np-head h3 { margin: 0; font-size: 1.15rem; }
-        .np-head .np-title {
+        .np-head .np-title-btn {
             flex: 1 1 auto;
             min-width: 0;
             text-align: center;
@@ -2175,7 +2175,32 @@
             overflow: hidden;
             text-overflow: ellipsis;
             margin: 0 4px;
+            border: none;
+            background: transparent;
+            font: inherit;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--text);
+            cursor: pointer;
+            padding: 4px 6px;
+            border-radius: var(--radius-sm);
+            -webkit-tap-highlight-color: transparent;
         }
+        .np-head .np-title-btn:active { background: var(--primary-light); }
+        .np-head .np-title-input {
+            flex: 1 1 auto;
+            min-width: 0;
+            margin: 0 4px;
+            padding: 4px 8px;
+            font: inherit;
+            font-size: 1rem;
+            font-weight: 600;
+            border: 1px solid var(--primary);
+            border-radius: var(--radius-sm);
+            background: var(--bg, #fff);
+            color: var(--text);
+        }
+        .np-head .np-title-input[hidden] { display: none !important; }
         .np-head-btn {
             flex: 0 0 auto;
             border: none;
@@ -2219,6 +2244,17 @@
             color: var(--text-muted);
             padding: 6px 6px 10px;
         }
+        .np-list-search {
+            flex: 0 0 auto;
+            margin: 0 6px 10px;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-size: 0.95rem;
+            background: var(--bg, #fff);
+            color: var(--text);
+        }
+        .np-list-search:focus { outline: 2px solid var(--primary-light); border-color: var(--primary); }
         .np-template-list {
             display: flex;
             flex-wrap: wrap;
@@ -2268,6 +2304,12 @@
             outline: none;
         }
         .np-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1 1 auto; }
+        .np-list-empty {
+            padding: 16px 10px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            text-align: center;
+        }
         .np-note-item {
             display: flex;
             align-items: center;
@@ -2304,6 +2346,58 @@
             -webkit-tap-highlight-color: transparent;
         }
         .np-note-del:active { background: var(--danger-light, rgba(220, 38, 38, 0.12)); }
+        /* Panel zmiennych (T3-12 / pakiet 2) */
+        .np-vars-panel {
+            flex: 0 0 auto;
+            margin: 0 2px 8px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--surface-2, var(--surface));
+            overflow: hidden;
+        }
+        .np-vars-panel[hidden] { display: none !important; }
+        .np-vars-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            border: none;
+            background: transparent;
+            padding: 8px 12px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .np-vars-toggle[aria-expanded="false"] + .np-vars-body { display: none; }
+        .np-vars-body { padding: 0 10px 10px; }
+        .np-vars-group { margin-top: 6px; }
+        .np-vars-group[hidden] { display: none !important; }
+        .np-vars-group-label {
+            display: block;
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+        .np-vars-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+        .np-var-chip {
+            border: 1px solid var(--border);
+            background: var(--bg, #fff);
+            color: var(--primary);
+            border-radius: 999px;
+            padding: 4px 10px;
+            font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .np-var-chip:active { background: var(--primary-light); }
+        .np-var-chip small { font-weight: 500; color: var(--text-muted); margin-left: 4px; }
         .np-editor {
             flex: 1 1 auto;
             min-height: 0;
@@ -2313,6 +2407,37 @@
             background: var(--bg, #fff);
             padding: 6px 2px;
             -webkit-overflow-scrolling: touch;
+        }
+        /* Swipe usuń wiersz — wzór z historii */
+        .np-row-wrap {
+            position: relative;
+            overflow: hidden;
+            touch-action: pan-y;
+        }
+        .np-row-delete {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 72px;
+            border: none;
+            background: var(--danger, #dc2626);
+            color: #fff;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.12s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .np-row-wrap.swiping .np-row-delete,
+        .np-row-wrap.swiped .np-row-delete { opacity: 1; pointer-events: auto; }
+        .np-row-delete:active { background: var(--danger-hover, #b91c1c); }
+        .np-row-shell {
+            position: relative;
+            background: var(--bg, #fff);
+            will-change: transform;
         }
         .np-row {
             position: relative;      /* kotwica dla chipu wyniku podczas edycji */
@@ -2388,7 +2513,23 @@
         }
         /* „razem"/„suma" zostają wyróżnione pełnym kafelkiem — to podsumowanie, nie zwykła pozycja. */
         .np-row.np-total .np-res { background: var(--primary); color: #fff; }
-        .np-row:not(.np-has) .np-res { display: none; }
+        .np-row.np-subtotal .np-res { background: var(--primary-light, rgba(37, 99, 235, 0.18)); color: var(--primary); }
+        .np-row.np-header .np-line { color: var(--text-muted); font-weight: 600; }
+        .np-row.np-section .np-line {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            letter-spacing: 0.12em;
+            text-align: center;
+        }
+        .np-row.np-warn .np-res.np-res-warn {
+            display: inline-block;
+            color: var(--text-muted);
+            font-weight: 500;
+            opacity: 0.65;
+            pointer-events: none;
+        }
+        .np-row:not(.np-has):not(.np-warn) .np-res { display: none; }
+        .np-row:not(.np-has).np-warn .np-res { display: inline-block; }
         /* Zawinięty wiersz (jedna pozycja na kilku liniach) — subtelna lewa listwa, by odróżnić
            zawijanie od osobnego „Entera" (każdy Enter = nowy wiersz, bez listwy). */
         .np-row.np-wrapped {
@@ -2401,8 +2542,18 @@
            sfokusować elementu `display:none`, więc samo `:focus-within` nie wystarcza (był bug: trzeba było
            przytrzymać palcem zamiast tapnąć). [[project_kalkulator_notepad_planning]] */
         .np-editor.np-fold .np-row.np-has:not(:focus-within):not(.np-editing) .np-line { display: none; }
-        .np-editor.np-fold .np-row.np-has:not(:focus-within):not(.np-editing) .np-label { display: inline-block; max-width: 60%; }
-        .np-editor.np-fold .np-row.np-has:not(:focus-within):not(.np-editing) .np-res { margin-left: 8px; }
+        .np-editor.np-fold .np-row.np-has:not(:focus-within):not(.np-editing) .np-label {
+            display: block;
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: none;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            line-height: 1.5;
+            padding: 0.25rem 0;
+        }
+        .np-editor.np-fold .np-row.np-has:not(:focus-within):not(.np-editing) { align-items: center; }
+        .np-editor.np-fold .np-row.np-has:not(:focus-within):not(.np-editing) .np-res { margin-left: 8px; margin-bottom: 0; }
         /* ── Dymek silnika cursor-hint (js/cursor-hint.js) ────────────────
            Zastępuje dawny .np-tooltip: kotwiczy się nad chipem .np-res, podąża/zanika
            animacyjnie, a na dotyku rozróżnia tap (zerknięcie) od przytrzymania. Outer
@@ -2483,6 +2634,21 @@
             color: var(--text-muted);
             line-height: 1.45;
         }
+        .np-hint-details {
+            flex: 0 0 auto;
+            margin: 8px 2px 0;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+        .np-hint-details summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text-secondary);
+            padding: 4px 2px;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .np-hint-details .np-hint { margin: 6px 0 0; }
 
         /* ── Settings modal ───────────────────────────────────────── */
         .settings-backdrop {
