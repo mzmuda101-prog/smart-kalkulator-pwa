@@ -744,6 +744,14 @@
             });
         });
 
+        // PL: odmiana jednostek słownych w wyniku (1 stopa · 2 stopy · 5 stóp).
+        function inflectDisplayUnit(value, unit) {
+            if (unit == null || unit === '') return unit;
+            var data = window.MATM0_DATA || {};
+            var inflect = data.inflectUnit || data.plInflectUnit;
+            return typeof inflect === 'function' ? inflect(value, unit) : unit;
+        }
+
         // [EN] Plain decimal string — no exponential notation (shared by shorthands + units).
         function _plainDecimalStr(x) {
             if (!isFinite(x)) return '0';
@@ -1878,6 +1886,7 @@
                     !(Number.isInteger(value) && Math.abs(value) <= Number.MAX_SAFE_INTEGER)) {
                     value = parseFloat(value.toPrecision(15));
                 }
+                if (unit) unit = inflectDisplayUnit(value, unit);
                 STATE.calc.lastResult = value;
                 STATE.calc.lastUnit = unit;
                 // kind: waluta→money, fizyczna jednostka→physical, inaczej czysta liczba.
@@ -1913,7 +1922,7 @@
             if (res.value === null) return '';
             if (res.error === '∞') return '∞';
             var str = formatLocaleNumber(res.value, 6);
-            if (res.unit) str += ' ' + res.unit;
+            if (res.unit) str += ' ' + inflectDisplayUnit(res.value, res.unit);
             return str;
         }
 
@@ -9935,7 +9944,7 @@
             var rAuto = evalCalcExpression('36 km/h');
             results.push({ expr: '36 km/h @auto (robocza)', pass: rAuto.unit === 'km/h' && Math.abs(rAuto.value - 36) < 1e-9, got: rAuto.value + ' ' + rAuto.unit });
             var rFtIn = evalCalcExpression("5' + 6\"");
-            results.push({ expr: "5' + 6\" @robocza (ft)", pass: rFtIn.unit === 'ft' && Math.abs(rFtIn.value - 5.5) < 1e-9, got: rFtIn.value + ' ' + rFtIn.unit });
+            results.push({ expr: "5' + 6\" @robocza (feet)", pass: rFtIn.unit === 'feet' && Math.abs(rFtIn.value - 5.5) < 1e-9, got: rFtIn.value + ' ' + rFtIn.unit });
             var rTimeAuto = evalCalcExpression('5h');
             results.push({ expr: '5h @time:robocza (h)', pass: rTimeAuto.unit === 'h' && rTimeAuto.value === 5, got: rTimeAuto.value + ' ' + rTimeAuto.unit });
             // Niepasująca jednostka w ustawieniu (np. speed='kg') → ignorowana, jednostka robocza.

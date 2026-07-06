@@ -88,11 +88,146 @@
         'chf': 'CHF', 'frank': 'CHF', 'franki': 'CHF',
     };
 
+    /* ── PL_UNIT_GRAMMAR — odmiana jednostek słownych (polski) ─────────────────
+       Wpis:
+         forms: [1, 2–4, 5+] — trzy formy wg standardowej reguły PL
+                  (1 stopa · 2 stopy · 5 stóp · 11 stóp · 22 stopy)
+         parse: dodatkowe aliasy WEJŚCIA (dopełniacz itd.) — mergowane do UNIT_CATEGORIES
+       Symbole (kg, km, mm, h…) NIE są tu — zostają bez odmiany.
+       Współczynniki konwersji zostają w UNIT_CATEGORIES; tutaj TYLKO język. */
+    var PL_UNIT_GRAMMAR = {
+        stopa:   { forms: ['stopa', 'stopy', 'stóp'],   parse: ['stóp', 'stop', 'stope', 'stopę'] },
+        cal:     { forms: ['cal', 'cale', 'cali'],       parse: ['cala', 'calu'] },
+        mila:    { forms: ['mila', 'mile', 'mil'],       parse: ['mili'] },
+        jard:    { forms: ['jard', 'jardy', 'jardów'],  parse: ['jardow'] },
+        funt:    { forms: ['funt', 'funty', 'funtów'],   parse: ['funtow'] },
+        uncja:   { forms: ['uncja', 'uncje', 'uncji'] },
+        tona:    { forms: ['tona', 'tony', 'ton'],       parse: ['tonę'] },
+        sekunda: { forms: ['sekunda', 'sekundy', 'sekund'] },
+        minuta:  { forms: ['minuta', 'minuty', 'minut'] },
+        godzina: { forms: ['godzina', 'godziny', 'godzin'] },
+        doba:    { forms: ['doba', 'doby', 'dób'],       parse: ['dzień', 'dzien'] },
+        tydzien: { forms: ['tydzień', 'tygodnie', 'tygodni'], parse: ['tygodnie', 'tygodni'] },
+        rok:     { forms: ['rok', 'lata', 'lat'] },
+        litr:    { forms: ['litr', 'litry', 'litrów'],   parse: ['litrow'] },
+        galon:   { forms: ['galon', 'galony', 'galonów'] },
+        stopien: { forms: ['stopień', 'stopnie', 'stopni'], parse: ['stopnia'] },
+        radian:  { forms: ['radian', 'radiany', 'radianów'] },
+        wezel:   { forms: ['węzeł', 'węzły', 'węzłów'] },
+    };
+
+    /* ── EN_UNIT_GRAMMAR — odmiana jednostek słownych (angielski) ──────────────
+       Na razie mało wpisów (głównie nieregularne lm.). Struktura jak PL:
+         forms: [1, 2+] — liczba pojedyncza / mnoga (1 foot · 5 feet)
+         parse: dodatkowe aliasy WEJŚCIA — mergowane do UNIT_CATEGORIES
+       Nie dodawaj tu symboli (ft, lb…) bez forms — chyba że parse ma je mapować na słowo.
+       Unikaj kolizji z PL (np. „mile" jest formą PL „mila" — zostaje tylko w PL). */
+    var EN_UNIT_GRAMMAR = {
+        foot:   { forms: ['foot', 'feet'],     parse: ['ft'] },
+        inch:   { forms: ['inch', 'inches'],    parse: ['in'] },
+        yard:   { forms: ['yard', 'yards'] },
+        pound:  { forms: ['pound', 'pounds'],  parse: ['lb', 'lbs'] },
+        ounce:  { forms: ['ounce', 'ounces'],  parse: ['oz'] },
+        gallon: { forms: ['gallon', 'gallons'], parse: ['gal'] },
+        ton:    { forms: ['ton', 'tons'] },
+        // przyszłość: stone, fluid ounce, … — ten sam wzorzec
+    };
+
+    // [EN] PL cardinal rule: 1 / 2–4 (bez 12–14) / reszta.
+    function plPickUnitForm(value, forms) {
+        if (!forms || !forms.length) return '';
+        if (forms.length === 1) return forms[0];
+        var abs = Math.abs(Number(value));
+        if (!isFinite(abs)) return forms[forms.length - 1];
+        var i = Math.floor(abs), frac = abs - i;
+        var mod10 = i % 10, mod100 = i % 100;
+        if (i === 1 && frac === 0) return forms[0];
+        if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return forms[1];
+        return forms[forms.length - 1];
+    }
+
+    // [EN] EN rule: 1 → singular, else plural (foot/feet, inch/inches).
+    function enPickUnitForm(value, forms) {
+        if (!forms || !forms.length) return '';
+        var abs = Math.abs(Number(value));
+        if (!isFinite(abs)) return forms[forms.length - 1];
+        var i = Math.floor(abs), frac = abs - i;
+        if (i === 1 && frac === 0) return forms[0];
+        return forms.length > 1 ? forms[1] : forms[0];
+    }
+
+    function _grammarLookup(label, table) {
+        if (label == null || label === '' || !table) return null;
+        var low = String(label).toLowerCase();
+        var key, g, i, f, p;
+        for (key in table) {
+            g = table[key];
+            if (low === key) return g;
+            if (g.forms) {
+                for (i = 0; i < g.forms.length; i++) {
+                    f = g.forms[i];
+                    if (f && f.toLowerCase() === low) return g;
+                }
+            }
+            if (g.parse) {
+                for (i = 0; i < g.parse.length; i++) {
+                    p = g.parse[i];
+                    if (p && p.toLowerCase() === low) return g;
+                }
+            }
+        }
+        return null;
+    }
+
+    // Etykieta jednostki → poprawna forma po liczbie (PL lub EN, wg dopasowania etykiety).
+    function inflectUnit(value, unitLabel) {
+        var gEn = _grammarLookup(unitLabel, EN_UNIT_GRAMMAR);
+        if (gEn && gEn.forms) return enPickUnitForm(value, gEn.forms);
+        var gPl = _grammarLookup(unitLabel, PL_UNIT_GRAMMAR);
+        if (gPl && gPl.forms) return plPickUnitForm(value, gPl.forms);
+        return unitLabel;
+    }
+    function plInflectUnit(value, unitLabel) { return inflectUnit(value, unitLabel); } // [EN] backward compat
+
+    // Aliasów parse dopisujemy do UNIT_CATEGORIES (ten sam współczynnik co kotwica).
+    function _mergeUnitParseAliases(categories, grammar) {
+        Object.keys(grammar).forEach(function (gkey) {
+            var g = grammar[gkey];
+            var names = [gkey].concat(g.forms || [], g.parse || []);
+            var hit = null, anchor = null, cat, units, n, i;
+            for (cat in categories) {
+                units = categories[cat].units;
+                for (i = 0; i < names.length; i++) {
+                    n = names[i];
+                    if (n && units[n] != null) { hit = units[n]; anchor = n; break; }
+                }
+                if (hit != null) break;
+            }
+            if (hit == null) return;
+            for (cat in categories) {
+                units = categories[cat].units;
+                if (units[anchor] == null) continue;
+                names.forEach(function (alias) {
+                    if (alias && units[alias] == null) units[alias] = hit;
+                });
+                break;
+            }
+        });
+    }
+    _mergeUnitParseAliases(UNIT_CATEGORIES, PL_UNIT_GRAMMAR);
+    _mergeUnitParseAliases(UNIT_CATEGORIES, EN_UNIT_GRAMMAR);
+
     var DATA = {
         UNIT_CATEGORIES: UNIT_CATEGORIES,
         PL_MONTHS: PL_MONTHS,
         PL_WEEKDAYS: PL_WEEKDAYS,
         CUR_ALIAS: CUR_ALIAS,
+        PL_UNIT_GRAMMAR: PL_UNIT_GRAMMAR,
+        EN_UNIT_GRAMMAR: EN_UNIT_GRAMMAR,
+        plPickUnitForm: plPickUnitForm,
+        enPickUnitForm: enPickUnitForm,
+        inflectUnit: inflectUnit,
+        plInflectUnit: plInflectUnit,
     };
 
     if (typeof window !== 'undefined') window.MATM0_DATA = DATA;
