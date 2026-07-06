@@ -64,3 +64,6 @@ target
 
 # Lokalne artefakty z testów wizualnych (GIF/MP4) — nie commitować na GitHub
 test/output/
+
+# Lokalny plan QoL / notatki sesji — tylko na dysku, nie na GitHub
+ROADMAP-QOL.md

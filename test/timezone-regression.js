@@ -33,6 +33,10 @@ ok(kind('time in Kyoto') === 'clock', 'time in Kyoto → clock');
 ['czas w Tokio', 'time in Tokyo', 'time in Kyoto', 'czas w/in Kioto', 'czas w Warszawie', 'time in Warsaw'].forEach(function (ex) {
   ok(/^\d{2}:\d{2} \(.+\)$/.test(text(ex)), ex + ' → HH:MM (Miasto) | got: ' + text(ex));
 });
+// T1-5 — skróty lotnisk i kolejne miasta PL/EU
+['time in CDG', 'czas w Gdańsku', 'time in FRA', 'time in AMS', 'czas w Poznaniu'].forEach(function (ex) {
+  ok(/^\d{2}:\d{2} \(.+\)$/.test(text(ex)), ex + ' → HH:MM (Miasto) | got: ' + text(ex));
+});
 
 // Konwersja zegara między strefami (offset zależy od DST — tylko format + sens)
 var conv = text('17:00 w Londynie na Tokio');

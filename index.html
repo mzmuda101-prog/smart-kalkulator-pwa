@@ -113,7 +113,16 @@
                             data-hint data-hint-from="data-eq" data-hint-anchor="element"
                             data-hint-touch="on" data-hint-tap data-hint-fade>≈</span>
                         <div class="calc-result" id="calcResult" aria-live="polite">0</div>
+                        <button class="calc-copy-btn" id="calcCopyBtn" type="button" hidden
+                            aria-label="Kopiuj wynik — wybór formatu" aria-haspopup="menu" aria-expanded="false"
+                            aria-controls="calcCopyMenu">⋯</button>
+                        <div class="calc-copy-menu" id="calcCopyMenu" role="menu" hidden>
+                            <button type="button" role="menuitem" data-copy="number">Sama liczba</button>
+                            <button type="button" role="menuitem" data-copy="unit">Liczba + jednostka</button>
+                            <button type="button" role="menuitem" data-copy="expr">= wynik</button>
+                        </div>
                     </div>
+                    <div class="calc-fx-hint" id="calcFxHint" hidden aria-live="polite"></div>
                 </div>
                 <!-- Grid STATYCZNY: maluje się już przy pierwszym paint (nie czeka na app.js).
                      Działanie obsługuje JEDEN delegowany listener (buildCalcButtons w app.js);

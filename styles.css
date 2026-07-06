@@ -713,8 +713,70 @@
             min-width: 0;
             flex: 0 0 auto;
             overflow: visible;
+            position: relative; /* anchor for copy menu */
         }
         .calc-result-row .calc-result { width: 100%; max-width: 100%; }
+        .calc-fx-hint {
+            grid-row: 3;
+            width: 100%;
+            text-align: right;
+            font-size: 0.72rem;
+            line-height: 1.2;
+            color: var(--text-muted, #94a3b8);
+            opacity: 0.85;
+            padding-top: 2px;
+            user-select: none;
+        }
+        .calc-fx-hint[hidden] { display: none; }
+        .calc-copy-btn {
+            flex: 0 0 auto;
+            align-self: center;
+            min-width: 28px;
+            height: 28px;
+            padding: 0 4px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text-muted, #94a3b8);
+            font-size: 1.1rem;
+            line-height: 1;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .calc-copy-btn[hidden] { display: none; }
+        .calc-copy-btn:active { background: color-mix(in srgb, var(--primary) 12%, transparent); }
+        .calc-copy-menu {
+            position: absolute;
+            right: 0;
+            top: 100%;
+            margin-top: 4px;
+            z-index: 20;
+            min-width: 168px;
+            padding: 4px;
+            border-radius: 10px;
+            background: var(--surface, #fff);
+            border: 1px solid var(--border, #e2e8f0);
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+        }
+        .calc-copy-menu[hidden] { display: none; }
+        .calc-copy-menu [role="menuitem"] {
+            display: block;
+            width: 100%;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            text-align: left;
+            font-size: 0.875rem;
+            color: var(--text, #0f172a);
+            cursor: pointer;
+        }
+        .calc-copy-menu [role="menuitem"]:hover,
+        .calc-copy-menu [role="menuitem"]:focus-visible {
+            background: color-mix(in srgb, var(--primary) 10%, transparent);
+            outline: none;
+        }
+        .calc-display { position: relative; }
         .calc-approx {
             flex: 0 0 auto;
             font-size: var(--calc-approx-font, 1.6rem);

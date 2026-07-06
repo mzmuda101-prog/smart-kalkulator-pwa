@@ -94,6 +94,9 @@
         const calcExpr = $('#calcExpr');
         const calcResult = $('#calcResult');
         const calcApprox = $('#calcApprox');
+        const calcFxHint = $('#calcFxHint');
+        const calcCopyBtn = $('#calcCopyBtn');
+        const calcCopyMenu = $('#calcCopyMenu');
         const calcGrid = $('#calcGrid');
         const historyList = $('#historyList');
         const historySearch = $('#historySearch');
@@ -1462,6 +1465,30 @@
             if (src === 'cache') return 'cache (offline)';
             return '—';
         }
+        function _formatFxDatePl(iso) { // [EN] NBP/Frankfurter ISO → DD.MM.YYYY for PL UI
+            if (!iso) return '';
+            var m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+            return m ? (m[3] + '.' + m[2] + '.' + m[1]) : String(iso);
+        }
+        function formatFxMeta() { // [EN] Subline under currency result — source + rate date
+            if (!_fxReady()) return '';
+            var src = fxSourceLabel(STATE.fx.source);
+            var date = _formatFxDatePl(STATE.fx.date);
+            return '≈ ' + src + (date ? ' · ' + date : '');
+        }
+        function _setFxHint(res, rawExpr) {
+            if (!calcFxHint) return;
+            var hasOut = res && !res.pendingFx && (res.value !== null || res.text != null);
+            var isFx = hasOut && (res.kind === 'money' || _inputHasCurrency(rawExpr));
+            if (!isFx || !_fxReady()) {
+                calcFxHint.hidden = true;
+                calcFxHint.textContent = '';
+                return;
+            }
+            var meta = formatFxMeta();
+            calcFxHint.textContent = meta || '';
+            calcFxHint.hidden = !meta;
+        }
         // Pobierz gdy trzeba: brak kursów lub przeterminowane (i nie trwa już pobieranie).
         var FX_RETRY_MS = 10 * 1000; // [EN] Po nieudanym fetchu nie ponawiaj częściej niż co 10 s (anty-pętla przy offline/CSP)
         function ensureFxRates() {
@@ -1924,6 +1951,24 @@
             var str = formatLocaleNumber(res.value, 6);
             if (res.unit) str += ' ' + inflectDisplayUnit(res.value, res.unit);
             return str;
+        }
+        function buildCopyFormats(res, expr) { // [EN] T1-3 — number / withUnit / expression (= wynik)
+            if (!res || res.pendingFx) return null;
+            if (res.text != null) {
+                var ex0 = String(expr || '').trim();
+                return { number: res.text, withUnit: res.text, expression: ex0 ? (ex0 + ' = ' + res.text) : res.text };
+            }
+            if (res.value === null || res.error === '∞') return null;
+            var display = formatCalcResult(res);
+            var numOnly = formatLocaleNumber(res.value, 6);
+            var ex = String(expr || '').trim();
+            return { number: numOnly, withUnit: display, expression: ex ? (ex + ' = ' + display) : ('= ' + display) };
+        }
+        var _lastCopyFormats = null; // [EN] Snapshot from liveEval for copy menu / long-press
+        function _updateCopyUi(res, expr) {
+            _lastCopyFormats = buildCopyFormats(res, expr);
+            var show = !!_lastCopyFormats;
+            if (calcCopyBtn) calcCopyBtn.hidden = !show;
         }
 
         function insertAtCursor(input, text) {
@@ -2622,6 +2667,8 @@
                 calcResult.textContent = STATE.fx.error && !_fxReady() ? 'Kursy: brak połączenia' : 'Pobieram kursy…';
                 calcResult.classList.remove('small', 'xsmall', 'xxsmall');
                 calcResult.classList.add('small');
+                _setFxHint(null, calcExpr.value);
+                _updateCopyUi(null, calcExpr.value);
                 fitCalcDisplay();
                 _setApproxMark(false);
                 return;
@@ -2631,6 +2678,8 @@
             var hasResult = res.value !== null || res.text != null;
             var display = hasResult ? formatCalcResult(res) : (calcExpr.value === '' ? '0' : '');
             _calcResultTargetDisplay = display;
+            _setFxHint(res, calcExpr.value);
+            _updateCopyUi(res, calcExpr.value);
             _setApproxMark(hasResult && res.exact === false, res.exactText); // przed fit — poprawna szerokość dla „≈"
             fitCalcDisplay();
         }
@@ -2839,11 +2888,54 @@
         }
 
         bindLongPressCopy(calcResult, function() {
+            if (_lastCopyFormats && _lastCopyFormats.withUnit) return _lastCopyFormats.withUnit;
             if (STATE.calc.lastResult !== null) return String(STATE.calc.lastResult);
             var res = evalCalcExpression(calcExpr.value);
-            if (res.text != null) return res.text; // sformatowana data
+            var fm = buildCopyFormats(res, calcExpr.value);
+            if (fm) return fm.withUnit;
+            if (res.text != null) return res.text;
             return res.value !== null ? String(res.value) : calcExpr.value;
         });
+
+        function setupCalcCopyMenu() { // [EN] T1-3 — ⋯ menu with copy format choice
+            if (!calcCopyBtn || !calcCopyMenu) return;
+            function closeMenu() {
+                calcCopyMenu.hidden = true;
+                calcCopyBtn.setAttribute('aria-expanded', 'false');
+            }
+            function openMenu() {
+                if (!_lastCopyFormats) return;
+                calcCopyMenu.hidden = false;
+                calcCopyBtn.setAttribute('aria-expanded', 'true');
+            }
+            calcCopyBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (calcCopyMenu.hidden) openMenu(); else closeMenu();
+            });
+            calcCopyMenu.querySelectorAll('[data-copy]').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var key = btn.getAttribute('data-copy');
+                    var text = _lastCopyFormats && _lastCopyFormats[key];
+                    if (!text) { closeMenu(); return; }
+                    copyText(text).then(function() {
+                        showToast('Skopiowano', 'success');
+                    }).catch(function() {
+                        showToast('Nie udało się skopiować', 'error');
+                    });
+                    closeMenu();
+                });
+            });
+            document.addEventListener('click', function(e) {
+                if (calcCopyMenu.hidden) return;
+                if (calcCopyMenu.contains(e.target) || e.target === calcCopyBtn) return;
+                closeMenu();
+            });
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') closeMenu();
+            });
+        }
+        setupCalcCopyMenu();
 
         // Znacznik „≈": przytrzymanie kopiuje DOKŁADNĄ wartość (tak jak przytrzymanie wyniku głównego),
         // a tap/hover nadal pokazuje ją w dymku (cursor-hint). dataset.exact ustawia _setApproxMark.
@@ -10304,6 +10396,15 @@
             // Etykiety źródeł kursów.
             results.push({ expr: 'fxSourceLabel(merge)', pass: fxSourceLabel('merge') === 'NBP + Frankfurter', got: fxSourceLabel('merge') });
             results.push({ expr: 'fxSourceLabel(frankfurter)', pass: fxSourceLabel('frankfurter') === 'Frankfurter (EBC)', got: fxSourceLabel('frankfurter') });
+            // T1-4 — meta kursu (źródło + data) pod wynikiem walutowym
+            var savedFxDate = STATE.fx.date, savedFxSrc = STATE.fx.source;
+            STATE.fx.date = '2026-07-06'; STATE.fx.source = 'nbp';
+            results.push({ expr: 'formatFxMeta(nbp+date)', pass: formatFxMeta() === '≈ NBP · 06.07.2026', got: formatFxMeta() });
+            STATE.fx.date = savedFxDate; STATE.fx.source = savedFxSrc;
+            // T1-3 — formaty kopiowania wyniku
+            var cf = buildCopyFormats(evalCalcExpression('20 eur na zł'), '20 eur na zł');
+            results.push({ expr: 'buildCopyFormats(20 eur na zł).expression', pass: cf && cf.expression.indexOf('20 eur na zł = ') === 0 && cf.withUnit.indexOf('zł') >= 0, got: cf && cf.expression });
+            results.push({ expr: 'buildCopyFormats(20 eur na zł).number', pass: cf && /^\d/.test(cf.number), got: cf && cf.number });
             // regresja Raycast-style (07.2026): stopnie w trig, k+waluta, jednostka robocza
             var sDeg = evalCalcExpression('sin(30 deg)');
             results.push({ expr: 'sin(30 deg)', pass: Math.abs(sDeg.value - 0.5) < 1e-9 && !sDeg.unit, got: sDeg.value + ' ' + sDeg.unit });
@@ -10399,6 +10500,8 @@
                 npBuildRows: npBuildRows,
                 loadFxRates: loadFxRates,
                 resolveCalcCurrency: resolveCalcCurrency,
+                formatFxMeta: formatFxMeta,
+                buildCopyFormats: buildCopyFormats,
             };
         }
 
