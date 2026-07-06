@@ -10243,8 +10243,8 @@
                 var rd = evalCalcExpression(ex);
                 results.push({ expr: ex + ' (data/kompakt)', pass: rd && rd.kind === 'date' && !!rd.text, got: rd && rd.text });
             });
-            // „teraz" — format DD.M.RR HH:MM (zależy od bieżącego momentu)
-            results.push({ expr: 'teraz → DD.M.RR HH:MM', pass: /^\d+\.\d+\.\d{2} \d{2}:\d{2}$/.test(wdText('teraz')), got: wdText('teraz') });
+            // „teraz" — format DD.M.RR HH:MM (dzień tyg.) — zależy od bieżącego momentu
+            results.push({ expr: 'teraz → DD.M.RR HH:MM (dzień)', pass: /^\d+\.\d+\.\d{2} \d{2}:\d{2} \(.+\)$/.test(wdText('teraz')), got: wdText('teraz') });
             results.push({ expr: 'teraz - 2 dni (data)', pass: rdKind('teraz - 2 dni') === 'date' && !!wdText('teraz - 2 dni'), got: wdText('teraz - 2 dni') });
             // waluty — z zamockowanymi kursami (zapis/odtworzenie stanu fx)
             var savedFx = STATE.fx.rates, savedFxTs = STATE.fx.ts;

@@ -42,8 +42,8 @@ function evalKind(expr) {
 // ── 1. Twardy snapshot — konkretne wyrażenia z helpa + warianty bez spacji ──
 const CASES = [
   // zgłoszone przez użytkownika
-  { expr: 'dziś + 20h', text: '1.7.2026 20:00 (środa)', kind: 'date' },
-  { expr: 'dzis + 20h', text: '1.7.2026 20:00 (środa)', kind: 'date' },
+  { expr: 'dziś + 20h', text: '2.7.2026 (czwartek)', kind: 'date' },
+  { expr: 'dzis + 20h', text: '2.7.2026 (czwartek)', kind: 'date' },
   { expr: 'dzis+5dni', text: '6.7.2026 (poniedziałek)', kind: 'date' },
   { expr: 'dzis + 5 dni', text: '6.7.2026 (poniedziałek)', kind: 'date' },
   { expr: 'dziś - 2 dni', text: '29.6.2026 (poniedziałek)', kind: 'date' },
@@ -71,20 +71,20 @@ const CASES = [
   { expr: '1.01.2026 + 90 dni', text: '1.4.2026 (środa)', kind: 'date' },
   { expr: '1.09.2026 + 2 tyg', text: '15.9.2026 (wtorek)', kind: 'date' },
   // godziny na dacie — zawijanie doby
-  { expr: 'dziś + 25h', text: '2.7.2026 01:00 (czwartek)', kind: 'date' },
-  { expr: 'dziś + 90 min', text: '1.7.2026 01:30 (środa)', kind: 'date' },
+  { expr: 'dziś + 25h', text: '2.7.2026 (czwartek)', kind: 'date' },
+  { expr: 'dziś + 90 min', text: '1.7.2026 (środa)', kind: 'date' },
   // odliczanie / różnica (deterministyczne)
   { expr: 'ile dni od 1.01.2026 do 1.02.2026', text: '31 dni', kind: 'date', value: 31 },
   { expr: 'ile dni do 1.09', text: '62 dni', kind: 'date', value: 62 },
   // „teraz" — pełny moment (kotwica 14:35)
-  { expr: 'teraz', text: '1.7.26 14:35', kind: 'date' },
-  { expr: 'now', text: '1.7.26 14:35', kind: 'date' },
-  { expr: 'teraz - 2 dni', text: '29.6.26 14:35', kind: 'date' },
-  { expr: 'teraz-2dni', text: '29.6.26 14:35', kind: 'date' },
-  { expr: 'teraz - 56h', text: '29.6.26 06:35', kind: 'date' },
-  { expr: 'teraz-56godzin', text: '29.6.26 06:35', kind: 'date' },
-  { expr: 'teraz + 90 min', text: '1.7.26 16:05', kind: 'date' },
-  { expr: 'teraz+90min', text: '1.7.26 16:05', kind: 'date' },
+  { expr: 'teraz', text: '1.7.26 14:35 (środa)', kind: 'date' },
+  { expr: 'now', text: '1.7.26 14:35 (środa)', kind: 'date' },
+  { expr: 'teraz - 2 dni', text: '29.6.26 14:35 (poniedziałek)', kind: 'date' },
+  { expr: 'teraz-2dni', text: '29.6.26 14:35 (poniedziałek)', kind: 'date' },
+  { expr: 'teraz - 56h', text: '29.6.26 06:35 (poniedziałek)', kind: 'date' },
+  { expr: 'teraz-56godzin', text: '29.6.26 06:35 (poniedziałek)', kind: 'date' },
+  { expr: 'teraz + 90 min', text: '1.7.26 16:05 (środa)', kind: 'date' },
+  { expr: 'teraz+90min', text: '1.7.26 16:05 (środa)', kind: 'date' },
   // dzień tygodnia + offset (kotwica 1.07.2026 + 3 tyg → 27.07 poniedziałek)
   { expr: 'poniedziałek za 3 tygodnie', text: '27.7.2026 (poniedziałek)', kind: 'date' },
   { expr: 'monday in 3 weeks', text: '27.7.2026 (poniedziałek)', kind: 'date' },

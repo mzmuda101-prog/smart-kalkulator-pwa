@@ -24,7 +24,7 @@ function evalVal(expr) {
 
 // { pl, en, kind?, sameText?, sameValue?, textRe? }
 const PAIRS = [
-  { pl: 'teraz', en: 'now', kind: 'date', textRe: /^1\.7\.26 14:35$/ },
+  { pl: 'teraz', en: 'now', kind: 'date', textRe: /^1\.7\.26 14:35 \(środa\)$/ },
   { pl: 'dziś', en: 'today', kind: 'date' },
   { pl: 'dziś + 90 dni', en: 'today + 90 days', kind: 'date' },
   { pl: 'teraz - 2 dni', en: 'now - 2 days', kind: 'date' },

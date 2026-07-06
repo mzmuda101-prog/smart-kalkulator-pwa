@@ -213,11 +213,12 @@
     function _fmtDate(d) {
         return d.getDate() + '.' + (d.getMonth() + 1) + '.' + d.getFullYear() + ' (' + _PL_WEEKDAYS[d.getDay()] + ')';
     }
-    // „teraz" i wyniki z godziną — krótki format: 1.7.26 14:35
+    // „teraz" i wyniki z godziną — krótki format: 1.7.26 14:35 (środa)
     function _fmtNow(d) {
         var y = d.getFullYear() % 100;
         var p = function(n) { return (n < 10 ? '0' : '') + n; };
-        return d.getDate() + '.' + (d.getMonth() + 1) + '.' + p(y) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+        return d.getDate() + '.' + (d.getMonth() + 1) + '.' + p(y) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes())
+            + ' (' + _PL_WEEKDAYS[d.getDay()] + ')';
     }
     // Data z godziną (pełny rok + dzień tygodnia) — offset czasowy na dacie bez „teraz".
     function _fmtDateTime(d) {
@@ -274,14 +275,26 @@
             else _applyDateUnit(d, offset.amount, offset.dateUnit, sign);
         }
     }
-    // → { d: Date, hasYear: bool, moment?: bool } albo null. moment=true → kotwica z godziną („teraz").
+    // Kotwica względna (dziś/jutro/…) + offset czasowy: licz od bieżącej godziny, pokaż sam dzień.
+    function _blendNowClock(d) {
+        var n = _now();
+        d.setHours(n.getHours(), n.getMinutes(), n.getSeconds(), n.getMilliseconds());
+    }
+    function _resolveDateOffsetResult(anchor, offset, sign) {
+        var d = new Date(anchor.d.getTime());
+        if (anchor.relDay && offset.seconds != null) _blendNowClock(d); // jak „teraz", ale bez godziny w wyniku
+        _applyDateOffset(d, offset, sign, !!anchor.moment);
+        if (anchor.relDay && offset.seconds != null) return _fmtDate(d);
+        return _fmtDateResult(d, !!anchor.moment);
+    }
+    // → { d: Date, hasYear: bool, moment?: bool, relDay?: bool } albo null. moment=true → kotwica z godziną („teraz").
     function _parseDateToken(str) {
         var s = String(str).trim().toLowerCase();
         if (s === 'teraz' || s === 'now') return { d: _now(), hasYear: true, moment: true };
-        if (/^dzi[sś]$|^dzisiaj$|^today$/.test(s)) return { d: _today(), hasYear: true };
-        if (s === 'jutro' || s === 'tomorrow')    { var j = _today(); j.setDate(j.getDate() + 1); return { d: j, hasYear: true }; }
-        if (s === 'pojutrze') { var p = _today(); p.setDate(p.getDate() + 2); return { d: p, hasYear: true }; }
-        if (s === 'wczoraj' || s === 'yesterday')  { var w = _today(); w.setDate(w.getDate() - 1); return { d: w, hasYear: true }; }
+        if (/^dzi[sś]$|^dzisiaj$|^today$/.test(s)) return { d: _today(), hasYear: true, relDay: true };
+        if (s === 'jutro' || s === 'tomorrow')    { var j = _today(); j.setDate(j.getDate() + 1); return { d: j, hasYear: true, relDay: true }; }
+        if (s === 'pojutrze') { var p = _today(); p.setDate(p.getDate() + 2); return { d: p, hasYear: true, relDay: true }; }
+        if (s === 'wczoraj' || s === 'yesterday')  { var w = _today(); w.setDate(w.getDate() - 1); return { d: w, hasYear: true, relDay: true }; }
         var m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/); // ISO date
         if (m) { var y = +m[1], mo = +m[2], da = +m[3]; if (_validDMY(da, mo, y)) return { d: new Date(y, mo - 1, da), hasYear: true }; return null; }
         // ISO 8601 Zulu: 2026-03-15T14:30:00Z
@@ -398,9 +411,7 @@
             var offRev = _parseDateOffsetOperand(m[1] + ' ' + m[2]);
             var anch = _parseDateToken(m[3]);
             if (offRev && anch) {
-                var dRev = new Date(anch.d.getTime());
-                _applyDateOffset(dRev, offRev, 1, !!anch.moment);
-                return { text: _fmtDateResult(dRev, !!anch.moment), value: null };
+                return { text: _resolveDateOffsetResult(anch, offRev, 1), value: null };
             }
         }
         // „<data> + offset" / „<data> - offset" — dni/tyg/mies + trwania czasowe (20h, 90min)
@@ -408,9 +419,7 @@
             var left = _parseDateToken(m[1].trim());
             var offset = _parseDateOffsetOperand(m[3].trim());
             if (left && offset) {
-                var d5 = new Date(left.d.getTime());
-                _applyDateOffset(d5, offset, m[2] === '-' ? -1 : 1, !!left.moment);
-                return { text: _fmtDateResult(d5, !!left.moment), value: null };
+                return { text: _resolveDateOffsetResult(left, offset, m[2] === '-' ? -1 : 1), value: null };
             }
         }
         // Samodzielny token daty/czasu (ISO Zulu, DD.MM.YYYY, …)
