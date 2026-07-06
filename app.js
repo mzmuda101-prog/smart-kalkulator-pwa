@@ -94,9 +94,6 @@
         const calcExpr = $('#calcExpr');
         const calcResult = $('#calcResult');
         const calcApprox = $('#calcApprox');
-        const calcFxHint = $('#calcFxHint');
-        const calcCopyBtn = $('#calcCopyBtn');
-        const calcCopyMenu = $('#calcCopyMenu');
         const calcGrid = $('#calcGrid');
         const historyList = $('#historyList');
         const historySearch = $('#historySearch');
@@ -1473,24 +1470,17 @@
             var m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
             return m ? (m[3] + '.' + m[2] + '.' + m[1]) : String(iso);
         }
-        function formatFxMeta() { // [EN] Subline under currency result — source + rate date
+        function formatFxMeta() { // [EN] FX source + date for ≈ hint (cursor-hint)
             if (!_fxReady()) return '';
             var src = fxSourceLabel(STATE.fx.source);
             var date = _formatFxDatePl(STATE.fx.date);
-            return '≈ ' + src + (date ? ' · ' + date : '');
+            return src + (date ? ' · ' + date : '');
         }
-        function _setFxHint(res, rawExpr) {
-            if (!calcFxHint) return;
-            var hasOut = res && !res.pendingFx && (res.value !== null || res.text != null);
-            var isFx = hasOut && (res.kind === 'money' || _inputHasCurrency(rawExpr));
-            if (!isFx || !_fxReady()) {
-                calcFxHint.hidden = true;
-                calcFxHint.textContent = '';
-                return;
-            }
-            var meta = formatFxMeta();
-            calcFxHint.textContent = meta || '';
-            calcFxHint.hidden = !meta;
+        function _fxMetaForResult(res, rawExpr) {
+            if (!res || res.pendingFx) return '';
+            if (res.value === null && res.text == null) return '';
+            if (res.kind !== 'money' && !_inputHasCurrency(rawExpr)) return '';
+            return formatFxMeta();
         }
         // Pobierz gdy trzeba: brak kursów lub przeterminowane (i nie trwa już pobieranie).
         var FX_RETRY_MS = 10 * 1000; // [EN] Po nieudanym fetchu nie ponawiaj częściej niż co 10 s (anty-pętla przy offline/CSP)
@@ -1620,6 +1610,7 @@
                 kind: o.kind || null,
                 exact: o.exact !== false,
                 exactText: o.exactText != null ? o.exactText : null,  // dokładna wartość „z czego" zaokrąglono (≈)
+                preciseValue: o.preciseValue != null ? o.preciseValue : null, // [EN] przed zaokr. waluty do groszy — hint ≈
                 pendingFx: !!o.pendingFx,
                 big: !!o.big,
                 bigStr: o.bigStr != null ? o.bigStr : null
@@ -1889,8 +1880,12 @@
                 if (!curRes.hasCurrency && unitResult.workFactor) value = value * unitResult.workFactor;
                 // Waluty: wynik policzony w walucie roboczej → skala do domyślnej (po vat/%).
                 if (curRes.hasCurrency && curRes.curMul && isFinite(value)) value = value * curRes.curMul;
-                // Waluty: zaokrąglij do 2 miejsc po przecinku (grosze).
-                if (curRes.hasCurrency && isFinite(value)) value = Math.round(value * 100) / 100;
+                // Waluty: zaokrąglij do 2 miejsc (grosze); preciseValue = przed zaokr. — hint ≈ pokazuje kurs.
+                var preciseValue = null;
+                if (curRes.hasCurrency && isFinite(value)) {
+                    preciseValue = value;
+                    value = Math.round(value * 100) / 100;
+                }
                 var valueBase = value; // [EN] Wartość w jednostce bazowej kategorii — dla __auto__ (przed displayFactor).
                 // Wartość jest teraz BAZOWA. Jeśli resolveCalcUnits wskazał preferowaną jednostkę
                 // wyświetlania (ustawienia), przelicz wartość.
@@ -1940,7 +1935,7 @@
                         exactNumText = formatLocaleNumber(value, 15) + (unit ? ' ' + unit : '');
                     }
                 }
-                return makeVal({ value: value, unit: unit, text: readableTime, kind: valKind, exact: !approxNum, exactText: exactNumText });
+                return makeVal({ value: value, unit: unit, text: readableTime, kind: valKind, exact: !approxNum, exactText: exactNumText, preciseValue: preciseValue });
             } catch (err) {
                 return makeVal({});
             }
@@ -1955,24 +1950,39 @@
             if (res.unit) str += ' ' + inflectDisplayUnit(res.value, res.unit);
             return str;
         }
-        function buildCopyFormats(res, expr) { // [EN] T1-3 — number / withUnit / expression (= wynik)
+        function _formatFxHintValue(v, unit) { // [EN] 6 miejsc — precyzja kursu, bez szumu float i bez groszy z ekranu
+            if (!isFinite(v)) return null;
+            var cleaned = parseFloat(Number(v).toPrecision(12));
+            var str = formatLocaleNumber(cleaned, 6);
+            str = str.replace(/(\,\d*?)0+$/, '$1').replace(/\,$/, ''); // obetnij końcowe zera po przecinku
+            if (unit) str += '\u202f' + inflectDisplayUnit(cleaned, unit);
+            return str;
+        }
+        function _hintResultText(res) { // [EN] Dolna linia dymka ≈ — kurs dokładny, nie zaokr. do 2 miejsc
+            if (!res) return null;
+            if (res.text != null) return res.text;
+            if (res.preciseValue != null && isFinite(res.preciseValue)) {
+                return _formatFxHintValue(res.preciseValue, res.unit);
+            }
+            if (res.exactText) return res.exactText;
+            if (res.value === null || !isFinite(res.value)) return null;
+            if (res.kind === 'money') return _formatFxHintValue(res.value, res.unit);
+            var str = formatLocaleNumber(res.value, 10);
+            if (res.unit) str += '\u202f' + inflectDisplayUnit(res.value, res.unit);
+            return str;
+        }
+        function buildCopyFormats(res, expr) { // [EN] long-press copy on result row
             if (!res || res.pendingFx) return null;
             if (res.text != null) {
                 var ex0 = String(expr || '').trim();
-                return { number: res.text, withUnit: res.text, expression: ex0 ? (ex0 + ' = ' + res.text) : res.text };
+                return { withUnit: res.text, expression: ex0 ? (ex0 + ' = ' + res.text) : res.text };
             }
             if (res.value === null || res.error === '∞') return null;
             var display = formatCalcResult(res);
-            var numOnly = formatLocaleNumber(res.value, 6);
             var ex = String(expr || '').trim();
-            return { number: numOnly, withUnit: display, expression: ex ? (ex + ' = ' + display) : ('= ' + display) };
+            return { withUnit: display, expression: ex ? (ex + ' = ' + display) : ('= ' + display) };
         }
-        var _lastCopyFormats = null; // [EN] Snapshot from liveEval for copy menu / long-press
-        function _updateCopyUi(res, expr) {
-            _lastCopyFormats = buildCopyFormats(res, expr);
-            var show = !!_lastCopyFormats;
-            if (calcCopyBtn) calcCopyBtn.hidden = !show;
-        }
+        var _lastCopyFormats = null;
 
         function insertAtCursor(input, text) {
             var focused = document.activeElement === input;
@@ -2121,6 +2131,9 @@
             if (!calcResult || !isFinite(px)) return;
             calcResult.style.fontSize = px + 'px';
             calcResult.style.minHeight = (_calcResultStableLinePx(px) * (_calcResultWrapLines || 1)) + 'px';
+            if (calcApprox && !calcApprox.hidden) { // [EN] scale ≈ with result — keeps vertical center on all viewports
+                calcApprox.style.fontSize = Math.max(13, Math.round(px * 0.58)) + 'px';
+            }
         }
         function _syncResultReserve(display, resultRow) {
             if (!display || !calcResult) return;
@@ -2301,8 +2314,9 @@
         function _calcResultMaxWidth(row) {
             if (!row) return 0;
             var maxW = row.clientWidth;
-            if (calcApprox && !calcApprox.hidden) maxW -= calcApprox.offsetWidth + 8;
-            return Math.max(0, maxW); // [EN] Never negative — ujemne maxW = nieskończona pętla rAF w fitCalcResultSize
+            var gap = 6;
+            if (calcApprox && !calcApprox.hidden) maxW -= calcApprox.offsetWidth + gap;
+            return Math.max(0, maxW);
         }
         // [EN] Measure one result line width (probe — bez skracania fontu).
         function _measureCalcResultWidth(text, fontSizePx, row) {
@@ -2389,6 +2403,7 @@
             calcResult.style.removeProperty('font-size');
             calcResult.style.removeProperty('min-height');
             calcResult.style.removeProperty('white-space');
+            if (calcApprox) calcApprox.style.removeProperty('font-size');
         }
         function _syncResultWhiteSpace() {
             if (!calcResult) return;
@@ -2670,10 +2685,9 @@
                 calcResult.textContent = STATE.fx.error && !_fxReady() ? 'Kursy: brak połączenia' : 'Pobieram kursy…';
                 calcResult.classList.remove('small', 'xsmall', 'xxsmall');
                 calcResult.classList.add('small');
-                _setFxHint(null, calcExpr.value);
-                _updateCopyUi(null, calcExpr.value);
+                _lastCopyFormats = null;
                 fitCalcDisplay();
-                _setApproxMark(false);
+                _setApproxMark(false, null, null);
                 return;
             }
             // Mamy kursy, ale warto odświeżyć w tle, gdy stare (wynik z cache pokazujemy od razu).
@@ -2681,24 +2695,31 @@
             var hasResult = res.value !== null || res.text != null;
             var display = hasResult ? formatCalcResult(res) : (calcExpr.value === '' ? '0' : '');
             _calcResultTargetDisplay = display;
-            _setFxHint(res, calcExpr.value);
-            _updateCopyUi(res, calcExpr.value);
-            _setApproxMark(hasResult && res.exact === false, res.exactText); // przed fit — poprawna szerokość dla „≈"
+            var fxMeta = _fxMetaForResult(res, calcExpr.value);
+            _lastCopyFormats = buildCopyFormats(res, calcExpr.value);
+            _setApproxMark(hasResult && (res.exact === false || fxMeta), res, fxMeta);
             fitCalcDisplay();
         }
-        // Znacznik „≈" (wynik zaokrąglony stratnie, np. sekundy → minuta). Dymek na tap/hover
-        // (cursor-hint) pokazuje dokładną wartość. on=false → chowamy. [[A2]]
-        function _setApproxMark(on, exactText) {
+        // Znacznik „≈" — kurs (góra) + pełna wartość (dół) w cursor-hint via /|. [[A2]]
+        function _setApproxMark(on, res, fxMeta) {
             if (!calcApprox) return;
-            if (on) {
-                calcApprox.dataset.eq = exactText ? ('Pełna wartość: ' + exactText) : 'Wynik zaokrąglony';
-                // Dokładna wartość pod przytrzymanie (kopiowanie) — patrz bindLongPressCopy(calcApprox).
-                if (exactText) calcApprox.dataset.exact = exactText; else delete calcApprox.dataset.exact;
+            var show = !!on || !!fxMeta;
+            if (show) {
+                var hintParts = [];
+                if (fxMeta) hintParts.push('Kurs: ' + fxMeta);
+                var exactLine = _hintResultText(res);
+                if (exactLine) hintParts.push(exactLine);
+                calcApprox.dataset.eq = hintParts.join('/|');
+                calcApprox.dataset.hintClass = 'calc-eq';
+                if (exactLine) calcApprox.dataset.exact = exactLine; else delete calcApprox.dataset.exact;
+                calcApprox.setAttribute('aria-label', fxMeta ? 'Kurs i dokładna wartość — dotknij' : 'Dokładna wartość — dotknij');
                 calcApprox.hidden = false;
             } else {
                 calcApprox.hidden = true;
                 delete calcApprox.dataset.eq;
                 delete calcApprox.dataset.exact;
+                delete calcApprox.dataset.hintClass;
+                calcApprox.style.removeProperty('font-size');
             }
         }
         // *------------ Logika Animacji pojawiania się liczb/wyrażeń/wyniku* ----------------*
@@ -2900,55 +2921,6 @@
             return res.value !== null ? String(res.value) : calcExpr.value;
         });
 
-        function setupCalcCopyMenu() { // [EN] T1-3 — ⋯ menu with copy format choice
-            if (!calcCopyBtn || !calcCopyMenu) return;
-            function closeMenu() {
-                calcCopyMenu.hidden = true;
-                calcCopyBtn.setAttribute('aria-expanded', 'false');
-            }
-            function openMenu() {
-                if (!_lastCopyFormats) return;
-                calcCopyMenu.hidden = false;
-                calcCopyBtn.setAttribute('aria-expanded', 'true');
-            }
-            calcCopyBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                if (calcCopyMenu.hidden) openMenu(); else closeMenu();
-            });
-            calcCopyMenu.querySelectorAll('[data-copy]').forEach(function(btn) {
-                btn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    var key = btn.getAttribute('data-copy');
-                    if (key === 'notepad') {
-                        var exLine = calcExpr.value.trim();
-                        if (!exLine && _lastCopyFormats) exLine = _lastCopyFormats.withUnit || _lastCopyFormats.number || '';
-                        appendToNotepad(exLine, { open: true, focus: true });
-                        closeMenu();
-                        return;
-                    }
-                    var text = _lastCopyFormats && _lastCopyFormats[key];
-                    if (!text) { closeMenu(); return; }
-                    copyText(text).then(function() {
-                        showToast('Skopiowano', 'success');
-                    }).catch(function() {
-                        showToast('Nie udało się skopiować', 'error');
-                    });
-                    closeMenu();
-                });
-            });
-            document.addEventListener('click', function(e) {
-                if (calcCopyMenu.hidden) return;
-                if (calcCopyMenu.contains(e.target) || e.target === calcCopyBtn) return;
-                closeMenu();
-            });
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') closeMenu();
-            });
-        }
-        setupCalcCopyMenu();
-
-        // Znacznik „≈": przytrzymanie kopiuje DOKŁADNĄ wartość (tak jak przytrzymanie wyniku głównego),
-        // a tap/hover nadal pokazuje ją w dymku (cursor-hint). dataset.exact ustawia _setApproxMark.
         bindLongPressCopy(calcApprox, function() {
             if (calcApprox.dataset.exact) return calcApprox.dataset.exact;
             if (STATE.calc.lastResult !== null) return String(STATE.calc.lastResult);
@@ -8353,16 +8325,23 @@
         }
         function npOpenList() {
             if (!npListPanel) return;
-            _npStashCurrent(); flushNotepadPersist();   // świeże tytuły na liście
+            _npStashCurrent(); flushNotepadPersist();
             npRenderTemplates();
             npRenderList();
             npListPanel.classList.add('open');
             npListPanel.setAttribute('aria-hidden', 'false');
+            if ('inert' in npListPanel) npListPanel.inert = false;
         }
-        function npCloseList() {
+        function npCloseList(preferFocus) {
             if (!npListPanel) return;
+            var active = document.activeElement;
+            if (active && npListPanel.contains(active)) {
+                var target = preferFocus || npListBtn || notepadClose;
+                if (target && typeof target.focus === 'function') target.focus();
+            }
             npListPanel.classList.remove('open');
             npListPanel.setAttribute('aria-hidden', 'true');
+            if ('inert' in npListPanel) npListPanel.inert = true;
         }
         function npToggleList() { if (npListPanel && npListPanel.classList.contains('open')) npCloseList(); else npOpenList(); }
 
@@ -8548,6 +8527,7 @@
         if (notepadClose) notepadClose.addEventListener('click', closeNotepad);
         if (npBackdrop) npBackdrop.addEventListener('click', closeNotepad);
         if (npListBtn) npListBtn.addEventListener('click', npToggleList);
+        if (npListPanel && 'inert' in npListPanel) npListPanel.inert = true; // [EN] a11y — no focus trap when panel closed
         if (npFoldBtn) npFoldBtn.addEventListener('click', npToggleFold);
         if (npNewBtn) npNewBtn.addEventListener('click', npNewNote);
         if (npTemplateList) {
@@ -8784,15 +8764,10 @@
         }
 
         window.addEventListener('beforeinstallprompt', function(e) {
-            e.preventDefault();
+            if (isStandaloneMode() || !installAppBtn) return; // [EN] let browser banner show if no custom UI
+            e.preventDefault(); // [EN] custom install via header button — Chrome may log dev info until prompt()
             deferredPrompt = e;
             updateInstallButton();
-            // [EN] Show a subtle hint after 3 seconds
-            setTimeout(function() {
-                if (deferredPrompt) {
-                    showToast('📲 Możesz zainstalować aplikację z przycisku w nagłówku', 'success');
-                }
-            }, 3000);
         });
 
         window.addEventListener('appinstalled', function() {
@@ -10625,6 +10600,7 @@
             // Kurs krzyżowy (para bez PLN) — przez pivot PLN: 100 USD → EUR = 100*3,95/4,30.
             var cross = evalCalcExpression('100 usd na eur');
             results.push({ expr: '100 usd na eur (cross)', pass: cross.unit === 'EUR' && Math.abs(cross.value - Math.round(100 * 3.95 / 4.30 * 100) / 100) < 1e-6, got: cross.value + ' ' + cross.unit });
+            results.push({ expr: '100 usd na eur preciseValue', pass: cross.preciseValue != null && Math.abs(cross.preciseValue - cross.value) > 1e-4, got: cross.preciseValue });
             // Domyślna waluta — gołe sumy zwijają się do ustawionej waluty (nie PLN).
             var savedDef = STATE.settings.defaultCurrency;
             STATE.settings.defaultCurrency = 'EUR';
@@ -10644,12 +10620,12 @@
             // T1-4 — meta kursu (źródło + data) pod wynikiem walutowym
             var savedFxDate = STATE.fx.date, savedFxSrc = STATE.fx.source;
             STATE.fx.date = '2026-07-06'; STATE.fx.source = 'nbp';
-            results.push({ expr: 'formatFxMeta(nbp+date)', pass: formatFxMeta() === '≈ NBP · 06.07.2026', got: formatFxMeta() });
+            results.push({ expr: 'formatFxMeta(nbp+date)', pass: formatFxMeta() === 'NBP · 06.07.2026', got: formatFxMeta() });
             STATE.fx.date = savedFxDate; STATE.fx.source = savedFxSrc;
             // T1-3 — formaty kopiowania wyniku
             var cf = buildCopyFormats(evalCalcExpression('20 eur na zł'), '20 eur na zł');
             results.push({ expr: 'buildCopyFormats(20 eur na zł).expression', pass: cf && cf.expression.indexOf('20 eur na zł = ') === 0 && cf.withUnit.indexOf('zł') >= 0, got: cf && cf.expression });
-            results.push({ expr: 'buildCopyFormats(20 eur na zł).number', pass: cf && /^\d/.test(cf.number), got: cf && cf.number });
+            results.push({ expr: 'buildCopyFormats(20 eur na zł).withUnit', pass: cf && /^\d/.test(cf.withUnit), got: cf && cf.withUnit });
             // regresja Raycast-style (07.2026): stopnie w trig, k+waluta, jednostka robocza
             var sDeg = evalCalcExpression('sin(30 deg)');
             results.push({ expr: 'sin(30 deg)', pass: Math.abs(sDeg.value - 0.5) < 1e-9 && !sDeg.unit, got: sDeg.value + ' ' + sDeg.unit });

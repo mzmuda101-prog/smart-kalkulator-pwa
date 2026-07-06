@@ -705,80 +705,28 @@
         /* Wiersz wyniku: opcjonalny znacznik „≈" (zaokrąglenie) tuż przed liczbą, do prawej. */
         .calc-result-row {
             display: flex;
-            align-items: flex-start;
+            align-items: center;
             justify-content: flex-end;
-            gap: 8px;
+            gap: 6px;
             width: 100%;
             grid-row: 2;
             min-width: 0;
             flex: 0 0 auto;
             overflow: visible;
-            position: relative; /* anchor for copy menu */
         }
-        .calc-result-row .calc-result { width: 100%; max-width: 100%; }
-        .calc-fx-hint {
-            grid-row: 3;
-            width: 100%;
-            text-align: right;
-            font-size: 0.72rem;
-            line-height: 1.2;
-            color: var(--text-muted, #94a3b8);
-            opacity: 0.85;
-            padding-top: 2px;
-            user-select: none;
+        .calc-result-row .calc-result {
+            flex: 1 1 auto;
+            min-width: 0;
+            width: auto;
+            max-width: 100%;
         }
-        .calc-fx-hint[hidden] { display: none; }
-        .calc-copy-btn {
-            flex: 0 0 auto;
-            align-self: center;
-            min-width: 28px;
-            height: 28px;
-            padding: 0 4px;
-            border: none;
-            border-radius: 6px;
-            background: transparent;
-            color: var(--text-muted, #94a3b8);
-            font-size: 1.1rem;
-            line-height: 1;
-            cursor: pointer;
-            -webkit-tap-highlight-color: transparent;
-        }
-        .calc-copy-btn[hidden] { display: none; }
-        .calc-copy-btn:active { background: color-mix(in srgb, var(--primary) 12%, transparent); }
-        .calc-copy-menu {
-            position: absolute;
-            right: 0;
-            top: 100%;
-            margin-top: 4px;
-            z-index: 20;
-            min-width: 168px;
-            padding: 4px;
-            border-radius: 10px;
-            background: var(--surface, #fff);
-            border: 1px solid var(--border, #e2e8f0);
-            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
-        }
-        .calc-copy-menu[hidden] { display: none; }
-        .calc-copy-menu [role="menuitem"] {
-            display: block;
-            width: 100%;
-            padding: 8px 12px;
-            border: none;
-            border-radius: 6px;
-            background: transparent;
-            text-align: left;
-            font-size: 0.875rem;
-            color: var(--text, #0f172a);
-            cursor: pointer;
-        }
-        .calc-copy-menu [role="menuitem"]:hover,
-        .calc-copy-menu [role="menuitem"]:focus-visible {
-            background: color-mix(in srgb, var(--primary) 10%, transparent);
-            outline: none;
-        }
-        .calc-display { position: relative; }
         .calc-approx {
             flex: 0 0 auto;
+            align-self: center;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             font-size: var(--calc-approx-font, 1.6rem);
             font-weight: 700;
             color: var(--primary);                                              /* fallback */
@@ -2498,6 +2446,35 @@
         .cursor-hint.np-eq .cursor-hint-scaler {
             white-space: normal;
             word-break: break-word;
+        }
+        /* Kalkulator: ≈ — kurs waluty / pełna wartość (data-hint-class="calc-eq") */
+        .cursor-hint.calc-eq .cursor-hint-scaler {
+            background: var(--card-bg, #fff);
+            color: var(--text-muted, #64748b);
+            font-family: inherit;
+            font-size: 0.78rem;
+            font-weight: 500;
+            line-height: 1.45;
+            padding: 8px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border, #e2e8f0);
+            box-shadow: 0 4px 18px rgba(15, 23, 42, 0.07);
+            white-space: normal;
+            text-align: center;
+            max-width: min(88vw, 280px);
+        }
+        .cursor-hint.calc-eq .cursor-hint-scaler span {
+            display: block;
+        }
+        .cursor-hint.calc-eq .cursor-hint-scaler span:last-child {
+            font-weight: 600;
+            color: var(--text, #0f172a);
+            font-variant-numeric: tabular-nums;
+        }
+        [data-theme="dark"] .cursor-hint.calc-eq .cursor-hint-scaler {
+            background: var(--card-bg, #1e293b);
+            border-color: var(--border, #334155);
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.28);
         }
         .np-hint {
             flex: 0 0 auto;
