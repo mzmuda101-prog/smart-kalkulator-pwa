@@ -118,6 +118,9 @@
         const npListBtn = $('#npListBtn');
         const npFoldBtn = $('#npFoldBtn');
         const npNewBtn = $('#npNewBtn');
+        const npExportBtn = $('#npExportBtn');
+        const npExportMenu = $('#npExportMenu');
+        const npTemplateList = $('#npTemplateList');
         const npTitle = $('#npTitle');
         const npListPanel = $('#npListPanel');
         const npListUl = $('#npListUl');
@@ -2916,6 +2919,13 @@
                 btn.addEventListener('click', function(e) {
                     e.stopPropagation();
                     var key = btn.getAttribute('data-copy');
+                    if (key === 'notepad') {
+                        var exLine = calcExpr.value.trim();
+                        if (!exLine && _lastCopyFormats) exLine = _lastCopyFormats.withUnit || _lastCopyFormats.number || '';
+                        appendToNotepad(exLine, { open: true, focus: true });
+                        closeMenu();
+                        return;
+                    }
                     var text = _lastCopyFormats && _lastCopyFormats[key];
                     if (!text) { closeMenu(); return; }
                     copyText(text).then(function() {
@@ -3055,8 +3065,19 @@
                     copyText(item.text).then(function() { showToast('Skopiowano', 'success'); })
                         .catch(function() { showToast('Nie udało się skopiować', 'error'); });
                 });
+                var npBtn = document.createElement('button');
+                npBtn.type = 'button';
+                npBtn.className = 'history-item-btn hist-notepad';
+                npBtn.textContent = '📝';
+                npBtn.title = 'Do notatnika';
+                npBtn.setAttribute('aria-label', 'Wyślij do notatnika');
+                npBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    appendToNotepad(exprPart.trim(), { open: true, focus: true });
+                });
                 actions.appendChild(pinBtn);
                 actions.appendChild(copyBtn);
+                actions.appendChild(npBtn);
 
                 content.appendChild(spanExpr);
                 content.appendChild(spanResult);
@@ -7780,6 +7801,144 @@
         var _npNotes = [];                             // wiele notatek: [{id, text, updatedAt}]
         var _npCurrentId = null;                       // id aktywnej notatki
         var _npGlobals = {};                           // zmienne DZIELONE między notatkami (@nazwa) — TYLKO notatnik
+        // T3-13 — wbudowane szablony (surowy tekst notatki)
+        var _NP_TEMPLATES = [
+            { id: 'remont', title: 'Remont', text: 'Farba: \nGips: \nTaśma: \nRazem\n' },
+            { id: 'wyjazd', title: 'Wyjazd', text: 'Dystans km: \nSpalanie l/100: \nPaliwo l: \nKoszt: \nRazem\n' },
+            { id: 'faktura', title: 'Faktura VAT', text: 'Netto: \nVAT 23%: \nBrutto: \n' }
+        ];
+        var _NP_WS_LABELS = { // T1-2 — etykiety wyników Warsztatu przy wysyłce do notatnika
+            wsAreaResult: 'Pole netto', wsCovResult: 'Pokrycie', wsVolResult: 'Objętość',
+            wsGridResult: 'Siatka', wsSlResult: 'Nachylenie', wsPyResult: 'Piramida',
+            wsFovResult: 'FOV', wsFovNeedResult: 'FOV potrzebny', wsElResult: 'Przewód',
+            wsEnResult: 'Energia', wsVdResult: 'Spadek napięcia', wsConvResult: 'Konwersja'
+        };
+        function appendToNotepad(lineOrLines, opts) { // T1-2 — dopisz linię(e) do aktywnej notatki
+            opts = opts || {};
+            var lines = (Array.isArray(lineOrLines) ? lineOrLines : [lineOrLines])
+                .map(function(l) { return String(l == null ? '' : l).trim(); }).filter(Boolean);
+            if (!lines.length) return false;
+            if (!_npNotes.length) {
+                _npNotes = [{ id: _npNewId(), text: '', updatedAt: Date.now() }];
+                _npCurrentId = _npNotes[0].id;
+            }
+            var notepadOpen = document.body.classList.contains('notepad-open');
+            if (notepadOpen && npEditor) {
+                _npStashCurrent();
+                lines.forEach(function(line) { npEditor.appendChild(_npMakeRow(line)); });
+                _npCommit();
+                _npGrowAll();
+                if (opts.focus !== false) {
+                    var lastInp = npEditor.querySelector('.np-row:last-child .np-line');
+                    if (lastInp) {
+                        var row = lastInp.closest('.np-row');
+                        if (row) row.classList.add('np-editing');
+                        lastInp.focus();
+                        var L = lastInp.value.length;
+                        try { lastInp.setSelectionRange(L, L); } catch (e) {}
+                        requestAnimationFrame(function() { try { row.scrollIntoView({ block: 'nearest' }); } catch (e2) {} });
+                    }
+                }
+            } else {
+                var n = _npCurrentNote();
+                if (!n) { npNewNote(); n = _npCurrentNote(); }
+                var cur = String(n.text || '');
+                var add = lines.join('\n');
+                n.text = cur ? (cur.replace(/\n$/, '') + '\n' + add) : add;
+                n.updatedAt = Date.now();
+                flushNotepadPersist();
+            }
+            if (opts.open) openNotepad();
+            if (!opts.silent) showToast('📝 Dodano do notatnika', 'success');
+            return true;
+        }
+        function _npExportBody(format) { // T3-14 — surowy tekst wszystkich notatek
+            _npStashCurrent();
+            if (format === 'md') {
+                return _npNotes.map(function(n) {
+                    return '## ' + _npTitle(n) + '\n\n' + String(n.text || '').trim();
+                }).join('\n\n');
+            }
+            return _npNotes.map(function(n, i) {
+                var head = '--- ' + _npTitle(n) + ' ---';
+                return (i ? '\n\n' : '') + head + '\n' + String(n.text || '');
+            }).join('');
+        }
+        function _npExportFilename(format) {
+            var d = new Date();
+            var pad = function(n) { return n < 10 ? '0' + n : '' + n; };
+            var stamp = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+            return 'notatnik-' + stamp + (format === 'md' ? '.md' : '.txt');
+        }
+        function npExport(format) { // T3-14 — .txt / .md / share
+            var fmt = format === 'md' ? 'md' : 'txt';
+            var body = _npExportBody(fmt);
+            if (!body.trim()) { showToast('⚠️ Notatnik jest pusty', 'error'); return; }
+            var fname = _npExportFilename(fmt);
+            var mime = fmt === 'md' ? 'text/markdown' : 'text/plain';
+            function downloadFallback() {
+                try {
+                    var blob = new Blob([body], { type: mime + ';charset=utf-8' });
+                    var url = URL.createObjectURL(blob);
+                    var a = document.createElement('a');
+                    a.href = url; a.download = fname; a.rel = 'noopener';
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    showToast('⬇ Zapisano ' + fname, 'success');
+                } catch (e) { showToast('⚠️ Nie udało się zapisać', 'error'); }
+            }
+            if (format === 'share' && typeof navigator.share === 'function') {
+                var shared = false;
+                if (typeof File !== 'undefined' && navigator.canShare) {
+                    try {
+                        var file = new File([body], fname, { type: mime + ';charset=utf-8' });
+                        if (navigator.canShare({ files: [file] })) {
+                            navigator.share({ files: [file], title: 'Notatnik Smart Kalkulator' }).then(function() {
+                                showToast('📤 Udostępniono', 'success');
+                            }).catch(function(err) {
+                                if (err && err.name !== 'AbortError') downloadFallback();
+                            });
+                            shared = true;
+                        }
+                    } catch (e) {}
+                }
+                if (!shared) {
+                    navigator.share({ title: 'Notatnik', text: body }).then(function() {
+                        showToast('📤 Udostępniono', 'success');
+                    }).catch(function(err) {
+                        if (err && err.name !== 'AbortError') downloadFallback();
+                    });
+                }
+                return;
+            }
+            downloadFallback();
+        }
+        function npNewFromTemplate(tplId) { // T3-13
+            var tpl = _NP_TEMPLATES.filter(function(t) { return t.id === tplId; })[0];
+            if (!tpl) return;
+            _npStashCurrent();
+            var n = { id: _npNewId(), text: tpl.text, updatedAt: Date.now() };
+            _npNotes.unshift(n);
+            _npCurrentId = n.id;
+            flushNotepadPersist();
+            _npLoadCurrent();
+            npCloseList();
+            if (!document.body.classList.contains('notepad-open')) openNotepad();
+            showToast('📝 ' + tpl.title, 'success');
+        }
+        function npRenderTemplates() {
+            if (!npTemplateList) return;
+            npTemplateList.replaceChildren();
+            _NP_TEMPLATES.forEach(function(tpl) {
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'np-template-btn';
+                btn.setAttribute('data-tpl', tpl.id);
+                btn.setAttribute('role', 'listitem');
+                btn.textContent = tpl.title;
+                npTemplateList.appendChild(btn);
+            });
+        }
         var _NP_LABEL_RE = /^([^:]*\p{L}[^:]*):\s*(.+)$/u;
         // „@nazwa: wartość" → zmienna dzielona między wszystkimi notatkami (ale NIE w kalkulatorze).
         var _NP_GLOBAL_RE = /^@\s*([\p{L}][\p{L}\p{N}_]*)\s*:\s*(.+)$/u;
@@ -8112,7 +8271,9 @@
         }
         function _npStashCurrent() { // zapisz treść z edytora do bieżącej notatki (bez przerysowania)
             var n = _npCurrentNote();
-            if (n) { n.text = _npSerialize(); n.updatedAt = Date.now(); }
+            if (!n || !npEditor) return;
+            if (!document.body.classList.contains('notepad-open')) return; // [EN] closed overlay — keep stored text (Node tests + append)
+            n.text = _npSerialize(); n.updatedAt = Date.now();
         }
         function _npCommit() { _npStashCurrent(); _npRebuildGlobals(); npRecompute(); npRenderTitle(); scheduleNotepadPersist(); }
         function npRenderTitle() { if (npTitle) npTitle.textContent = _npTitle(_npCurrentNote()); }
@@ -8193,6 +8354,7 @@
         function npOpenList() {
             if (!npListPanel) return;
             _npStashCurrent(); flushNotepadPersist();   // świeże tytuły na liście
+            npRenderTemplates();
             npRenderList();
             npListPanel.classList.add('open');
             npListPanel.setAttribute('aria-hidden', 'false');
@@ -8388,6 +8550,60 @@
         if (npListBtn) npListBtn.addEventListener('click', npToggleList);
         if (npFoldBtn) npFoldBtn.addEventListener('click', npToggleFold);
         if (npNewBtn) npNewBtn.addEventListener('click', npNewNote);
+        if (npTemplateList) {
+            npTemplateList.addEventListener('click', function(e) {
+                var btn = e.target.closest('.np-template-btn');
+                if (btn) npNewFromTemplate(btn.getAttribute('data-tpl'));
+            });
+        }
+        function setupNpExportMenu() { // T3-14
+            if (!npExportBtn || !npExportMenu) return;
+            function closeExp() { npExportMenu.hidden = true; npExportBtn.setAttribute('aria-expanded', 'false'); }
+            npExportBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (npExportMenu.hidden) { npExportMenu.hidden = false; npExportBtn.setAttribute('aria-expanded', 'true'); }
+                else closeExp();
+            });
+            npExportMenu.querySelectorAll('[data-export]').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    npExport(btn.getAttribute('data-export'));
+                    closeExp();
+                });
+            });
+            document.addEventListener('click', function(e) {
+                if (npExportMenu.hidden) return;
+                if (npExportMenu.contains(e.target) || e.target === npExportBtn) return;
+                closeExp();
+            });
+            document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeExp(); });
+        }
+        setupNpExportMenu();
+        function bindLongPressNotepad(el, getLine) { // T1-2 — Warsztat: przytrzymaj → do notatnika
+            if (!el) return;
+            var timer = null, fired = false;
+            function clearTimer() { if (timer) clearTimeout(timer); timer = null; }
+            el.addEventListener('pointerdown', function() {
+                fired = false;
+                clearTimer();
+                timer = setTimeout(function() {
+                    var line = getLine ? getLine() : el.textContent.trim();
+                    if (!line) return;
+                    fired = true;
+                    el.dataset.longPressed = 'true';
+                    hapticTap(35);
+                    appendToNotepad(line, { open: true, focus: true });
+                }, 650);
+            });
+            ['pointerup', 'pointercancel', 'pointerleave'].forEach(function(ev) {
+                el.addEventListener(ev, clearTimer);
+            });
+            el.addEventListener('click', function(e) {
+                if (!fired && el.dataset.longPressed !== 'true') return;
+                if (fired) { e.preventDefault(); e.stopPropagation(); }
+                setTimeout(function() { delete el.dataset.longPressed; fired = false; }, 0);
+            }, true);
+        }
         if (npListPanel) {
             npListPanel.addEventListener('click', function(e) {
                 var del = e.target.closest('.np-note-del');
@@ -9597,13 +9813,21 @@
             });
 
 
-            // [EN] Tap wyniku = kopiuj (jak w eng-result)
+            // [EN] Tap wyniku = kopiuj; przytrzymaj = do notatnika (T1-2)
             ['#wsAreaResult', '#wsCovResult', '#wsVolResult', '#wsGridResult', '#wsSlResult', '#wsPyResult', '#wsFovResult', '#wsFovNeedResult', '#wsElResult', '#wsEnResult', '#wsVdResult', '#wsConvResult'].forEach(function(sel) {
                 var el = $(sel);
-                if (el) el.addEventListener('click', function() {
+                if (!el) return;
+                el.addEventListener('click', function(e) {
+                    if (el.dataset.longPressed === 'true') { delete el.dataset.longPressed; return; }
                     var t = el.textContent.trim();
                     if (!t || t.indexOf('Podaj') === 0) return;
                     copyText(t).then(function() { showToast('📋 Skopiowano', 'success'); }).catch(function() {});
+                });
+                bindLongPressNotepad(el, function() {
+                    var t = el.textContent.trim();
+                    if (!t || t.indexOf('Podaj') === 0) return '';
+                    var lbl = _NP_WS_LABELS[el.id] || 'Wynik';
+                    return lbl + ': ' + t.replace(/\s+/g, ' ');
                 });
             });
 
@@ -10296,6 +10520,27 @@
             results.push({ expr: 'globalne: rebuild zbiera tylko @ (stawka), nie lokalne (paliwo/czynsz)', pass: _npGlobals.stawka === 50 && _npGlobals.paliwo === undefined && _npGlobals.czynsz === undefined, got: JSON.stringify(_npGlobals) });
             _npGlobals = savedGlobals; _npNotes = savedNotesG;
 
+            // T1-2 — append nie psuje evalNotepadLines
+            var savedNotesB = JSON.parse(JSON.stringify(_npNotes)), savedIdB = _npCurrentId;
+            _npNotes = [{ id: 'tappend', text: '2+2', updatedAt: Date.now() }];
+            _npCurrentId = 'tappend';
+            appendToNotepad('3+3', { open: false, focus: false, silent: true });
+            var noteApp = _npCurrentNote();
+            var appendOk = noteApp && noteApp.text.indexOf('3+3') >= 0 &&
+                evalNotepadLines(noteApp.text).some(function(x) { return x.value === 6; });
+            results.push({ expr: 'T1-2 appendToNotepad', pass: appendOk, got: noteApp ? noteApp.text : null });
+            _npNotes = savedNotesB; _npCurrentId = savedIdB;
+            // T3-14 — eksport Markdown
+            var savedNotesE = JSON.parse(JSON.stringify(_npNotes)), savedIdE = _npCurrentId;
+            _npNotes = [{ id: 'e1', text: 'Netto: 100\nVAT: 23', updatedAt: Date.now() }];
+            _npCurrentId = 'e1';
+            var mdOut = _npExportBody('md');
+            results.push({ expr: 'T3-14 _npExportBody(md)', pass: mdOut.indexOf('## ') === 0 && mdOut.indexOf('Netto') > 0, got: mdOut.slice(0, 48) });
+            _npNotes = savedNotesE; _npCurrentId = savedIdE;
+            // T3-13 — szablon faktury ma „Razem" / linie VAT
+            var tplVat = _NP_TEMPLATES.filter(function(t) { return t.id === 'faktura'; })[0];
+            results.push({ expr: 'T3-13 szablon faktura', pass: !!(tplVat && tplVat.text.indexOf('VAT') >= 0), got: tplVat && tplVat.title });
+
             // Stałe-FUNKCJE f(x) — wywołania w kalkulatorze (test(3)/test 3/3 test), argument-stała,
             // oraz bezpieczne NIE-liczenie form dwuznacznych/bezargumentowych.
             STATE.constants = [
@@ -10502,6 +10747,8 @@
                 resolveCalcCurrency: resolveCalcCurrency,
                 formatFxMeta: formatFxMeta,
                 buildCopyFormats: buildCopyFormats,
+                appendToNotepad: appendToNotepad,
+                npExport: npExport,
             };
         }
 

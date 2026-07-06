@@ -120,6 +120,7 @@
                             <button type="button" role="menuitem" data-copy="number">Sama liczba</button>
                             <button type="button" role="menuitem" data-copy="unit">Liczba + jednostka</button>
                             <button type="button" role="menuitem" data-copy="expr">= wynik</button>
+                            <button type="button" role="menuitem" data-copy="notepad">Do notatnika</button>
                         </div>
                     </div>
                     <div class="calc-fx-hint" id="calcFxHint" hidden aria-live="polite"></div>
@@ -1484,13 +1485,21 @@
             <button class="np-head-btn" id="npListBtn" type="button" aria-label="Lista notatek" title="Notatki">📋</button>
             <button class="np-head-btn" id="npFoldBtn" type="button" aria-pressed="false" aria-label="Zwiń wyrażenia do wyników" title="Zwiń wyrażenia do wyników">⊟</button>
             <h3 id="npTitle" class="np-title">📝 Notatnik</h3>
+            <button class="np-head-btn" id="npExportBtn" type="button" aria-label="Eksportuj notatki" title="Eksportuj">⬆</button>
             <button class="np-head-btn" id="npNewBtn" type="button" aria-label="Nowa notatka" title="Nowa notatka">＋</button>
             <button class="settings-close" id="notepadClose" type="button" aria-label="Zamknij">✕</button>
+            <div class="np-export-menu" id="npExportMenu" role="menu" hidden>
+                <button type="button" role="menuitem" data-export="txt">Eksport .txt</button>
+                <button type="button" role="menuitem" data-export="md">Eksport .md</button>
+                <button type="button" role="menuitem" data-export="share">Udostępnij…</button>
+            </div>
         </div>
         <div class="np-body">
             <div class="np-editor" id="npEditor"></div>
             <p class="np-hint">Każda linia liczy się osobno; wynik na końcu linii. <strong>Naprowadź lub dotknij wynik</strong>, by zobaczyć z jakiego równania pochodzi. <strong>Etykieta: działanie</strong> pomija etykietę; <strong>razem</strong>/<strong>suma</strong> = suma linii powyżej (też w działaniu: <code>na osobę: razem / 5 os.</code>). Własne jednostki (np. <code>os.</code>) dodasz w 📊 Moje Stałe.</p>
             <aside class="np-list-panel" id="npListPanel" aria-hidden="true" aria-label="Twoje notatki">
+                <div class="np-list-head">Nowa z szablonu</div>
+                <div class="np-template-list" id="npTemplateList" role="list"></div>
                 <div class="np-list-head">Twoje notatki</div>
                 <ul class="np-list" id="npListUl"></ul>
             </aside>
