@@ -7793,7 +7793,7 @@
             wsFovResult: 'FOV', wsFovNeedResult: 'FOV potrzebny', wsElResult: 'Przewód',
             wsEnResult: 'Energia', wsVdResult: 'Spadek napięcia', wsConvResult: 'Konwersja'
         };
-        var npBody = null, npMirror = null, npGutter = null, npFoldLayer = null; // [EN] jedno pole — zaznaczanie wielu linii
+        var npBody = null, npMirror = null, npGutter = null, npFoldLayer = null, npWrapLayer = null; // [EN] jedno pole — zaznaczanie wielu linii
         function appendToNotepad(lineOrLines, opts) { // T1-2 — dopisz linię(e) do aktywnej notatki
             opts = opts || {};
             var lines = (Array.isArray(lineOrLines) ? lineOrLines : [lineOrLines])
@@ -8201,6 +8201,9 @@
             npFoldLayer = document.createElement('div');
             npFoldLayer.className = 'np-fold-layer';
             npFoldLayer.setAttribute('aria-hidden', 'true');
+            npWrapLayer = document.createElement('div');
+            npWrapLayer.className = 'np-wrap-layer';
+            npWrapLayer.setAttribute('aria-hidden', 'true');
             npBody = document.createElement('textarea');
             npBody.className = 'np-text'; // [EN] not .np-body — that class is the modal shell in index.html
             npBody.setAttribute('aria-label', 'Notatnik');
@@ -8213,6 +8216,7 @@
             npGutter = document.createElement('div');
             npGutter.className = 'np-gutter';
             inner.appendChild(npMirror);
+            inner.appendChild(npWrapLayer);
             inner.appendChild(npFoldLayer);
             inner.appendChild(npBody);
             inner.appendChild(npGutter);
@@ -8255,6 +8259,7 @@
             if (!npEditor) return;
             var st = npEditor.scrollTop;
             if (npMirror) npMirror.scrollTop = st;
+            if (npWrapLayer) npWrapLayer.scrollTop = st;
             if (npFoldLayer) npFoldLayer.scrollTop = st;
             if (npGutter) npGutter.scrollTop = st;
         }
@@ -8344,10 +8349,22 @@
                 }
             });
         }
+        function _npLineHeightPx() {
+            if (!npMirror) return 32;
+            var cs = getComputedStyle(npMirror);
+            var lh = parseFloat(cs.lineHeight);
+            if (!isFinite(lh) || lh <= 0) lh = (parseFloat(cs.fontSize) || 16) * 2;
+            return lh;
+        }
+        // [EN] Soft-wrap only — Enter = new logical line without a wrap bar.
+        function _npIsSoftWrapped(el, lineH) {
+            return (el && (el.offsetHeight || 0) > lineH * 1.35);
+        }
         function _npRenderEditorChrome(lines, infos) {
-            if (!npBody || !npMirror || !npGutter || !npFoldLayer) return;
+            if (!npBody || !npMirror || !npGutter || !npFoldLayer || !npWrapLayer) return;
             var folded = !!(STATE.settings && STATE.settings.notepadFold);
             npMirror.replaceChildren();
+            npWrapLayer.replaceChildren();
             npGutter.replaceChildren();
             npFoldLayer.replaceChildren();
             if (!lines.length) lines = [''];
@@ -8357,14 +8374,27 @@
                 md.textContent = line.length ? line : '\u00a0';
                 npMirror.appendChild(md);
             });
+            var lineH = _npLineHeightPx();
             var mirrorLines = npMirror.querySelectorAll('.np-mirror-line');
             mirrorLines.forEach(function(md, i) {
                 var h = md.offsetHeight || 32;
+                var wrapped = _npIsSoftWrapped(md, lineH);
+                var wrapSlot = document.createElement('div');
+                wrapSlot.className = 'np-wrap-line' + (wrapped ? ' np-wrapped' : '');
+                wrapSlot.style.height = h + 'px';
+                wrapSlot.style.minHeight = h + 'px';
+                if (wrapped) {
+                    var bar = document.createElement('span');
+                    bar.className = 'np-wrap-bar';
+                    bar.setAttribute('aria-hidden', 'true');
+                    wrapSlot.appendChild(bar);
+                }
+                npWrapLayer.appendChild(wrapSlot);
                 var info = infos[i] || {};
                 var lineTrim = String((info.raw != null ? info.raw : lines[i]) || '').trim();
                 var kind = _npLineKind(info, lineTrim);
                 var gWrap = document.createElement('div');
-                gWrap.className = 'np-gutter-wrap';
+                gWrap.className = 'np-gutter-wrap' + (wrapped ? ' np-wrapped' : '');
                 gWrap.style.height = h + 'px';
                 gWrap.style.minHeight = h + 'px';
                 var delBtn = document.createElement('button');

@@ -2414,11 +2414,33 @@
             align-items: start;
             min-height: 100%;
         }
-        .np-mirror, .np-fold-layer, .np-text {
+        .np-mirror, .np-wrap-layer, .np-fold-layer, .np-text {
             grid-column: 1;
             grid-row: 1;
             min-width: 0;
         }
+        .np-wrap-layer {
+            pointer-events: none;
+            padding: 6px 8px;
+            overflow: hidden;
+        }
+        .np-wrap-line {
+            position: relative;
+            min-height: 2rem;
+            line-height: 2;
+        }
+        /* [EN] Soft-wrap marker — one logical line spanning multiple visual rows (not Enter). */
+        .np-wrap-line.np-wrapped .np-wrap-bar {
+            position: absolute;
+            right: 0;
+            top: 0.2em;
+            bottom: 0.2em;
+            width: 2px;
+            border-radius: 5px;
+            background: var(--primary);
+            opacity: 0.2;
+        }
+        .np-editor.np-fold:not(.np-editing) .np-wrap-layer { opacity: 0; }
         .np-gutter {
             grid-column: 2;
             grid-row: 1;
@@ -2520,6 +2542,7 @@
             position: relative;
             background: var(--bg, #fff);
             will-change: transform;
+            height: 100%;
         }
         .np-gutter-row, .np-row {
             position: relative;
@@ -2528,6 +2551,8 @@
             gap: 8px;
             padding: 0 8px 0 4px;
             min-height: 2rem;
+            height: 100%;
+            box-sizing: border-box;
         }
         .np-gutter-row.np-total .np-res { background: var(--primary); color: #fff; }
         .np-gutter-row.np-subtotal .np-res { background: var(--primary-light, rgba(37, 99, 235, 0.18)); color: var(--primary); }
