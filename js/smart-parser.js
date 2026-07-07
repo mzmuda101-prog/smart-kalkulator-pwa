@@ -534,6 +534,14 @@
             return Math.round((asUTC - date.getTime()) / 60000);
         } catch (e) { return null; }
     }
+    function _tzNowInCity(cityRaw) {
+        var tz = _tzLookup(cityRaw); if (tz == null) return null;
+        var d = new Date();
+        var off = _tzOffsetMin(tz, d); if (off == null) return null;
+        var offLocal = -d.getTimezoneOffset();
+        var rm = d.getHours() * 60 + d.getMinutes() + (off - offLocal);
+        return { text: _fmtClock(rm) + ' (' + _tzLabel(cityRaw) + ')', value: null, kind: 'clock', exact: true };
+    }
     function evalTimezoneExpression(raw) {
         var s = String(raw || '').trim(); if (!s) return null;
         var low = s.toLowerCase(); var m;
@@ -548,14 +556,13 @@
             var resMin = baseMin + (offB - offA);
             return { text: _fmtClock(resMin) + ' (' + _tzLabel(m[3]) + ')', value: null, kind: 'clock', exact: true };
         }
+        // „teraz NYC" / „teraz w Tokio" / „now in Kyoto" — skrót bez „czas w"/„time in"
+        if ((m = low.match(new RegExp('^(?:teraz|now|czas|time)\\s+(?:' + _TZ_PREP + '\\s+)?(.+?)\\s*$')))) {
+            var tzSh = _tzNowInCity(m[1]); if (tzSh) return tzSh;
+        }
         // „czas w <A>" / „time in <A>" / „która godzina w <A>" (Raycast-style)
         if ((m = low.match(new RegExp('^(?:(?:kt[oó]ra\\s+(?:jest\\s+)?godzina|czas|godzina)|(?:what(?:\'s|\\s+is)?\\s+(?:the\\s+)?time|what\\s+time|time))\\s+' + _TZ_PREP + '\\s+(.+?)\\s*$')))) {
-            var tz = _tzLookup(m[1]); if (tz == null) return null;
-            var d = new Date();
-            var off = _tzOffsetMin(tz, d); if (off == null) return null;
-            var offLocal = -d.getTimezoneOffset();
-            var rm = d.getHours() * 60 + d.getMinutes() + (off - offLocal);
-            return { text: _fmtClock(rm) + ' (' + _tzLabel(m[1]) + ')', value: null, kind: 'clock', exact: true };
+            var tzFull = _tzNowInCity(m[1]); if (tzFull) return tzFull;
         }
         return null;
     }

@@ -61,7 +61,11 @@
                         notepadSumUnit: 'off', // notatnik: jednostka przy razem/suma — 'off' | 'inherit'
                         notepadGutterHidden: false, // notatnik: panel chipów schowany (T6-3)
                         notepadFontSize: 1, // notatnik: rozmiar czcionki 0.85–1.25 (T6-1)
-                        unitProfile: 'default' }, // T2-10: preset domyślnych jednostek
+                        unitProfile: 'default', // T2-10: preset domyślnych jednostek
+                        standardLiveHint: false, // T4-17: chipy pod polem Standard
+                        standardAutocomplete: false, // T4-16: lista podpowiedzi Standard
+                        suggestOnEmpty: false, // T4-19: fuzzy gdy brak wyniku
+                        currencyCompactSymbols: true }, // T4-20: $ € zamiast kodów ISO
             // Komenda tab (merged Engineering + Graph)
             eng: { unit: 'cm', axis: 'X', mode: 'between' }, // used by drawEngineeringCanvas
             graph: {
@@ -97,6 +101,9 @@
 
         // Calculator
         const calcExpr = $('#calcExpr');
+        const calcExprAC = $('#calcExprAC');
+        const calcLiveHint = $('#calcLiveHint');
+        const calcEmptySuggest = $('#calcEmptySuggest');
         const calcResult = $('#calcResult');
         const calcApprox = $('#calcApprox');
         const calcGrid = $('#calcGrid');
@@ -144,6 +151,10 @@
         const settingsClose = $('#settingsClose');
         const settingDefaultCurrency = $('#settingDefaultCurrency');
         const settingUnitProfile = $('#settingUnitProfile');
+        const settingStandardLiveHint = $('#settingStandardLiveHint');
+        const settingStandardAutocomplete = $('#settingStandardAutocomplete');
+        const settingSuggestOnEmpty = $('#settingSuggestOnEmpty');
+        const settingCurrencyCompactSymbols = $('#settingCurrencyCompactSymbols');
         const settingUnitSelects = Array.prototype.slice.call(document.querySelectorAll('#settingDefaultUnits select[data-unit-cat]'));
         const settingFxBackup = $('#settingFxBackup');
         const settingFxBackupRow = $('#settingFxBackupRow');
@@ -282,6 +293,10 @@
                         if (stObj.unitProfile === 'default' || stObj.unitProfile === 'build' || stObj.unitProfile === 'it' || stObj.unitProfile === 'travel' || stObj.unitProfile === 'custom') {
                             STATE.settings.unitProfile = stObj.unitProfile;
                         }
+                        if (typeof stObj.standardLiveHint === 'boolean') STATE.settings.standardLiveHint = stObj.standardLiveHint;
+                        if (typeof stObj.standardAutocomplete === 'boolean') STATE.settings.standardAutocomplete = stObj.standardAutocomplete;
+                        if (typeof stObj.suggestOnEmpty === 'boolean') STATE.settings.suggestOnEmpty = stObj.suggestOnEmpty;
+                        if (typeof stObj.currencyCompactSymbols === 'boolean') STATE.settings.currencyCompactSymbols = stObj.currencyCompactSymbols;
                     }
                 }
             } catch (e) {
@@ -1363,6 +1378,7 @@
         // UWAGA: NIE mapujemy „funt" na GBP — „funt" to już jednostka masy.
         // _CUR_ALIAS przeniesione do js/data-tables.js (clean look).
         var _CUR_ALIAS = (window.MATM0_DATA || {}).CUR_ALIAS || {};
+        var _CUR_DISPLAY_SYM = (window.MATM0_DATA || {}).CUR_DISPLAY_SYM || {};
         var FX_TTL_MS = 6 * 3600 * 1000; // 6 h — po tym czasie odśwież w tle
 
         function _currencyTokenMap() {
@@ -1377,7 +1393,13 @@
             var rates = STATE.fx.rates || {};
             return rates[code] != null ? rates[code] : null; // PLN za 1 jednostkę
         }
-        function _currencyDisplay(code) { return code === 'PLN' ? 'zł' : code; }
+        function _currencyDisplay(code) {
+            if (!code) return code;
+            if (code === 'PLN') return 'zł';
+            var compact = !(STATE.settings && STATE.settings.currencyCompactSymbols === false);
+            if (compact && _CUR_DISPLAY_SYM[code]) return _CUR_DISPLAY_SYM[code];
+            return code;
+        }
         function _fxReady() { return STATE.fx.rates && Object.keys(STATE.fx.rates).length > 1; }
         function _fxFresh() { return STATE.fx.ts && (Date.now() - STATE.fx.ts) < FX_TTL_MS; }
         function _needsFxTable(code) { return code && code !== 'PLN'; } // [EN] PLN rate is always 1 — no API fetch
@@ -2091,6 +2113,191 @@
             return { withUnit: display, expression: ex ? (ex + ' = ' + display) : ('= ' + display) };
         }
         var _lastCopyFormats = null;
+        var _emptySuggestTimer = null;
+        var _liveHintBubbleTimer = null;
+        var _calcAssistBubbleKind = null; // [EN] 'live' | 'fuzzy' — mobile cursor-hint assist
+        var _assistLayoutRaf = 0;
+
+        function _calcAssistWide() { // [EN] desktop assist UI (chips + AC dropdown) ≥600px
+            var vv = window.visualViewport;
+            return vv ? vv.width >= 600 : window.innerWidth >= 600;
+        }
+
+        function _calcAssistAnchor() {
+            return calcExpr ? calcExpr.closest('.calc-expr-wrap') : null;
+        }
+
+        function _hideCalcAssistBubble() {
+            if (typeof _npHintCtl !== 'undefined' && _npHintCtl && _npHintCtl.hideHint) _npHintCtl.hideHint();
+            _calcAssistBubbleKind = null;
+        }
+
+        function _cancelLiveHintBubble() {
+            clearTimeout(_liveHintBubbleTimer);
+            _liveHintBubbleTimer = null;
+        }
+
+        function _calcAssistExtraPx() { // T4-17/19 — dodatkowa wysokość display przy hint/suggest (tylko desktop)
+            if (!_calcAssistWide()) return 0;
+            var px = 0;
+            if (calcLiveHint && !calcLiveHint.hidden) px += Math.max(28, calcLiveHint.offsetHeight || 0);
+            if (calcEmptySuggest && !calcEmptySuggest.hidden) px += Math.max(20, calcEmptySuggest.offsetHeight || 0);
+            return px;
+        }
+
+        function _scheduleAssistLayout() { // [EN] reflow display budget after assist rows show/hide
+            if (!_calcAssistWide()) return;
+            if (!(STATE.settings && (STATE.settings.standardLiveHint || STATE.settings.suggestOnEmpty))) return;
+            if (!_usesCalcFlexSplit()) return;
+            if (_assistLayoutRaf) cancelAnimationFrame(_assistLayoutRaf);
+            _assistLayoutRaf = requestAnimationFrame(function () {
+                _assistLayoutRaf = 0;
+                fitCalcLayout();
+            });
+        }
+
+        function updateCalcLiveHint() {
+            _cancelLiveHintBubble();
+            if (!calcLiveHint) return;
+            if (!(STATE.settings && STATE.settings.standardLiveHint)) {
+                calcLiveHint.hidden = true;
+                if (_calcAssistBubbleKind === 'live') _hideCalcAssistBubble();
+                _scheduleAssistLayout();
+                return;
+            }
+            var HINT = window.MATM0_HINT;
+            if (!HINT || typeof HINT.getLiveHints !== 'function') {
+                calcLiveHint.hidden = true;
+                if (_calcAssistBubbleKind === 'live') _hideCalcAssistBubble();
+                _scheduleAssistLayout();
+                return;
+            }
+            var chips = HINT.getLiveHints(calcExpr ? calcExpr.value : '');
+
+            if (!_calcAssistWide()) { // T4-17 mobile — dymek cursor-hint zamiast chipów w gridzie
+                calcLiveHint.hidden = true;
+                calcLiveHint.replaceChildren();
+                _scheduleAssistLayout();
+                if (!chips.length || _calcAssistBubbleKind === 'fuzzy') {
+                    if (_calcAssistBubbleKind === 'live') _hideCalcAssistBubble();
+                    return;
+                }
+                var anchor = _calcAssistAnchor();
+                var exprSnap = calcExpr ? calcExpr.value : '';
+                _liveHintBubbleTimer = setTimeout(function () {
+                    _liveHintBubbleTimer = null;
+                    if (_calcAssistWide()) return;
+                    if (!(STATE.settings && STATE.settings.standardLiveHint)) return;
+                    if (!calcExpr || calcExpr.value !== exprSnap) return;
+                    if (_calcAssistBubbleKind === 'fuzzy') return;
+                    var chipsNow = HINT.getLiveHints(calcExpr.value);
+                    if (!chipsNow.length) return;
+                    if (typeof _npHintCtl === 'undefined' || !_npHintCtl || !_npHintCtl.showProgrammatic || !anchor) return;
+                    var txt = chipsNow.map(function (c) { return c.label || c; }).join(' · ');
+                    _calcAssistBubbleKind = 'live';
+                    _npHintCtl.showProgrammatic({
+                        anchorEl: anchor,
+                        text: txt,
+                        hintClass: 'calc-assist-hint',
+                        durationMs: 5000,
+                        autoHide: true,
+                        fade: true
+                    });
+                }, 400);
+                return;
+            }
+
+            if (_calcAssistBubbleKind) _hideCalcAssistBubble();
+            if (!chips.length) { calcLiveHint.hidden = true; calcLiveHint.replaceChildren(); _scheduleAssistLayout(); return; }
+            calcLiveHint.replaceChildren();
+            chips.forEach(function (c) {
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'calc-hint-chip';
+                btn.textContent = c.label || c;
+                btn.addEventListener('mousedown', function (e) { e.preventDefault(); });
+                btn.addEventListener('click', function () {
+                    if (!calcExpr) return;
+                    insertAtCursor(calcExpr, c.insert != null ? c.insert : (' ' + c));
+                    liveEval();
+                });
+                calcLiveHint.appendChild(btn);
+            });
+            calcLiveHint.hidden = false;
+            _scheduleAssistLayout();
+        }
+
+        function updateCalcEmptySuggest(res) {
+            if (!calcEmptySuggest) return;
+            clearTimeout(_emptySuggestTimer);
+            if (!(STATE.settings && STATE.settings.suggestOnEmpty) || !calcExpr || !calcExpr.value.trim()) {
+                calcEmptySuggest.hidden = true;
+                if (_calcAssistBubbleKind === 'fuzzy') _hideCalcAssistBubble();
+                _scheduleAssistLayout();
+                return;
+            }
+            if (!res || res.value !== null || res.text != null || res.pendingFx) {
+                calcEmptySuggest.hidden = true;
+                if (_calcAssistBubbleKind === 'fuzzy') _hideCalcAssistBubble();
+                _scheduleAssistLayout();
+                return;
+            }
+            var exprSnap = calcExpr.value;
+            _emptySuggestTimer = setTimeout(function () {
+                if (!calcExpr || calcExpr.value !== exprSnap) return;
+                var HINT = window.MATM0_HINT;
+                var sug = HINT && typeof HINT.fuzzySuggest === 'function' ? HINT.fuzzySuggest(exprSnap) : null;
+
+                if (!_calcAssistWide()) { // T4-19 mobile — kotwiczony dymek zamiast wiersza w gridzie
+                    calcEmptySuggest.hidden = true;
+                    _scheduleAssistLayout();
+                    if (!sug) {
+                        if (_calcAssistBubbleKind === 'fuzzy') _hideCalcAssistBubble();
+                        return;
+                    }
+                    _cancelLiveHintBubble(); // [EN] fuzzy wins — cancel pending live-hint debounce
+                    var anchor = _calcAssistAnchor();
+                    if (typeof _npHintCtl === 'undefined' || !_npHintCtl || !_npHintCtl.showProgrammatic || !anchor) return;
+                    if (_calcAssistBubbleKind === 'live') _hideCalcAssistBubble();
+                    _calcAssistBubbleKind = 'fuzzy';
+                    _npHintCtl.showProgrammatic({
+                        anchorEl: anchor,
+                        text: 'Czy chodziło o: ' + sug + '?',
+                        hintClass: 'calc-assist-hint is-fuzzy',
+                        durationMs: 6000,
+                        autoHide: true,
+                        fade: true,
+                        onTap: function () {
+                            calcExpr.value = sug;
+                            _calcAssistBubbleKind = null;
+                            liveEval();
+                        }
+                    });
+                    return;
+                }
+
+                if (!sug) { calcEmptySuggest.hidden = true; _scheduleAssistLayout(); return; }
+                _cancelLiveHintBubble(); // [EN] fuzzy wins on desktop too
+                if (_calcAssistBubbleKind === 'live') _hideCalcAssistBubble();
+                calcEmptySuggest.replaceChildren();
+                var txt = document.createTextNode('Czy chodziło o: ');
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'calc-suggest-btn';
+                var code = document.createElement('code');
+                code.textContent = sug;
+                btn.appendChild(code);
+                btn.addEventListener('click', function () {
+                    calcExpr.value = sug;
+                    liveEval();
+                });
+                calcEmptySuggest.appendChild(txt);
+                calcEmptySuggest.appendChild(btn);
+                calcEmptySuggest.appendChild(document.createTextNode('?'));
+                calcEmptySuggest.hidden = false;
+                _scheduleAssistLayout();
+            }, 300);
+        }
 
         function insertAtCursor(input, text) {
             var focused = document.activeElement === input;
@@ -2570,19 +2777,20 @@
             if (!row) return;
             var maxW = _calcResultMaxWidth(row);
             if (maxW <= 0) {
-                // [EN] Row may be 0px wide for one frame during layout (waluta → nowy wynik).
-                // Cap retries — bez limitu rAF zapycha wątek i blokuje wpisywanie (np. 100PLN).
                 if (_calcResultFitPending < 12) {
                     _calcResultFitPending++;
                     requestAnimationFrame(fitCalcResultSize);
+                    return;
                 }
-                return;
+                var disp = calcResult.closest('.calc-display');
+                maxW = Math.max(0, (disp && disp.clientWidth) || row.clientWidth || 280);
+                if (maxW <= 0) return;
             }
             _calcResultFitPending = 0;
             var prevLines = _calcResultWrapLines;
             var basePx = _calcResultBaseFontPx();
             var floorPx = _calcResultFloorPx();
-            var flatSrc = _calcResultTargetDisplay || _calcResultFullText();
+            var flatSrc = _calcResultTargetDisplay ?? _calcResultFullText(); // [EN] '' = brak wyniku (nieprawidłowe wyrażenie), nie fallback na stary DOM
             var flat = String(flatSrc).replace(/\n/g, ' ').trim();
             var prevRendered = _calcResultFullText(); // [EN] stan sprzed tego fit — jeden render z animacją
             if (_isDefaultResultFlat(flat)) {
@@ -2739,7 +2947,7 @@
                 card.style.height = '';
                 card.style.setProperty('--calc-card-min-h', availH + 'px');
             }
-            var displayH = budget.height;
+            var displayH = budget.height + _calcAssistExtraPx();
             if (wrapMin > displayH) {
                 var cap = (budget.maxPx || 160) + (budget.wrapExtraPx || 0);
                 displayH = needScroll ? Math.ceil(wrapMin) : Math.ceil(Math.min(wrapMin, cap));
@@ -2796,6 +3004,8 @@
                 _lastCopyFormats = null;
                 fitCalcDisplay();
                 _setApproxMark(false, null, null);
+                updateCalcLiveHint();
+                updateCalcEmptySuggest(res);
                 return;
             }
             // Mamy kursy, ale warto odświeżyć w tle, gdy stare (wynik z cache pokazujemy od razu).
@@ -2807,6 +3017,8 @@
             _lastCopyFormats = buildCopyFormats(res, calcExpr.value);
             _setApproxMark(hasResult && (res.exact === false || fxMeta), res, fxMeta);
             fitCalcDisplay();
+            updateCalcLiveHint();
+            updateCalcEmptySuggest(res);
         }
         // Znacznik „≈" — kurs (góra) + pełna wartość (dół) w cursor-hint via /|. [[A2]]
         function _setApproxMark(on, res, fxMeta) {
@@ -3066,6 +3278,7 @@
             _histEnforceCap();
             saveHistory();
             renderHistory();
+            invalidateStdACSuggestions();
         }
 
         var _historyQuery = '';
@@ -4441,6 +4654,7 @@
             if (_helpSystemReady) return;
             _helpSystemReady = true;
             renderCommandHelpDefinitions();
+            invalidateStdACSuggestions(); // T4-16 — ściąga doładowana po deferred init
 
             /* ---- Cache original help HTML for safe highlighting ---- */
             document.querySelectorAll('.help-section p').forEach(function(item) {
@@ -7948,6 +8162,10 @@
             if (settingNotepadAutoUnit) settingNotepadAutoUnit.value = STATE.settings.notepadAutoUnit || 'safe';
             if (settingNotepadUnitMix) settingNotepadUnitMix.value = STATE.settings.notepadUnitMix || 'strict';
             if (settingNotepadSumUnit) settingNotepadSumUnit.value = STATE.settings.notepadSumUnit || 'off';
+            if (settingStandardLiveHint) settingStandardLiveHint.checked = !!STATE.settings.standardLiveHint;
+            if (settingStandardAutocomplete) settingStandardAutocomplete.checked = !!STATE.settings.standardAutocomplete;
+            if (settingSuggestOnEmpty) settingSuggestOnEmpty.checked = !!STATE.settings.suggestOnEmpty;
+            if (settingCurrencyCompactSymbols) settingCurrencyCompactSymbols.checked = STATE.settings.currencyCompactSymbols !== false;
             _npSyncFontSize(true);
             updateFxStatusLine();
             if (settingsVersion) settingsVersion.textContent = 'Wersja ' + (window.APP_VERSION || '—');
@@ -9718,6 +9936,19 @@
             });
         }
 
+        function _bindAssistSetting(el, key, onChange) {
+            if (!el) return;
+            el.addEventListener('change', function () {
+                STATE.settings[key] = el.type === 'checkbox' ? el.checked : el.value;
+                saveSettings();
+                if (typeof onChange === 'function') onChange();
+            });
+        }
+        _bindAssistSetting(settingStandardLiveHint, 'standardLiveHint', function () { updateCalcLiveHint(); });
+        _bindAssistSetting(settingStandardAutocomplete, 'standardAutocomplete');
+        _bindAssistSetting(settingSuggestOnEmpty, 'suggestOnEmpty', function () { liveEval(); });
+        _bindAssistSetting(settingCurrencyCompactSymbols, 'currencyCompactSymbols', function () { liveEval(); });
+
         if (settingNotepadFold) {
             settingNotepadFold.addEventListener('click', function(e) {
                 var btn = e.target.closest('.settings-seg-btn');
@@ -10238,6 +10469,120 @@
         function getACSuggestions() {
             if (!_acSuggestions) _acSuggestions = buildACSuggestions();
             return _acSuggestions;
+        }
+
+        /* T4-16 — autocomplete Standard (historia + znane komendy + ściąga) */
+        var _stdAcSuggestions = null;
+        function buildStdACSuggestions() {
+            var seen = {}, list = [];
+            function add(syntax, description) {
+                var key = String(syntax).toLowerCase().replace(/\s+/g, '');
+                if (!key || seen[key]) return;
+                seen[key] = true;
+                list.push({ syntax: syntax, description: description || '' });
+            }
+            var HINT = window.MATM0_HINT;
+            if (HINT && HINT.KNOWN_COMMANDS) HINT.KNOWN_COMMANDS.forEach(function (c) { add(c, ''); });
+            (STATE.history || []).forEach(function (h) {
+                if (!h || !h.text) return;
+                var expr = String(h.text).split('=')[0].trim();
+                if (expr) add(expr, 'historia');
+            });
+            document.querySelectorAll('.help-command[data-command]').forEach(function (el) {
+                add(el.getAttribute('data-command'), 'ściąga');
+            });
+            return list;
+        }
+        function getStdACSuggestions() {
+            if (!_stdAcSuggestions) _stdAcSuggestions = buildStdACSuggestions();
+            return _stdAcSuggestions;
+        }
+        function invalidateStdACSuggestions() { _stdAcSuggestions = null; }
+
+        function stdAcQueryFromInput(val) {
+            var HINT = window.MATM0_HINT;
+            if (HINT && typeof HINT.lastToken === 'function') return HINT.lastToken(val).toLowerCase();
+            var m = String(val || '').trim().match(/([^\s]+)\s*$/);
+            return m ? m[1].toLowerCase() : '';
+        }
+
+        function acFilterStdSuggestions(query) {
+            if (!query || query.length < 1) return [];
+            var q = query.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            var results = [];
+            getStdACSuggestions().forEach(function (s) {
+                var synLower = s.syntax.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                var descLower = (s.description || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                if (synLower.startsWith(q)) results.unshift(s);
+                else if (synLower.includes(q)) results.push(s);
+                else if (descLower.includes(q) && results.length < 8) results.push(s);
+            });
+            return results.slice(0, 7);
+        }
+
+        function initCalcAutocomplete(inputEl, dropdownEl) {
+            if (!inputEl || !dropdownEl) return;
+            var activeIdx = -1;
+            function closeAC() { dropdownEl.classList.remove('open'); activeIdx = -1; }
+            function openAC(items) {
+                dropdownEl.replaceChildren();
+                activeIdx = -1;
+                items.forEach(function (item) {
+                    var row = document.createElement('div');
+                    row.className = 'autocomplete-item';
+                    row.setAttribute('role', 'option');
+                    var code = document.createElement('code');
+                    code.textContent = item.syntax;
+                    row.appendChild(code);
+                    if (item.description) {
+                        var desc = document.createElement('span');
+                        desc.className = 'ac-desc';
+                        desc.textContent = item.description;
+                        row.appendChild(desc);
+                    }
+                    row.addEventListener('mousedown', function (e) {
+                        e.preventDefault();
+                        var val = inputEl.value;
+                        var query = stdAcQueryFromInput(val);
+                        if (query && val.slice(-query.length).toLowerCase() === query) {
+                            inputEl.value = val.slice(0, val.length - query.length) + item.syntax;
+                        } else {
+                            inputEl.value = val + (val && !/\s$/.test(val) ? ' ' : '') + item.syntax;
+                        }
+                        inputEl.focus();
+                        inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                        closeAC();
+                    });
+                    dropdownEl.appendChild(row);
+                });
+                dropdownEl.classList.add('open');
+            }
+            function setActiveItem(idx) {
+                var rows = dropdownEl.querySelectorAll('.autocomplete-item');
+                rows.forEach(function (r) { r.classList.remove('active'); });
+                if (idx >= 0 && idx < rows.length) { rows[idx].classList.add('active'); rows[idx].scrollIntoView({ block: 'nearest' }); }
+                activeIdx = idx;
+            }
+            inputEl.addEventListener('input', function () {
+                if (!_calcAssistWide()) { closeAC(); return; } // T4-16 — AC tylko na szerokim ekranie
+                if (!(STATE.settings && STATE.settings.standardAutocomplete)) { closeAC(); return; }
+                var query = stdAcQueryFromInput(inputEl.value);
+                if (!query || query.length < 1) { closeAC(); return; }
+                var matches = acFilterStdSuggestions(query);
+                if (!matches.length) { closeAC(); return; }
+                openAC(matches);
+            });
+            inputEl.addEventListener('keydown', function (e) {
+                if (!dropdownEl.classList.contains('open')) return;
+                var rows = dropdownEl.querySelectorAll('.autocomplete-item');
+                if (e.key === 'ArrowDown') { e.preventDefault(); setActiveItem(Math.min(activeIdx + 1, rows.length - 1)); }
+                else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveItem(Math.max(activeIdx - 1, 0)); }
+                else if (e.key === 'Enter' || e.key === 'Tab') {
+                    if (activeIdx >= 0 && rows[activeIdx]) { e.preventDefault(); rows[activeIdx].dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); }
+                    else closeAC();
+                } else if (e.key === 'Escape') closeAC();
+            });
+            inputEl.addEventListener('blur', function () { setTimeout(closeAC, 150); });
         }
 
         function acQueryFromInput(val) {
@@ -10861,6 +11206,7 @@
             if (graphFsExitEl && graphContainer) graphContainer.appendChild(graphFsExitEl);
 
             loadFromStorage();
+            if (STATE.settings.unitProfile !== 'custom') STATE.settings.unitProfile = _detectUnitProfile(); // T2-10 — sync etykiety z defaultUnits
             initTheme(); // tryb ciemny: synchronizuj ikonę przełącznika + podłącz reakcje
             registerCustomUnits(); // własne jednostki użytkownika rozpoznawalne od razu w kalkulatorze
 
@@ -10875,6 +11221,14 @@
                 if (e.key === 'Escape') { handleCalcAction('AC'); }
             });
             setupPlaceholderMarquee();
+            initCalcAutocomplete(calcExpr, calcExprAC);
+            function _onCalcAssistViewport() { // [EN] przełącz mobile bubble ↔ desktop chips przy resize
+                if (_calcAssistWide()) _hideCalcAssistBubble();
+                else if (calcExprAC) calcExprAC.classList.remove('open');
+                liveEval();
+            }
+            window.addEventListener('resize', _onCalcAssistViewport);
+            if (window.visualViewport) window.visualViewport.addEventListener('resize', _onCalcAssistViewport);
             liveEval();
             renderHistory();
             hideSplash(); // kalkulator gotowy → zgaś ekran ładowania (z minimalnym czasem pokazu)
@@ -11098,6 +11452,17 @@
         }
 
         function runCalcSmokeTests() {
+            function _smokeCurUnit(code) { // T4-20 — oczekiwana etykieta waluty w smoke
+                if (code === 'PLN') return 'zł';
+                var SYM = (window.MATM0_DATA || {}).CUR_DISPLAY_SYM || {};
+                if (STATE.settings.currencyCompactSymbols !== false && SYM[code]) return SYM[code];
+                return code;
+            }
+            function _smokeCurInText(text, code) {
+                var u = _smokeCurUnit(code);
+                if (u.length <= 2) return text.indexOf(u) >= 0 || new RegExp(code, 'i').test(text);
+                return new RegExp(u.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(text);
+            }
             var cases = [
                 // długość — domyślnie __auto__ (czytelny autodobór); Raycast-style konwersje jawne
                 { expr: '2 cm + 5 mm', value: 2.5, unit: 'cm' },
@@ -11289,6 +11654,29 @@
                 var pass = r.unit === t.unit && Math.abs(r.value - t.value) <= (t.tol || 1e-9);
                 results.push({ expr: 'T2-7 ' + t.expr, pass: pass, got: r.value + ' ' + r.unit });
             });
+            // Faza D — podpowiedzi i symbole walut
+            var Hsm = window.MATM0_HINT;
+            var hDzis = Hsm && Hsm.getLiveHints('dziś') || [];
+            results.push({ expr: 'T4-17 dziś hint', pass: hDzis.some(function (c) { return String(c.label || c).indexOf('90 dni') >= 0; }), got: hDzis.length ? (hDzis[0].label || hDzis[0]) : 'brak' });
+            results.push({ expr: 'T4-19 fuzzy tokjo', pass: Hsm && Hsm.fuzzySuggest('czas w tokjo') === 'czas w Tokio', got: Hsm && Hsm.fuzzySuggest('czas w tokjo') });
+            var stdAc = acFilterStdSuggestions('czas');
+            results.push({ expr: 'T4-16 ac czas', pass: stdAc.length > 0 && stdAc.some(function (s) { return /czas/i.test(s.syntax); }), got: stdAc.length });
+            (function () {
+                var savedFxD = STATE.fx.rates, savedFxTs = STATE.fx.ts, savedCompact = STATE.settings.currencyCompactSymbols;
+                var savedDefD = STATE.settings.defaultCurrency;
+                STATE.fx.rates = { PLN: 1, USD: 3.95, EUR: 4.3 };
+                STATE.fx.ts = Date.now();
+                STATE.settings.defaultCurrency = 'USD';
+                STATE.settings.currencyCompactSymbols = true;
+                var rSym = evalCalcExpression('20 usd + 10 usd');
+                results.push({ expr: 'T4-20 30 usd $', pass: rSym.unit === '$' && Math.abs(rSym.value - 30) < 1e-9, got: rSym.value + ' ' + rSym.unit });
+                STATE.settings.currencyCompactSymbols = false;
+                var rIso = evalCalcExpression('20 usd + 10 usd');
+                results.push({ expr: 'T4-20 30 usd ISO', pass: rIso.unit === 'USD', got: rIso.unit });
+                STATE.fx.rates = savedFxD; STATE.fx.ts = savedFxTs;
+                STATE.settings.currencyCompactSymbols = savedCompact;
+                STATE.settings.defaultCurrency = savedDefD;
+            })();
             // REGRESJE jednostek (2026-06-27):
             //  1) Autodobór NIE awansuje do większej jednostki, gdy psuje to czytelność:
             //     „108 m + 900 m" = 1008 m (NIE mylące „1,008 km" wyglądające jak 1008 km).
@@ -11417,7 +11805,7 @@
             ];
             var unitCases = [
                 { expr: 'cena * 12',  value: 57.6, unit: 'zł' },   // 4,80 zł × 12 = 57,6 zł
-                { expr: 'cena na eur', value: Math.round(4.80 / 4.30 * 100) / 100, unit: 'EUR' }, // konwersja waluty (grosze: 2 miejsca)
+                { expr: 'cena na eur', value: Math.round(4.80 / 4.30 * 100) / 100, unit: _smokeCurUnit('EUR') }, // konwersja waluty (grosze: 2 miejsca)
                 { expr: 'dł na m',    value: 1.2,  unit: 'm' },    // 120 cm = 1,2 m
                 { expr: 'sztuk * 12', value: 60,   unit: null },   // „szt" ignorowane → czysta liczba
             ];
@@ -11542,7 +11930,7 @@
             var sumInh = evalNotepadLines('Nocleg: 110pln×10os\npaliwo: 5,60pln×100km\nrazem');
             results.push({ expr: 'sum-unit inherit: razem = 1660 zł', pass: sumInh[2].value === 1660 && /zł/i.test(sumInh[2].text), got: sumInh[2].text });
             var sumMan = evalNotepadLines('A: 100 zł\nB: 50 zł\nrazem(usd)');
-            results.push({ expr: 'sum-unit manual razem(usd)', pass: sumMan[2].value === 150 && /USD/i.test(sumMan[2].text), got: sumMan[2].text });
+            results.push({ expr: 'sum-unit manual razem(usd)', pass: sumMan[2].value === 150 && _smokeCurInText(sumMan[2].text, 'USD'), got: sumMan[2].text });
             var sumMix = evalNotepadLines('A: 100 zł\nB: 50\nrazem');
             results.push({ expr: 'sum-unit inherit mixed units → brak zł', pass: sumMix[2].value === 150 && !/zł/i.test(sumMix[2].text), got: sumMix[2].text });
             var sumVar = evalNotepadLines('A: 100 zł\nB: 50 zł\nrazem\ntest: @razem × 2');
@@ -11551,7 +11939,7 @@
             STATE.fx.rates = { PLN: 1, USD: 4.0 }; STATE.fx.ts = Date.now();
             var usdLines = evalNotepadLines('A: 100 usd\nrazem(usd)\nT: @razem × 2\nC: @razem na zł');
             STATE.fx.rates = savedFxUsd; STATE.fx.ts = savedFxTsUsd;
-            results.push({ expr: 'sum-unit @razem×2 z ręcznym USD', pass: usdLines[2].value === 200 && /USD/i.test(usdLines[2].text), got: usdLines[2].text });
+            results.push({ expr: 'sum-unit @razem×2 z ręcznym USD', pass: usdLines[2].value === 200 && _smokeCurInText(usdLines[2].text, 'USD'), got: usdLines[2].text });
             results.push({ expr: 'sum-unit @razem na zł (jawna konwersja)', pass: usdLines[3].value === 400 && /zł/i.test(usdLines[3].text), got: usdLines[3].text });
             STATE.settings.notepadSumUnit = savedSumU;
 
@@ -11698,7 +12086,7 @@
             results.push({ expr: '12 zł + 20 eur', pass: Math.abs(evalCalcExpression('12 zł + 20 eur').value - 98) < 1e-9, got: evalCalcExpression('12 zł + 20 eur').value });
             results.push({ expr: '20 eur na zł', pass: Math.abs(evalCalcExpression('20 eur na zł').value - 86) < 1e-9, got: evalCalcExpression('20 eur na zł').value });
             var cUnit = evalCalcExpression('100 zł na eur');
-            results.push({ expr: '100 zł na eur (jednostka)', pass: cUnit.unit === 'EUR' && Math.abs(cUnit.value - Math.round(100 / 4.30 * 100) / 100) < 1e-6, got: cUnit.value + ' ' + cUnit.unit });
+            results.push({ expr: '100 zł na eur (jednostka)', pass: cUnit.unit === _smokeCurUnit('EUR') && Math.abs(cUnit.value - Math.round(100 / 4.30 * 100) / 100) < 1e-6, got: cUnit.value + ' ' + cUnit.unit });
             // Miks waluty z jednostką fizyczną — NIE liczymy na siłę (value i unit = null).
             ['12 gb - 12 zł', '12 zł + 5 kg', '12 zł / 2 kg'].forEach(function(ex) {
                 var r = evalCalcExpression(ex);
@@ -11724,15 +12112,15 @@
             });
             // Kurs krzyżowy (para bez PLN) — przez pivot PLN: 100 USD → EUR = 100*3,95/4,30.
             var cross = evalCalcExpression('100 usd na eur');
-            results.push({ expr: '100 usd na eur (cross)', pass: cross.unit === 'EUR' && Math.abs(cross.value - Math.round(100 * 3.95 / 4.30 * 100) / 100) < 1e-6, got: cross.value + ' ' + cross.unit });
+            results.push({ expr: '100 usd na eur (cross)', pass: cross.unit === _smokeCurUnit('EUR') && Math.abs(cross.value - Math.round(100 * 3.95 / 4.30 * 100) / 100) < 1e-6, got: cross.value + ' ' + cross.unit });
             results.push({ expr: '100 usd na eur preciseValue', pass: cross.preciseValue != null && Math.abs(cross.preciseValue - cross.value) > 1e-4, got: cross.preciseValue });
             // Domyślna waluta — gołe sumy zwijają się do ustawionej waluty (nie PLN).
             var savedDef = STATE.settings.defaultCurrency;
             STATE.settings.defaultCurrency = 'EUR';
             var dc1 = evalCalcExpression('20 eur + 10 eur'); // 30 EUR (129 PLN / 4,30)
-            results.push({ expr: '20 eur + 10 eur @EUR (domyślna)', pass: dc1.unit === 'EUR' && Math.abs(dc1.value - 30) < 1e-6, got: dc1.value + ' ' + dc1.unit });
+            results.push({ expr: '20 eur + 10 eur @EUR (domyślna)', pass: dc1.unit === _smokeCurUnit('EUR') && Math.abs(dc1.value - 30) < 1e-6, got: dc1.value + ' ' + dc1.unit });
             var dc2 = evalCalcExpression('43 zł'); // 43 PLN / 4,30 = 10 EUR
-            results.push({ expr: '43 zł @EUR (domyślna)', pass: dc2.unit === 'EUR' && Math.abs(dc2.value - 10) < 1e-6, got: dc2.value + ' ' + dc2.unit });
+            results.push({ expr: '43 zł @EUR (domyślna)', pass: dc2.unit === _smokeCurUnit('EUR') && Math.abs(dc2.value - 10) < 1e-6, got: dc2.value + ' ' + dc2.unit });
             var dc3 = evalCalcExpression('20 eur na zł'); // jawny cel „na zł" WYGRYWA nad domyślną
             results.push({ expr: '20 eur na zł @EUR (jawny cel wygrywa)', pass: dc3.unit === 'zł' && Math.abs(dc3.value - 86) < 1e-9, got: dc3.value + ' ' + dc3.unit });
             STATE.settings.defaultCurrency = 'PLN';
@@ -11850,6 +12238,9 @@
                 buildCopyFormats: buildCopyFormats,
                 appendToNotepad: appendToNotepad,
                 npExport: npExport,
+                getLiveHints: function (expr) { var H = window.MATM0_HINT; return H && H.getLiveHints ? H.getLiveHints(expr) : []; },
+                fuzzySuggest: function (expr) { var H = window.MATM0_HINT; return H && H.fuzzySuggest ? H.fuzzySuggest(expr) : null; },
+                acFilterStdSuggestions: acFilterStdSuggestions,
             };
         }
 

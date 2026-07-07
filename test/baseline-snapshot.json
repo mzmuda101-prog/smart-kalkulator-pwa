@@ -622,7 +622,7 @@
   {
     "expr": "100 zł na eur",
     "value": 23.26,
-    "unit": "EUR",
+    "unit": "€",
     "text": null,
     "kind": "money",
     "exact": true,
@@ -632,7 +632,7 @@
   {
     "expr": "100 usd na eur",
     "value": 91.86,
-    "unit": "EUR",
+    "unit": "€",
     "text": null,
     "kind": "money",
     "exact": true,

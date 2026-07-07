@@ -17,7 +17,7 @@
     "test:pl-units": "node test/pl-unit-grammar.js",
     "test:tz": "node test/timezone-regression.js",
     "test:version": "node test/version-compare.js",
-    "test:all": "node test/smoke-node.js && node test/property.js && node test/quantity.js && node test/engine-units.js && node test/units-oracle.js && node test/baseline.js && node test/dates-regression.js && node test/help-bilingual.js && node test/pl-unit-grammar.js && node test/timezone-regression.js && node test/version-compare.js"
+    "test:all": "node test/smoke-node.js && node test/property.js && node test/quantity.js && node test/engine-units.js && node test/units-oracle.js && node test/baseline.js && node test/dates-regression.js && node test/help-bilingual.js && node test/pl-unit-grammar.js && node test/timezone-regression.js && node test/hint-rules.js && node test/version-compare.js"
   },
   "devDependencies": {
     "fast-check": "^3.23.2"

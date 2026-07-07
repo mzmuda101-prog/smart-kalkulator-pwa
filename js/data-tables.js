@@ -88,6 +88,13 @@
         'chf': 'CHF', 'frank': 'CHF', 'franki': 'CHF',
     };
 
+    // T4-20 — zwięzłe symbole walut w wyniku (kalkulator + notatnik).
+    var CUR_DISPLAY_SYM = {
+        PLN: 'zł', USD: '$', EUR: '€', GBP: '£', CHF: 'CHF', JPY: '¥', CNY: '¥',
+        CAD: 'CA$', AUD: 'A$', NZD: 'NZ$', SEK: 'kr', NOK: 'kr', DKK: 'kr', CZK: 'Kč',
+        HUF: 'Ft', RON: 'lei', TRY: '₺', INR: '₹', RUB: '₽', UAH: '₴', BRL: 'R$',
+    };
+
     /* ── PL_UNIT_GRAMMAR — odmiana jednostek słownych (polski) ─────────────────
        Wpis:
          forms: [1, 2–4, 5+] — trzy formy wg standardowej reguły PL
@@ -222,6 +229,7 @@
         PL_MONTHS: PL_MONTHS,
         PL_WEEKDAYS: PL_WEEKDAYS,
         CUR_ALIAS: CUR_ALIAS,
+        CUR_DISPLAY_SYM: CUR_DISPLAY_SYM,
         PL_UNIT_GRAMMAR: PL_UNIT_GRAMMAR,
         EN_UNIT_GRAMMAR: EN_UNIT_GRAMMAR,
         plPickUnitForm: plPickUnitForm,

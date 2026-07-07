@@ -33,6 +33,11 @@ ok(kind('time in Kyoto') === 'clock', 'time in Kyoto → clock');
 ['czas w Tokio', 'time in Tokyo', 'time in Kyoto', 'czas w/in Kioto', 'czas w Warszawie', 'time in Warsaw'].forEach(function (ex) {
   ok(/^\d{2}:\d{2} \(.+\)$/.test(text(ex)), ex + ' → HH:MM (Miasto) | got: ' + text(ex));
 });
+// Skrót „teraz <miasto>" / „teraz w <miasto>" (chipy live-hint sugerują „w Tokio")
+['teraz NYC', 'Teraz NYC', 'teraz Tokyo', 'teraz Kyoto', 'teraz w Tokio', 'now in NYC', 'teraz w Kioto'].forEach(function (ex) {
+  ok(/^\d{2}:\d{2} \(.+\)$/.test(text(ex)), ex + ' → HH:MM (Miasto) | got: ' + text(ex));
+});
+ok(kind('teraz - 2 dni') === 'date', 'teraz - 2 dni nadal datą, nie strefą');
 // T1-5 — skróty lotnisk i kolejne miasta PL/EU
 ['time in CDG', 'czas w Gdańsku', 'time in FRA', 'time in AMS', 'czas w Poznaniu'].forEach(function (ex) {
   ok(/^\d{2}:\d{2} \(.+\)$/.test(text(ex)), ex + ' → HH:MM (Miasto) | got: ' + text(ex));

@@ -500,11 +500,15 @@ window.MateuszCursorHint = (() => {
       if (fadingOutTimer) { window.clearTimeout(fadingOutTimer); fadingOutTimer = null; }
 
       const fadingEl = activeHintEl; // zapamiętaj przed wyczyszczeniem stanu
+      const useProgFade = programmaticMode && programmaticFade;
       activeHintEl = null;
       activePointerType = "";
+      programmaticMode = false;
+      programmaticOnTap = null;
+      programmaticFade = false;
       if (!cursorHint) return;
 
-      const slowFade = fadingEl && fadingEl.dataset.hintFade !== undefined
+      const slowFade = (useProgFade || (fadingEl && fadingEl.dataset.hintFade !== undefined))
         && cursorHint.classList.contains("is-visible");
 
       if (slowFade) {
@@ -643,6 +647,47 @@ window.MateuszCursorHint = (() => {
       });
     }
 
+    // Programmatic hints — JS-driven anchored bubbles (calc assist on narrow screens).
+    let programmaticMode = false;
+    let programmaticOnTap = null;
+    let programmaticFade = false;
+
+    function showProgrammatic({ anchorEl, text, hintClass = "", durationMs = 0, autoHide = true, fade = false, onTap = null }) {
+      if (!cursorHint || !anchorEl || !text) return;
+      clearCursorHintTimer();
+      if (autoHideTimer) { window.clearTimeout(autoHideTimer); autoHideTimer = null; }
+      if (fadingOutTimer) { window.clearTimeout(fadingOutTimer); fadingOutTimer = null; }
+
+      programmaticMode = true;
+      programmaticOnTap = onTap || null;
+      programmaticFade = !!fade;
+      activeHintEl = anchorEl;
+      activePointerType = "mouse";
+
+      setHintText(text);
+      const classes = ["cursor-hint", "is-visible", hintClass];
+      if (onTap) classes.push("is-tappable");
+      cursorHint.className = classes.filter(Boolean).join(" ").trim();
+      moveCursorHint(0, 0);
+
+      if (autoHide && durationMs > 0) {
+        autoHideTimer = window.setTimeout(() => {
+          autoHideTimer = null;
+          hideCursorHint();
+        }, durationMs);
+      }
+    }
+
+    if (cursorHint) {
+      cursorHint.addEventListener("pointerup", (event) => {
+        if (!programmaticMode || !programmaticOnTap) return;
+        event.stopPropagation();
+        const fn = programmaticOnTap;
+        hideCursorHint();
+        fn();
+      });
+    }
+
     // SZYBKIE UKRYCIE: dotknięcie/klik GDZIEKOLWIEK poza elementem-źródłem natychmiast chowa
     // widoczny dymek (np. „Pełna wartość…" przy ≈) — bez czekania na auto-hide (2,6 s). Element,
     // który dymek wywołał, pomijamy — jego własny gest zarządza dymkiem. Capture, by zadziałać
@@ -658,7 +703,7 @@ window.MateuszCursorHint = (() => {
       if (cursorHint && cursorHint.classList.contains("is-visible")) hideCursorHint();
     }, { capture: true, passive: true });
 
-    return { setupCursorHint, hideHint: hideCursorHint };
+    return { setupCursorHint, hideHint: hideCursorHint, showProgrammatic };
   }
 
   // Publiczne API — inicjalizuje system hintów dla całej strony.
