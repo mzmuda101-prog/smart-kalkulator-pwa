@@ -7615,12 +7615,37 @@
             updateBanner.classList.remove('is-visible');
             updateBanner.setAttribute('aria-hidden', 'true');
         }
+        function purgeAppCaches() { // [EN] wyczyść Cache Storage przed przeładowaniem po update
+            if (!('caches' in window)) return Promise.resolve();
+            return caches.keys().then(function(keys) {
+                return Promise.all(keys.map(function(k) { return caches.delete(k); }));
+            });
+        }
+        function hardReloadApp() { // [EN] pełny reload z cache-bust — SWR nie odda starego app.js
+            var path = window.location.pathname || './';
+            var hash = window.location.hash || '';
+            var bust = '_sw=' + Date.now();
+            var search = window.location.search || '';
+            var url = path + (search ? search + '&' + bust : '?' + bust) + hash;
+            window.location.replace(url);
+        }
+        var swApplyReloadTimer = null;
         function applyUpdate() {
             if (!swWaitingWorker) { hideUpdateBanner(); return; }
             hideUpdateBanner();
             showToast('🔄 Aktualizuję…', '');
-            swWaitingWorker.postMessage({ action: 'skip-waiting' });
-            // reload nastąpi w 'controllerchange' (poniżej), gdy nowy SW przejmie kontrolę.
+            swRefreshing = true;
+            if (swApplyReloadTimer) { clearTimeout(swApplyReloadTimer); swApplyReloadTimer = null; }
+            if (navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({ action: 'purge-caches' });
+            }
+            function postSkip() { swWaitingWorker.postMessage({ action: 'skip-waiting' }); }
+            purgeAppCaches().then(postSkip).catch(postSkip);
+            // [EN] fallback gdy controllerchange nie odpali (Safari mobile)
+            swApplyReloadTimer = setTimeout(function() {
+                if (!swRefreshing) return;
+                purgeAppCaches().finally(hardReloadApp);
+            }, 3500);
         }
         function checkForUpdates(showFeedback) {
             if (!swRegistration) { if (showFeedback) showToast('Brak aktywnej aktualizacji', ''); return; }
@@ -7670,9 +7695,14 @@
             // już był jakiś kontroler (czyli to AKTUALIZACJA, nie pierwsza instalacja).
             var swHadController = !!navigator.serviceWorker.controller;
             navigator.serviceWorker.addEventListener('controllerchange', function() {
-                if (swRefreshing || !swHadController) return;
-                swRefreshing = true;
-                window.location.reload();
+                if (!swHadController || !swRefreshing) return;
+                if (swApplyReloadTimer) { clearTimeout(swApplyReloadTimer); swApplyReloadTimer = null; }
+                purgeAppCaches().finally(hardReloadApp);
+            });
+            navigator.serviceWorker.addEventListener('message', function(event) {
+                if (!event.data || event.data.action !== 'sw-updated' || !swHadController || !swRefreshing) return;
+                if (swApplyReloadTimer) { clearTimeout(swApplyReloadTimer); swApplyReloadTimer = null; }
+                purgeAppCaches().finally(hardReloadApp);
             });
 
             window.addEventListener('load', function() {
@@ -8546,7 +8576,6 @@
             _npBindGutterPanelSwipe();
             _npSyncGutterHidden();
             _npSyncFontSize(true);
-            _npBindCtxGestures();
             _npBindPanelCtx(npEditor);
             if (npGutter) _npBindPanelCtx(npGutter);
         }
@@ -8746,54 +8775,23 @@
             npCtxMenu.style.left = left + 'px';
             npCtxMenu.style.top = top + 'px';
         }
-        function _npCtxActsForSelection() {
-            return [
-                ['bold', 'B', 'Pogrubienie'], ['italic', 'I', 'Kursywa'], ['underline', 'U', 'Podkreślenie']
-            ];
-        }
         function _npCtxActsForPanel() {
             return [
                 ['align-left', '◀', 'Lewo'], ['align-center', '≡', 'Środek'], ['align-right', '▶', 'Prawo'], ['align-justify', '⊞', 'Justuj'],
                 ['font-down', 'A−', ''], ['font-up', 'A+', ''], ['font-reset', '↺', 'Reset czcionki']
             ];
         }
-        function _npBindCtxGestures() {
-            if (!npBody || npBody._npCtxBound) return;
-            npBody._npCtxBound = true;
-            var timer = null, sx = 0, sy = 0;
-            function clearT() { if (timer) clearTimeout(timer); timer = null; }
-            npBody.addEventListener('pointerdown', function(e) {
-                if (e.pointerType === 'mouse' && e.button !== 0) return;
-                clearT();
-                sx = e.clientX; sy = e.clientY;
-                var hasSel = npBody.selectionStart !== npBody.selectionEnd;
-                if (!hasSel) return;
-                timer = setTimeout(function() {
-                    timer = null;
-                    hapticTap(20);
-                    _npShowCtxMenu(sx, sy - 48, _npCtxActsForSelection());
-                }, 500);
-            });
-            npBody.addEventListener('pointermove', function(e) {
-                if (!timer) return;
-                if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) clearT();
-            });
-            ['pointerup', 'pointercancel', 'pointerleave'].forEach(function(ev) {
-                npBody.addEventListener(ev, clearT);
-            });
-            npBody.addEventListener('contextmenu', function(e) {
-                if (npBody.selectionStart === npBody.selectionEnd) return;
-                e.preventDefault();
-                _npShowCtxMenu(e.clientX, e.clientY, _npCtxActsForSelection());
-            });
-        }
-        function _npBindPanelCtx(el) {
+        function _npBindPanelCtx(el) { // T6-CTX — long-press / PPM na tle panelu (NIE na textarea — tam natywne Kopiuj/Wytnij)
             if (!el || el._npPanelCtxBound) return;
             el._npPanelCtxBound = true;
             var timer = null, sx = 0, sy = 0;
             function clearT() { if (timer) clearTimeout(timer); timer = null; }
+            function isTextTarget(node) {
+                return !!(node && node.closest && node.closest('.np-text, textarea.np-text'));
+            }
             el.addEventListener('pointerdown', function(e) {
-                if (e.target.closest('.np-res') || e.target.closest('.np-row-delete') || e.target.closest('.np-kb-bar')) return;
+                if (isTextTarget(e.target)) return;
+                if (e.target.closest('.np-res') || e.target.closest('.np-kb-bar')) return;
                 if (e.pointerType === 'mouse' && e.button !== 0) return;
                 clearT();
                 sx = e.clientX; sy = e.clientY;
@@ -8811,7 +8809,7 @@
                 el.addEventListener(ev, clearT);
             });
             el.addEventListener('contextmenu', function(e) {
-                if (e.target.closest('.np-res')) return;
+                if (isTextTarget(e.target) || e.target.closest('.np-res')) return;
                 e.preventDefault();
                 _npShowCtxMenu(e.clientX, e.clientY, _npCtxActsForPanel());
             });
@@ -8890,14 +8888,6 @@
             npBody.focus();
             try { npBody.setSelectionRange(pos, pos); } catch (e) {}
         }
-        function _npDeleteLineAt(idx) {
-            if (!npBody || !isFinite(idx)) return;
-            var parts = npBody.value.split('\n');
-            if (parts.length <= 1) parts[0] = '';
-            else parts.splice(idx, 1);
-            npBody.value = parts.join('\n');
-            _npCommit();
-        }
         function _npSyncEditorScroll() {
             if (!npEditor) return;
             var st = npEditor.scrollTop;
@@ -8928,111 +8918,6 @@
                 res.setAttribute('aria-label', 'Wynik ' + info.text + (res.dataset.eq ? ', z: ' + res.dataset.eq : ''));
             }
             return res;
-        }
-        var _NP_ROW_SWIPE_OPEN = -72;
-        var _npRowConfirmTimer = null;
-        function _npRowSetX(el, x, animate) {
-            el.style.transition = animate ? '' : 'none';
-            el.style.transform = x ? ('translateX(' + x + 'px)') : '';
-        }
-        function _npRowSwipeClose(wrap, shell) {
-            wrap.classList.remove('swiped', 'swiping', 'confirming');
-            if (_npRowConfirmTimer) { clearTimeout(_npRowConfirmTimer); _npRowConfirmTimer = null; }
-            _npRowSetX(shell, 0, true);
-        }
-        function _npRowSwipeOpen(wrap, shell) {
-            wrap.classList.remove('swiping');
-            wrap.classList.add('swiped');
-            _npRowSetX(shell, _NP_ROW_SWIPE_OPEN, true);
-        }
-        function _npRowArmConfirmAutoClose(wrap, shell) {
-            if (_npRowConfirmTimer) clearTimeout(_npRowConfirmTimer);
-            _npRowConfirmTimer = setTimeout(function() { _npRowSwipeClose(wrap, shell); }, 5000);
-        }
-        function _bindNpGutterSwipe(wrap, shell, delBtn, confirm, lineIdx) {
-            var noBtn = confirm ? confirm.querySelector('.history-confirm-btn.no') : null;
-            var yesBtn = confirm ? confirm.querySelector('.history-confirm-btn.yes') : null;
-            var startX = 0, startY = 0, dragging = false, decided = false, horizontal = false, curX = 0;
-            function _openConfirmFromRelease(e) {
-                if (!delBtn || wrap.classList.contains('confirming')) return;
-                var rect = delBtn.getBoundingClientRect();
-                if (e.clientX >= rect.left && e.clientX <= rect.right &&
-                    e.clientY >= rect.top && e.clientY <= rect.bottom) {
-                    wrap.classList.add('confirming');
-                    hapticTap(15);
-                    _npRowArmConfirmAutoClose(wrap, shell);
-                }
-            }
-            delBtn.addEventListener('pointerdown', function(e) {
-                e.preventDefault(); e.stopPropagation();
-                if (!wrap.classList.contains('swiped') && !wrap.classList.contains('swiping')) return;
-                wrap.classList.add('confirming');
-                hapticTap(15);
-                _npRowArmConfirmAutoClose(wrap, shell);
-            });
-            if (noBtn) noBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                _npRowSwipeClose(wrap, shell);
-            });
-            if (yesBtn) yesBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                hapticTap(30);
-                _npDeleteLineAt(lineIdx);
-                _npRowSwipeClose(wrap, shell);
-            });
-            shell.addEventListener('pointerdown', function(e) {
-                if (e.target.closest('.np-res')) return;
-                if (e.pointerType === 'mouse' && e.button !== 0) return;
-                startX = e.clientX; startY = e.clientY;
-                dragging = true; decided = false; horizontal = false;
-                curX = wrap.classList.contains('swiped') ? _NP_ROW_SWIPE_OPEN : 0;
-            });
-            shell.addEventListener('pointermove', function(e) {
-                if (!dragging) return;
-                var dx = e.clientX - startX, dy = e.clientY - startY;
-                if (!decided) {
-                    if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-                    decided = true;
-                    horizontal = Math.abs(dx) > Math.abs(dy);
-                    if (horizontal) {
-                        try { shell.setPointerCapture(e.pointerId); } catch (_) {}
-                        wrap.classList.remove('confirming');
-                        wrap.classList.add('swiping');
-                    }
-                }
-                if (!horizontal) return;
-                e.preventDefault();
-                var base = wrap.classList.contains('swiped') ? _NP_ROW_SWIPE_OPEN : 0;
-                var x = base + dx;
-                if (x > 0) x = 0;
-                if (x < _NP_ROW_SWIPE_OPEN - 20) x = _NP_ROW_SWIPE_OPEN - 20;
-                curX = x;
-                _npRowSetX(shell, x, false);
-            });
-            function settle(e) {
-                if (!dragging) return;
-                dragging = false;
-                if (!horizontal) return;
-                if (curX <= _NP_ROW_SWIPE_OPEN / 2) {
-                    _npRowSwipeOpen(wrap, shell);
-                    if (e) _openConfirmFromRelease(e);
-                } else _npRowSwipeClose(wrap, shell);
-            }
-            shell.addEventListener('pointerup', settle);
-            shell.addEventListener('pointercancel', function(e) {
-                if (!dragging) return;
-                dragging = false;
-                if (horizontal) {
-                    if (curX <= _NP_ROW_SWIPE_OPEN / 2) {
-                        _npRowSwipeOpen(wrap, shell);
-                        if (e) _openConfirmFromRelease(e);
-                    } else _npRowSwipeClose(wrap, shell);
-                }
-            });
-            shell.addEventListener('click', function() {
-                if (wrap.classList.contains('confirming')) return;
-                if (wrap.classList.contains('swiped')) _npRowSwipeClose(wrap, shell);
-            });
         }
         function _npLineHeightPx() {
             if (!npMirror) return 32;
@@ -9084,41 +8969,11 @@
                 gWrap.className = 'np-gutter-wrap' + (wrapped ? ' np-wrapped' : '');
                 gWrap.style.height = h + 'px';
                 gWrap.style.minHeight = h + 'px';
-                var delBtn = document.createElement('button');
-                delBtn.type = 'button';
-                delBtn.className = 'np-row-delete';
-                delBtn.textContent = 'Usuń';
-                delBtn.setAttribute('aria-label', 'Usuń wiersz');
-                delBtn.tabIndex = -1;
-                var confirm = document.createElement('div');
-                confirm.className = 'np-row-confirm';
-                var confirmMsg = document.createElement('span');
-                confirmMsg.className = 'np-row-confirm-msg';
-                confirmMsg.textContent = 'Usunąć wiersz?';
-                var noBtn = document.createElement('button');
-                noBtn.type = 'button';
-                noBtn.className = 'history-confirm-btn no';
-                noBtn.textContent = 'Anuluj';
-                noBtn.setAttribute('aria-label', 'Anuluj usuwanie wiersza');
-                var yesBtn = document.createElement('button');
-                yesBtn.type = 'button';
-                yesBtn.className = 'history-confirm-btn yes';
-                yesBtn.textContent = 'Usuń';
-                yesBtn.setAttribute('aria-label', 'Potwierdź usunięcie wiersza');
-                confirm.appendChild(confirmMsg);
-                confirm.appendChild(noBtn);
-                confirm.appendChild(yesBtn);
-                var shell = document.createElement('div');
-                shell.className = 'np-gutter-shell';
                 var gRow = document.createElement('div');
                 gRow.className = 'np-gutter-row np-' + kind + (kind === 'calc' || kind === 'total' || kind === 'subtotal' ? ' np-has' : '') + (kind === 'warn' ? ' np-warn' : '');
                 var hasChip = kind === 'calc' || kind === 'total' || kind === 'subtotal' || kind === 'warn';
                 if (hasChip) gRow.appendChild(_npMakeResChip(info, kind));
-                shell.appendChild(gRow);
-                gWrap.appendChild(delBtn);
-                gWrap.appendChild(shell);
-                gWrap.appendChild(confirm);
-                _bindNpGutterSwipe(gWrap, shell, delBtn, confirm, i);
+                gWrap.appendChild(gRow);
                 npGutter.appendChild(gWrap);
                 if (folded) {
                     var fRow = document.createElement('button');

@@ -2563,7 +2563,7 @@
             user-select: text;
             -webkit-user-select: text;
             -webkit-touch-callout: default;
-            touch-action: manipulation;
+            touch-action: pan-y; /* [EN] natywne long-press Kopiuj/Wytnij na iOS */
             -webkit-tap-highlight-color: transparent;
             box-sizing: border-box;
         }
@@ -2589,7 +2589,7 @@
             -webkit-tap-highlight-color: transparent;
         }
         .np-fold-row:active { background: var(--primary-light, rgba(37, 99, 235, 0.08)); }
-        /* Swipe usuń wiersz — na gutterze (obok chipu wyniku) */
+        /* Gutter — chipy wyników per linia (bez swipe-usuń) */
         .np-gutter-wrap, .np-row-wrap {
             position: relative;
             overflow: hidden;
