@@ -2695,6 +2695,10 @@
             
         }
         #npListBtn.is-open .np-list-btn-icon{transform: rotate(90deg) scale(1.5) translateY(-2px); }
+
+        @media(max-width: 560px) {
+            #npListBtn.is-open .np-list-btn-icon{transform: rotate(90deg)translateY(-2px) translateX(2px); }
+        }
         
         #npListBtn:hover { background: var(--primary-light, rgba(37, 99, 235, 0.08)); }
 

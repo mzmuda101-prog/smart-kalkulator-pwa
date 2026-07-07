@@ -57,7 +57,8 @@
                                       time: '__auto__', area: '__auto__', data: '__auto__', angle: '' },
                         notepadFold: false, // notatnik: zwijaj wyrażenia do wyników (tryb fold)
                         notepadAutoUnit: 'safe', // notatnik: auto-jednostki niezdefiniowane — 'safe' | 'full'
-                        notepadUnitMix: 'strict' }, // notatnik: miks jednostek — 'strict' | 'first'
+                        notepadUnitMix: 'strict', // notatnik: miks jednostek — 'strict' | 'first'
+                        notepadSumUnit: 'off' }, // notatnik: jednostka przy razem/suma — 'off' | 'inherit'
             // Komenda tab (merged Engineering + Graph)
             eng: { unit: 'cm', axis: 'X', mode: 'between' }, // used by drawEngineeringCanvas
             graph: {
@@ -143,6 +144,7 @@
         const settingNotepadFold = $('#settingNotepadFold');
         const settingNotepadAutoUnit = $('#settingNotepadAutoUnit');
         const settingNotepadUnitMix = $('#settingNotepadUnitMix');
+        const settingNotepadSumUnit = $('#settingNotepadSumUnit');
         const settingsFxStatus = $('#settingsFxStatus');
         const settingsVersion = $('#settingsVersion');
         const settingsCheckUpdate = $('#settingsCheckUpdate');
@@ -259,6 +261,7 @@
                         if (typeof stObj.notepadFold === 'boolean') STATE.settings.notepadFold = stObj.notepadFold;
                         if (stObj.notepadAutoUnit === 'safe' || stObj.notepadAutoUnit === 'full') STATE.settings.notepadAutoUnit = stObj.notepadAutoUnit;
                         if (stObj.notepadUnitMix === 'strict' || stObj.notepadUnitMix === 'first') STATE.settings.notepadUnitMix = stObj.notepadUnitMix;
+                        if (stObj.notepadSumUnit === 'off' || stObj.notepadSumUnit === 'inherit') STATE.settings.notepadSumUnit = stObj.notepadSumUnit;
                         if (stObj.defaultUnits && typeof stObj.defaultUnits === 'object') {
                             Object.keys(STATE.settings.defaultUnits).forEach(function(cat) {
                                 if (typeof stObj.defaultUnits[cat] === 'string') STATE.settings.defaultUnits[cat] = stObj.defaultUnits[cat];
@@ -1392,7 +1395,7 @@
             // a wynik skalujemy do waluty DOMYŚLNEJ przez curMul — stosowane w evalCalcExpression
             // PO fn(0) (i po vat/%, które liczą się później), więc niczego nie psuje. Naprawia
             // „100 usd * 4 usd" (był nonsens „6241 zł") i trzyma + − bez zmian.
-            var totalPln = 0, hasCurrency = false, pending = false, workRate = null;
+            var totalPln = 0, hasCurrency = false, pending = false, workRate = null, workCode = null;
             var amountRe = new RegExp('([\\d.,]+)\\s*(' + tokenRe + ')(?![a-ząćęłńóśźż0-9])', 'gi');
             var revAmountRe = new RegExp('\\b(' + tokenRe + ')\\s*([\\d.,]+)(?![a-ząćęłńóśźż0-9])', 'gi');
             var expr = raw.replace(amountRe, function(m, num, tok) {
@@ -1400,7 +1403,7 @@
                 var code = map[tok.toLowerCase()];
                 var rate = _currencyRate(code);
                 if (rate == null || (_needsFxTable(code) && !_fxReady())) { pending = true; return m; }
-                if (workRate == null) workRate = rate; // waluta robocza = pierwsza napotkana
+                if (workRate == null) { workRate = rate; workCode = code; } // [EN] first currency token wins
                 var n = parseFloat(num.replace(',', '.'));
                 totalPln += n * rate;
                 return String(n * rate / workRate); // kwota w walucie roboczej
@@ -1410,7 +1413,7 @@
                 var code = map[tok.toLowerCase()];
                 var rate = _currencyRate(code);
                 if (rate == null || (_needsFxTable(code) && !_fxReady())) { pending = true; return m; }
-                if (workRate == null) workRate = rate;
+                if (workRate == null) { workRate = rate; workCode = code; }
                 var n = parseFloat(num.replace(',', '.'));
                 totalPln += n * rate;
                 return String(n * rate / workRate);
@@ -1422,7 +1425,7 @@
             var def = (STATE.settings && STATE.settings.defaultCurrency) || 'PLN';
             var defRate = _currencyRate(def);
             if (defRate == null) return { expr: raw, unit: null, hasCurrency: true, pending: true };
-            return { expr: expr, unit: _currencyDisplay(def), valueInBase: totalPln, hasCurrency: true, pending: false, curMul: workRate / defRate };
+            return { expr: expr, unit: _currencyDisplay(def), valueInBase: totalPln, hasCurrency: true, pending: false, curMul: workRate / defRate, workCode: workCode };
         }
 
         // ── Dwa silniki kursów ──────────────────────────────────────────
@@ -1946,6 +1949,7 @@
                     return makeVal({});
                 }
                 var unit = curRes.hasCurrency ? curRes.unit : unitResult.unit;
+                if (opts.keepWorkCurrency && curRes.hasCurrency && curRes.workCode) unit = _currencyDisplay(curRes.workCode);
                 expr = expr.replace(/,(?=\d)/g, '.');
                 expr = expr.replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-');
                 expr = expr.replace(/\s+/g, '');
@@ -1957,7 +1961,7 @@
                 // × ÷ naprawia wymiar wg modelu „jednostka jako etykieta" (10 km/2 km = 5 km).
                 if (!curRes.hasCurrency && unitResult.workFactor) value = value * unitResult.workFactor;
                 // Waluty: wynik policzony w walucie roboczej → skala do domyślnej (po vat/%).
-                if (curRes.hasCurrency && curRes.curMul && isFinite(value)) value = value * curRes.curMul;
+                if (curRes.hasCurrency && curRes.curMul && isFinite(value) && !opts.keepWorkCurrency) value = value * curRes.curMul;
                 // Waluty: zaokrąglij do 2 miejsc (grosze); preciseValue = przed zaokr. — hint ≈ pokazuje kurs.
                 var preciseValue = null;
                 if (curRes.hasCurrency && isFinite(value)) {
@@ -7814,6 +7818,7 @@
             syncFoldSetting(STATE.settings.notepadFold);
             if (settingNotepadAutoUnit) settingNotepadAutoUnit.value = STATE.settings.notepadAutoUnit || 'safe';
             if (settingNotepadUnitMix) settingNotepadUnitMix.value = STATE.settings.notepadUnitMix || 'strict';
+            if (settingNotepadSumUnit) settingNotepadSumUnit.value = STATE.settings.notepadSumUnit || 'off';
             updateFxStatusLine();
             if (settingsVersion) settingsVersion.textContent = 'Wersja ' + (window.APP_VERSION || '—');
             document.body.classList.add('settings-open');
@@ -7995,15 +8000,87 @@
         var _NP_SUBTOTAL_RE = /^(subtotal|półsuma|podsuma)$/i;
         var _NP_SECTION_RE = /^-{3,}\s*$/;
         var _NP_SUM_WORDS_RE = /\b(razem|suma|total|subtotal|półsuma|podsuma)\b/giu;
+        // [EN] Sum keywords with optional manual unit — razem(zł), półsuma (cm)
+        var _NP_SUM_UNIT_LINE_RE = /^(razem|suma|total|subtotal|półsuma|podsuma)\s*(?:\(\s*([\p{L}][\p{L}.]*)\s*\))?$/iu;
+        var _NP_SUM_MANUAL_UNIT_RE = /\b(razem|suma|total|subtotal|półsuma|podsuma)\s*\(\s*([\p{L}][\p{L}.]*)\s*\)/giu;
         var _npListQuery = '';
+        function _npReplaceSumWords(str, replacer) { // [EN] fresh regex — global lastIndex nie psuje kolejnych replace
+            return String(str || '').replace(/\b(razem|suma|total|subtotal|półsuma|podsuma)(\s*(?:\(\s*[\p{L}][\p{L}.]*\s*\))?)/giu, replacer);
+        }
         function _npLooksLikeMath(s) { // [EN] heuristic — math attempt vs prose header
             return /[\d+\-×÷*/%=()]/.test(s) || _NP_SUM_WORDS_RE.test(s);
         }
         function _npFmt(v) { return formatLocaleNumber(v, 10); }
         function _npEvalOpts() { // [EN] notepad-only eval flags from settings
-            return (STATE.settings && STATE.settings.notepadUnitMix) === 'first' ? { firstUnitWins: true } : null;
+            var opts = { keepWorkCurrency: true }; // [EN] @var z USD zostaje w USD, nie w domyślnym zł
+            if ((STATE.settings && STATE.settings.notepadUnitMix) === 'first') opts.firstUnitWins = true;
+            return opts;
         }
         function _npEval(expr) { return evalCalcExpression(expr, _npEvalOpts()); }
+        function _npParseSumLine(exprPart) { // [EN] pure razem / razem(zł) / półsuma(cm)
+            var m = String(exprPart || '').trim().match(_NP_SUM_UNIT_LINE_RE);
+            if (!m) return null;
+            return { keyword: m[1], manualUnit: m[2] ? m[2].trim() : null };
+        }
+        function _npNormalizeSumUnit(raw) { // [EN] usd→USD, zł→zł, warzyw→warzyw
+            if (!raw) return null;
+            var s = String(raw).trim();
+            if (!s) return null;
+            var k = s.toLowerCase();
+            if (_currencyTokenMap()[k]) return _currencyDisplay(_currencyTokenMap()[k]);
+            if (CALC_UNITS[k]) return CALC_UNIT_DISPLAY[k] || s;
+            return s;
+        }
+        function _npInferSumUnit(units) { // [EN] inherit only when every item shares the same unit
+            if (!units || !units.length) return null;
+            var seen = null, hasNull = false, hasUnit = false;
+            for (var i = 0; i < units.length; i++) {
+                var u = units[i];
+                if (!u) { hasNull = true; continue; }
+                hasUnit = true;
+                if (seen === null) seen = u;
+                else if (seen !== u) return null;
+            }
+            if (hasNull && hasUnit) return null; // np. 100 zł + 50 (bez jednostki)
+            return seen;
+        }
+        function _npManualSumUnitFromExpr(exprPart) { // [EN] razem(zł) embedded in longer expr
+            var m = String(exprPart || '').match(/\b(razem|suma|total|subtotal|półsuma|podsuma)\s*\(\s*([\p{L}][\p{L}.]*)\s*\)/iu);
+            return m && m[2] ? _npNormalizeSumUnit(m[2]) : null;
+        }
+        function _npSumUnitForLine(exprPart, itemUnits) { // [EN] manual (…) beats setting inherit
+            var parsed = _npParseSumLine(exprPart);
+            if (parsed && parsed.manualUnit) return _npNormalizeSumUnit(parsed.manualUnit);
+            if (parsed && (STATE.settings && STATE.settings.notepadSumUnit) === 'inherit') return _npInferSumUnit(itemUnits);
+            return null;
+        }
+        function _npFormatWithUnit(value, unit) {
+            if (!unit) return formatLocaleNumber(value, 6);
+            return formatLocaleNumber(value, 6) + '\u202f' + inflectDisplayUnit(value, unit);
+        }
+        function _npVarUnitLabel(u) { // [EN] known or auto/custom token for @substitution
+            if (!u) return null;
+            var known = _knownConstUnit(u);
+            if (known) return known;
+            var k = String(u).toLowerCase();
+            if (CALC_UNIT_DISPLAY[k]) return CALC_UNIT_DISPLAY[k];
+            return String(u).trim() || null;
+        }
+        function _npAutoRegisterSumUnits(text) { // [EN] razem(warzyw) → temp dimensionless unit
+            var added = [];
+            var re = _NP_SUM_MANUAL_UNIT_RE;
+            var s = String(text || ''), m;
+            re.lastIndex = 0;
+            while ((m = re.exec(s)) !== null) {
+                var w = m[2], k = w.toLowerCase();
+                if (CALC_UNITS[k] || _npTokenKnown(w) || _currencyTokenMap()[k]) continue;
+                CALC_UNITS[k] = { cat: 'custom:' + k, factor: 1, base: w, custom: true, dimensionless: true, _auto: true };
+                CALC_UNIT_DISPLAY[k] = w;
+                added.push(k);
+            }
+            if (added.length) rebuildUnitNamesRe();
+            return added;
+        }
 
         // ── Auto-jednostki (TYLKO notatnik): nieznany token „liczba + słowo" traktujemy jako
         // jednostkę BEZWYMIAROWĄ na czas liczenia (np. samo wpisane „3 os" → „3 os"). Reużywa
@@ -8067,7 +8144,7 @@
             keys.forEach(function(k) {
                 var esc = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 var re = new RegExp('@' + esc + '(?![\\p{L}\\p{N}_])', 'giu');
-                var u = units && units[k] ? _knownConstUnit(units[k]) : null;
+                var u = units && units[k] ? _npVarUnitLabel(units[k]) : null;
                 out = out.replace(re, function() {
                     if (fmtFn) return fmtFn(vars[k]) + (u ? ' ' + u : '');
                     return '(' + vars[k] + (u ? ' ' + u : '') + ')';
@@ -8077,6 +8154,8 @@
         }
         function _npSumKeywordVarName(exprPart, usedTotal) { // półsuma/razem/suma jako zmienna w panelu
             if (!usedTotal) return null;
+            var parsed = _npParseSumLine(exprPart);
+            if (parsed) return parsed.keyword.toLowerCase();
             var ep = String(exprPart || '').trim();
             if (!_NP_TOTAL_RE.test(ep) && !_NP_SUBTOTAL_RE.test(ep)) return null;
             if (!/^[\p{L}][\p{L}\p{N}_]*$/u.test(ep)) return null;
@@ -8118,6 +8197,7 @@
             var out = [];
             var runningSum = 0; // suma SUROWYCH pozycji (linie, które same nie użyły „razem")
             var items = [];     // wartości surowych pozycji (do rozpisania „razem" w dymku)
+            var itemUnits = []; // jednostki pozycji — do dziedziczenia przy razem/suma
             var autoMode = (STATE.settings && STATE.settings.notepadAutoUnit) || 'safe';
             var vars = Object.assign({}, _npGlobals); // globalne (@nazwa) widoczne w KAŻDEJ notatce
             var varUnits = {};   // jednostka skojarzona ze zmienną (np. „Nocleg: 500 zł" → nocleg niesie „zł")
@@ -8131,6 +8211,8 @@
                 if (mm) { var vn = _npVarName(mm[1].trim()); if (vn) varNames[vn] = 1; }
             });
             var _autoKeys = _npAutoRegister(String(text == null ? '' : text), varNames);
+            var _sumUnitKeys = _npAutoRegisterSumUnits(String(text == null ? '' : text));
+            if (_sumUnitKeys.length) _autoKeys = _autoKeys.concat(_sumUnitKeys);
             try {
             for (var i = 0; i < lines.length; i++) {
                 var info = { raw: lines[i], labelPart: '', exprPart: '', text: '', value: null, resolved: '', isItem: false, isTotal: false, isSubtotal: false, isSection: false };
@@ -8141,6 +8223,7 @@
                     info.exprPart = line;
                     runningSum = 0;
                     items = [];
+                    itemUnits = [];
                     out.push(info);
                     continue;
                 }
@@ -8157,26 +8240,30 @@
                 if (lm) { exprPart = lm[2].trim(); labelPart = line.slice(0, line.length - exprPart.length); }
                 info.exprPart = exprPart; info.labelPart = labelPart;
                 var usedTotal = false;
+                var sumLine = _npParseSumLine(exprPart);
+                var sumUnitHint = sumLine ? _npSumUnitForLine(exprPart, itemUnits) : null;
                 var evalStr = _npSubVars(exprPart, vars, null, varUnits); // @nazwa PRZED słowami sumy (inaczej @suma → kolizja z „suma")
-                evalStr = evalStr.replace(_NP_SUM_WORDS_RE, function(m) {
+                evalStr = _npReplaceSumWords(evalStr, function(m, kw) {
                     usedTotal = true;
-                    if (_NP_SUBTOTAL_RE.test(m)) info.isSubtotal = true;
-                    else if (_NP_TOTAL_RE.test(m)) info.isTotal = true;
+                    if (_NP_SUBTOTAL_RE.test(kw)) info.isSubtotal = true;
+                    else if (_NP_TOTAL_RE.test(kw)) info.isTotal = true;
                     return '(' + runningSum + ')';
                 });
                 if (autoMode === 'full') evalStr = _npStripProse(evalStr); // zdejmij zbłąkane słowa
                 var res = null;
                 try { res = _npEval(evalStr); } catch (e) { res = null; }
                 if (res && (res.value !== null || res.text != null || res.big)) {
-                    info.text = formatCalcResult(res);
+                    var outUnit = sumLine ? (sumUnitHint || res.unit || null) : (res.unit || null);
+                    info.text = outUnit && typeof res.value === 'number' && isFinite(res.value)
+                        ? _npFormatWithUnit(res.value, outUnit) : formatCalcResult(res);
                     // Rozpisane równanie do dymka: czyste „razem" → składniki; „razem" w działaniu
                     // → podstawiona suma; zwykłe → samo działanie (bez etykiety).
-                    if (_NP_TOTAL_RE.test(exprPart) || _NP_SUBTOTAL_RE.test(exprPart)) {
+                    if (sumLine || _NP_TOTAL_RE.test(exprPart) || _NP_SUBTOTAL_RE.test(exprPart)) {
                         info.resolved = items.length ? items.map(_npFmt).join(' + ') : exprPart;
                     } else {
                         var disp = _npSubVars(exprPart, vars, _npFmt, varUnits);
-                        disp = disp.replace(_NP_SUM_WORDS_RE, function(m) {
-                            return _NP_SUBTOTAL_RE.test(m) || _NP_TOTAL_RE.test(m) ? _npFmt(runningSum) : m;
+                        disp = _npReplaceSumWords(disp, function(m, kw, suffix) {
+                            return _NP_SUBTOTAL_RE.test(kw) || _NP_TOTAL_RE.test(kw) ? _npFmt(runningSum) + (suffix || '') : m;
                         });
                         info.resolved = disp;
                     }
@@ -8184,13 +8271,14 @@
                         info.value = res.value;
                         // „razem" i definicje globalne (@nazwa) NIE są pozycjami do sumowania
                         if (usedTotal || gName) { /* isTotal/isSubtotal ustawione w replace słów sumy */ }
-                        else { runningSum += res.value; items.push(res.value); info.isItem = true; }
-                        if (gName) _npAssignVar(vars, varUnits, gName, res.value, res.unit || null);
+                        else { runningSum += res.value; items.push(res.value); itemUnits.push(res.unit || null); info.isItem = true; }
+                        var assignUnit = sumLine ? outUnit : (res.unit || null);
+                        if (gName) _npAssignVar(vars, varUnits, gName, res.value, assignUnit);
                         else {
                             var vn2 = lm ? _npVarName(lm[1].trim()) : null;
-                            if (vn2) _npAssignVar(vars, varUnits, vn2, res.value, res.unit || null);
+                            if (vn2) _npAssignVar(vars, varUnits, vn2, res.value, assignUnit);
                             var sk = _npSumKeywordVarName(exprPart, usedTotal);
-                            if (sk && sk !== vn2) _npAssignVar(vars, varUnits, sk, res.value, res.unit || null);
+                            if (sk && sk !== vn2) _npAssignVar(vars, varUnits, sk, res.value, assignUnit);
                         }
                     } else if (usedTotal && !info.isSubtotal) { info.isTotal = true; }
                 }
@@ -8215,14 +8303,17 @@
             });
             var autoMode = (STATE.settings && STATE.settings.notepadAutoUnit) || 'safe';
             var _autoKeys = _npAutoRegister(String(text == null ? '' : text), varNames);
+            var _sumUnitKeys = _npAutoRegisterSumUnits(String(text == null ? '' : text));
+            if (_sumUnitKeys.length) _autoKeys = _autoKeys.concat(_sumUnitKeys);
             try {
                 var vars = Object.assign({}, globals);
                 var varUnits = {};
                 var runningSum = 0;
+                var itemUnits = [];
                 for (var i = 0; i < lines.length; i++) {
                     var line = lines[i].trim();
                     if (!line) continue;
-                    if (_NP_SECTION_RE.test(line)) { runningSum = 0; continue; }
+                    if (_NP_SECTION_RE.test(line)) { runningSum = 0; itemUnits = []; continue; }
                     var exprPart = line, gName = null;
                     var gm = line.match(_NP_GLOBAL_RE);
                     if (gm) {
@@ -8233,20 +8324,23 @@
                     var lm = gm ? null : line.match(_NP_LABEL_RE);
                     if (lm) exprPart = lm[2].trim();
                     var usedTotal = false;
+                    var sumLine = _npParseSumLine(exprPart);
+                    var sumUnitHint = sumLine ? _npSumUnitForLine(exprPart, itemUnits) : null;
                     var evalStr = _npSubVars(exprPart, vars, null, varUnits);
-                    evalStr = evalStr.replace(_NP_SUM_WORDS_RE, function() { usedTotal = true; return '(' + runningSum + ')'; });
+                    evalStr = _npReplaceSumWords(evalStr, function() { usedTotal = true; return '(' + runningSum + ')'; });
                     if (autoMode === 'full') evalStr = _npStripProse(evalStr);
                     try {
                         var res = _npEval(evalStr);
                         if (res && typeof res.value === 'number' && isFinite(res.value)) {
-                            if (!usedTotal && !gName) runningSum += res.value;
+                            var assignUnit = sumLine ? (sumUnitHint || res.unit || null) : (res.unit || null);
+                            if (!usedTotal && !gName) { runningSum += res.value; itemUnits.push(res.unit || null); }
                             if (gName) {
-                                globals[gName] = res.value; vars[gName] = res.value; varUnits[gName] = res.unit || null;
+                                globals[gName] = res.value; vars[gName] = res.value; varUnits[gName] = assignUnit;
                             } else {
                                 var vn2 = lm ? _npVarName(lm[1].trim()) : null;
-                                if (vn2) { locals[vn2] = res.value; localUnits[vn2] = res.unit || null; vars[vn2] = res.value; varUnits[vn2] = res.unit || null; }
+                                if (vn2) { locals[vn2] = res.value; localUnits[vn2] = assignUnit; vars[vn2] = res.value; varUnits[vn2] = assignUnit; }
                                 var sk = _npSumKeywordVarName(exprPart, usedTotal);
-                                if (sk && sk !== vn2) { locals[sk] = res.value; localUnits[sk] = res.unit || null; vars[sk] = res.value; varUnits[sk] = res.unit || null; }
+                                if (sk && sk !== vn2) { locals[sk] = res.value; localUnits[sk] = assignUnit; vars[sk] = res.value; varUnits[sk] = assignUnit; }
                             }
                         }
                     } catch (e) {}
@@ -9053,6 +9147,13 @@
         if (settingNotepadUnitMix) {
             settingNotepadUnitMix.addEventListener('change', function() {
                 STATE.settings.notepadUnitMix = settingNotepadUnitMix.value === 'first' ? 'first' : 'strict';
+                saveSettings();
+                if (document.body.classList.contains('notepad-open')) npRecompute();
+            });
+        }
+        if (settingNotepadSumUnit) {
+            settingNotepadSumUnit.addEventListener('change', function() {
+                STATE.settings.notepadSumUnit = settingNotepadSumUnit.value === 'inherit' ? 'inherit' : 'off';
                 saveSettings();
                 if (document.body.classList.contains('notepad-open')) npRecompute();
             });
@@ -10798,6 +10899,29 @@
             results.push({ expr: 'unit-mix first: 5 km × 10 pln = 50 km', pass: mixFirstKm[0].value === 50 && /km/i.test(mixFirstKm[0].text), got: mixFirstKm[0].text });
             STATE.settings.notepadUnitMix = savedMix;
             STATE.fx.rates = savedFxMix; STATE.fx.ts = savedFxTsMix;
+
+            // Notatnik: jednostka przy razem — inherit / ręczna razem(zł)
+            var savedSumU = STATE.settings.notepadSumUnit;
+            STATE.settings.notepadUnitMix = 'first';
+            STATE.settings.notepadSumUnit = 'off';
+            var sumOff = evalNotepadLines('Nocleg: 110pln×10os\npaliwo: 5,60pln×100km\nrazem');
+            results.push({ expr: 'sum-unit off: razem bez zł', pass: sumOff[2].value === 1660 && !/zł|pln/i.test(sumOff[2].text), got: sumOff[2].text });
+            STATE.settings.notepadSumUnit = 'inherit';
+            var sumInh = evalNotepadLines('Nocleg: 110pln×10os\npaliwo: 5,60pln×100km\nrazem');
+            results.push({ expr: 'sum-unit inherit: razem = 1660 zł', pass: sumInh[2].value === 1660 && /zł/i.test(sumInh[2].text), got: sumInh[2].text });
+            var sumMan = evalNotepadLines('A: 100 zł\nB: 50 zł\nrazem(usd)');
+            results.push({ expr: 'sum-unit manual razem(usd)', pass: sumMan[2].value === 150 && /USD/i.test(sumMan[2].text), got: sumMan[2].text });
+            var sumMix = evalNotepadLines('A: 100 zł\nB: 50\nrazem');
+            results.push({ expr: 'sum-unit inherit mixed units → brak zł', pass: sumMix[2].value === 150 && !/zł/i.test(sumMix[2].text), got: sumMix[2].text });
+            var sumVar = evalNotepadLines('A: 100 zł\nB: 50 zł\nrazem\ntest: @razem × 2');
+            results.push({ expr: 'sum-unit @razem×2 z dziedziczonym zł', pass: sumVar[3].value === 300 && /zł/i.test(sumVar[3].text), got: sumVar[3].text });
+            var savedFxUsd = STATE.fx.rates, savedFxTsUsd = STATE.fx.ts;
+            STATE.fx.rates = { PLN: 1, USD: 4.0 }; STATE.fx.ts = Date.now();
+            var usdLines = evalNotepadLines('A: 100 usd\nrazem(usd)\nT: @razem × 2\nC: @razem na zł');
+            STATE.fx.rates = savedFxUsd; STATE.fx.ts = savedFxTsUsd;
+            results.push({ expr: 'sum-unit @razem×2 z ręcznym USD', pass: usdLines[2].value === 200 && /USD/i.test(usdLines[2].text), got: usdLines[2].text });
+            results.push({ expr: 'sum-unit @razem na zł (jawna konwersja)', pass: usdLines[3].value === 400 && /zł/i.test(usdLines[3].text), got: usdLines[3].text });
+            STATE.settings.notepadSumUnit = savedSumU;
 
             // Etykiety-zmienne: odwołanie przez @nazwa (bez @ = brak podstawienia).
             var vlines = evalNotepadLines(['Paliwo: 100 + 194', 'Podwojone: @paliwo * 2', 'Budżet: 5000', 'Zostało: @budżet - @paliwo', 'Przed: @y + 1', 'Y: 10'].join('\n'));
