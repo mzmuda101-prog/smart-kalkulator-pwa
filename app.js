@@ -58,7 +58,9 @@
                         notepadFold: false, // notatnik: zwijaj wyrażenia do wyników (tryb fold)
                         notepadAutoUnit: 'safe', // notatnik: auto-jednostki niezdefiniowane — 'safe' | 'full'
                         notepadUnitMix: 'strict', // notatnik: miks jednostek — 'strict' | 'first'
-                        notepadSumUnit: 'off' }, // notatnik: jednostka przy razem/suma — 'off' | 'inherit'
+                        notepadSumUnit: 'off', // notatnik: jednostka przy razem/suma — 'off' | 'inherit'
+                        notepadGutterHidden: false, // notatnik: panel chipów schowany (T6-3)
+                        notepadFontSize: 1 }, // notatnik: rozmiar czcionki 0.85–1.25 (T6-1)
             // Komenda tab (merged Engineering + Graph)
             eng: { unit: 'cm', axis: 'X', mode: 'between' }, // used by drawEngineeringCanvas
             graph: {
@@ -147,6 +149,9 @@
         const settingNotepadAutoUnit = $('#settingNotepadAutoUnit');
         const settingNotepadUnitMix = $('#settingNotepadUnitMix');
         const settingNotepadSumUnit = $('#settingNotepadSumUnit');
+        const settingNotepadFontSize = $('#settingNotepadFontSize');
+        const settingNotepadFontReset = $('#settingNotepadFontReset');
+        const settingNotepadFontVal = $('#settingNotepadFontVal');
         const settingsFxStatus = $('#settingsFxStatus');
         const settingsVersion = $('#settingsVersion');
         const settingsCheckUpdate = $('#settingsCheckUpdate');
@@ -265,6 +270,8 @@
                         if (stObj.notepadAutoUnit === 'safe' || stObj.notepadAutoUnit === 'full') STATE.settings.notepadAutoUnit = stObj.notepadAutoUnit;
                         if (stObj.notepadUnitMix === 'strict' || stObj.notepadUnitMix === 'first') STATE.settings.notepadUnitMix = stObj.notepadUnitMix;
                         if (stObj.notepadSumUnit === 'off' || stObj.notepadSumUnit === 'inherit') STATE.settings.notepadSumUnit = stObj.notepadSumUnit;
+                        if (typeof stObj.notepadGutterHidden === 'boolean') STATE.settings.notepadGutterHidden = stObj.notepadGutterHidden;
+                        if (typeof stObj.notepadFontSize === 'number' && isFinite(stObj.notepadFontSize)) STATE.settings.notepadFontSize = stObj.notepadFontSize;
                         if (stObj.defaultUnits && typeof stObj.defaultUnits === 'object') {
                             Object.keys(STATE.settings.defaultUnits).forEach(function(cat) {
                                 if (typeof stObj.defaultUnits[cat] === 'string') STATE.settings.defaultUnits[cat] = stObj.defaultUnits[cat];
@@ -7853,6 +7860,7 @@
             if (settingNotepadAutoUnit) settingNotepadAutoUnit.value = STATE.settings.notepadAutoUnit || 'safe';
             if (settingNotepadUnitMix) settingNotepadUnitMix.value = STATE.settings.notepadUnitMix || 'strict';
             if (settingNotepadSumUnit) settingNotepadSumUnit.value = STATE.settings.notepadSumUnit || 'off';
+            _npSyncFontSize(true);
             updateFxStatusLine();
             if (settingsVersion) settingsVersion.textContent = 'Wersja ' + (window.APP_VERSION || '—');
             document.body.classList.add('settings-open');
@@ -7904,7 +7912,7 @@
             wsFovResult: 'FOV', wsFovNeedResult: 'FOV potrzebny', wsElResult: 'Przewód',
             wsEnResult: 'Energia', wsVdResult: 'Spadek napięcia', wsConvResult: 'Konwersja'
         };
-        var npBody = null, npMirror = null, npGutter = null, npFoldLayer = null, npWrapLayer = null; // [EN] jedno pole — zaznaczanie wielu linii
+        var npBody = null, npMirror = null, npGutter = null, npFoldLayer = null, npWrapLayer = null, npEditorInner = null; // [EN] jedno pole — zaznaczanie wielu linii
         function appendToNotepad(lineOrLines, opts) { // T1-2 — dopisz linię(e) do aktywnej notatki
             opts = opts || {};
             var lines = (Array.isArray(lineOrLines) ? lineOrLines : [lineOrLines])
@@ -8416,6 +8424,7 @@
             npEditor.replaceChildren();
             var inner = document.createElement('div');
             inner.className = 'np-editor-inner';
+            npEditorInner = inner;
             npMirror = document.createElement('div');
             npMirror.className = 'np-mirror';
             npMirror.setAttribute('aria-hidden', 'true');
@@ -8455,6 +8464,90 @@
             });
             window.addEventListener('resize', function() {
                 if (npBody && document.body.classList.contains('notepad-open')) npRecompute();
+            });
+            _npBindGutterPanelSwipe();
+            _npSyncGutterHidden();
+            _npSyncFontSize(true);
+        }
+        function _npSyncGutterHidden() {
+            var hidden = !!(STATE.settings && STATE.settings.notepadGutterHidden);
+            if (npEditorInner) npEditorInner.classList.toggle('gutter-hidden', hidden);
+            if (npEditor) npEditor.classList.toggle('gutter-hidden', hidden);
+        }
+        function _npClampFontSize(v) {
+            v = parseFloat(v);
+            if (!isFinite(v)) return 1;
+            return Math.round(Math.max(0.85, Math.min(1.25, v)) * 20) / 20; // [EN] step 0.05
+        }
+        function _npSyncFontSize(skipRecompute) {
+            var fs = _npClampFontSize((STATE.settings && STATE.settings.notepadFontSize) || 1);
+            STATE.settings.notepadFontSize = fs;
+            if (npEditor) npEditor.style.setProperty('--np-font-size', fs + 'rem');
+            if (settingNotepadFontSize) settingNotepadFontSize.value = String(fs);
+            if (settingNotepadFontVal) settingNotepadFontVal.textContent = Math.round(fs * 100) + '%';
+            if (!skipRecompute && npBody && document.body.classList.contains('notepad-open')) npRecompute();
+        }
+        var _npGutterPanelSwipeBound = false;
+        function _npBindGutterPanelSwipe() {
+            if (!npGutter || !npEditor || _npGutterPanelSwipeBound) return;
+            _npGutterPanelSwipeBound = true;
+            var _NP_GUTTER_HIDE = 44, _NP_GUTTER_EDGE = 28;
+            var gStartX = 0, gStartY = 0, gDrag = false, gDecided = false, gHoriz = false;
+            npGutter.addEventListener('pointerdown', function(e) {
+                if (STATE.settings.notepadGutterHidden) return;
+                gStartX = e.clientX; gStartY = e.clientY;
+                gDrag = true; gDecided = false; gHoriz = false;
+            });
+            npGutter.addEventListener('pointermove', function(e) {
+                if (!gDrag || STATE.settings.notepadGutterHidden) return;
+                var dx = e.clientX - gStartX, dy = e.clientY - gStartY;
+                if (!gDecided) {
+                    if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+                    gDecided = true;
+                    gHoriz = Math.abs(dx) > Math.abs(dy);
+                    if (!gHoriz || dx < 0) { gDrag = false; return; } // [EN] only right swipe hides panel
+                }
+                if (!gHoriz) return;
+                if (dx >= _NP_GUTTER_HIDE) {
+                    gDrag = false;
+                    STATE.settings.notepadGutterHidden = true;
+                    saveSettings();
+                    _npSyncGutterHidden();
+                    hapticTap(20);
+                }
+            });
+            ['pointerup', 'pointercancel', 'pointerleave'].forEach(function(ev) {
+                npGutter.addEventListener(ev, function() { gDrag = false; });
+            });
+            var sStartX = 0, sDrag = false, sDecided = false, sHoriz = false;
+            npEditor.addEventListener('pointerdown', function(e) {
+                if (!STATE.settings.notepadGutterHidden) return;
+                if (e.target.closest('.np-res')) return;
+                var rect = npEditor.getBoundingClientRect();
+                if (e.clientX < rect.right - _NP_GUTTER_EDGE) return;
+                sStartX = e.clientX;
+                sDrag = true; sDecided = false; sHoriz = false;
+            });
+            npEditor.addEventListener('pointermove', function(e) {
+                if (!sDrag || !STATE.settings.notepadGutterHidden) return;
+                var dx = e.clientX - sStartX;
+                if (!sDecided) {
+                    if (Math.abs(dx) < 8) return;
+                    sDecided = true;
+                    sHoriz = true;
+                    if (dx > 0) { sDrag = false; return; } // [EN] only left swipe reveals panel
+                }
+                if (!sHoriz) return;
+                if (dx <= -_NP_GUTTER_HIDE) {
+                    sDrag = false;
+                    STATE.settings.notepadGutterHidden = false;
+                    saveSettings();
+                    _npSyncGutterHidden();
+                    hapticTap(15);
+                }
+            });
+            ['pointerup', 'pointercancel'].forEach(function(ev) {
+                npEditor.addEventListener(ev, function() { sDrag = false; });
             });
         }
         function _npSerialize() {
@@ -8508,17 +8601,55 @@
             return res;
         }
         var _NP_ROW_SWIPE_OPEN = -72;
+        var _npRowConfirmTimer = null;
         function _npRowSetX(el, x, animate) {
             el.style.transition = animate ? '' : 'none';
             el.style.transform = x ? ('translateX(' + x + 'px)') : '';
         }
-        function _bindNpGutterSwipe(wrap, shell, delBtn, lineIdx) {
+        function _npRowSwipeClose(wrap, shell) {
+            wrap.classList.remove('swiped', 'swiping', 'confirming');
+            if (_npRowConfirmTimer) { clearTimeout(_npRowConfirmTimer); _npRowConfirmTimer = null; }
+            _npRowSetX(shell, 0, true);
+        }
+        function _npRowSwipeOpen(wrap, shell) {
+            wrap.classList.remove('swiping');
+            wrap.classList.add('swiped');
+            _npRowSetX(shell, _NP_ROW_SWIPE_OPEN, true);
+        }
+        function _npRowArmConfirmAutoClose(wrap, shell) {
+            if (_npRowConfirmTimer) clearTimeout(_npRowConfirmTimer);
+            _npRowConfirmTimer = setTimeout(function() { _npRowSwipeClose(wrap, shell); }, 5000);
+        }
+        function _bindNpGutterSwipe(wrap, shell, delBtn, confirm, lineIdx) {
+            var noBtn = confirm ? confirm.querySelector('.history-confirm-btn.no') : null;
+            var yesBtn = confirm ? confirm.querySelector('.history-confirm-btn.yes') : null;
             var startX = 0, startY = 0, dragging = false, decided = false, horizontal = false, curX = 0;
-            delBtn.addEventListener('click', function(e) {
+            function _openConfirmFromRelease(e) {
+                if (!delBtn || wrap.classList.contains('confirming')) return;
+                var rect = delBtn.getBoundingClientRect();
+                if (e.clientX >= rect.left && e.clientX <= rect.right &&
+                    e.clientY >= rect.top && e.clientY <= rect.bottom) {
+                    wrap.classList.add('confirming');
+                    hapticTap(15);
+                    _npRowArmConfirmAutoClose(wrap, shell);
+                }
+            }
+            delBtn.addEventListener('pointerdown', function(e) {
                 e.preventDefault(); e.stopPropagation();
                 if (!wrap.classList.contains('swiped') && !wrap.classList.contains('swiping')) return;
-                hapticTap(20);
+                wrap.classList.add('confirming');
+                hapticTap(15);
+                _npRowArmConfirmAutoClose(wrap, shell);
+            });
+            if (noBtn) noBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                _npRowSwipeClose(wrap, shell);
+            });
+            if (yesBtn) yesBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                hapticTap(30);
                 _npDeleteLineAt(lineIdx);
+                _npRowSwipeClose(wrap, shell);
             });
             shell.addEventListener('pointerdown', function(e) {
                 if (e.target.closest('.np-res')) return;
@@ -8536,6 +8667,7 @@
                     horizontal = Math.abs(dx) > Math.abs(dy);
                     if (horizontal) {
                         try { shell.setPointerCapture(e.pointerId); } catch (_) {}
+                        wrap.classList.remove('confirming');
                         wrap.classList.add('swiping');
                     }
                 }
@@ -8548,26 +8680,29 @@
                 curX = x;
                 _npRowSetX(shell, x, false);
             });
-            function settle() {
+            function settle(e) {
                 if (!dragging) return;
                 dragging = false;
                 if (!horizontal) return;
                 if (curX <= _NP_ROW_SWIPE_OPEN / 2) {
-                    wrap.classList.remove('swiping');
-                    wrap.classList.add('swiped');
-                    _npRowSetX(shell, _NP_ROW_SWIPE_OPEN, true);
-                } else {
-                    wrap.classList.remove('swiped', 'swiping');
-                    _npRowSetX(shell, 0, true);
-                }
+                    _npRowSwipeOpen(wrap, shell);
+                    if (e) _openConfirmFromRelease(e);
+                } else _npRowSwipeClose(wrap, shell);
             }
             shell.addEventListener('pointerup', settle);
-            shell.addEventListener('pointercancel', settle);
-            shell.addEventListener('click', function() {
-                if (wrap.classList.contains('swiped')) {
-                    wrap.classList.remove('swiped', 'swiping');
-                    _npRowSetX(shell, 0, true);
+            shell.addEventListener('pointercancel', function(e) {
+                if (!dragging) return;
+                dragging = false;
+                if (horizontal) {
+                    if (curX <= _NP_ROW_SWIPE_OPEN / 2) {
+                        _npRowSwipeOpen(wrap, shell);
+                        if (e) _openConfirmFromRelease(e);
+                    } else _npRowSwipeClose(wrap, shell);
                 }
+            });
+            shell.addEventListener('click', function() {
+                if (wrap.classList.contains('confirming')) return;
+                if (wrap.classList.contains('swiped')) _npRowSwipeClose(wrap, shell);
             });
         }
         function _npLineHeightPx() {
@@ -8624,6 +8759,24 @@
                 delBtn.textContent = 'Usuń';
                 delBtn.setAttribute('aria-label', 'Usuń wiersz');
                 delBtn.tabIndex = -1;
+                var confirm = document.createElement('div');
+                confirm.className = 'np-row-confirm';
+                var confirmMsg = document.createElement('span');
+                confirmMsg.className = 'np-row-confirm-msg';
+                confirmMsg.textContent = 'Usunąć wiersz?';
+                var noBtn = document.createElement('button');
+                noBtn.type = 'button';
+                noBtn.className = 'history-confirm-btn no';
+                noBtn.textContent = 'Anuluj';
+                noBtn.setAttribute('aria-label', 'Anuluj usuwanie wiersza');
+                var yesBtn = document.createElement('button');
+                yesBtn.type = 'button';
+                yesBtn.className = 'history-confirm-btn yes';
+                yesBtn.textContent = 'Usuń';
+                yesBtn.setAttribute('aria-label', 'Potwierdź usunięcie wiersza');
+                confirm.appendChild(confirmMsg);
+                confirm.appendChild(noBtn);
+                confirm.appendChild(yesBtn);
                 var shell = document.createElement('div');
                 shell.className = 'np-gutter-shell';
                 var gRow = document.createElement('div');
@@ -8633,7 +8786,8 @@
                 shell.appendChild(gRow);
                 gWrap.appendChild(delBtn);
                 gWrap.appendChild(shell);
-                _bindNpGutterSwipe(gWrap, shell, delBtn, i);
+                gWrap.appendChild(confirm);
+                _bindNpGutterSwipe(gWrap, shell, delBtn, confirm, i);
                 npGutter.appendChild(gWrap);
                 if (folded) {
                     var fRow = document.createElement('button');
@@ -8659,6 +8813,7 @@
             var infos = evalNotepadLines(text);
             _npRenderEditorChrome(lines, infos);
             if (npEditor) npEditor.classList.toggle('np-fold', !!(STATE.settings && STATE.settings.notepadFold));
+            _npSyncGutterHidden();
             npBindHints();
             npRenderVarsPanel();
         }
@@ -8829,12 +8984,127 @@
             if (wasCurrent) _npLoadCurrent();
         }
 
-        // Panel listy notatek (slajd nad edytorem). Każdy wiersz: tytuł + data + kosz.
+        // Panel listy notatek (slajd nad edytorem). Swipe w lewo → potwierdzenie (jak historia).
         function _npFmtWhen(ts) {
             if (!ts) return '';
             var d = new Date(ts);
             var pad = function(n) { return n < 10 ? '0' + n : '' + n; };
             return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+        }
+        var _NP_NOTE_SWIPE_OPEN = -84;
+        var _npNoteConfirmTimer = null;
+        function _npNoteSetX(content, x, animate) {
+            content.style.transition = animate ? '' : 'none';
+            content.style.transform = x ? ('translateX(' + x + 'px)') : '';
+        }
+        function _npNoteSwipeClose(li, content) {
+            li.classList.remove('swiped', 'swiping', 'confirming');
+            if (_npNoteConfirmTimer) { clearTimeout(_npNoteConfirmTimer); _npNoteConfirmTimer = null; }
+            _npNoteSetX(content, 0, true);
+        }
+        function _npNoteSwipeOpen(li, content, markFresh) {
+            li.classList.remove('swiping');
+            li.classList.add('swiped');
+            _npNoteSetX(content, _NP_NOTE_SWIPE_OPEN, true);
+            if (markFresh) li._swipeJustOpened = Date.now();
+        }
+        function _npNoteArmConfirmAutoClose(li, content) {
+            if (_npNoteConfirmTimer) clearTimeout(_npNoteConfirmTimer);
+            _npNoteConfirmTimer = setTimeout(function() { _npNoteSwipeClose(li, content); }, 5000);
+        }
+        function _bindNpNoteSwipe(li, content, note) {
+            var delBtn = li.querySelector('.np-note-delete');
+            var startX = 0, startY = 0, dragging = false, decided = false, horizontal = false, curX = 0;
+            function _openConfirmFromRelease(e) {
+                if (!delBtn || li.classList.contains('confirming')) return;
+                var rect = delBtn.getBoundingClientRect();
+                if (e.clientX >= rect.left && e.clientX <= rect.right &&
+                    e.clientY >= rect.top && e.clientY <= rect.bottom) {
+                    li.classList.add('confirming');
+                    hapticTap(15);
+                    _npNoteArmConfirmAutoClose(li, content);
+                }
+            }
+            if (delBtn) {
+                delBtn.addEventListener('pointerdown', function(e) {
+                    e.preventDefault(); e.stopPropagation();
+                    if (!li.classList.contains('swiped') && !li.classList.contains('swiping')) return;
+                    li.classList.add('confirming');
+                    hapticTap(15);
+                    _npNoteArmConfirmAutoClose(li, content);
+                });
+            }
+            var noBtn = li.querySelector('.np-note-confirm .history-confirm-btn.no');
+            var yesBtn = li.querySelector('.np-note-confirm .history-confirm-btn.yes');
+            if (noBtn) noBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                _npNoteSwipeClose(li, content);
+            });
+            if (yesBtn) yesBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                hapticTap(30);
+                npDeleteNote(note.id);
+                showToast('🗑️ Usunięto notatkę', '');
+            });
+            content.addEventListener('click', function() {
+                if (li._swipeHandled) return;
+                if (li._swipeJustOpened && (Date.now() - li._swipeJustOpened) < 400) return;
+                if (li.classList.contains('swiped') || li.classList.contains('confirming')) {
+                    _npNoteSwipeClose(li, content);
+                    return;
+                }
+                npSwitchNote(note.id);
+            });
+            content.addEventListener('pointerdown', function(e) {
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
+                startX = e.clientX; startY = e.clientY;
+                dragging = true; decided = false; horizontal = false;
+                curX = li.classList.contains('swiped') ? _NP_NOTE_SWIPE_OPEN : 0;
+            });
+            content.addEventListener('pointermove', function(e) {
+                if (!dragging) return;
+                var dx = e.clientX - startX, dy = e.clientY - startY;
+                if (!decided) {
+                    if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+                    decided = true;
+                    horizontal = Math.abs(dx) > Math.abs(dy);
+                    if (horizontal) {
+                        try { content.setPointerCapture(e.pointerId); } catch (_) {}
+                        li.classList.remove('confirming');
+                        li.classList.add('swiping');
+                    }
+                }
+                if (!horizontal) return;
+                e.preventDefault();
+                var base = li.classList.contains('swiped') ? _NP_NOTE_SWIPE_OPEN : 0;
+                var x = base + dx;
+                if (x > 0) x = 0;
+                if (x < _NP_NOTE_SWIPE_OPEN - 24) x = _NP_NOTE_SWIPE_OPEN - 24;
+                curX = x;
+                _npNoteSetX(content, x, false);
+            });
+            function settle(e) {
+                if (!dragging) return;
+                dragging = false;
+                if (!horizontal) return;
+                li._swipeHandled = true;
+                setTimeout(function() { li._swipeHandled = false; }, 60);
+                if (curX <= _NP_NOTE_SWIPE_OPEN / 2) {
+                    _npNoteSwipeOpen(li, content, true);
+                    if (e) _openConfirmFromRelease(e);
+                } else _npNoteSwipeClose(li, content);
+            }
+            content.addEventListener('pointerup', settle);
+            content.addEventListener('pointercancel', function(e) {
+                if (!dragging) return;
+                dragging = false;
+                if (horizontal) {
+                    if (curX <= _NP_NOTE_SWIPE_OPEN / 2) {
+                        _npNoteSwipeOpen(li, content, true);
+                        if (e) _openConfirmFromRelease(e);
+                    } else _npNoteSwipeClose(li, content);
+                }
+            });
         }
         function npRenderList() {
             if (!npListUl) return;
@@ -8858,26 +9128,45 @@
                 var li = document.createElement('li');
                 li.className = 'np-note-item' + (note.id === _npCurrentId ? ' is-current' : '');
                 li.setAttribute('data-id', note.id);
-                var info = document.createElement('button');
-                info.type = 'button';
-                info.className = 'np-note-open';
-                info.setAttribute('data-id', note.id);
+                var delBtn = document.createElement('button');
+                delBtn.type = 'button';
+                delBtn.className = 'np-note-delete';
+                delBtn.textContent = 'Usuń';
+                delBtn.title = 'Usuń notatkę';
+                delBtn.setAttribute('aria-label', 'Usuń notatkę');
+                delBtn.tabIndex = -1;
+                var content = document.createElement('div');
+                content.className = 'np-note-content';
                 var t = document.createElement('span');
                 t.className = 'np-note-title';
                 t.textContent = _npTitle(note);
                 var when = document.createElement('span');
                 when.className = 'np-note-when';
                 when.textContent = _npFmtWhen(note.updatedAt);
-                info.appendChild(t);
-                info.appendChild(when);
-                var del = document.createElement('button');
-                del.type = 'button';
-                del.className = 'np-note-del';
-                del.setAttribute('data-id', note.id);
-                del.setAttribute('aria-label', 'Usuń notatkę');
-                del.textContent = '🗑️';
-                li.appendChild(info);
-                li.appendChild(del);
+                content.appendChild(t);
+                content.appendChild(when);
+                var confirm = document.createElement('div');
+                confirm.className = 'np-note-confirm';
+                var confirmMsg = document.createElement('span');
+                confirmMsg.className = 'np-note-confirm-msg';
+                confirmMsg.textContent = 'Usunąć notatkę?';
+                var noBtn = document.createElement('button');
+                noBtn.type = 'button';
+                noBtn.className = 'history-confirm-btn no';
+                noBtn.textContent = 'Anuluj';
+                noBtn.setAttribute('aria-label', 'Anuluj usuwanie notatki');
+                var yesBtn = document.createElement('button');
+                yesBtn.type = 'button';
+                yesBtn.className = 'history-confirm-btn yes';
+                yesBtn.textContent = 'Usuń';
+                yesBtn.setAttribute('aria-label', 'Potwierdź usunięcie notatki');
+                confirm.appendChild(confirmMsg);
+                confirm.appendChild(noBtn);
+                confirm.appendChild(yesBtn);
+                li.appendChild(delBtn);
+                li.appendChild(content);
+                li.appendChild(confirm);
+                _bindNpNoteSwipe(li, content, note);
                 npListUl.appendChild(li);
             });
         }
@@ -8998,6 +9287,7 @@
             npCloseList();
             updateFoldBtn();
             _npLoadCurrent();
+            _npSyncGutterHidden();
             npHideTip();
             _npBindViewport();   // kurcz nakładkę do obszaru nad klawiaturą (telefon)
             // Fokus odroczony (po animacji). Guard: jeśli zamknięto w międzyczasie — nie fokusuj
@@ -9103,20 +9393,6 @@
                 setTimeout(function() { delete el.dataset.longPressed; fired = false; }, 0);
             }, true);
         }
-        if (npListPanel) {
-            npListPanel.addEventListener('click', function(e) {
-                var del = e.target.closest('.np-note-del');
-                if (del) {
-                    e.stopPropagation();
-                    var did = del.getAttribute('data-id');
-                    var note = _npNotes.filter(function(x) { return x.id === did; })[0];
-                    if (note && (!note.text || !note.text.trim() || window.confirm('Usunąć notatkę „' + _npTitle(note) + '"?'))) npDeleteNote(did);
-                    return;
-                }
-                var open = e.target.closest('.np-note-open');
-                if (open) { npSwitchNote(open.getAttribute('data-id')); }
-            });
-        }
         if (npEditor) {
             npEditor.addEventListener('click', function(e) {
                 if (e.target.closest('.np-res')) { e.stopPropagation(); return; }
@@ -9209,6 +9485,21 @@
                 STATE.settings.notepadSumUnit = settingNotepadSumUnit.value === 'inherit' ? 'inherit' : 'off';
                 saveSettings();
                 if (document.body.classList.contains('notepad-open')) npRecompute();
+            });
+        }
+        if (settingNotepadFontSize) {
+            settingNotepadFontSize.addEventListener('input', function() {
+                STATE.settings.notepadFontSize = _npClampFontSize(settingNotepadFontSize.value);
+                saveSettings();
+                _npSyncFontSize();
+            });
+        }
+        if (settingNotepadFontReset) {
+            settingNotepadFontReset.addEventListener('click', function() {
+                STATE.settings.notepadFontSize = 1;
+                saveSettings();
+                _npSyncFontSize();
+                hapticTap(12);
             });
         }
 
@@ -11033,6 +11324,28 @@
             // T3-13 — szablon faktury ma „Razem" / linie VAT
             var tplVat = _NP_TEMPLATES.filter(function(t) { return t.id === 'faktura'; })[0];
             results.push({ expr: 'T3-13 szablon faktura', pass: !!(tplVat && tplVat.text.indexOf('VAT') >= 0), got: tplVat && tplVat.title });
+            // T6-2 — usunięcie wiersza (symulacja splice) nie psuje evalNotepadLines
+            var t6lines = 'A: 10\nB: 20\nrazem'.split('\n');
+            t6lines.splice(1, 1);
+            var t6eval = evalNotepadLines(t6lines.join('\n'));
+            results.push({ expr: 'T6-2 delete line eval', pass: t6eval[1] && t6eval[1].value === 10, got: t6eval[1] && t6eval[1].value });
+            // T6-2 — npDeleteNote zostawia co najmniej jedną notatkę
+            var savedNotesT6 = JSON.parse(JSON.stringify(_npNotes)), savedIdT6 = _npCurrentId;
+            _npNotes = [{ id: 'n1', text: 'x', updatedAt: 1 }, { id: 'n2', text: 'y', updatedAt: 2 }];
+            _npCurrentId = 'n1';
+            npDeleteNote('n1');
+            var t6delOk = _npNotes.length >= 1 && _npCurrentId === 'n2';
+            _npNotes = savedNotesT6; _npCurrentId = savedIdT6;
+            results.push({ expr: 'T6-2 npDeleteNote', pass: t6delOk, got: t6delOk ? 'ok' : 'fail' });
+            // T6-3 — ustawienie gutter hidden (domyślnie widoczny)
+            var savedGutterT6 = STATE.settings.notepadGutterHidden;
+            STATE.settings.notepadGutterHidden = true;
+            var t63set = STATE.settings.notepadGutterHidden === true;
+            STATE.settings.notepadGutterHidden = savedGutterT6;
+            results.push({ expr: 'T6-3 notepadGutterHidden', pass: t63set && savedGutterT6 !== true, got: t63set ? 'ok' : 'fail' });
+            // T6-1 — clamp rozmiaru czcionki
+            results.push({ expr: 'T6-1 font clamp 1.15', pass: _npClampFontSize(1.15) === 1.15, got: _npClampFontSize(1.15) });
+            results.push({ expr: 'T6-1 font clamp max', pass: _npClampFontSize(9) === 1.25, got: _npClampFontSize(9) });
 
             // Stałe-FUNKCJE f(x) — wywołania w kalkulatorze (test(3)/test 3/3 test), argument-stała,
             // oraz bezpieczne NIE-liczenie form dwuznacznych/bezargumentowych.

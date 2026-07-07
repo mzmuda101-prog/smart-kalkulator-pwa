@@ -2340,41 +2340,71 @@
             text-align: center;
         }
         .np-note-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            position: relative;
+            overflow: hidden;
             border-radius: var(--radius);
             margin-bottom: 4px;
         }
-        .np-note-item.is-current { background: var(--primary-light, rgba(37, 99, 235, 0.1)); }
-        .np-note-open {
-            flex: 1 1 auto;
-            min-width: 0;
+        .np-note-item.is-current .np-note-content { background: var(--primary-light, rgba(37, 99, 235, 0.1)); }
+        .np-note-content {
+            position: relative;
+            z-index: 1;
             display: flex;
             align-items: baseline;
             gap: 10px;
-            border: none;
-            background: transparent;
-            color: var(--text);
-            text-align: left;
-            cursor: pointer;
             padding: 12px 10px;
-            border-radius: var(--radius);
-            -webkit-tap-highlight-color: transparent;
-        }
-        .np-note-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1rem; }
-        .np-note-when { flex: 0 0 auto; font-size: 0.75rem; color: var(--text-muted); }
-        .np-note-del {
-            flex: 0 0 auto;
-            border: none;
-            background: transparent;
+            background: var(--bg, #fff);
             cursor: pointer;
-            font-size: 1rem;
-            padding: 10px 12px;
-            border-radius: var(--radius-sm);
+            touch-action: pan-y;
+            -webkit-tap-highlight-color: transparent;
+            will-change: transform;
+            transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .np-note-content:active { background: var(--primary-light, rgba(37, 99, 235, 0.08)); }
+        .np-note-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1rem; color: var(--text); }
+        .np-note-when { flex: 0 0 auto; font-size: 0.75rem; color: var(--text-muted); }
+        .np-note-delete {
+            position: absolute;
+            top: 0; right: 0; bottom: 0;
+            width: 84px;
+            z-index: 0;
+            border: none;
+            background: var(--danger);
+            color: #fff;
+            font-family: inherit;
+            font-size: 0.8125rem;
+            font-weight: 700;
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            touch-action: manipulation;
+            transition: opacity 0.12s ease;
             -webkit-tap-highlight-color: transparent;
         }
-        .np-note-del:active { background: var(--danger-light, rgba(220, 38, 38, 0.12)); }
+        .np-note-item.swiping .np-note-delete,
+        .np-note-item.swiped .np-note-delete { opacity: 1; pointer-events: auto; }
+        .np-note-delete:active { background: var(--danger-hover); }
+        .np-note-confirm {
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            padding: 0 10px;
+            background: var(--card-bg, var(--bg, #fff));
+        }
+        .np-note-item.confirming .np-note-confirm { display: flex; }
+        .np-note-confirm-msg {
+            flex: 1;
+            min-width: 0;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
         /* Panel zmiennych (T3-12 / pakiet 2) */
         .np-vars-panel {
             flex: 0 0 auto;
@@ -2436,12 +2466,25 @@
             background: var(--bg, #fff);
             padding: 6px 2px;
             -webkit-overflow-scrolling: touch;
+            --np-font-size: 1rem; /* T6-1 — nadpisywane z JS (STATE.settings.notepadFontSize) */
         }
         .np-editor-inner {
             display: grid;
             grid-template-columns: minmax(0, 1fr) auto;
             align-items: start;
             min-height: 100%;
+            transition: grid-template-columns 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .np-editor-inner.gutter-hidden { grid-template-columns: minmax(0, 1fr) 0fr; }
+        .np-editor-inner.gutter-hidden .np-gutter {
+            overflow: hidden;
+            opacity: 0;
+            pointer-events: none;
+            padding: 0;
+            min-width: 0;
+        }
+        .np-editor.gutter-hidden {
+            box-shadow: inset -3px 0 0 var(--border); /* [EN] subtle affordance — swipe from edge to show chips */
         }
         .np-mirror, .np-wrap-layer, .np-fold-layer, .np-text {
             grid-column: 1;
@@ -2467,7 +2510,7 @@
             width: 2px;
             border-radius: 5px;
             background: var(--primary);
-            opacity: 0.2;
+            opacity: 0.3;
         }
         .np-editor.np-fold:not(.np-editing) .np-wrap-layer { opacity: 0; }
         .np-gutter {
@@ -2484,7 +2527,7 @@
             white-space: pre-wrap;
             overflow-wrap: anywhere;
             font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-            font-size: 1rem;
+            font-size: var(--np-font-size);
             line-height: 2;
         }
         .np-mirror-line {
@@ -2506,7 +2549,7 @@
             resize: none;
             overflow: hidden;
             font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-            font-size: 1rem;
+            font-size: var(--np-font-size);
             line-height: 2;
             white-space: pre-wrap;
             overflow-wrap: anywhere;
@@ -2530,7 +2573,7 @@
             color: var(--text);
             text-align: left;
             font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-            font-size: 1rem;
+            font-size: var(--np-font-size);
             line-height: 2;
             padding: 0 8px;
             cursor: pointer;
@@ -2567,6 +2610,30 @@
         .np-row-wrap.swiping .np-row-delete,
         .np-row-wrap.swiped .np-row-delete { opacity: 1; pointer-events: auto; }
         .np-row-delete:active { background: var(--danger-hover, #b91c1c); }
+        .np-row-confirm {
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+            display: none;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 6px;
+            padding: 0 6px;
+            background: var(--bg, #fff);
+        }
+        .np-gutter-wrap.confirming .np-row-confirm,
+        .np-row-wrap.confirming .np-row-confirm { display: flex; }
+        .np-row-confirm-msg {
+            flex: 1 1 auto;
+            min-width: 0;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--text);
+            text-align: right;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
         .np-gutter-shell, .np-row-shell {
             position: relative;
             background: var(--bg, #fff);
@@ -2608,7 +2675,7 @@
         /* Legacy row styles (tests / stare klasy) */
         .np-line, .np-label {
             font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-            font-size: 1rem;
+            font-size: var(--np-font-size);
             line-height: 2;
         }
         .np-line {
@@ -2650,7 +2717,7 @@
             background: transparent;  /* sama liczba, BEZ prostokąta; tło dopiero na hover/tap */
             color: var(--primary);
             font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-            font-size: 0.95rem;
+            font-size: calc(var(--np-font-size) * 0.95);
             font-weight: 700;
             padding: 1px 6px;
             border-radius: 999px;
@@ -2726,7 +2793,7 @@
         #npListBtn.is-open .np-list-btn-icon{transform: rotate(90deg) scale(1.5) translateY(-2px); }
 
         @media(max-width: 560px) {
-            #npListBtn.is-open .np-list-btn-icon{transform: rotate(90deg)translateY(-2px) translateX(2px); }
+            #npListBtn.is-open .np-list-btn-icon{transform: rotate(90deg) scale(1.1); }
         }
         
         #npListBtn:hover { background: var(--primary-light, rgba(37, 99, 235, 0.08)); }
@@ -2996,6 +3063,16 @@
         .settings-toggle-row:has(.settings-seg-btn[data-val="on"].active) { border-color: var(--border-focus); }
         .settings-toggle-text { line-height: 1.3; }
         .settings-toggle-text small { color: var(--text-muted); font-size: 0.78rem; line-height: 1.3; }
+        .np-font-settings-row { flex-wrap: wrap; }
+        .np-font-settings {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1 1 200px;
+            justify-content: flex-end;
+        }
+        .np-font-settings input[type="range"] { flex: 1 1 100px; min-width: 80px; }
+        .np-font-val { font-size: 0.8rem; font-weight: 700; color: var(--text-muted); min-width: 2.5em; text-align: right; }
         .settings-seg {
             display: inline-grid;
             grid-template-columns: 1fr 1fr;

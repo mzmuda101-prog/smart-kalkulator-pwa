@@ -1624,6 +1624,14 @@
                         <button type="button" class="settings-seg-btn" data-val="on">Wł</button>
                     </div>
                 </div>
+                <div class="settings-toggle-row np-font-settings-row">
+                    <span class="settings-toggle-text"><strong>Rozmiar czcionki</strong><br><small>Czytelność tekstu w edytorze (85–125%).</small></span>
+                    <div class="np-font-settings">
+                        <input type="range" id="settingNotepadFontSize" min="0.85" max="1.25" step="0.05" value="1" aria-label="Rozmiar czcionki notatnika">
+                        <span id="settingNotepadFontVal" class="np-font-val" aria-live="polite">100%</span>
+                        <button type="button" id="settingNotepadFontReset" class="settings-version-btn">Domyślna</button>
+                    </div>
+                </div>
                 <p class="settings-hint" style="margin-top:12px">Niezdefiniowane jednostki (np. wpisane wprost <code>3 os</code>) traktuj jako bezwymiarowe:</p>
                 <select id="settingNotepadAutoUnit">
                     <option value="safe">Zachowawczo — tylko gdy reszta linii to działanie (proza bez wyniku)</option>
