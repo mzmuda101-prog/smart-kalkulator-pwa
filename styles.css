@@ -2782,6 +2782,31 @@
             color: var(--text-muted);
             line-height: 1.45;
         }
+        .np-learn-bar {
+            flex: 0 0 auto;
+            margin: 6px 2px 0;
+            display: flex;
+            justify-content: flex-start;
+        }
+        .np-learn-btn {
+            border: 1px dashed var(--border, #e2e8f0);
+            background: transparent;
+            color: var(--text-muted);
+            border-radius: 999px;
+            padding: 5px 12px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            transition: color 0.15s, border-color 0.15s, background 0.15s;
+        }
+        .np-learn-btn:hover,
+        .np-learn-btn:focus-visible {
+            color: var(--text-secondary);
+            border-color: var(--primary, #2563eb);
+            background: var(--primary-light, rgba(37, 99, 235, 0.06));
+            outline: none;
+        }
+        .np-learn-btn:active { opacity: 0.85; }
         .np-hint-details {
             flex: 0 0 auto;
             margin: 8px 2px 0;

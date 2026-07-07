@@ -120,6 +120,7 @@
         const npExportBtn = $('#npExportBtn');
         const npExportMenu = $('#npExportMenu');
         const npTemplateList = $('#npTemplateList');
+        const npLearnExampleBtn = $('#npLearnExampleBtn');
         const npTitleBtn = $('#npTitleBtn');
         const npTitleInput = $('#npTitleInput');
         const npListPanel = $('#npListPanel');
@@ -7859,6 +7860,7 @@
         var _npGlobals = {};                           // zmienne DZIELONE między notatkami (@nazwa) — TYLKO notatnik
         // T3-13 — wbudowane szablony (surowy tekst notatki)
         var _NP_TEMPLATES = [
+            { id: 'przyklad-jednostki', title: 'Przykład: wyjazd', learn: true, text: 'Nocleg: 115pln×10os\npaliwo: 5,60pln×100km\nrazem(usd)\ntest: @razem × 2.5\ntest2: @test na pln\n' },
             { id: 'remont', title: 'Remont', text: 'Farba: \nGips: \nTaśma: \nRazem\n' },
             { id: 'wyjazd', title: 'Wyjazd', text: 'Dystans km: \nSpalanie l/100: \nPaliwo l: \nKoszt: \nRazem\n' },
             { id: 'faktura', title: 'Faktura VAT', text: 'Netto: \nVAT 23%: \nBrutto: \n' }
@@ -7979,6 +7981,23 @@
             npCloseList();
             if (!document.body.classList.contains('notepad-open')) openNotepad();
             showToast('📝 ' + tpl.title, 'success');
+        }
+        function npInsertLearnExample() { // [EN] fill empty note or spawn new one from learn template
+            var tpl = _NP_TEMPLATES.filter(function(t) { return t.id === 'przyklad-jednostki'; })[0];
+            if (!tpl) return;
+            _npStashCurrent();
+            var cur = _npCurrentNote();
+            if (cur && !String(cur.text || '').trim()) {
+                cur.text = tpl.text;
+                cur.updatedAt = Date.now();
+                flushNotepadPersist();
+                _npLoadCurrent();
+                npCloseList();
+                if (!document.body.classList.contains('notepad-open')) openNotepad();
+                showToast('📎 Wstawiono przykład', 'success');
+                return;
+            }
+            npNewFromTemplate('przyklad-jednostki');
         }
         function npRenderTemplates() {
             if (!npTemplateList) return;
@@ -8996,6 +9015,7 @@
             });
         }
         if (npNewBtn) npNewBtn.addEventListener('click', npNewNote);
+        if (npLearnExampleBtn) npLearnExampleBtn.addEventListener('click', npInsertLearnExample);
         if (npTemplateList) {
             npTemplateList.addEventListener('click', function(e) {
                 var btn = e.target.closest('.np-template-btn');
