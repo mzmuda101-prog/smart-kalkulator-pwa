@@ -2685,6 +2685,19 @@
         }
         .np-editor.np-fold .np-row.np-has:not(:focus-within):not(.np-editing) { align-items: center; }
         .np-editor.np-fold .np-row.np-has:not(:focus-within):not(.np-editing) .np-res { margin-left: 8px; margin-bottom: 0; }
+
+        #npListBtn .np-list-btn-icon{
+            font-size: 1.5rem;
+            font-weight: 600;
+            transition: transform 0.12s ease;
+            display: inline-block;
+            transform-origin: center center;
+            
+        }
+        #npListBtn.is-open .np-list-btn-icon{transform: rotate(90deg) scale(1.5) translateY(-2px); }
+        
+        #npListBtn:hover { background: var(--primary-light, rgba(37, 99, 235, 0.08)); }
+
         /* ── Dymek silnika cursor-hint (js/cursor-hint.js) ────────────────
            Zastępuje dawny .np-tooltip: kotwiczy się nad chipem .np-res, podąża/zanika
            animacyjnie, a na dotyku rozróżnia tap (zerknięcie) od przytrzymania. Outer

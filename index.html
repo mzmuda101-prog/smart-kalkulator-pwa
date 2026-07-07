@@ -1473,7 +1473,7 @@
     <div class="notepad-modal" id="notepadModal" role="dialog" aria-modal="true"
         aria-labelledby="npTitleBtn" aria-hidden="true">
         <div class="np-head">
-            <button class="np-head-btn" id="npListBtn" type="button" aria-label="Lista notatek" title="Notatki">📋</button>
+            <button class="np-head-btn" id="npListBtn" type="button" aria-label="Lista notatek" title="Notatki"><span class="np-list-btn-icon">≣</span></button>
             <button class="np-head-btn" id="npFoldBtn" type="button" aria-pressed="false" aria-label="Zwiń wyrażenia do wyników" title="Zwiń wyrażenia do wyników">⊟</button>
             <button type="button" id="npTitleBtn" class="np-title-btn" aria-label="Tytuł notatki — dotknij, by zmienić">📝 Notatnik</button>
             <input type="text" id="npTitleInput" class="np-title-input" hidden maxlength="80" aria-label="Edytuj tytuł notatki" autocomplete="off">
@@ -1488,7 +1488,7 @@
         </div>
         <div class="np-body">
             <aside class="np-vars-panel" id="npVarsPanel" aria-label="Aktywne zmienne" hidden>
-                <button type="button" class="np-vars-toggle" id="npVarsToggle" aria-expanded="true">
+                <button type="button" class="np-vars-toggle" id="npVarsToggle" aria-expanded="false">
                     <span class="np-vars-toggle-label">Zmienne</span>
                     <span class="np-vars-toggle-icon" aria-hidden="true">▾</span>
                 </button>
@@ -1584,6 +1584,11 @@
                 <select id="settingNotepadAutoUnit">
                     <option value="safe">Zachowawczo — tylko gdy reszta linii to działanie (proza bez wyniku)</option>
                     <option value="full">Pełne auto — zdejmuj też zbłąkane słowa (może dać mylne wyniki)</option>
+                </select>
+                <p class="settings-hint" style="margin-top:12px">Miks różnych jednostek w jednej linii (np. <code>10 pln × 5 km</code>):</p>
+                <select id="settingNotepadUnitMix">
+                    <option value="strict">Ścisłe — jak kalkulator (bez wyniku przy konflikcie)</option>
+                    <option value="first">Pierwsza jednostka wygrywa — wynik w jednostce, która jest pierwsza</option>
                 </select>
             </div>
             <div class="settings-version">

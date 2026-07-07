@@ -56,7 +56,8 @@
                         defaultUnits: { speed: '__auto__', length: '__auto__', mass: '__auto__', volume: '__auto__',
                                       time: '__auto__', area: '__auto__', data: '__auto__', angle: '' },
                         notepadFold: false, // notatnik: zwijaj wyrażenia do wyników (tryb fold)
-                        notepadAutoUnit: 'safe' }, // notatnik: auto-jednostki niezdefiniowane — 'safe' | 'full'
+                        notepadAutoUnit: 'safe', // notatnik: auto-jednostki niezdefiniowane — 'safe' | 'full'
+                        notepadUnitMix: 'strict' }, // notatnik: miks jednostek — 'strict' | 'first'
             // Komenda tab (merged Engineering + Graph)
             eng: { unit: 'cm', axis: 'X', mode: 'between' }, // used by drawEngineeringCanvas
             graph: {
@@ -141,6 +142,7 @@
         const settingFxBackupRow = $('#settingFxBackupRow');
         const settingNotepadFold = $('#settingNotepadFold');
         const settingNotepadAutoUnit = $('#settingNotepadAutoUnit');
+        const settingNotepadUnitMix = $('#settingNotepadUnitMix');
         const settingsFxStatus = $('#settingsFxStatus');
         const settingsVersion = $('#settingsVersion');
         const settingsCheckUpdate = $('#settingsCheckUpdate');
@@ -256,6 +258,7 @@
                         if (typeof stObj.fxBackup === 'boolean') STATE.settings.fxBackup = stObj.fxBackup;
                         if (typeof stObj.notepadFold === 'boolean') STATE.settings.notepadFold = stObj.notepadFold;
                         if (stObj.notepadAutoUnit === 'safe' || stObj.notepadAutoUnit === 'full') STATE.settings.notepadAutoUnit = stObj.notepadAutoUnit;
+                        if (stObj.notepadUnitMix === 'strict' || stObj.notepadUnitMix === 'first') STATE.settings.notepadUnitMix = stObj.notepadUnitMix;
                         if (stObj.defaultUnits && typeof stObj.defaultUnits === 'object') {
                             Object.keys(STATE.settings.defaultUnits).forEach(function(cat) {
                                 if (typeof stObj.defaultUnits[cat] === 'string') STATE.settings.defaultUnits[cat] = stObj.defaultUnits[cat];
@@ -1149,7 +1152,57 @@
         }
         var _tempConvertRe = /^\s*(-?[\d.,]+)\s*°?\s*(c|celsjus\w*|f|fahrenheit\w*|k|kelwin\w*)\s+(?:na|do|in|to|w)\s+°?\s*(c|celsjus\w*|f|fahrenheit\w*|k|kelwin\w*)\s*$/i;
 
-        function resolveCalcUnits(raw) {
+        // [EN] Strip currency tokens to bare numbers — notepad first-unit mode when physical wins
+        function _stripCurrencyAmounts(raw) {
+            var tokenRe = _currencyTokenRe();
+            if (!tokenRe) return raw;
+            var amountRe = new RegExp('([\\d.,]+)\\s*(' + tokenRe + ')(?![a-ząćęłńóśźż0-9])', 'gi');
+            var revAmountRe = new RegExp('\\b(' + tokenRe + ')\\s*([\\d.,]+)(?![a-ząćęłńóśźż0-9])', 'gi');
+            var out = String(raw || '').replace(amountRe, '$1');
+            return out.replace(revAmountRe, '$2');
+        }
+        // [EN] Strip physical unit labels — notepad first-unit mode when currency wins
+        function _stripPhysicalUnits(raw) {
+            if (!_UNIT_NAMES_RE) return raw;
+            var unitRe = new RegExp('([\\d.,]+)\\s*(' + _UNIT_NAMES_RE + ')(?![A-Za-z0-9])', 'gi');
+            return String(raw || '').replace(unitRe, '$1');
+        }
+        // [EN] Scan currency + physical tokens in source order (after constants expanded)
+        function _collectExprUnits(raw) {
+            var hits = [], s = String(raw || ''), m;
+            var tokenRe = _currencyTokenRe();
+            if (tokenRe) {
+                var amountRe = new RegExp('([\\d.,]+)\\s*(' + tokenRe + ')(?![a-ząćęłńóśźż0-9])', 'gi');
+                while ((m = amountRe.exec(s)) !== null) hits.push({ idx: m.index, kind: 'currency' });
+                var revAmountRe = new RegExp('\\b(' + tokenRe + ')\\s*([\\d.,]+)(?![a-ząćęłńóśźż0-9])', 'gi');
+                while ((m = revAmountRe.exec(s)) !== null) hits.push({ idx: m.index, kind: 'currency' });
+            }
+            if (_UNIT_NAMES_RE) {
+                var unitRe = new RegExp('([\\d.,]+)\\s*(' + _UNIT_NAMES_RE + ')(?![A-Za-z0-9])', 'gi');
+                while ((m = unitRe.exec(s)) !== null) {
+                    var def = CALC_UNITS[m[2].toLowerCase()];
+                    if (!def) continue;
+                    hits.push({ idx: m.index, kind: 'physical', cat: def.cat, dimensionless: !!(def.custom && def.dimensionless) });
+                }
+            }
+            hits.sort(function(a, b) { return a.idx - b.idx; });
+            return hits;
+        }
+        // [EN] True when incompatible units appear (currency×physical or two physical categories)
+        function _unitMixNeedsFirstWins(hits) {
+            if (!hits || !hits.length) return false;
+            var hasCur = false, hasDimPhys = false, physCats = {};
+            hits.forEach(function(h) {
+                if (h.kind === 'currency') hasCur = true;
+                else if (h.kind === 'physical' && !h.dimensionless) { hasDimPhys = true; physCats[h.cat] = 1; }
+            });
+            if (hasCur && hasDimPhys) return true;
+            return Object.keys(physCats).length > 1;
+        }
+
+        function resolveCalcUnits(raw, opts) {
+            opts = opts || {};
+            var firstUnitWins = !!opts.firstUnitWins;
             // 0) Temperatura — wyłącznie jawna konwersja „X na Y" (offset, nie da się sumować)
             var tMatch = raw.match(_tempConvertRe);
             if (tMatch) {
@@ -1222,12 +1275,18 @@
             expr = expr.replace(unitRe, function(m, numStr, unit) {
                 var def = CALC_UNITS[unit.toLowerCase()];
                 if (!def) return m;
-                if (cat && def.cat !== cat) { mixed = true; return m; } // miks kategorii
+                if (cat && def.cat !== cat) {
+                    if (firstUnitWins) { // [EN] later category → bare number, first unit label stays
+                        var n = parseFloat(String(numStr).replace(',', '.'));
+                        return isFinite(n) ? _plainNum(n) : m;
+                    }
+                    mixed = true; return m;
+                }
                 return _emitUnit(numStr, def.factor, def.cat, def.base, unit);
             });
 
             // Miks kategorii (kg + cm) nie ma sensu → zwróć surowiec bez wyniku jednostkowego.
-            if (mixed) return { expr: raw, unit: null, cat: null, valueInBase: 0, workFactor: 1 };
+            if (mixed && !firstUnitWins) return { expr: raw, unit: null, cat: null, valueInBase: 0, workFactor: 1 };
 
             if (!hasUnits) return { expr: expr, unit: null, cat: null, valueInBase: 0, workFactor: 1 };
             // Domyślna jednostka wyświetlania (ustawienia) — dotyczy gołych wyników jednostkowych;
@@ -1794,7 +1853,9 @@
                 text: formatLocaleNumber(cost, 2) + ' zł (paliwo: ' + formatLocaleNumber(liters, 2) + ' l)' });
         }
 
-        function evalCalcExpression(raw) {
+        function evalCalcExpression(raw, opts) {
+            opts = opts || {};
+            var firstUnitWins = !!opts.firstUnitWins;
             var original = String(raw || '').trim();
             if (!original) return makeVal({});
             // Najpierw czas zegarowy („17:00 + 3h", „od 9:30 do 17:15") — krócej niż daty, ma własne tokeny.
@@ -1840,6 +1901,12 @@
                 expr = resolveCalcConstants(expr, STATE.constants);
                 expr = expandNumericShorthands(expr); // [EN] k/tys przed tokenami walut („2,5k zł")
                 expr = expandCurrencyShorthands(expr); // [EN] „usd 1k" przed resolveCalcCurrency
+                var unitHits = firstUnitWins ? _collectExprUnits(expr) : [];
+                var useFirstWins = firstUnitWins && _unitMixNeedsFirstWins(unitHits);
+                var firstHit = useFirstWins && unitHits.length ? unitHits[0] : null;
+                if (useFirstWins && firstHit && firstHit.kind === 'physical' && !firstHit.dimensionless) {
+                    expr = _stripCurrencyAmounts(expr); // [EN] physical first — currency tokens become bare numbers
+                }
                 // Waluty NAJPIERW (zaraz po stałych, PRZED parserem naturalnym): zamieniamy kwoty
                 // walutowe na liczby (wartość w PLN / konwersja „na X") i zapamiętujemy docelową
                 // jednostkę. Dzięki temu finanse/procenty/matematyka komponują się z walutą — token
@@ -1847,6 +1914,9 @@
                 var curRes = resolveCalcCurrency(expr);
                 if (curRes.pending) return makeVal({ pendingFx: true });
                 expr = curRes.expr;
+                if (useFirstWins && firstHit && firstHit.kind === 'currency') {
+                    expr = _stripPhysicalUnits(expr); // [EN] currency first — physical tokens become bare numbers
+                }
                 expr = parseNaturalShortcuts(expr);
                 expr = resolveCalcAnswer(expr);
                 expr = resolveTrigDegrees(expr); // [EN] sin(30 deg) → radiany, zanim jednostki zdejmą „deg"
@@ -1863,7 +1933,7 @@
                         return makeVal({ big: true, bigStr: bigStr, text: groupBigIntStr(bigStr), kind: 'number' });
                     }
                 }
-                var unitResult = resolveCalcUnits(expr);
+                var unitResult = resolveCalcUnits(expr, useFirstWins ? { firstUnitWins: true } : null);
                 expr = unitResult.expr;
                 // Własna jednostka (np. „os.") jest BEZWYMIAROWA — to licznik, nie wymiar fizyczny.
                 // Nie kłóci się więc z walutą: „3 os. * 180 zł" = 540 zł (wygrywa ostatnia realna
@@ -1872,7 +1942,7 @@
                 var unitIsCustom = unitResult.cat && String(unitResult.cat).indexOf('custom:') === 0;
                 var customKey = unitIsCustom ? String(unitResult.cat).slice('custom:'.length) : null;
                 var unitIsDimensionless = customKey && CALC_UNITS[customKey] && CALC_UNITS[customKey].dimensionless;
-                if (curRes.hasCurrency && unitResult.unit !== null && !unitIsDimensionless) {
+                if (curRes.hasCurrency && unitResult.unit !== null && !unitIsDimensionless && !useFirstWins) {
                     return makeVal({});
                 }
                 var unit = curRes.hasCurrency ? curRes.unit : unitResult.unit;
@@ -7743,6 +7813,7 @@
             syncFxBackupRow();
             syncFoldSetting(STATE.settings.notepadFold);
             if (settingNotepadAutoUnit) settingNotepadAutoUnit.value = STATE.settings.notepadAutoUnit || 'safe';
+            if (settingNotepadUnitMix) settingNotepadUnitMix.value = STATE.settings.notepadUnitMix || 'strict';
             updateFxStatusLine();
             if (settingsVersion) settingsVersion.textContent = 'Wersja ' + (window.APP_VERSION || '—');
             document.body.classList.add('settings-open');
@@ -7929,6 +8000,10 @@
             return /[\d+\-×÷*/%=()]/.test(s) || _NP_SUM_WORDS_RE.test(s);
         }
         function _npFmt(v) { return formatLocaleNumber(v, 10); }
+        function _npEvalOpts() { // [EN] notepad-only eval flags from settings
+            return (STATE.settings && STATE.settings.notepadUnitMix) === 'first' ? { firstUnitWins: true } : null;
+        }
+        function _npEval(expr) { return evalCalcExpression(expr, _npEvalOpts()); }
 
         // ── Auto-jednostki (TYLKO notatnik): nieznany token „liczba + słowo" traktujemy jako
         // jednostkę BEZWYMIAROWĄ na czas liczenia (np. samo wpisane „3 os" → „3 os"). Reużywa
@@ -8025,7 +8100,7 @@
                     if (_npTokenKnown(name)) return;        // nie nadpisuj jednostek/walut/słów kluczowych
                     var sub = _npSubVars(m[2].trim(), g);   // globalna może użyć wcześniejszej globalnej
                     try {
-                        var r = evalCalcExpression(sub);
+                        var r = evalCalcExpression(sub, _npEvalOpts());
                         if (r && typeof r.value === 'number' && isFinite(r.value)) g[name] = r.value;
                     } catch (e) {}
                 });
@@ -8091,7 +8166,7 @@
                 });
                 if (autoMode === 'full') evalStr = _npStripProse(evalStr); // zdejmij zbłąkane słowa
                 var res = null;
-                try { res = evalCalcExpression(evalStr); } catch (e) { res = null; }
+                try { res = _npEval(evalStr); } catch (e) { res = null; }
                 if (res && (res.value !== null || res.text != null || res.big)) {
                     info.text = formatCalcResult(res);
                     // Rozpisane równanie do dymka: czyste „razem" → składniki; „razem" w działaniu
@@ -8162,7 +8237,7 @@
                     evalStr = evalStr.replace(_NP_SUM_WORDS_RE, function() { usedTotal = true; return '(' + runningSum + ')'; });
                     if (autoMode === 'full') evalStr = _npStripProse(evalStr);
                     try {
-                        var res = evalCalcExpression(evalStr);
+                        var res = _npEval(evalStr);
                         if (res && typeof res.value === 'number' && isFinite(res.value)) {
                             if (!usedTotal && !gName) runningSum += res.value;
                             if (gName) {
@@ -8668,6 +8743,10 @@
             npListPanel.classList.add('open');
             npListPanel.setAttribute('aria-hidden', 'false');
             if ('inert' in npListPanel) npListPanel.inert = false;
+            if (npListBtn) { // [EN] open list button
+                npListBtn.classList.add('is-open');
+                npListBtn.setAttribute('aria-expanded', 'true');
+            }
         }
         function npCloseList(preferFocus) {
             if (!npListPanel) return;
@@ -8679,6 +8758,10 @@
             npListPanel.classList.remove('open');
             npListPanel.setAttribute('aria-hidden', 'true');
             if ('inert' in npListPanel) npListPanel.inert = true;
+            if (npListBtn) { // [EN] open list button
+                npListBtn.classList.remove('is-open');
+                npListBtn.setAttribute('aria-expanded', 'false');
+            }
         }
         function npToggleList() { if (npListPanel && npListPanel.classList.contains('open')) npCloseList(); else npOpenList(); }
 
@@ -8965,6 +9048,13 @@
                 STATE.settings.notepadAutoUnit = settingNotepadAutoUnit.value === 'full' ? 'full' : 'safe';
                 saveSettings();
                 if (document.body.classList.contains('notepad-open')) npRecompute(); // przelicz na żywo
+            });
+        }
+        if (settingNotepadUnitMix) {
+            settingNotepadUnitMix.addEventListener('change', function() {
+                STATE.settings.notepadUnitMix = settingNotepadUnitMix.value === 'first' ? 'first' : 'strict';
+                saveSettings();
+                if (document.body.classList.contains('notepad-open')) npRecompute();
             });
         }
 
@@ -10692,6 +10782,22 @@
             STATE.settings.notepadAutoUnit = savedAUmode;
             STATE.fx.rates = savedFxAU; STATE.fx.ts = savedFxTsAU;
             STATE.constants = savedConstAU; registerCustomUnits();
+
+            // Notatnik: miks jednostek — strict (jak kalkulator) vs first (pierwsza jednostka wygrywa)
+            var savedMix = STATE.settings.notepadUnitMix;
+            var savedFxMix = STATE.fx.rates, savedFxTsMix = STATE.fx.ts;
+            STATE.fx.rates = { PLN: 1, EUR: 4.30 }; STATE.fx.ts = Date.now();
+            STATE.settings.notepadUnitMix = 'strict';
+            var mixStrict = evalNotepadLines('10 pln × 5 km');
+            results.push({ expr: 'unit-mix strict: 10 pln × 5 km → brak', pass: mixStrict[0].text === '', got: '"' + mixStrict[0].text + '"' });
+            results.push({ expr: 'unit-mix calc strict bez zmian', pass: evalCalcExpression('10 pln × 5 km').value === null, got: evalCalcExpression('10 pln × 5 km').value });
+            STATE.settings.notepadUnitMix = 'first';
+            var mixFirst = evalNotepadLines('10 pln × 5 km');
+            results.push({ expr: 'unit-mix first: 10 pln × 5 km = 50', pass: mixFirst[0].value === 50 && /zł|pln/i.test(mixFirst[0].text), got: mixFirst[0].text });
+            var mixFirstKm = evalNotepadLines('5 km × 10 pln');
+            results.push({ expr: 'unit-mix first: 5 km × 10 pln = 50 km', pass: mixFirstKm[0].value === 50 && /km/i.test(mixFirstKm[0].text), got: mixFirstKm[0].text });
+            STATE.settings.notepadUnitMix = savedMix;
+            STATE.fx.rates = savedFxMix; STATE.fx.ts = savedFxTsMix;
 
             // Etykiety-zmienne: odwołanie przez @nazwa (bez @ = brak podstawienia).
             var vlines = evalNotepadLines(['Paliwo: 100 + 194', 'Podwojone: @paliwo * 2', 'Budżet: 5000', 'Zostało: @budżet - @paliwo', 'Przed: @y + 1', 'Y: 10'].join('\n'));
