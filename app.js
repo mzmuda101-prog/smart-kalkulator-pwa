@@ -8059,6 +8059,77 @@
         var _NP_TOTAL_RE = /^(razem|suma|total)$/i;
         var _NP_SUBTOTAL_RE = /^(subtotal|półsuma|podsuma)$/i;
         var _NP_SECTION_RE = /^-{3,}\s*$/;
+        var _NP_ALIGN_MAP = { left: '', center: '< ', right: '> ', justify: '| ' }; // T6-4 — prefixy wyrównania linii
+        function _npParseAlign(line) { // T6-4 — strip prefix przed ewaluacją / renderem mirror
+            var s = String(line || '');
+            if (s.startsWith('> ')) return { align: 'right', body: s.slice(2) };
+            if (s.startsWith('< ')) return { align: 'center', body: s.slice(2) };
+            if (s.startsWith('| ')) return { align: 'justify', body: s.slice(2) };
+            return { align: 'left', body: s };
+        }
+        function _npStripFormatMarkers(s) { // T6-5 — usuń markery przed liczeniem (kolejność: ** __ _)
+            var t = String(s || '');
+            t = t.replace(/\*\*([^*]+)\*\*/g, '$1');
+            t = t.replace(/__([^_]+)__/g, '$1');
+            t = t.replace(/_([^_\n]+)_/g, '$1');
+            return t;
+        }
+        function _npPrepareLine(raw) {
+            var a = _npParseAlign(String(raw || '').trim());
+            return { align: a.align, body: a.body, evalText: _npStripFormatMarkers(a.body) };
+        }
+        function _npFillMirrorFormatted(container, text) { // T6-5 — bezpieczny render (text nodes + span, bez innerHTML)
+            container.replaceChildren();
+            if (!text) return;
+            var s = text, i = 0;
+            function pushPlain(end) {
+                if (end > i) container.appendChild(document.createTextNode(s.slice(i, end)));
+                i = end;
+            }
+            while (i < s.length) {
+                if (s.startsWith('**', i)) {
+                    var eb = s.indexOf('**', i + 2);
+                    if (eb > i) {
+                        pushPlain(i);
+                        var b = document.createElement('span');
+                        b.className = 'np-fmt-bold';
+                        b.textContent = s.slice(i + 2, eb);
+                        container.appendChild(b);
+                        i = eb + 2;
+                        continue;
+                    }
+                }
+                if (s.startsWith('__', i)) {
+                    var eu = s.indexOf('__', i + 2);
+                    if (eu > i) {
+                        pushPlain(i);
+                        var u = document.createElement('span');
+                        u.className = 'np-fmt-underline';
+                        u.textContent = s.slice(i + 2, eu);
+                        container.appendChild(u);
+                        i = eu + 2;
+                        continue;
+                    }
+                }
+                if (s[i] === '_' && s[i + 1] !== '_') {
+                    var ei = s.indexOf('_', i + 1);
+                    if (ei > i) {
+                        pushPlain(i);
+                        var it = document.createElement('span');
+                        it.className = 'np-fmt-italic';
+                        it.textContent = s.slice(i + 1, ei);
+                        container.appendChild(it);
+                        i = ei + 1;
+                        continue;
+                    }
+                }
+                var next = s.length;
+                var p1 = s.indexOf('**', i); if (p1 >= 0 && p1 < next) next = p1;
+                var p2 = s.indexOf('__', i); if (p2 >= 0 && p2 < next) next = p2;
+                var p3 = s.indexOf('_', i); if (p3 >= 0 && p3 < next) next = p3;
+                pushPlain(next);
+            }
+        }
         var _NP_SUM_WORDS_RE = /\b(razem|suma|total|subtotal|półsuma|podsuma)\b/giu;
         // [EN] Sum keywords with optional manual unit — razem(zł), półsuma (cm)
         var _NP_SUM_UNIT_LINE_RE = /^(razem|suma|total|subtotal|półsuma|podsuma)\s*(?:\(\s*([\p{L}][\p{L}.]*)\s*\))?$/iu;
@@ -8264,7 +8335,7 @@
             var varNames = {};   // zbiór nazw zmiennych — wykluczamy je z auto-jednostek
             Object.keys(_npGlobals).forEach(function(k) { varNames[k] = 1; });
             lines.forEach(function(l) {
-                var t = String(l).trim();
+                var t = _npPrepareLine(l).evalText;
                 var gmm = t.match(_NP_GLOBAL_RE);
                 if (gmm) { varNames[gmm[1].toLowerCase()] = 1; return; }
                 var mm = t.match(_NP_LABEL_RE);
@@ -8275,8 +8346,10 @@
             if (_sumUnitKeys.length) _autoKeys = _autoKeys.concat(_sumUnitKeys);
             try {
             for (var i = 0; i < lines.length; i++) {
-                var info = { raw: lines[i], labelPart: '', exprPart: '', text: '', value: null, resolved: '', isItem: false, isTotal: false, isSubtotal: false, isSection: false };
-                var line = lines[i].trim();
+                var info = { raw: lines[i], labelPart: '', exprPart: '', text: '', value: null, resolved: '', isItem: false, isTotal: false, isSubtotal: false, isSection: false, align: 'left' };
+                var prep = _npPrepareLine(lines[i]);
+                info.align = prep.align;
+                var line = prep.evalText;
                 if (!line) { out.push(info); continue; }
                 if (_NP_SECTION_RE.test(line)) {
                     info.isSection = true;
@@ -8355,7 +8428,7 @@
             var varNames = {};
             Object.keys(globals).forEach(function(k) { varNames[k] = 1; });
             lines.forEach(function(l) {
-                var t = String(l).trim();
+                var t = _npPrepareLine(l).evalText;
                 var gmm = t.match(_NP_GLOBAL_RE);
                 if (gmm) { varNames[gmm[1].toLowerCase()] = 1; return; }
                 var mm = t.match(_NP_LABEL_RE);
@@ -8371,7 +8444,8 @@
                 var runningSum = 0;
                 var itemUnits = [];
                 for (var i = 0; i < lines.length; i++) {
-                    var line = lines[i].trim();
+                    var prepL = _npPrepareLine(lines[i]);
+                    var line = prepL.evalText;
                     if (!line) continue;
                     if (_NP_SECTION_RE.test(line)) { runningSum = 0; itemUnits = []; continue; }
                     var exprPart = line, gName = null;
@@ -8455,9 +8529,13 @@
             npEditor.addEventListener('scroll', function() { _npSyncEditorScroll(); npHideTip(); });
             npBody.addEventListener('focus', function() {
                 if (npEditor) npEditor.classList.add('np-editing');
+                _npSyncKbBar();
                 requestAnimationFrame(function() { try { npBody.scrollIntoView({ block: 'nearest' }); } catch (_) {} });
             });
-            npBody.addEventListener('blur', function() { if (npEditor) npEditor.classList.remove('np-editing'); });
+            npBody.addEventListener('blur', function() {
+                if (npEditor) npEditor.classList.remove('np-editing');
+                _npSyncKbBar();
+            });
             npFoldLayer.addEventListener('click', function(e) {
                 var row = e.target.closest('[data-np-line]');
                 if (row) _npFocusLine(parseInt(row.getAttribute('data-np-line'), 10));
@@ -8468,6 +8546,9 @@
             _npBindGutterPanelSwipe();
             _npSyncGutterHidden();
             _npSyncFontSize(true);
+            _npBindCtxGestures();
+            _npBindPanelCtx(npEditor);
+            if (npGutter) _npBindPanelCtx(npGutter);
         }
         function _npSyncGutterHidden() {
             var hidden = !!(STATE.settings && STATE.settings.notepadGutterHidden);
@@ -8486,6 +8567,254 @@
             if (settingNotepadFontSize) settingNotepadFontSize.value = String(fs);
             if (settingNotepadFontVal) settingNotepadFontVal.textContent = Math.round(fs * 100) + '%';
             if (!skipRecompute && npBody && document.body.classList.contains('notepad-open')) npRecompute();
+        }
+        function _npLineIndexAt(pos) {
+            if (!npBody) return 0;
+            var val = npBody.value, line = 0;
+            for (var i = 0; i < pos && i < val.length; i++) if (val[i] === '\n') line++;
+            return line;
+        }
+        function _npLineBounds(lineIdx) {
+            if (!npBody) return { start: 0, end: 0, text: '' };
+            var parts = npBody.value.split('\n');
+            var start = 0;
+            for (var i = 0; i < lineIdx && i < parts.length; i++) start += parts[i].length + 1;
+            var text = parts[lineIdx] != null ? parts[lineIdx] : '';
+            return { start: start, end: start + text.length, text: text };
+        }
+        function _npReplaceRange(start, end, insert) {
+            if (!npBody) return;
+            var val = npBody.value;
+            npBody.value = val.slice(0, start) + insert + val.slice(end);
+            _npCommit();
+        }
+        function _npWrapSelection(open, close) { // T6-5 — owijanie zaznaczenia markerami (toggle)
+            if (!npBody) return;
+            var start = npBody.selectionStart, end = npBody.selectionEnd;
+            if (start === end) return;
+            var val = npBody.value, sel = val.slice(start, end);
+            if (sel.startsWith(open) && sel.endsWith(close)) {
+                _npReplaceRange(start, end, sel.slice(open.length, sel.length - close.length));
+                try { npBody.setSelectionRange(start, end - open.length - close.length); } catch (_) {}
+            } else {
+                _npReplaceRange(start, end, open + sel + close);
+                try { npBody.setSelectionRange(start + open.length, end + open.length); } catch (_) {}
+            }
+            npBody.focus();
+        }
+        function _npSetLineAlign(mode) { // T6-4 — prefix bieżącej linii (tap ten sam = wyłącz)
+            if (!npBody) return;
+            var lineIdx = _npLineIndexAt(npBody.selectionStart);
+            var b = _npLineBounds(lineIdx);
+            var prep = _npParseAlign(b.text);
+            var body = prep.body;
+            var newLine = (prep.align === mode) ? body : ((_NP_ALIGN_MAP[mode] || '') + body);
+            _npReplaceRange(b.start, b.end, newLine);
+            var caret = b.start + newLine.length;
+            try { npBody.setSelectionRange(caret, caret); } catch (_) {}
+            npBody.focus();
+        }
+        function _npFontStep(delta) {
+            STATE.settings.notepadFontSize = _npClampFontSize((STATE.settings.notepadFontSize || 1) + delta);
+            saveSettings();
+            _npSyncFontSize();
+            hapticTap(10);
+        }
+        function _npFontResetKb() {
+            STATE.settings.notepadFontSize = 1;
+            saveSettings();
+            _npSyncFontSize();
+            hapticTap(12);
+        }
+        function _npRunEditorAction(act) {
+            if (!act) return;
+            if (act === 'bold') _npWrapSelection('**', '**');
+            else if (act === 'italic') _npWrapSelection('_', '_');
+            else if (act === 'underline') _npWrapSelection('__', '__');
+            else if (act === 'align-left') _npSetLineAlign('left');
+            else if (act === 'align-center') _npSetLineAlign('center');
+            else if (act === 'align-right') _npSetLineAlign('right');
+            else if (act === 'align-justify') _npSetLineAlign('justify');
+            else if (act === 'font-down') _npFontStep(-0.05);
+            else if (act === 'font-up') _npFontStep(0.05);
+            else if (act === 'font-reset') _npFontResetKb();
+        }
+        var npKbBar = null;
+        function _npEnsureKbBar() { // T6-KB — pasek nad klawiaturą (tablety)
+            if (npKbBar) return;
+            npKbBar = document.createElement('div');
+            npKbBar.className = 'np-kb-bar';
+            npKbBar.setAttribute('role', 'toolbar');
+            npKbBar.setAttribute('aria-label', 'Formatowanie notatnika');
+            npKbBar.hidden = true;
+            var specs = [
+                ['bold', 'B', 'Pogrubienie'], ['italic', 'I', 'Kursywa'], ['underline', 'U', 'Podkreślenie'],
+                ['sep'],
+                ['align-left', '◀', 'Wyrównaj do lewej'], ['align-center', '≡', 'Wyśrodkuj'], ['align-right', '▶', 'Wyrównaj do prawej'], ['align-justify', '⊞', 'Wyjustuj'],
+                ['sep'],
+                ['font-down', 'A−', 'Mniejsza czcionka'], ['font-up', 'A+', 'Większa czcionka'], ['font-reset', '↺', 'Domyślna czcionka']
+            ];
+            specs.forEach(function(sp) {
+                if (sp[0] === 'sep') {
+                    var sep = document.createElement('span');
+                    sep.className = 'np-kb-sep';
+                    sep.setAttribute('aria-hidden', 'true');
+                    npKbBar.appendChild(sep);
+                    return;
+                }
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'np-kb-btn';
+                btn.setAttribute('data-np-act', sp[0]);
+                btn.textContent = sp[1];
+                btn.title = sp[2];
+                btn.setAttribute('aria-label', sp[2]);
+                btn.addEventListener('pointerdown', function(e) { e.preventDefault(); }); // [EN] nie zabieraj fokusu z textarea
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    _npRunEditorAction(sp[0]);
+                });
+                npKbBar.appendChild(btn);
+            });
+            document.body.appendChild(npKbBar);
+        }
+        function _npSyncKbBar() {
+            _npEnsureKbBar();
+            if (!npKbBar || !document.body.classList.contains('notepad-open')) {
+                if (npKbBar) npKbBar.hidden = true;
+                return;
+            }
+            var vv = window.visualViewport;
+            var wide = vv ? vv.width >= 600 : window.innerWidth >= 600;
+            var focused = document.activeElement === npBody;
+            var kbOpen = vv && vv.height < window.innerHeight * 0.75;
+            var show = wide && focused && kbOpen;
+            npKbBar.hidden = !show;
+            if (!show) return;
+            var bottom = window.innerHeight - vv.offsetTop - vv.height;
+            npKbBar.style.bottom = Math.max(0, bottom) + 'px';
+            npKbBar.style.left = vv.offsetLeft + 'px';
+            npKbBar.style.width = vv.width + 'px';
+        }
+        var npCtxMenu = null;
+        function _npHideCtxMenu() {
+            if (npCtxMenu) npCtxMenu.hidden = true;
+        }
+        function _npEnsureCtxMenu() { // T6-CTX — long-press / PPM
+            if (npCtxMenu) return;
+            npCtxMenu = document.createElement('div');
+            npCtxMenu.className = 'np-ctx-menu';
+            npCtxMenu.hidden = true;
+            npCtxMenu.setAttribute('role', 'menu');
+            document.body.appendChild(npCtxMenu);
+            document.addEventListener('pointerdown', function(e) {
+                if (!npCtxMenu || npCtxMenu.hidden) return;
+                if (!npCtxMenu.contains(e.target)) _npHideCtxMenu();
+            });
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') _npHideCtxMenu();
+            });
+        }
+        function _npShowCtxMenu(x, y, acts) {
+            _npEnsureCtxMenu();
+            if (!npCtxMenu || !acts.length) return;
+            npCtxMenu.replaceChildren();
+            acts.forEach(function(sp) {
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'np-ctx-btn';
+                btn.setAttribute('role', 'menuitem');
+                btn.setAttribute('data-np-act', sp[0]);
+                btn.textContent = sp[1];
+                btn.title = sp[2] || sp[1];
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    _npRunEditorAction(sp[0]);
+                    _npHideCtxMenu();
+                });
+                npCtxMenu.appendChild(btn);
+            });
+            npCtxMenu.hidden = false;
+            npCtxMenu.style.left = '0';
+            npCtxMenu.style.top = '0';
+            var rect = npCtxMenu.getBoundingClientRect();
+            var vw = window.innerWidth, vh = window.innerHeight;
+            var left = Math.min(Math.max(8, x), vw - rect.width - 8);
+            var top = Math.min(Math.max(8, y), vh - rect.height - 8);
+            npCtxMenu.style.left = left + 'px';
+            npCtxMenu.style.top = top + 'px';
+        }
+        function _npCtxActsForSelection() {
+            return [
+                ['bold', 'B', 'Pogrubienie'], ['italic', 'I', 'Kursywa'], ['underline', 'U', 'Podkreślenie']
+            ];
+        }
+        function _npCtxActsForPanel() {
+            return [
+                ['align-left', '◀', 'Lewo'], ['align-center', '≡', 'Środek'], ['align-right', '▶', 'Prawo'], ['align-justify', '⊞', 'Justuj'],
+                ['font-down', 'A−', ''], ['font-up', 'A+', ''], ['font-reset', '↺', 'Reset czcionki']
+            ];
+        }
+        function _npBindCtxGestures() {
+            if (!npBody || npBody._npCtxBound) return;
+            npBody._npCtxBound = true;
+            var timer = null, sx = 0, sy = 0;
+            function clearT() { if (timer) clearTimeout(timer); timer = null; }
+            npBody.addEventListener('pointerdown', function(e) {
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
+                clearT();
+                sx = e.clientX; sy = e.clientY;
+                var hasSel = npBody.selectionStart !== npBody.selectionEnd;
+                if (!hasSel) return;
+                timer = setTimeout(function() {
+                    timer = null;
+                    hapticTap(20);
+                    _npShowCtxMenu(sx, sy - 48, _npCtxActsForSelection());
+                }, 500);
+            });
+            npBody.addEventListener('pointermove', function(e) {
+                if (!timer) return;
+                if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) clearT();
+            });
+            ['pointerup', 'pointercancel', 'pointerleave'].forEach(function(ev) {
+                npBody.addEventListener(ev, clearT);
+            });
+            npBody.addEventListener('contextmenu', function(e) {
+                if (npBody.selectionStart === npBody.selectionEnd) return;
+                e.preventDefault();
+                _npShowCtxMenu(e.clientX, e.clientY, _npCtxActsForSelection());
+            });
+        }
+        function _npBindPanelCtx(el) {
+            if (!el || el._npPanelCtxBound) return;
+            el._npPanelCtxBound = true;
+            var timer = null, sx = 0, sy = 0;
+            function clearT() { if (timer) clearTimeout(timer); timer = null; }
+            el.addEventListener('pointerdown', function(e) {
+                if (e.target.closest('.np-res') || e.target.closest('.np-row-delete') || e.target.closest('.np-kb-bar')) return;
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
+                clearT();
+                sx = e.clientX; sy = e.clientY;
+                timer = setTimeout(function() {
+                    timer = null;
+                    hapticTap(18);
+                    _npShowCtxMenu(sx, sy - 48, _npCtxActsForPanel());
+                }, 500);
+            });
+            el.addEventListener('pointermove', function(e) {
+                if (!timer) return;
+                if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) clearT();
+            });
+            ['pointerup', 'pointercancel', 'pointerleave'].forEach(function(ev) {
+                el.addEventListener(ev, clearT);
+            });
+            el.addEventListener('contextmenu', function(e) {
+                if (e.target.closest('.np-res')) return;
+                e.preventDefault();
+                _npShowCtxMenu(e.clientX, e.clientY, _npCtxActsForPanel());
+            });
         }
         var _npGutterPanelSwipeBound = false;
         function _npBindGutterPanelSwipe() {
@@ -8725,9 +9054,11 @@
             npFoldLayer.replaceChildren();
             if (!lines.length) lines = [''];
             lines.forEach(function(line, i) {
+                var prepM = _npPrepareLine(line);
                 var md = document.createElement('div');
-                md.className = 'np-mirror-line';
-                md.textContent = line.length ? line : '\u00a0';
+                md.className = 'np-mirror-line np-align-' + prepM.align;
+                if (prepM.body.length) _npFillMirrorFormatted(md, prepM.body);
+                else md.appendChild(document.createTextNode('\u00a0'));
                 npMirror.appendChild(md);
             });
             var lineH = _npLineHeightPx();
@@ -9255,6 +9586,7 @@
             notepadModal.style.top = vv.offsetTop + 'px';
             notepadModal.style.height = vv.height + 'px';
             notepadModal.style.bottom = 'auto';     // bez tego top+bottom:0 zignorowałyby height
+            _npSyncKbBar();
         }
         function _npClearViewport() {
             if (!notepadModal) return;
@@ -9278,6 +9610,8 @@
             }
             _npVVBound = false;
             _npClearViewport();
+            if (npKbBar) npKbBar.hidden = true;
+            _npHideCtxMenu();
         }
         function openNotepad() {
             if (!notepadModal) return;
@@ -11346,6 +11680,12 @@
             // T6-1 — clamp rozmiaru czcionki
             results.push({ expr: 'T6-1 font clamp 1.15', pass: _npClampFontSize(1.15) === 1.15, got: _npClampFontSize(1.15) });
             results.push({ expr: 'T6-1 font clamp max', pass: _npClampFontSize(9) === 1.25, got: _npClampFontSize(9) });
+            // T6-4 — prefix wyrównania nie psuje liczenia
+            var t64 = evalNotepadLines('> 100+200');
+            results.push({ expr: 'T6-4 align right sum', pass: t64[0] && t64[0].value === 300, got: t64[0] && t64[0].value });
+            // T6-5 — markery formatowania strip przed eval
+            var t65 = evalNotepadLines('**2+2**');
+            results.push({ expr: 'T6-5 bold eval', pass: t65[0] && t65[0].value === 4, got: t65[0] && t65[0].value });
 
             // Stałe-FUNKCJE f(x) — wywołania w kalkulatorze (test(3)/test 3/3 test), argument-stała,
             // oraz bezpieczne NIE-liczenie form dwuznacznych/bezargumentowych.

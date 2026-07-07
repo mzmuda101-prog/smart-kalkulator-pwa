@@ -2536,6 +2536,13 @@
             white-space: pre-wrap;
             overflow-wrap: anywhere;
         }
+        .np-mirror-line.np-align-left { text-align: left; }
+        .np-mirror-line.np-align-center { text-align: center; }
+        .np-mirror-line.np-align-right { text-align: right; }
+        .np-mirror-line.np-align-justify { text-align: justify; }
+        .np-fmt-bold { font-weight: 700; }
+        .np-fmt-italic { font-style: italic; }
+        .np-fmt-underline { text-decoration: underline; }
         .np-text {
             width: 100%;
             min-height: 48px;
@@ -2878,6 +2885,73 @@
             color: var(--text-muted);
             line-height: 1.45;
         }
+        /* T6-KB — pasek nad klawiaturą (tablety ≥600px) */
+        .np-kb-bar {
+            position: fixed;
+            z-index: 10050;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: nowrap;
+            gap: 2px;
+            padding: 4px 8px;
+            background: var(--card-bg, #fff);
+            border-top: 1px solid var(--border);
+            box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .np-kb-bar[hidden] { display: none !important; }
+        .np-kb-btn {
+            flex: 0 0 auto;
+            min-width: 36px;
+            min-height: 36px;
+            border: none;
+            border-radius: var(--radius-sm);
+            background: transparent;
+            color: var(--text);
+            font-family: var(--font);
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .np-kb-btn:active { background: var(--primary-light); }
+        .np-kb-sep {
+            flex: 0 0 1px;
+            align-self: stretch;
+            width: 1px;
+            margin: 6px 4px;
+            background: var(--border);
+        }
+        /* T6-CTX — menu kontekstowe (long-press / PPM) */
+        .np-ctx-menu {
+            position: fixed;
+            z-index: 10060;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            max-width: min(320px, calc(100vw - 16px));
+            padding: 6px;
+            background: var(--card-bg, #fff);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        }
+        .np-ctx-menu[hidden] { display: none !important; }
+        .np-ctx-btn {
+            border: none;
+            border-radius: var(--radius-sm);
+            background: var(--bg, #fff);
+            color: var(--text);
+            font-family: var(--font);
+            font-size: 0.85rem;
+            font-weight: 700;
+            padding: 8px 12px;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .np-ctx-btn:active { background: var(--primary-light); }
         .np-learn-bar {
             flex: 0 0 auto;
             margin: 6px 2px 0;
