@@ -36,7 +36,7 @@ Powody ostrożności: PWA offline-first, start < 1 s, deterministyczne wyniki �
 
 ### Do rozważenia później
 
-- [ ] Piksele przy ppi: `2 in na px przy 72 ppi` (nisza — raczej pomijalne).
+- [x] Piksele przy ppi: `2 in na px przy 96 ppi` (T2-7 · 2026-07-07).
 - [ ] Krypto (BTC/ETH) — wymaga innego API kursów (NBP/Frankfurter nie mają).
 
 Przewagi nad Raycast (utrzymać): BigInt na dużych liczbach całkowitych, VAT/brutto/netto,

@@ -60,7 +60,8 @@
                         notepadUnitMix: 'strict', // notatnik: miks jednostek — 'strict' | 'first'
                         notepadSumUnit: 'off', // notatnik: jednostka przy razem/suma — 'off' | 'inherit'
                         notepadGutterHidden: false, // notatnik: panel chipów schowany (T6-3)
-                        notepadFontSize: 1 }, // notatnik: rozmiar czcionki 0.85–1.25 (T6-1)
+                        notepadFontSize: 1, // notatnik: rozmiar czcionki 0.85–1.25 (T6-1)
+                        unitProfile: 'default' }, // T2-10: preset domyślnych jednostek
             // Komenda tab (merged Engineering + Graph)
             eng: { unit: 'cm', axis: 'X', mode: 'between' }, // used by drawEngineeringCanvas
             graph: {
@@ -142,6 +143,7 @@
         const settingsBackdrop = $('#settingsBackdrop');
         const settingsClose = $('#settingsClose');
         const settingDefaultCurrency = $('#settingDefaultCurrency');
+        const settingUnitProfile = $('#settingUnitProfile');
         const settingUnitSelects = Array.prototype.slice.call(document.querySelectorAll('#settingDefaultUnits select[data-unit-cat]'));
         const settingFxBackup = $('#settingFxBackup');
         const settingFxBackupRow = $('#settingFxBackupRow');
@@ -276,6 +278,9 @@
                             Object.keys(STATE.settings.defaultUnits).forEach(function(cat) {
                                 if (typeof stObj.defaultUnits[cat] === 'string') STATE.settings.defaultUnits[cat] = stObj.defaultUnits[cat];
                             });
+                        }
+                        if (stObj.unitProfile === 'default' || stObj.unitProfile === 'build' || stObj.unitProfile === 'it' || stObj.unitProfile === 'travel' || stObj.unitProfile === 'custom') {
+                            STATE.settings.unitProfile = stObj.unitProfile;
                         }
                     }
                 }
@@ -1225,6 +1230,17 @@
                 if (tFrom && tTo && isFinite(tVal)) {
                     var tOut = _tempConvert(tVal, tFrom, tTo);
                     return { expr: String(tOut), unit: tTo === 'K' ? 'K' : '°' + tTo, cat: 'temperature', valueInBase: tOut };
+                }
+            }
+
+            // 0b) PPI — „2 in na px przy 96 ppi" (px zależy od DPI; tylko jawna konwersja z długości)
+            var ppiMatch = raw.match(/^(.+?)\s+(?:na|do|in|to|w)\s+px\s+(?:przy|@)\s+([\d.,]+)\s*(?:ppi|dpi)\s*$/i);
+            if (ppiMatch) {
+                var innerPpi = resolveCalcUnits(ppiMatch[1].trim());
+                var ppiVal = parseFloat(ppiMatch[2].replace(',', '.'));
+                if (innerPpi.cat === 'length' && isFinite(ppiVal) && ppiVal > 0 && isFinite(innerPpi.valueInBase)) {
+                    var pxOut = (innerPpi.valueInBase / 25.4) * ppiVal; // [EN] mm → cal → px at given PPI
+                    return { expr: _plainDecimalStr(pxOut), unit: 'px', cat: 'length', valueInBase: innerPpi.valueInBase, workFactor: 1, explicitConvert: true };
                 }
             }
 
@@ -7827,6 +7843,47 @@
         // Kategorie z sensownym autodoborem (drabinka ≥2 sensowne stopnie). Kąt: tylko deg — pomijamy.
         var _AUTO_UNIT_CATS = { speed: 1, length: 1, mass: 1, volume: 1, time: 1, area: 1, data: 1 };
 
+        // T2-10 — presety domyślnych jednostek (⚙️); „custom" = ręczna edycja selectów.
+        var _UNIT_PROFILE_PRESETS = {
+            default: { speed: '__auto__', length: '__auto__', mass: '__auto__', volume: '__auto__', time: '__auto__', area: '__auto__', data: '__auto__', angle: '' },
+            build: { speed: 'km/h', length: 'm', mass: 'kg', volume: 'l', time: 'h', area: 'm2', data: '__auto__', angle: '' },
+            it: { speed: '__auto__', length: '__auto__', mass: '__auto__', volume: '__auto__', time: '__auto__', area: '__auto__', data: 'gb', angle: '' },
+            travel: { speed: 'km/h', length: 'km', mass: '__auto__', volume: 'l', time: 'h', area: '__auto__', data: '__auto__', angle: '' }
+        };
+
+        function _unitsMatchProfile(units, preset) { // [EN] Compare current defaultUnits with a preset map
+            return Object.keys(preset).every(function(cat) {
+                return (units[cat] || '') === (preset[cat] || '');
+            });
+        }
+
+        function _detectUnitProfile() { // [EN] Infer profile id from saved defaultUnits (fallback when unitProfile missing)
+            var du = STATE.settings.defaultUnits || {};
+            var keys = Object.keys(_UNIT_PROFILE_PRESETS);
+            for (var i = 0; i < keys.length; i++) {
+                if (_unitsMatchProfile(du, _UNIT_PROFILE_PRESETS[keys[i]])) return keys[i];
+            }
+            return 'custom';
+        }
+
+        function applyUnitProfile(profileId, opts) { // T2-10 — nadpisz defaultUnits presetem (bez „custom")
+            opts = opts || {};
+            if (profileId === 'custom' || !_UNIT_PROFILE_PRESETS[profileId]) return;
+            var preset = _UNIT_PROFILE_PRESETS[profileId];
+            if (!STATE.settings.defaultUnits) STATE.settings.defaultUnits = {};
+            Object.keys(preset).forEach(function(cat) { STATE.settings.defaultUnits[cat] = preset[cat]; });
+            STATE.settings.unitProfile = profileId;
+            if (!opts.silent) saveSettings();
+        }
+
+        function syncUnitProfileSelect() {
+            if (!settingUnitProfile) return;
+            var prof = STATE.settings.unitProfile;
+            if (prof !== 'custom' && !_UNIT_PROFILE_PRESETS[prof]) prof = _detectUnitProfile();
+            if (prof !== 'custom' && prof !== STATE.settings.unitProfile) STATE.settings.unitProfile = prof;
+            settingUnitProfile.value = prof === 'custom' || _UNIT_PROFILE_PRESETS[prof] ? prof : 'custom';
+        }
+
         function buildUnitOptions() {
             if (!settingUnitSelects.length) return;
             settingUnitSelects.forEach(function(sel) {
@@ -7881,6 +7938,7 @@
 
         function openSettings() {
             buildCurrencyOptions();
+            syncUnitProfileSelect();
             buildUnitOptions();
             // Zaznacz aktualny silnik.
             var radios = document.querySelectorAll('#settingFxEngine input[name="fxEngine"]');
@@ -9608,11 +9666,27 @@
             });
         }
 
+        if (settingUnitProfile) {
+            settingUnitProfile.addEventListener('change', function() {
+                var pid = settingUnitProfile.value;
+                if (pid === 'custom') {
+                    STATE.settings.unitProfile = 'custom';
+                    saveSettings();
+                    return;
+                }
+                applyUnitProfile(pid);
+                buildUnitOptions();
+                if (typeof liveEval === 'function') liveEval();
+            });
+        }
+
         settingUnitSelects.forEach(function(sel) {
             sel.addEventListener('change', function() {
                 var cat = sel.getAttribute('data-unit-cat');
                 if (!STATE.settings.defaultUnits) STATE.settings.defaultUnits = {};
                 STATE.settings.defaultUnits[cat] = sel.value; // '' = bazowa (auto)
+                STATE.settings.unitProfile = 'custom'; // T2-10 — ręczna zmiana → profil własny
+                syncUnitProfileSelect();
                 saveSettings();
                 if (typeof liveEval === 'function') liveEval();
             });
@@ -11190,6 +11264,31 @@
             var rBad = evalCalcExpression('36 km/h');
             results.push({ expr: "36 km/h @speed='kg' (ignoruje)", pass: rBad.unit === 'km/h' && Math.abs(rBad.value - 36) < 1e-9, got: rBad.value + ' ' + rBad.unit });
             STATE.settings.defaultUnits = savedDU;
+            // T2-10 — profil budowy: jawne m (nie auto-km); 108m+900m = 1008 m
+            (function() {
+                var savedProf = STATE.settings.unitProfile;
+                var savedDU3 = STATE.settings.defaultUnits;
+                applyUnitProfile('build', { silent: true });
+                var rBuild = evalCalcExpression('108m+900m');
+                results.push({ expr: 'T2-10 build 108m+900m', pass: rBuild.unit === 'm' && Math.abs(rBuild.value - 1008) < 1e-9, got: rBuild.value + ' ' + rBuild.unit });
+                var rBuildKm = evalCalcExpression('1000m');
+                results.push({ expr: 'T2-10 build 1000m stays m', pass: rBuildKm.unit === 'm' && Math.abs(rBuildKm.value - 1000) < 1e-9, got: rBuildKm.value + ' ' + rBuildKm.unit });
+                applyUnitProfile('it', { silent: true });
+                var rIt = evalCalcExpression('2GB+512MB');
+                results.push({ expr: 'T2-10 it 2GB+512MB', pass: rIt.unit === 'GB' && Math.abs(rIt.value - 2.5) < 1e-6, got: rIt.value + ' ' + rIt.unit });
+                STATE.settings.unitProfile = savedProf;
+                STATE.settings.defaultUnits = savedDU3;
+            })();
+            // T2-7 — konwersja PPI (px przy zadanym DPI)
+            [
+                { expr: '2 in na px przy 96 ppi', value: 192, unit: 'px' },
+                { expr: '10 cal na px @ 72 ppi', value: 720, unit: 'px' },
+                { expr: '2.54 cm na px przy 96 ppi', value: 96, unit: 'px', tol: 1e-6 }
+            ].forEach(function(t) {
+                var r = evalCalcExpression(t.expr);
+                var pass = r.unit === t.unit && Math.abs(r.value - t.value) <= (t.tol || 1e-9);
+                results.push({ expr: 'T2-7 ' + t.expr, pass: pass, got: r.value + ' ' + r.unit });
+            });
             // REGRESJE jednostek (2026-06-27):
             //  1) Autodobór NIE awansuje do większej jednostki, gdy psuje to czytelność:
             //     „108 m + 900 m" = 1008 m (NIE mylące „1,008 km" wyglądające jak 1008 km).

@@ -56,6 +56,11 @@ setMass('__auto__');
 expect('2 kg + 300 g', 2.3, 'kg');
 expect('2500 g', 2.5, 'kg');
 
+// ── PPI (T2-7): długość → px przy zadanym DPI ──
+expect('2 in na px przy 96 ppi', 192, 'px');
+expect('10 cal na px @ 72 ppi', 720, 'px');
+expect('2.54 cm na px przy 96 ppi', 96, 'px');
+
 // ── WALUTY: ten sam model „etykieta" (kursy stubowane, domyślna PLN) ──
 api.state.fx.rates = { PLN: 1, EUR: 4.30, USD: 3.95 };
 api.state.fx.ts = Date.now();

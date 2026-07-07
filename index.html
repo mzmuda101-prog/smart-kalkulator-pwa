@@ -1015,6 +1015,7 @@
                 </section>
                 <section>
                     <h4>Jednostki — przykłady</h4>
+                    <p class="help-command" data-command="2 in na px przy 96 ppi"><span class="help-pair"><code>2 in na px przy 96 ppi</code><span class="help-sep">·</span><code>10 cal na px @ 72 dpi</code></span> → piksele przy zadanym PPI (ekran/druk)</p>
                     <p class="help-command" data-command="2 kg + 300 g"><span class="help-pair"><code>2 kg + 300 g</code></span> → 2,3 kg (jednostka robocza — pierwsza wpisana)</p>
                     <p class="help-command" data-command="5 stóp na m"><span class="help-pair"><code>5 stóp na m</code><span class="help-sep">·</span><code>1 stopa</code></span> PL: odmiana w wyniku (1 stopa · 2 stopy · 5 stóp) — symbole kg/km bez zmian</p>
                     <p class="help-command" data-command="19m + 47%"><span class="help-pair"><code>19m + 47%</code></span> procent od bazy w tej samej jednostce</p>
@@ -1581,6 +1582,15 @@
             <div class="settings-field">
                 <label>Domyślne jednostki</label>
                 <p class="settings-hint">Gołe sumy pokazują wynik w wybranej jednostce. Domyślnie: <strong>Czytelnie (auto-dobór)</strong> — czas jako „16 h 40 min" / „41 dni 16 h", długość jako km/m itd. Jawna konwersja „X na Y" zawsze wygrywa.</p>
+                <label for="settingUnitProfile" class="settings-sub-label">Profil jednostek</label>
+                <select id="settingUnitProfile" aria-describedby="settingUnitProfileHint">
+                    <option value="default">Domyślny — czytelny auto-dobór</option>
+                    <option value="build">Budowa / remont — m, kg, l…</option>
+                    <option value="it">IT / dane — GB, MB…</option>
+                    <option value="travel">Podróże — km, km/h, l…</option>
+                    <option value="custom">Własny — ręcznie ustawione poniżej</option>
+                </select>
+                <p class="settings-hint" id="settingUnitProfileHint">Profil ustawia wszystkie kategorie naraz. Zmiana pojedynczej kategorii przełącza na „Własny".</p>
                 <div class="settings-units" id="settingDefaultUnits">
                     <label class="settings-unit"><span>Prędkość</span><select id="settingUnitSpeed" data-unit-cat="speed"></select></label>
                     <label class="settings-unit"><span>Długość</span><select id="settingUnitLength" data-unit-cat="length"></select></label>

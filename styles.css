@@ -3056,6 +3056,13 @@
             font-size: 0.95rem;
             margin-bottom: 2px;
         }
+        .settings-sub-label {
+            display: block;
+            font-weight: 500;
+            font-size: 0.85rem;
+            margin: 10px 0 4px;
+            color: var(--text-muted, var(--text-secondary, #666));
+        }
         .settings-hint {
             margin: 0 0 10px;
             font-size: 0.8rem;
