@@ -121,6 +121,7 @@
         const npExportMenu = $('#npExportMenu');
         const npTemplateList = $('#npTemplateList');
         const npLearnExampleBtn = $('#npLearnExampleBtn');
+        const npHelpOpen = $('#npHelpOpen');
         const npTitleBtn = $('#npTitleBtn');
         const npTitleInput = $('#npTitleInput');
         const npListPanel = $('#npListPanel');
@@ -171,6 +172,7 @@
         const commandHelpClose = $('#commandHelpClose');
         const commandHelpBackdrop = $('#commandHelpBackdrop');
         const commandHelpDrawer = $('#commandHelpDrawer');
+        const commandHelpTitle = $('#commandHelpTitle');
         const helpSearch = $('#helpSearch');
         let activeCommandTarget = 'graph';
 
@@ -3352,6 +3354,8 @@
             }
             if (e.key === 'Escape' && document.body.classList.contains('help-open')) {
                 closeCommandHelp();
+                e.preventDefault();
+                e.stopImmediatePropagation(); // [EN] don't close notepad on same Esc
             }
         });
 
@@ -4225,9 +4229,12 @@
             kreatorApplyBtn.addEventListener('click', generateCommandFromForm);
         }
 
+        var _HELP_DRAWER_TITLES = { calculator: 'Ściąga — kalkulator', notepad: 'Ściąga — notatnik', komenda: 'Ściąga — komenda', graph: 'Ściąga — komenda' };
+
         function openCommandHelp() {
             document.body.classList.add('help-open');
             if (commandHelpDrawer) commandHelpDrawer.setAttribute('aria-hidden', 'false');
+            if (commandHelpTitle) commandHelpTitle.textContent = _HELP_DRAWER_TITLES[activeCommandTarget] || 'Ściąga komend';
 
             document.querySelectorAll('.help-section').forEach(function(section) {
                 var type = section.getAttribute('data-help');
@@ -4431,7 +4438,9 @@
                         .trim()
                         .toLowerCase();
 
-                    document.querySelectorAll('.help-section p').forEach(function(item) {
+                    document.querySelectorAll('.help-section').forEach(function(section) {
+                        if (section.style.display === 'none') return; // [EN] search only active cheat sheet
+                        section.querySelectorAll('p').forEach(function(item) {
 
                         var originalHtml = item.dataset.originalHtml || item.innerHTML;
 
@@ -4467,6 +4476,7 @@
                         }
 
                     });
+                    });
 
                 });
 
@@ -4497,6 +4507,21 @@
                         liveEval();
                         switchTab('calculator');
 
+                    } else if (activeCommandTarget === 'notepad') {
+
+                        setupNpEditor();
+                        _npStashCurrent();
+                        if (npBody) {
+                            var cur = npBody.value;
+                            var ins = command;
+                            var needNl = cur.length > 0 && !cur.endsWith('\n');
+                            npBody.value = needNl ? (cur + '\n' + ins) : (cur ? cur + ins : ins);
+                            _npCommit();
+                            npBody.focus();
+                            var L = npBody.value.length;
+                            try { npBody.setSelectionRange(L, L); } catch (e) {}
+                        }
+
                     }
 
                     closeCommandHelp();
@@ -4524,6 +4549,14 @@
             graphCommandHelpOpen.addEventListener('click', function() {
                 ensureHelpSystem();
                 activeCommandTarget = 'komenda';
+                openCommandHelp();
+            });
+        }
+        if (npHelpOpen) {
+            npHelpOpen.addEventListener('click', function() {
+                ensureHelpSystem();
+                activeCommandTarget = 'notepad';
+                npCloseList();
                 openCommandHelp();
             });
         }

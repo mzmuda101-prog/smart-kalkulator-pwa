@@ -1007,21 +1007,6 @@
                     <p>Operand z <strong>obu</strong> stron (<code>5 stała 3</code>) celowo nie liczy — wtedy użyj nawiasów <code>stała(3)</code>.</p>
                 </section>
                 <section>
-                    <h4>Notatnik 📝 (przycisk w górnej belce)</h4>
-                    <p>Otwórz <strong>📝</strong> obok ⚙️. Każda linia liczy się sama (cała moc kalkulatora: jednostki, waluty, daty, stałe, własne jednostki), a wynik pojawia się na końcu linii. <strong>Naprowadź lub dotknij wynik</strong> — dymek pokaże, z jakiego równania pochodzi (np. <code>razem</code> → <code>294 + 540</code>). Stan zapisuje się sam.</p>
-                    <p><strong>Wiele notatek:</strong> <strong>＋</strong> w nagłówku tworzy nową, <strong>📋</strong> otwiera listę wszystkich (tytuł = pierwsza linia) — dotknij, by przełączyć, kosz, by usunąć.</p>
-                    <p><strong>Etykieta: działanie</strong> — tekst przed dwukropkiem pomijany w liczeniu: <code>Nocleg: 3 * 180</code> → 540. Linia bez działania (np. nagłówek <code>Wyjazd w góry</code>) zostaje czystym tekstem.</p>
-                    <p><strong>razem</strong> (lub <strong>suma</strong>) — suma wyników linii powyżej od ostatniego <code>---</code>; <strong>półsuma</strong>/<strong>subtotal</strong> działają podobnie (inny styl). Linia <code>---</code> zaczyna nową sekcję (zeruje sumę).</p>
-                    <p><strong>Jednostka przy sumie:</strong> domyślnie <code>razem</code> pokazuje sam numer. W ⚙️ włącz <strong>Dziedzicz</strong>, by dodać jednostkę, gdy wszystkie pozycje mają tę samą (np. zł + zł → <code>1 710 zł</code>). Ręcznie zawsze: <code>razem(zł)</code>, <code>razem (usd)</code>, <code>półsuma(cm)</code>, <code>razem(grzybów)</code> — też trafia do zmiennej <code>@razem</code>.</p>
-                    <p><strong>Miks jednostek w jednej linii</strong> (np. <code>10 pln × 5 km</code>): w notatniku w ⚙️ tryb <strong>Pierwsza jednostka wygrywa</strong> — wynik w jednostce, która jest pierwsza. Bez spacji też działa: <code>115pln×10os</code>. Nieznane słowa (<code>kilometrów</code>, <code>grzybów</code>) liczą się jak liczniki bezwymiarowe.</p>
-                    <p><strong>Waluty w notatniku</strong> — nie przeliczają się same na zł: <code>razem(usd)</code> + <code>@razem × 2</code> zostaje w USD. Przelicz dopiero jawnie: <code>@razem na zł</code>, <code>100 usd na eur</code>. (Kalkulator standardowy nadal zwija do waluty domyślnej.)</p>
-                    <p><strong>Edycja:</strong> przesuń wiersz w lewo (poza polem tekstu), by usunąć. Tekst zaznaczasz normalnie — jak w zwykłym notatniku. Tytuł notatki zmienisz dotykając nagłówka.</p>
-                    <p><strong>Etykiety-zmienne:</strong> jednowyrazowa etykieta (<code>Paliwo: 294</code>) tworzy zmienną — używasz jej jako <code>@paliwo</code> w kolejnych liniach (sam tekst <code>paliwo</code> już NIE podstawia wartości). <code>półsuma</code>, <code>razem</code>, <code>suma:</code> też trafiają do panelu Zmienne.</p>
-                    <p><strong>Zmienna dzielona między notatkami:</strong> <code>@stawka: 50</code> (definicja) i potem <code>@stawka * 8</code> w innej notatce.</p>
-                    <p>Tryb <strong>fold</strong> — linia pokazuje sam wynik zamiast działania (kliknij wiersz, by edytować). Przełączasz on/off przyciskiem <strong>⊟</strong> w nagłówku notatnika (działa od razu) albo w ⚙️ Ustawieniach.</p>
-                    <p><strong>Niezdefiniowane jednostki</strong> wpisane wprost (np. <code>3 os</code>, <code>5 paczek</code>) liczą się jako bezwymiarowe — <code>3 os</code> → 3 os, <code>3 os × 180 zł</code> → 540 zł. W ⚙️ wybierzesz tryb: <strong>zachowawczo</strong> (proza bez wyniku) lub <strong>pełne auto</strong>.</p>
-                </section>
-                <section>
                     <h4>Jednostki — konwersja</h4>
                     <p>Konwersja: <code>na</code> / <code>do</code> / <code>in</code> / <code>to</code> — np. <code>5m na cm</code> = <code>5m to cm</code></p>
                     <p class="help-command" data-command="120cm na mm"><span class="help-pair"><code>120cm na mm</code><span class="help-sep">·</span><code>120cm to mm</code></span> → 1200 mm</p>
@@ -1097,7 +1082,52 @@
                     <p class="help-command" data-command="12 zł + 20 eur"><span class="help-pair"><code>12 zł + 20 eur</code></span> suma w walucie domyślnej (kalkulator)</p>
                     <p class="help-command" data-command="20 eur na zł"><span class="help-pair"><code>20 eur na zł</code><span class="help-sep">·</span><code>20 eur to PLN</code></span> przelicz</p>
                     <p class="help-command" data-command="50 usd na eur"><span class="help-pair"><code>50 usd na eur</code><span class="help-sep">·</span><code>50 usd to eur</code></span> między walutami</p>
-                    <p><strong>Notatnik 📝:</strong> waluta zostaje bez auto-przeliczenia na zł — użyj <code>na zł</code> / <code>na pln</code>, gdy chcesz konwersję (np. <code>@razem na zł</code>).</p>
+                </section>
+            </div>
+            <div class="help-section" data-help="notepad">
+                <p class="help-lang-note">Notatnik obliczeniowy — każda linia liczy się osobno. Klik w przykład wstawia linię w aktywnej notatce. Pełna ściąga: <strong>≣</strong> → <strong>ⓘ Ściąga</strong>.</p>
+                <section>
+                    <h4>Podstawy</h4>
+                    <p>Każda linia = osobne działanie; wynik na końcu wiersza. <strong>Dotknij wynik</strong> — dymek z rozpisanym równaniem (np. <code>razem</code> → <code>294 + 540</code>).</p>
+                    <p class="help-command" data-command="Nocleg: 3 * 180"><span class="help-pair"><code>Nocleg: 3 * 180</code></span> etykieta przed <code>:</code> pomijana w liczeniu → 540</p>
+                    <p class="help-command" data-command="Wyjazd w góry"><span class="help-pair"><code>Wyjazd w góry</code></span> linia bez działania = czysty tekst (nagłówek)</p>
+                    <p><strong>Wiele notatek:</strong> <strong>＋</strong> nowa · <strong>≣</strong> lista (tytuł = pierwsza linia) · kosz usuwa · ⬆ eksport.</p>
+                </section>
+                <section>
+                    <h4>Sumy i sekcje</h4>
+                    <p><code>razem</code> / <code>suma</code> — suma wyników od ostatniego <code>---</code>. <code>półsuma</code> / <code>subtotal</code> — podobnie, inny styl.</p>
+                    <p class="help-command" data-command="---"><span class="help-pair"><code>---</code></span> nowa sekcja (zeruje sumę)</p>
+                    <p class="help-command" data-command="razem(usd)"><span class="help-pair"><code>razem(usd)</code><span class="help-sep">·</span><code>razem(zł)</code><span class="help-sep">·</span><code>półsuma(cm)</code></span> ręczna jednostka sumy → też <code>@razem</code></p>
+                    <p>W ⚙️ <strong>Dziedzicz jednostkę przy sumie</strong> — gdy wszystkie pozycje mają tę samą (np. zł + zł → <code>1 710 zł</code>). Bez tego <code>razem</code> = sam numer.</p>
+                </section>
+                <section>
+                    <h4>Zmienne</h4>
+                    <p class="help-command" data-command="@stawka: 50"><span class="help-pair"><code>@stawka: 50</code></span> zmienna dzielona między notatkami</p>
+                    <p class="help-command" data-command="@stawka * 8"><span class="help-pair"><code>@stawka * 8</code></span> użycie @globalnej w innej notatce</p>
+                    <p>Etykieta jednowyrazowa (<code>Paliwo: 294</code>) → zmienna <code>@paliwo</code> w panelu Zmienne. Sam tekst <code>paliwo</code> już nie podstawia wartości.</p>
+                    <p class="help-command" data-command="test: @razem × 2.5"><span class="help-pair"><code>test: @razem × 2.5</code></span> odwołanie do wyniku sumy</p>
+                </section>
+                <section>
+                    <h4>Jednostki i waluty (notatnik)</h4>
+                    <p class="help-command" data-command="115pln×10os"><span class="help-pair"><code>115pln×10os</code></span> miks bez spacji — w ⚙️ <strong>Pierwsza jednostka wygrywa</strong></p>
+                    <p class="help-command" data-command="10 pln × 5 km"><span class="help-pair"><code>10 pln × 5 km</code></span> wynik w jednostce pierwszej (np. zł)</p>
+                    <p><strong>Waluty</strong> nie przeliczają się same na zł: <code>razem(usd)</code> + <code>@razem × 2</code> zostaje w USD. Konwersja jawnie:</p>
+                    <p class="help-command" data-command="@razem na zł"><span class="help-pair"><code>@razem na zł</code><span class="help-sep">·</span><code>100 usd na eur</code></span> przelicz dopiero gdy chcesz</p>
+                    <p>Nieznane słowa (<code>os</code>, <code>grzybów</code>) = liczniki bezwymiarowe. W ⚙️: <strong>zachowawczo</strong> (proza bez wyniku) lub <strong>pełne auto</strong>.</p>
+                </section>
+                <section>
+                    <h4>Edycja i fold</h4>
+                    <p><strong>Przesuń w lewo</strong> chip wyniku — usuń wiersz. Zaznaczanie wielu linii jak w zwykłym edytorze.</p>
+                    <p>Przycisk <strong>⊟</strong> — fold: wiersz pokazuje sam wynik (kliknij, by edytować). Tytuł notatki: dotknij nagłówka.</p>
+                    <p>Pod edytorem: <strong>Przykład: wyjazd</strong> — gotowy szablon do nauki (jednostki, <code>razem(usd)</code>, <code>@razem</code>).</p>
+                </section>
+                <section>
+                    <h4>Przykład wyjazdu (klik = wstaw)</h4>
+                    <p class="help-command" data-command="Nocleg: 115pln×10os"><code>Nocleg: 115pln×10os</code></p>
+                    <p class="help-command" data-command="paliwo: 5,60pln×100km"><code>paliwo: 5,60pln×100km</code></p>
+                    <p class="help-command" data-command="razem(usd)"><code>razem(usd)</code></p>
+                    <p class="help-command" data-command="test: @razem × 2.5"><code>test: @razem × 2.5</code></p>
+                    <p class="help-command" data-command="test2: @test na pln"><code>test2: @test na pln</code></p>
                 </section>
             </div>
             <div class="help-section" data-help="engineering">
@@ -1513,12 +1543,16 @@
             </div>
             <details class="np-hint-details">
                 <summary>Porady notatnika</summary>
+                <p class="np-hint">Skrót — pełna ściąga: <strong>≣</strong> (lista notatek) → <strong>ⓘ Ściąga</strong>.</p>
                 <p class="np-hint">Każda linia liczy się osobno; wynik obok linii. <code>Etykieta: działanie</code> — etykieta pomijana. <code>razem</code> / <code>półsuma</code> sumują pozycje od <code>---</code>.</p>
                 <p class="np-hint">Zmienne: <code>@nazwa</code> (z panelu Zmienne). <code>@globalna: wartość</code> — współdzielona między notatkami. <code>razem(zł)</code> / <code>razem(usd)</code> — ręczna jednostka sumy.</p>
                 <p class="np-hint">Waluta w notatniku zostaje (USD → USD), chyba że napiszesz <code>@razem na zł</code>. Miks jednostek: ⚙️ <em>Pierwsza jednostka wygrywa</em>. Sumy: ⚙️ <em>Dziedzicz</em> jednostkę z pozycji.</p>
                 <p class="np-hint"><strong>Ctrl+A / zaznacz palcem</strong> — wiele linii naraz. <strong>Przesuń w lewo</strong> chip wyniku, by usunąć wiersz. Dotknij wynik — dymek z rozpisanym równaniem.</p>
             </details>
             <aside class="np-list-panel" id="npListPanel" aria-hidden="true" aria-label="Twoje notatki">
+                <div class="np-list-toolbar">
+                    <button type="button" class="np-help-btn" id="npHelpOpen" aria-label="Ściąga notatnika">ⓘ Ściąga</button>
+                </div>
                 <div class="np-list-head">Nowa z szablonu</div>
                 <div class="np-template-list" id="npTemplateList" role="list"></div>
                 <div class="np-list-head">Twoje notatki</div>

@@ -1505,6 +1505,9 @@
             opacity: 1;
             pointer-events: auto;
         }
+        /* [EN] notepad modal z-index 600 — help must stack above when both open */
+        body.notepad-open.help-open .help-backdrop { z-index: 650; }
+        body.notepad-open.help-open .command-help-drawer { z-index: 660; }
         .command-help-drawer {
             position: fixed;
             left: 50%;
@@ -2237,6 +2240,32 @@
             z-index: 5;
         }
         .np-list-panel.open { transform: none; opacity: 1; pointer-events: auto; }
+        .np-list-toolbar {
+            flex: 0 0 auto;
+            display: flex;
+            justify-content: flex-start;
+            padding: 8px 6px 4px;
+        }
+        .np-help-btn {
+            border: 1px solid var(--border, #e2e8f0);
+            background: var(--surface, #fff);
+            color: var(--text-secondary);
+            border-radius: 999px;
+            padding: 7px 14px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            transition: background 0.15s, border-color 0.15s, color 0.15s;
+        }
+        .np-help-btn:hover,
+        .np-help-btn:focus-visible {
+            border-color: var(--primary, #2563eb);
+            color: var(--primary, #2563eb);
+            background: var(--primary-light, rgba(37, 99, 235, 0.06));
+            outline: none;
+        }
+        .np-help-btn:active { opacity: 0.88; }
         .np-list-head {
             flex: 0 0 auto;
             font-weight: 600;
