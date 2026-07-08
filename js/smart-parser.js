@@ -13,6 +13,245 @@
     'use strict';
     var DATA = (typeof window !== 'undefined' && window.MATM0_DATA) || {};
     var UNIT_CATS = DATA.UNIT_CATEGORIES || {};
+    var CUR_ALIAS = DATA.CUR_ALIAS || {};
+    var CUR_DISPLAY_SYM = DATA.CUR_DISPLAY_SYM || {};
+    // [EN] Build flat unit registry from category tables (shared by app.js + parser tenants).
+    function buildUnitRegistry(unitCategories) {
+        var cats = unitCategories || {};
+        var units = {};
+        var display = {};
+        Object.keys(cats).forEach(function(cat) {
+            var def = cats[cat];
+            if (!def || !def.units) return;
+            Object.keys(def.units).forEach(function(u) {
+                var key = String(u).toLowerCase();
+                units[key] = { cat: cat, factor: def.units[u], base: def.base };
+                if (!display[key]) display[key] = u;
+            });
+        });
+        return { categories: cats, units: units, display: display };
+    }
+    function _currencyTokenMap(fxRates) {
+        var map = {};
+        Object.keys(CUR_ALIAS).forEach(function(k) { map[k] = CUR_ALIAS[k]; });
+        var rates = fxRates || {};
+        Object.keys(rates).forEach(function(code) { map[code.toLowerCase()] = code; });
+        return map;
+    }
+    function _currencyTokenRe(map) {
+        return Object.keys(map || {})
+            .sort(function(a, b) { return b.length - a.length; })
+            .map(function(t) { return t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); })
+            .join('|');
+    }
+    function _currencyRate(code, fxRates) {
+        if (code === 'PLN') return 1;
+        var rates = fxRates || {};
+        return rates[code] != null ? rates[code] : null; // [EN] PLN for 1 unit
+    }
+    function _currencyDisplay(code, options) {
+        if (!code) return code;
+        if (code === 'PLN') return 'zł';
+        var compact = !(options && options.currencyCompactSymbols === false);
+        if (compact && CUR_DISPLAY_SYM[code]) return CUR_DISPLAY_SYM[code];
+        return code;
+    }
+    function _needsFxTable(code) { return code && code !== 'PLN'; } // [EN] PLN always equals 1
+    function hasCurrencyInInput(raw, options) {
+        var opts = options || {};
+        var map = _currencyTokenMap(opts.fxRates || {});
+        var tokenRe = _currencyTokenRe(map);
+        if (!tokenRe) return false;
+        var re = new RegExp('([\\d.,]+)\\s*(' + tokenRe + ')(?![a-ząćęłńóśźż0-9])', 'i');
+        return re.test(String(raw || ''));
+    }
+    function resolveCurrencyExpression(raw, options) {
+        var opts = options || {};
+        var fxRates = opts.fxRates || {};
+        var fxReady = !!opts.fxReady;
+        var defaultCurrency = opts.defaultCurrency || 'PLN';
+        var map = _currencyTokenMap(fxRates);
+        var tokenRe = _currencyTokenRe(map);
+        if (!tokenRe) return { expr: raw, unit: null, hasCurrency: false, pending: false };
+
+        // [EN] Conversion form: "EXPR to <currency>".
+        var convRe = new RegExp('^(.+?)\\s+(?:na|do|in|to|w)\\s+(' + tokenRe + ')(?![a-ząćęłńóśźż0-9])\\s*$', 'i');
+        var cm = String(raw || '').match(convRe);
+        if (cm) {
+            var targetCode = map[cm[2].toLowerCase()];
+            var inner = resolveCurrencyExpression(cm[1].trim(), opts);
+            if (inner.hasCurrency) {
+                var tRate = _currencyRate(targetCode, fxRates);
+                if (inner.pending || tRate == null || (_needsFxTable(targetCode) && !fxReady)) {
+                    return { expr: raw, unit: null, hasCurrency: true, pending: true };
+                }
+                var converted = inner.valueInBase / tRate;
+                return { expr: String(converted), unit: _currencyDisplay(targetCode, opts), valueInBase: inner.valueInBase, hasCurrency: true, pending: false };
+            }
+        }
+
+        // [EN] Currency amounts become values in first encountered working currency.
+        var totalPln = 0, hasCurrency = false, pending = false, workRate = null, workCode = null;
+        var amountRe = new RegExp('([\\d.,]+)\\s*(' + tokenRe + ')(?![a-ząćęłńóśźż0-9])', 'gi');
+        var revAmountRe = new RegExp('\\b(' + tokenRe + ')\\s*([\\d.,]+)(?![a-ząćęłńóśźż0-9])', 'gi');
+        var expr = String(raw || '').replace(amountRe, function(m, num, tok) {
+            hasCurrency = true;
+            var code = map[tok.toLowerCase()];
+            var rate = _currencyRate(code, fxRates);
+            if (rate == null || (_needsFxTable(code) && !fxReady)) { pending = true; return m; }
+            if (workRate == null) { workRate = rate; workCode = code; }
+            var n = parseFloat(String(num).replace(',', '.'));
+            totalPln += n * rate;
+            return String(n * rate / workRate);
+        });
+        expr = expr.replace(revAmountRe, function(m, tok, num) {
+            hasCurrency = true;
+            var code = map[tok.toLowerCase()];
+            var rate = _currencyRate(code, fxRates);
+            if (rate == null || (_needsFxTable(code) && !fxReady)) { pending = true; return m; }
+            if (workRate == null) { workRate = rate; workCode = code; }
+            var n = parseFloat(String(num).replace(',', '.'));
+            totalPln += n * rate;
+            return String(n * rate / workRate);
+        });
+        if (!hasCurrency) return { expr: raw, unit: null, hasCurrency: false, pending: false };
+        if (pending) return { expr: raw, unit: null, hasCurrency: true, pending: true };
+
+        var defRate = _currencyRate(defaultCurrency, fxRates);
+        if (defRate == null) return { expr: raw, unit: null, hasCurrency: true, pending: true };
+        return {
+            expr: expr,
+            unit: _currencyDisplay(defaultCurrency, opts),
+            valueInBase: totalPln,
+            hasCurrency: true,
+            pending: false,
+            curMul: workRate / defRate,
+            workCode: workCode
+        };
+    }
+    function resolveUnitsExpression(raw, options) {
+        var opts = options || {};
+        var unitDefs = opts.unitDefs || {};
+        var unitDisplay = opts.unitDisplay || {};
+        var defaultUnits = opts.defaultUnits || {};
+        var firstUnitWins = !!opts.firstUnitWins;
+        var unitNamesRe = opts.unitNamesRe || Object.keys(unitDefs)
+            .sort(function(a, b) { return b.length - a.length; })
+            .map(function(u) { return String(u).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); })
+            .join('|');
+        function _plainNum(x) {
+            if (!isFinite(x)) return '0';
+            var s = String(x);
+            if (s.indexOf('e') === -1 && s.indexOf('E') === -1) return s;
+            var neg = x < 0, es = Math.abs(x).toExponential();
+            var m = es.match(/^(\d)(?:\.(\d+))?e([+-]\d+)$/);
+            if (!m) return s;
+            var digits = m[1] + (m[2] || ''), exp = parseInt(m[3], 10), pointPos = 1 + exp, out;
+            if (pointPos <= 0) out = '0.' + '0'.repeat(-pointPos) + digits;
+            else if (pointPos >= digits.length) out = digits + '0'.repeat(pointPos - digits.length);
+            else out = digits.slice(0, pointPos) + '.' + digits.slice(pointPos);
+            return (neg ? '-' : '') + out;
+        }
+        function _prefDisplay(cat) {
+            var name = defaultUnits[cat];
+            if (!name || name === '__auto__') return null;
+            var key = String(name).toLowerCase();
+            var def = unitDefs[key];
+            if (!def || def.cat !== cat) return null;
+            return { label: unitDisplay[key] || name, factor: def.factor };
+        }
+        function _tempCanon(s) {
+            s = String(s).toLowerCase();
+            if (s.charAt(0) === 'c') return 'C';
+            if (s.charAt(0) === 'f') return 'F';
+            if (s.charAt(0) === 'k') return 'K';
+            return null;
+        }
+        function _tempConvert(value, from, to) {
+            var c;
+            if (from === 'C') c = value;
+            else if (from === 'F') c = (value - 32) * 5 / 9;
+            else c = value - 273.15;
+            if (to === 'C') return c;
+            if (to === 'F') return c * 9 / 5 + 32;
+            return c + 273.15;
+        }
+        var tempRe = /^\s*(-?[\d.,]+)\s*°?\s*(c|celsjus\w*|f|fahrenheit\w*|k|kelwin\w*)\s+(?:na|do|in|to|w)\s+°?\s*(c|celsjus\w*|f|fahrenheit\w*|k|kelwin\w*)\s*$/i;
+
+        var tMatch = String(raw || '').match(tempRe);
+        if (tMatch) {
+            var tFrom = _tempCanon(tMatch[2]);
+            var tTo = _tempCanon(tMatch[3]);
+            var tVal = parseFloat(tMatch[1].replace(',', '.'));
+            if (tFrom && tTo && isFinite(tVal)) {
+                var tOut = _tempConvert(tVal, tFrom, tTo);
+                return { expr: String(tOut), unit: tTo === 'K' ? 'K' : '°' + tTo, cat: 'temperature', valueInBase: tOut };
+            }
+        }
+
+        var ppiMatch = String(raw || '').match(/^(.+?)\s+(?:na|do|in|to|w)\s+px\s+(?:przy|@)\s+([\d.,]+)\s*(?:ppi|dpi)\s*$/i);
+        if (ppiMatch) {
+            var innerPpi = resolveUnitsExpression(ppiMatch[1].trim(), opts);
+            var ppiVal = parseFloat(ppiMatch[2].replace(',', '.'));
+            if (innerPpi.cat === 'length' && isFinite(ppiVal) && ppiVal > 0 && isFinite(innerPpi.valueInBase)) {
+                var pxOut = (innerPpi.valueInBase / 25.4) * ppiVal;
+                return { expr: _plainNum(pxOut), unit: 'px', cat: 'length', valueInBase: innerPpi.valueInBase, workFactor: 1, explicitConvert: true };
+            }
+        }
+
+        var convertRe = new RegExp('^(.+?)\\s+(?:na|do|in|to|w)\\s+(' + unitNamesRe + ')\\s*$', 'i');
+        var naMatch = String(raw || '').match(convertRe);
+        if (naMatch) {
+            var inner = resolveUnitsExpression(naMatch[1].trim(), opts);
+            var targetDef = unitDefs[naMatch[2].toLowerCase()];
+            if (inner.unit !== null && targetDef && inner.cat === targetDef.cat) {
+                var converted = inner.valueInBase / targetDef.factor;
+                var targetKey = naMatch[2].toLowerCase();
+                return { expr: String(converted), unit: unitDisplay[targetKey] || targetKey, cat: targetDef.cat, valueInBase: inner.valueInBase, explicitConvert: true };
+            }
+        }
+
+        var totalBase = 0, workFactor = null, workUnitLabel = null, cat = null, baseUnit = null, hasUnits = false, mixed = false;
+        var expr = String(raw || '');
+        function _emitUnit(numStr, factor, catName, base, unitKey) {
+            if (workFactor == null) {
+                workFactor = factor;
+                var uk = String(unitKey || base).toLowerCase();
+                workUnitLabel = unitDisplay[uk] || unitKey || base;
+            }
+            cat = catName; baseUnit = base; hasUnits = true;
+            var n = parseFloat(String(numStr).replace(',', '.'));
+            totalBase += n * factor;
+            return _plainNum(n * factor / workFactor);
+        }
+        expr = expr.replace(/([\d.,]+)\s*'/g, function(_, n) {
+            if (cat && cat !== 'length') { mixed = true; return _; }
+            return _emitUnit(n, 304.8, 'length', 'mm', 'ft');
+        });
+        expr = expr.replace(/([\d.,]+)\s*"/g, function(_, n) {
+            if (cat && cat !== 'length') { mixed = true; return _; }
+            return _emitUnit(n, 25.4, 'length', 'mm', 'in');
+        });
+        var unitRe = new RegExp('([\\d.,]+)\\s*(' + unitNamesRe + ')(?![A-Za-z0-9])', 'gi');
+        expr = expr.replace(unitRe, function(m, numStr, unit) {
+            var def = unitDefs[unit.toLowerCase()];
+            if (!def) return m;
+            if (cat && def.cat !== cat) {
+                if (firstUnitWins) {
+                    var n = parseFloat(String(numStr).replace(',', '.'));
+                    return isFinite(n) ? _plainNum(n) : m;
+                }
+                mixed = true; return m;
+            }
+            return _emitUnit(numStr, def.factor, def.cat, def.base, unit);
+        });
+        if (mixed && !firstUnitWins) return { expr: raw, unit: null, cat: null, valueInBase: 0, workFactor: 1 };
+        if (!hasUnits) return { expr: expr, unit: null, cat: null, valueInBase: 0, workFactor: 1 };
+        var pref = _prefDisplay(cat);
+        if (pref) return { expr: expr, unit: pref.label, cat: cat, valueInBase: totalBase, displayFactor: pref.factor, workFactor: workFactor };
+        if (workUnitLabel && workFactor) return { expr: expr, unit: workUnitLabel, cat: cat, valueInBase: totalBase, displayFactor: workFactor, workFactor: workFactor };
+        return { expr: expr, unit: baseUnit, cat: cat, valueInBase: totalBase, workFactor: workFactor };
+    }
 
     function _nowMinutes() { var d = _now(); return d.getHours() * 60 + d.getMinutes(); }
     // Token zegara → minuty doby (0..1439) lub null. Akceptuje HH:MM (nie „teraz" — to datetime w evalDateExpression).
@@ -568,6 +807,13 @@
     }
 
     var API = {
+        buildUnitRegistry: buildUnitRegistry,
+        resolveCurrencyExpression: resolveCurrencyExpression,
+        currencyTokenMap: _currencyTokenMap,
+        currencyTokenRe: _currencyTokenRe,
+        currencyDisplay: _currencyDisplay,
+        hasCurrencyInInput: hasCurrencyInInput,
+        resolveUnitsExpression: resolveUnitsExpression,
         time: _TIME,                       // prymityw czasu (parseSeconds, units, base)
         parseDurationMinutes: _parseDuration,
         evalClockExpression: evalClockExpression,

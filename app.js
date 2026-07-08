@@ -778,18 +778,14 @@
         // Temperatura jest skalą afiniczną (offset) → osobna obsługa niżej.
         // Tablice danych przeniesione do js/data-tables.js (clean look) — czytamy z namespace.
         var CALC_UNIT_CATEGORIES = (window.MATM0_DATA || {}).UNIT_CATEGORIES || {};
+        var _PARSER_BOOT = (typeof window !== 'undefined' && window.MATM0_PARSER) || {};
+        var _unitRegistry = (typeof _PARSER_BOOT.buildUnitRegistry === 'function')
+            ? _PARSER_BOOT.buildUnitRegistry(CALC_UNIT_CATEGORIES)
+            : null;
 
         // Płaska mapa: nazwa jednostki (lowercase) → { cat, factor, base }
-        var CALC_UNITS = {};
-        var CALC_UNIT_DISPLAY = {}; // lowercase → oryginalna pisownia (np. „mb" → „MB")
-        Object.keys(CALC_UNIT_CATEGORIES).forEach(function(cat) {
-            var def = CALC_UNIT_CATEGORIES[cat];
-            Object.keys(def.units).forEach(function(u) {
-                var key = u.toLowerCase();
-                CALC_UNITS[key] = { cat: cat, factor: def.units[u], base: def.base };
-                if (!CALC_UNIT_DISPLAY[key]) CALC_UNIT_DISPLAY[key] = u;
-            });
-        });
+        var CALC_UNITS = (_unitRegistry && _unitRegistry.units) || {};
+        var CALC_UNIT_DISPLAY = (_unitRegistry && _unitRegistry.display) || {}; // lowercase → oryginalna pisownia (np. „mb" → „MB")
 
         // PL: odmiana jednostek słownych w wyniku (1 stopa · 2 stopy · 5 stóp).
         function inflectDisplayUnit(value, unit) {
@@ -1167,24 +1163,6 @@
         rebuildUnitNamesRe();
 
         // ── Temperatura (skala afiniczna) — tylko jawna konwersja „X na Y" ──
-        function _tempCanon(s) {
-            s = String(s).toLowerCase();
-            if (s.charAt(0) === 'c') return 'C';
-            if (s.charAt(0) === 'f') return 'F';
-            if (s.charAt(0) === 'k') return 'K';
-            return null;
-        }
-        function _tempConvert(value, from, to) {
-            var c; // najpierw na Celsjusza
-            if (from === 'C') c = value;
-            else if (from === 'F') c = (value - 32) * 5 / 9;
-            else c = value - 273.15; // K
-            if (to === 'C') return c;
-            if (to === 'F') return c * 9 / 5 + 32;
-            return c + 273.15; // K
-        }
-        var _tempConvertRe = /^\s*(-?[\d.,]+)\s*°?\s*(c|celsjus\w*|f|fahrenheit\w*|k|kelwin\w*)\s+(?:na|do|in|to|w)\s+°?\s*(c|celsjus\w*|f|fahrenheit\w*|k|kelwin\w*)\s*$/i;
-
         // [EN] Strip currency tokens to bare numbers — notepad first-unit mode when physical wins
         function _stripCurrencyAmounts(raw) {
             var tokenRe = _currencyTokenRe();
@@ -1235,114 +1213,17 @@
 
         function resolveCalcUnits(raw, opts) {
             opts = opts || {};
-            var firstUnitWins = !!opts.firstUnitWins;
-            // 0) Temperatura — wyłącznie jawna konwersja „X na Y" (offset, nie da się sumować)
-            var tMatch = raw.match(_tempConvertRe);
-            if (tMatch) {
-                var tFrom = _tempCanon(tMatch[2]);
-                var tTo = _tempCanon(tMatch[3]);
-                var tVal = parseFloat(tMatch[1].replace(',', '.'));
-                if (tFrom && tTo && isFinite(tVal)) {
-                    var tOut = _tempConvert(tVal, tFrom, tTo);
-                    return { expr: String(tOut), unit: tTo === 'K' ? 'K' : '°' + tTo, cat: 'temperature', valueInBase: tOut };
-                }
+            if (typeof _PARSER.resolveUnitsExpression === 'function') {
+                return _PARSER.resolveUnitsExpression(raw, {
+                    firstUnitWins: !!opts.firstUnitWins,
+                    unitDefs: CALC_UNITS,
+                    unitDisplay: CALC_UNIT_DISPLAY,
+                    unitNamesRe: _UNIT_NAMES_RE,
+                    defaultUnits: (STATE.settings && STATE.settings.defaultUnits) || {},
+                });
             }
-
-            // 0b) PPI — „2 in na px przy 96 ppi" (px zależy od DPI; tylko jawna konwersja z długości)
-            var ppiMatch = raw.match(/^(.+?)\s+(?:na|do|in|to|w)\s+px\s+(?:przy|@)\s+([\d.,]+)\s*(?:ppi|dpi)\s*$/i);
-            if (ppiMatch) {
-                var innerPpi = resolveCalcUnits(ppiMatch[1].trim());
-                var ppiVal = parseFloat(ppiMatch[2].replace(',', '.'));
-                if (innerPpi.cat === 'length' && isFinite(ppiVal) && ppiVal > 0 && isFinite(innerPpi.valueInBase)) {
-                    var pxOut = (innerPpi.valueInBase / 25.4) * ppiVal; // [EN] mm → cal → px at given PPI
-                    return { expr: _plainDecimalStr(pxOut), unit: 'px', cat: 'length', valueInBase: innerPpi.valueInBase, workFactor: 1, explicitConvert: true };
-                }
-            }
-
-            // 1) Jawna konwersja „EXPR na|do|in|to|w UNIT"
-            var convertRe = new RegExp('^(.+?)\\s+(?:na|do|in|to|w)\\s+(' + _UNIT_NAMES_RE + ')\\s*$', 'i');
-            var naMatch = raw.match(convertRe);
-            if (naMatch) {
-                var inner = resolveCalcUnits(naMatch[1].trim());
-                var targetDef = CALC_UNITS[naMatch[2].toLowerCase()];
-                if (inner.unit !== null && targetDef && inner.cat === targetDef.cat) {
-                    var converted = inner.valueInBase / targetDef.factor;
-                    var targetKey = naMatch[2].toLowerCase();
-                    return { expr: String(converted), unit: CALC_UNIT_DISPLAY[targetKey] || targetKey, cat: targetDef.cat, valueInBase: inner.valueInBase, explicitConvert: true };
-                }
-            }
-
-            // 2) Liczby z jednostkami → wartości w JEDNOSTCE ROBOCZEJ (pierwsza napotkana w tej
-            // kategorii). MODEL „jednostka jako etykieta" (decyzja Mateusza): operatory liczą na
-            // liczbach jak wpisane, a jednostka jedzie z wynikiem — więc „10 km / 2 km" = 5 km,
-            // „5 km × 2 km" = 10 km (a NIE bezwymiarowo/„mm²"). evalCalcExpression mnoży wynik
-            // przez workFactor → wartość bazowa (do wyświetlenia: baza / preferowana / autodobór).
-            // Dla + − / pojedynczej jednostki to daje DOKŁADNIE to samo co dawne „licz w bazie".
-            var totalBase = 0;
-            var workFactor = null; // współczynnik (do bazy) jednostki roboczej; null = brak jednostek
-            var workUnitLabel = null; // [EN] Etykieta pierwszej jednostki (Raycast: wynik w tym samym wymiarze)
-            var cat = null;
-            var baseUnit = null;
-            var hasUnits = false;
-            var mixed = false; // wykryto jednostki z różnych kategorii (np. kg + cm)
-            var expr = raw;
-
-            // Wartość liczbową WSTRZYKIWANĄ z powrotem w wyrażenie zapisujemy ZAWSZE jako
-            // zwykły dziesiętny zapis (bez notacji wykładniczej). Inaczej np. „1 ha + 1 mm²"
-            // dałoby intermediat 1e-10 → „1e-10", a parser wyrażeń traktuje „e" jak stałą
-            // Eulera i liczyłby kompletny śmieć (1ha+1mm2 → 171828 zamiast 10000,000001).
-            function _plainNum(x) { return _plainDecimalStr(x); }
-            function _emitUnit(numStr, factor, catName, base, unitKey) {
-                if (workFactor == null) {
-                    workFactor = factor;
-                    var uk = String(unitKey || base).toLowerCase();
-                    workUnitLabel = CALC_UNIT_DISPLAY[uk] || unitKey || base;
-                }
-                cat = catName; baseUnit = base; hasUnits = true;
-                var n = parseFloat(String(numStr).replace(',', '.'));
-                totalBase += n * factor;                  // suma bazowa (dla „na" przy sumach)
-                return _plainNum(n * factor / workFactor); // wartość w jednostce roboczej (bez 1e-…)
-            }
-
-            // Notacja stóp (N') i cali (N") — zawsze długość
-            expr = expr.replace(/([\d.,]+)\s*'/g, function(_, n) {
-                if (cat && cat !== 'length') { mixed = true; return _; }
-                return _emitUnit(n, 304.8, 'length', 'mm', 'ft');
-            });
-            expr = expr.replace(/([\d.,]+)\s*"/g, function(_, n) {
-                if (cat && cat !== 'length') { mixed = true; return _; }
-                return _emitUnit(n, 25.4, 'length', 'mm', 'in');
-            });
-
-            // Nazwane jednostki. Lookahead (?![A-Za-z0-9]) zamiast \b — obsługuje też „°".
-            var unitRe = new RegExp('([\\d.,]+)\\s*(' + _UNIT_NAMES_RE + ')(?![A-Za-z0-9])', 'gi');
-            expr = expr.replace(unitRe, function(m, numStr, unit) {
-                var def = CALC_UNITS[unit.toLowerCase()];
-                if (!def) return m;
-                if (cat && def.cat !== cat) {
-                    if (firstUnitWins) { // [EN] later category → bare number, first unit label stays
-                        var n = parseFloat(String(numStr).replace(',', '.'));
-                        return isFinite(n) ? _plainNum(n) : m;
-                    }
-                    mixed = true; return m;
-                }
-                return _emitUnit(numStr, def.factor, def.cat, def.base, unit);
-            });
-
-            // Miks kategorii (kg + cm) nie ma sensu → zwróć surowiec bez wyniku jednostkowego.
-            if (mixed && !firstUnitWins) return { expr: raw, unit: null, cat: null, valueInBase: 0, workFactor: 1 };
-
-            if (!hasUnits) return { expr: expr, unit: null, cat: null, valueInBase: 0, workFactor: 1 };
-            // Domyślna jednostka wyświetlania (ustawienia) — dotyczy gołych wyników jednostkowych;
-            // jawna konwersja „X na Y" wraca wcześniej, więc zawsze wygrywa. displayFactor mówi
-            // evalCalcExpression, przez ile podzielić wartość bazową, by pokazać w preferowanej.
-            var pref = _preferredDisplayUnit(cat);
-            if (pref) return { expr: expr, unit: pref.label, cat: cat, valueInBase: totalBase, displayFactor: pref.factor, workFactor: workFactor };
-            // [EN] Bez ustawień: pokaż w jednostce roboczej (pierwsza wpisana), nie w bazie mm/g — Raycast-style.
-            if (workUnitLabel && workFactor) {
-                return { expr: expr, unit: workUnitLabel, cat: cat, valueInBase: totalBase, displayFactor: workFactor, workFactor: workFactor };
-            }
-            return { expr: expr, unit: baseUnit, cat: cat, valueInBase: totalBase, workFactor: workFactor };
+            // Minimalny awaryjny fallback: brak logiki jednostek, zwróć surowe wyrażenie.
+            return { expr: String(raw || ''), unit: null, cat: null, valueInBase: 0, workFactor: 1 };
         }
 
         // Preferowana jednostka WYŚWIETLANIA dla kategorii (z ustawień). Generyczne — działa dla
@@ -1382,6 +1263,9 @@
         var FX_TTL_MS = 6 * 3600 * 1000; // 6 h — po tym czasie odśwież w tle
 
         function _currencyTokenMap() {
+            if (typeof _PARSER.currencyTokenMap === 'function') {
+                return _PARSER.currencyTokenMap((STATE.fx && STATE.fx.rates) || {});
+            }
             var map = {};
             Object.keys(_CUR_ALIAS).forEach(function(k) { map[k] = _CUR_ALIAS[k]; });
             var rates = STATE.fx.rates || {};
@@ -1394,6 +1278,11 @@
             return rates[code] != null ? rates[code] : null; // PLN za 1 jednostkę
         }
         function _currencyDisplay(code) {
+            if (typeof _PARSER.currencyDisplay === 'function') {
+                return _PARSER.currencyDisplay(code, {
+                    currencyCompactSymbols: !(STATE.settings && STATE.settings.currencyCompactSymbols === false),
+                });
+            }
             if (!code) return code;
             if (code === 'PLN') return 'zł';
             var compact = !(STATE.settings && STATE.settings.currencyCompactSymbols === false);
@@ -1405,6 +1294,9 @@
         function _needsFxTable(code) { return code && code !== 'PLN'; } // [EN] PLN rate is always 1 — no API fetch
 
         function _currencyTokenRe() {
+            if (typeof _PARSER.currencyTokenRe === 'function') {
+                return _PARSER.currencyTokenRe(_currencyTokenMap());
+            }
             var map = _currencyTokenMap();
             return Object.keys(map)
                 .sort(function(a, b) { return b.length - a.length; })
@@ -1412,12 +1304,15 @@
                 .join('|');
         }
         function _inputHasCurrency(raw) {
+            if (typeof _PARSER.hasCurrencyInInput === 'function') {
+                return _PARSER.hasCurrencyInInput(raw, { fxRates: (STATE.fx && STATE.fx.rates) || {} });
+            }
             var re = new RegExp('([\\d.,]+)\\s*(' + _currencyTokenRe() + ')(?![a-ząćęłńóśźż0-9])', 'i');
             return re.test(String(raw || ''));
         }
 
         // Zwraca { expr, unit, valueInBase(PLN), hasCurrency, pending } analogicznie do resolveCalcUnits.
-        function resolveCalcCurrency(raw) {
+        function _resolveCalcCurrencyLocal(raw) {
             var map = _currencyTokenMap();
             var tokenRe = _currencyTokenRe();
             if (!tokenRe) return { expr: raw, unit: null, hasCurrency: false, pending: false };
@@ -1427,7 +1322,7 @@
             var cm = raw.match(convRe);
             if (cm) {
                 var targetCode = map[cm[2].toLowerCase()];
-                var inner = resolveCalcCurrency(cm[1].trim());
+                var inner = _resolveCalcCurrencyLocal(cm[1].trim());
                 if (inner.hasCurrency) {
                     var tRate = _currencyRate(targetCode);
                     if (inner.pending || tRate == null || (_needsFxTable(targetCode) && !_fxReady())) {
@@ -1474,6 +1369,17 @@
             var defRate = _currencyRate(def);
             if (defRate == null) return { expr: raw, unit: null, hasCurrency: true, pending: true };
             return { expr: expr, unit: _currencyDisplay(def), valueInBase: totalPln, hasCurrency: true, pending: false, curMul: workRate / defRate, workCode: workCode };
+        }
+        function resolveCalcCurrency(raw) {
+            if (typeof _PARSER.resolveCurrencyExpression === 'function') {
+                return _PARSER.resolveCurrencyExpression(raw, {
+                    fxRates: (STATE.fx && STATE.fx.rates) || {},
+                    fxReady: _fxReady(),
+                    defaultCurrency: (STATE.settings && STATE.settings.defaultCurrency) || 'PLN',
+                    currencyCompactSymbols: !(STATE.settings && STATE.settings.currencyCompactSymbols === false),
+                });
+            }
+            return _resolveCalcCurrencyLocal(raw);
         }
 
         // ── Dwa silniki kursów ──────────────────────────────────────────
