@@ -2528,6 +2528,7 @@
             grid-template-columns: minmax(0, 1fr) auto;
             align-items: start;
             min-height: 100%;
+            position: relative;
             transition: grid-template-columns 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .np-editor-inner.gutter-hidden { grid-template-columns: minmax(0, 1fr) 0fr; }
@@ -2539,7 +2540,7 @@
             min-width: 0;
         }
         .np-editor.gutter-hidden {
-            box-shadow: inset -3px 0 0 var(--border); /* [EN] subtle affordance — swipe from edge to show chips */
+            box-shadow: inset -5px 0 0 var(--border); /* [EN] subtle affordance — swipe from edge to show chips */
         }
         .np-mirror, .np-wrap-layer, .np-fold-layer, .np-text {
             grid-column: 1;
@@ -2574,6 +2575,24 @@
             flex: 0 0 auto;
             overflow: hidden;
             padding: 6px 0;
+            transform: translateX(var(--np-gutter-drag-x, 0px));
+            transition: none;
+            will-change: transform;
+        }
+        .np-editor-inner.gutter-drag-preview {
+            --np-gutter-drag-x: 0px;
+        }
+        .np-editor-inner.gutter-hidden.gutter-drag-preview .np-gutter {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            min-width: var(--np-gutter-preview-width, 96px);
+            opacity: 1;
+            pointer-events: none;
+            padding: 6px 0;
+            overflow: hidden;
+            z-index: 2;
         }
         .np-mirror {
             visibility: hidden;

@@ -8859,6 +8859,23 @@
             var hidden = !!(STATE.settings && STATE.settings.notepadGutterHidden);
             if (npEditorInner) npEditorInner.classList.toggle('gutter-hidden', hidden);
             if (npEditor) npEditor.classList.toggle('gutter-hidden', hidden);
+            _npSetGutterDragOffset(0);
+            _npSetGutterDragPreview(false);
+        }
+        function _npSetGutterDragPreview(on) {
+            if (!npEditorInner) return;
+            npEditorInner.classList.toggle('gutter-drag-preview', !!on);
+        }
+        function _npSetGutterDragOffset(px) {
+            if (!npEditorInner) return;
+            var v = Math.round(Number(px) || 0);
+            npEditorInner.style.setProperty('--np-gutter-drag-x', v + 'px');
+        }
+        function _npMeasureGutterWidth() {
+            if (!npGutter) return 96;
+            var w = Math.ceil(npGutter.getBoundingClientRect().width || npGutter.offsetWidth || 0);
+            if (w > 24) return w;
+            return 96;
         }
         function _npClampFontSize(v) {
             v = parseFloat(v);
@@ -9094,7 +9111,8 @@
         function _npBindGutterPanelSwipe() {
             if (!npGutter || !npEditor || _npGutterPanelSwipeBound) return;
             _npGutterPanelSwipeBound = true;
-            var _NP_GUTTER_HIDE = 44, _NP_GUTTER_EDGE = 28;
+            var _NP_GUTTER_HIDE = 44;
+            var _NP_GUTTER_EDGE = (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) ? 34 : 28;
             var gStartX = 0, gStartY = 0, gDrag = false, gDecided = false, gHoriz = false;
             npGutter.addEventListener('pointerdown', function(e) {
                 if (STATE.settings.notepadGutterHidden) return;
@@ -9111,6 +9129,7 @@
                     if (!gHoriz || dx < 0) { gDrag = false; return; } // [EN] only right swipe hides panel
                 }
                 if (!gHoriz) return;
+                _npSetGutterDragOffset(Math.max(0, dx));
                 if (dx >= _NP_GUTTER_HIDE) {
                     gDrag = false;
                     STATE.settings.notepadGutterHidden = true;
@@ -9120,15 +9139,23 @@
                 }
             });
             ['pointerup', 'pointercancel', 'pointerleave'].forEach(function(ev) {
-                npGutter.addEventListener(ev, function() { gDrag = false; });
+                npGutter.addEventListener(ev, function() {
+                    gDrag = false;
+                    _npSetGutterDragOffset(0);
+                });
             });
             var sStartX = 0, sDrag = false, sDecided = false, sHoriz = false;
+            var sWidth = 96;
             npEditor.addEventListener('pointerdown', function(e) {
                 if (!STATE.settings.notepadGutterHidden) return;
                 if (e.target.closest('.np-res')) return;
                 var rect = npEditor.getBoundingClientRect();
                 if (e.clientX < rect.right - _NP_GUTTER_EDGE) return;
                 sStartX = e.clientX;
+                sWidth = _npMeasureGutterWidth();
+                if (npEditorInner) npEditorInner.style.setProperty('--np-gutter-preview-width', sWidth + 'px');
+                _npSetGutterDragPreview(true);
+                _npSetGutterDragOffset(sWidth);
                 sDrag = true; sDecided = false; sHoriz = false;
             });
             npEditor.addEventListener('pointermove', function(e) {
@@ -9141,6 +9168,7 @@
                     if (dx > 0) { sDrag = false; return; } // [EN] only left swipe reveals panel
                 }
                 if (!sHoriz) return;
+                _npSetGutterDragOffset(Math.max(0, sWidth + dx));
                 if (dx <= -_NP_GUTTER_HIDE) {
                     sDrag = false;
                     STATE.settings.notepadGutterHidden = false;
@@ -9150,7 +9178,11 @@
                 }
             });
             ['pointerup', 'pointercancel'].forEach(function(ev) {
-                npEditor.addEventListener(ev, function() { sDrag = false; });
+                npEditor.addEventListener(ev, function() {
+                    sDrag = false;
+                    _npSetGutterDragPreview(false);
+                    _npSetGutterDragOffset(0);
+                });
             });
         }
         function _npSerialize() {
