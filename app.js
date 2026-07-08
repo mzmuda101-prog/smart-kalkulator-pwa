@@ -3514,6 +3514,68 @@
             return String(parseFloat(num.toFixed(6)));
         }
 
+        /* ============================================================
+           [EN] Canvas theme tokens — engineering + graph drawing
+           ============================================================ */
+        var GRAPH_LABEL_PLATE = 'rgba(255, 255, 255, 0.25)';
+        var GRAPH_SERIES_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2'];
+        var ENGINEERING_SERIES_COLORS = ['#2563eb', '#e11d48', '#16a34a', '#d97706', '#7c3aed', '#0891b2'];
+        var ENGINEERING_THEME_COLORS = {
+            warningText: '#94a3b8',
+            panelBg: '#ffffff',
+            helperGrid: 'rgba(226,232,240,0.7)',
+            axisGuide: '#cbd5e1',
+            board: '#e8d5b7',
+            boardStroke: '#b8956a',
+            marginFill: 'rgba(100, 116, 139, 0.3)',
+            marginDash: '#94a3b8',
+            marginLabel: '#d97706',
+            marginWarn: 'rgba(251,191,36,0.12)',
+            marginWarnStroke: '#fbbf24',
+            hole: '#dc2626',
+            holeStroke: '#991b1b',
+            dim: '#475569',
+            label: '#0f172a',
+            chipText: '#1e293b',
+            shadowSoft: 'rgba(0,0,0,0.06)',
+            woodGrain: 'rgba(184, 149, 106, 0.25)',
+            alignGuide: 'rgba(148, 163, 184, 0.4)',
+            alignGuideStrong: 'rgba(148, 163, 184, 0.5)',
+            holeCenter: '#fff',
+            labelPlate: 'rgba(255, 255, 255, 0.55)'
+        };
+        var GRAPH_THEME_DEFAULTS = {
+            paper: '#f8fafc',
+            grid: '#e2e8f0',
+            axisText: '#64748b',
+            axisStroke: '#475569',
+            pointFill: '#dc2626',
+            pointStroke: '#991b1b',
+            pointLabel: '#0f172a',
+            labelPlate: 'rgba(255,255,255,0.55)',
+            alert: '#dc2626'
+        };
+        var GRAPH_THEME_COLORS = Object.assign({}, GRAPH_THEME_DEFAULTS);
+        function refreshGraphThemeColors() { // [EN] read CSS vars with hard fallbacks (light/dark)
+            if (typeof window === 'undefined' || !window.getComputedStyle || !document || !document.documentElement) return;
+            var rootStyles = window.getComputedStyle(document.documentElement);
+            function _readVar(name, fallback) {
+                var v = rootStyles.getPropertyValue(name);
+                v = v ? String(v).trim() : '';
+                return v || fallback;
+            }
+            GRAPH_THEME_COLORS.paper = _readVar('--graph-canvas-paper', GRAPH_THEME_DEFAULTS.paper);
+            GRAPH_THEME_COLORS.grid = _readVar('--graph-canvas-grid', GRAPH_THEME_DEFAULTS.grid);
+            GRAPH_THEME_COLORS.axisText = _readVar('--graph-canvas-axis-text', GRAPH_THEME_DEFAULTS.axisText);
+            GRAPH_THEME_COLORS.axisStroke = _readVar('--graph-canvas-axis-stroke', GRAPH_THEME_DEFAULTS.axisStroke);
+            GRAPH_THEME_COLORS.pointFill = _readVar('--graph-canvas-point-fill', GRAPH_THEME_DEFAULTS.pointFill);
+            GRAPH_THEME_COLORS.pointStroke = _readVar('--graph-canvas-point-stroke', GRAPH_THEME_DEFAULTS.pointStroke);
+            GRAPH_THEME_COLORS.pointLabel = _readVar('--graph-canvas-point-label', GRAPH_THEME_DEFAULTS.pointLabel);
+            GRAPH_THEME_COLORS.labelPlate = _readVar('--graph-canvas-label-plate', GRAPH_THEME_DEFAULTS.labelPlate);
+            GRAPH_THEME_COLORS.alert = _readVar('--graph-canvas-alert', GRAPH_THEME_DEFAULTS.alert);
+            GRAPH_LABEL_PLATE = _readVar('--graph-canvas-smart-label-bg', GRAPH_LABEL_PLATE);
+        }
+
         function drawEmptyCanvas(_canvas, _ctx) {
             refreshGraphThemeColors();
             var ctx = _ctx || graphCtx;
@@ -3540,6 +3602,7 @@
             var displayL = L + (origin || 0);
             var scale = drawW / Math.max(displayL, 1);
             function toX(pos) { return PAD_L + (pos - (origin || 0)) * scale; }
+            function ptVal(p) { return (p && p.x !== undefined) ? p.x : p; }
 
             // Tło
             ctx.fillStyle = ENGINEERING_THEME_COLORS.panelBg;
@@ -3612,10 +3675,11 @@
                 if (pts.length > 1) {
                     var spacingY = axisY + rowOffset + (above ? -DOT_R - 8 : DOT_R + 8);
                     for (var pi = 0; pi < pts.length - 1; pi++) {
-                        var x1 = toX(pts[pi].x !== undefined ? pts[pi].x : pts[pi]);
-                        var x2 = toX(pts[pi + 1].x !== undefined ? pts[pi + 1].x : pts[pi + 1]);
-                        var gap = (pts[pi + 1].x !== undefined ? pts[pi + 1].x : pts[pi + 1]) -
-                                  (pts[pi].x !== undefined ? pts[pi].x : pts[pi]);
+                        var p1 = ptVal(pts[pi]);
+                        var p2 = ptVal(pts[pi + 1]);
+                        var x1 = toX(p1);
+                        var x2 = toX(p2);
+                        var gap = p2 - p1;
                         var midX = (x1 + x2) / 2;
 
                         // Linia z grotikami
@@ -3635,7 +3699,8 @@
 
                 // Pionowe kreski na belkę + numerowane kółka
                 pts.forEach(function(pt, pi) {
-                    var px = toX(pt.x !== undefined ? pt.x : pt);
+                    var pVal = ptVal(pt);
+                    var px = toX(pVal);
                     var cy = axisY + rowOffset;
 
                     // Pionowa kreska łącząca kółko z belką
@@ -3664,7 +3729,7 @@
                     ctx.font = lblFont('600', 10);
                     ctx.textAlign = 'center';
                     ctx.textBaseline = above ? 'bottom' : 'top';
-                    ctx.fillText(formatNum(pt.x !== undefined ? pt.x : pt) + ' ' + unit,
+                    ctx.fillText(formatNum(pVal) + ' ' + unit,
                         px, cy + (above ? -DOT_R - 3 : DOT_R + 3));
                 });
 
@@ -3699,15 +3764,6 @@
             var unit = getUnitLabel();
             origin = origin || 0;
 
-            // [EN] Layout constants
-            var boardColor = ENGINEERING_THEME_COLORS.board;
-            var boardStroke = ENGINEERING_THEME_COLORS.boardStroke;
-            var holeColor = ENGINEERING_THEME_COLORS.hole;
-            var holeStroke = ENGINEERING_THEME_COLORS.holeStroke;
-            var dimColor = ENGINEERING_THEME_COLORS.dim;
-            var labelColor = ENGINEERING_THEME_COLORS.label;
-            var marginColor = ENGINEERING_THEME_COLORS.marginFill;
-
             if (isHorizontal) {
                 // ================================================================
                 // [EN] HORIZONTAL LAYOUT
@@ -3727,8 +3783,8 @@
                 ctx.fill();
 
                 // [EN] Board body
-                ctx.fillStyle = boardColor;
-                ctx.strokeStyle = boardStroke;
+                ctx.fillStyle = ENGINEERING_THEME_COLORS.board;
+                ctx.strokeStyle = ENGINEERING_THEME_COLORS.boardStroke;
                 ctx.lineWidth = 2;
                 ctx.beginPath();
                 ctx.roundRect(boardLeft, boardTop, boardWidth, boardThickness, 6);
@@ -3748,10 +3804,10 @@
                 // [EN] Margin shading
                 if (marginStart > 0) {
                     var msX = boardLeft + (marginStart / totalLength) * boardWidth;
-                    ctx.fillStyle = marginColor;
+                    ctx.fillStyle = ENGINEERING_THEME_COLORS.marginFill;
                     ctx.fillRect(boardLeft, boardTop, msX - boardLeft, boardThickness);
                     // [EN] Margin label
-                    ctx.fillStyle = dimColor;
+                    ctx.fillStyle = ENGINEERING_THEME_COLORS.dim;
                     ctx.font = lblFont('600', 11);
                     ctx.textAlign = 'center';
                     ctx.fillText(formatNum(marginStart) + ' ' + unit, boardLeft + (msX - boardLeft) / 2, boardTop - 10);
@@ -3767,9 +3823,9 @@
                 }
                 if (marginEnd > 0) {
                     var meX = boardRight - (marginEnd / totalLength) * boardWidth;
-                    ctx.fillStyle = marginColor;
+                    ctx.fillStyle = ENGINEERING_THEME_COLORS.marginFill;
                     ctx.fillRect(meX, boardTop, boardRight - meX, boardThickness);
-                    ctx.fillStyle = dimColor;
+                    ctx.fillStyle = ENGINEERING_THEME_COLORS.dim;
                     ctx.font = lblFont('600', 11);
                     ctx.textAlign = 'center';
                     ctx.fillText(formatNum(marginEnd) + ' ' + unit, meX + (boardRight - meX) / 2, boardTop - 10);
@@ -3784,7 +3840,7 @@
                 }
 
                 // [EN] Dimension line above board
-                ctx.strokeStyle = dimColor;
+                ctx.strokeStyle = ENGINEERING_THEME_COLORS.dim;
                 ctx.lineWidth = 1;
                 ctx.setLineDash([]);
                 var dimY = boardTop - 30;
@@ -3796,7 +3852,7 @@
                 drawArrow(ctx, boardLeft, dimY, 'left');
                 drawArrow(ctx, boardRight, dimY, 'right');
                 // [EN] Total length label above dimension line
-                ctx.fillStyle = labelColor;
+                ctx.fillStyle = ENGINEERING_THEME_COLORS.label;
                 ctx.font = lblFont('700', 12);
                 ctx.textAlign = 'center';
                 ctx.fillText(formatNum(totalLength) + ' ' + unit, (boardLeft + boardRight) / 2, dimY - 10);
@@ -3824,8 +3880,8 @@
 
                     // [EN] Hole
                     var holeRadius = 7;
-                    ctx.fillStyle = holeColor;
-                    ctx.strokeStyle = holeStroke;
+                    ctx.fillStyle = ENGINEERING_THEME_COLORS.hole;
+                    ctx.strokeStyle = ENGINEERING_THEME_COLORS.holeStroke;
                     ctx.lineWidth = 1.5;
                     ctx.beginPath();
                     ctx.arc(x, boardMidY, holeRadius, 0, Math.PI * 2);
@@ -3857,13 +3913,13 @@
                     // [EN] Label background (semi-transparent for readability)
                     ctx.fillStyle = ENGINEERING_THEME_COLORS.labelPlate;
                     ctx.fillRect(x - textWidth / 2 - 2, labelY - 10, textWidth + 4, 16);
-                    ctx.fillStyle = labelColor;
+                    ctx.fillStyle = ENGINEERING_THEME_COLORS.label;
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
                     ctx.fillText(labelText + ' ' + unit, x, labelY - 2);
 
                     // [EN] Small tick on dimension line
-                    ctx.strokeStyle = dimColor;
+                    ctx.strokeStyle = ENGINEERING_THEME_COLORS.dim;
                     ctx.lineWidth = 1;
                     ctx.beginPath();
                     ctx.moveTo(x, dimY - 4);
@@ -3890,8 +3946,8 @@
                 ctx.fill();
 
                 // [EN] Board body
-                ctx.fillStyle = boardColor;
-                ctx.strokeStyle = boardStroke;
+                ctx.fillStyle = ENGINEERING_THEME_COLORS.board;
+                ctx.strokeStyle = ENGINEERING_THEME_COLORS.boardStroke;
                 ctx.lineWidth = 2;
                 ctx.beginPath();
                 ctx.roundRect(boardLeftV, boardTopV, boardThicknessV, boardHeightV, 6);
@@ -3911,9 +3967,9 @@
                 // [EN] Margin shading
                 if (marginStart > 0) {
                     var msY = boardTopV + (marginStart / totalLength) * boardHeightV;
-                    ctx.fillStyle = marginColor;
+                    ctx.fillStyle = ENGINEERING_THEME_COLORS.marginFill;
                     ctx.fillRect(boardLeftV, boardTopV, boardThicknessV, msY - boardTopV);
-                    ctx.fillStyle = dimColor;
+                    ctx.fillStyle = ENGINEERING_THEME_COLORS.dim;
                     ctx.font = lblFont('600', 11);
                     ctx.textAlign = 'right';
                     ctx.fillText(formatNum(marginStart) + ' ' + unit, boardLeftV - 12, boardTopV + (msY - boardTopV) / 2 + 4);
@@ -3928,9 +3984,9 @@
                 }
                 if (marginEnd > 0) {
                     var meY = boardBottomV - (marginEnd / totalLength) * boardHeightV;
-                    ctx.fillStyle = marginColor;
+                    ctx.fillStyle = ENGINEERING_THEME_COLORS.marginFill;
                     ctx.fillRect(boardLeftV, meY, boardThicknessV, boardBottomV - meY);
-                    ctx.fillStyle = dimColor;
+                    ctx.fillStyle = ENGINEERING_THEME_COLORS.dim;
                     ctx.font = lblFont('600', 11);
                     ctx.textAlign = 'right';
                     ctx.fillText(formatNum(marginEnd) + ' ' + unit, boardLeftV - 12, meY + (boardBottomV - meY) / 2 + 4);
@@ -3946,7 +4002,7 @@
 
                 // [EN] Dimension line to the right
                 var dimX = boardRightV + 35;
-                ctx.strokeStyle = dimColor;
+                ctx.strokeStyle = ENGINEERING_THEME_COLORS.dim;
                 ctx.lineWidth = 1;
                 ctx.setLineDash([]);
                 ctx.beginPath();
@@ -3957,7 +4013,7 @@
                 drawArrow(ctx, dimX, boardBottomV, 'down');
                 // [EN] Total length label
                 ctx.save();
-                ctx.fillStyle = labelColor;
+                ctx.fillStyle = ENGINEERING_THEME_COLORS.label;
                 ctx.font = lblFont('700', 12);
                 ctx.textAlign = 'left';
                 ctx.translate(dimX + 12, (boardTopV + boardBottomV) / 2);
@@ -3988,8 +4044,8 @@
 
                     // [EN] Hole
                     var holeRadius = 7;
-                    ctx.fillStyle = holeColor;
-                    ctx.strokeStyle = holeStroke;
+                    ctx.fillStyle = ENGINEERING_THEME_COLORS.hole;
+                    ctx.strokeStyle = ENGINEERING_THEME_COLORS.holeStroke;
                     ctx.lineWidth = 1.5;
                     ctx.beginPath();
                     ctx.arc(boardMidX, y, holeRadius, 0, Math.PI * 2);
@@ -4027,7 +4083,7 @@
 
                     ctx.fillStyle = ENGINEERING_THEME_COLORS.labelPlate;
                     ctx.fillRect(labelX - 4, labelYCenter - 8, ctx.measureText(labelText + ' ' + unit).width + 10, 16);
-                    ctx.fillStyle = labelColor;
+                    ctx.fillStyle = ENGINEERING_THEME_COLORS.label;
                     ctx.textAlign = 'left';
                     ctx.textBaseline = 'middle';
                     ctx.fillText(labelText + ' ' + unit, labelX + 1, labelYCenter);
@@ -5199,67 +5255,6 @@
         var showLabelDetail = true;
         var labelDetailLevel = 1;   // 0 = mniej podpisów (wąsko), 1 = normalnie, 2 = więcej (fullscreen)
         var graphLabelGap = 2;      // wymagany luz między etykietami; większy na małym canvasie = szybsze chowanie
-        // Podkładka pod tekstem na canvasie — celowo ledwo widoczna (delikatnie odcina tekst
-        // od linii/wypełnień, ale nie „zabrudza" rysunku). Jedno miejsce do regulacji.
-        var GRAPH_LABEL_PLATE = 'rgba(255, 255, 255, 0.25)';
-        var GRAPH_SERIES_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2'];
-        var ENGINEERING_SERIES_COLORS = ['#2563eb', '#e11d48', '#16a34a', '#d97706', '#7c3aed', '#0891b2'];
-        var ENGINEERING_THEME_COLORS = {
-            warningText: '#94a3b8',
-            panelBg: '#ffffff',
-            helperGrid: 'rgba(226,232,240,0.7)',
-            axisGuide: '#cbd5e1',
-            board: '#e8d5b7',
-            boardStroke: '#b8956a',
-            marginFill: 'rgba(100, 116, 139, 0.3)',
-            marginDash: '#94a3b8',
-            marginLabel: '#d97706',
-            marginWarn: 'rgba(251,191,36,0.12)',
-            marginWarnStroke: '#fbbf24',
-            hole: '#dc2626',
-            holeStroke: '#991b1b',
-            dim: '#475569',
-            label: '#0f172a',
-            chipText: '#1e293b',
-            shadowSoft: 'rgba(0,0,0,0.06)',
-            woodGrain: 'rgba(184, 149, 106, 0.25)',
-            alignGuide: 'rgba(148, 163, 184, 0.4)',
-            alignGuideStrong: 'rgba(148, 163, 184, 0.5)',
-            holeCenter: '#fff',
-            labelPlate: 'rgba(255, 255, 255, 0.55)'
-        };
-        var GRAPH_THEME_DEFAULTS = {
-            paper: '#f8fafc',
-            grid: '#e2e8f0',
-            axisText: '#64748b',
-            axisStroke: '#475569',
-            pointFill: '#dc2626',
-            pointStroke: '#991b1b',
-            pointLabel: '#0f172a',
-            labelPlate: 'rgba(255,255,255,0.55)',
-            alert: '#dc2626'
-        };
-        var GRAPH_THEME_COLORS = Object.assign({}, GRAPH_THEME_DEFAULTS);
-        // [EN] Canvas colors follow CSS tokens (light/dark) with hard fallbacks.
-        function refreshGraphThemeColors() {
-            if (typeof window === 'undefined' || !window.getComputedStyle || !document || !document.documentElement) return;
-            var rootStyles = window.getComputedStyle(document.documentElement);
-            function _readVar(name, fallback) {
-                var v = rootStyles.getPropertyValue(name);
-                v = v ? String(v).trim() : '';
-                return v || fallback;
-            }
-            GRAPH_THEME_COLORS.paper = _readVar('--graph-canvas-paper', GRAPH_THEME_DEFAULTS.paper);
-            GRAPH_THEME_COLORS.grid = _readVar('--graph-canvas-grid', GRAPH_THEME_DEFAULTS.grid);
-            GRAPH_THEME_COLORS.axisText = _readVar('--graph-canvas-axis-text', GRAPH_THEME_DEFAULTS.axisText);
-            GRAPH_THEME_COLORS.axisStroke = _readVar('--graph-canvas-axis-stroke', GRAPH_THEME_DEFAULTS.axisStroke);
-            GRAPH_THEME_COLORS.pointFill = _readVar('--graph-canvas-point-fill', GRAPH_THEME_DEFAULTS.pointFill);
-            GRAPH_THEME_COLORS.pointStroke = _readVar('--graph-canvas-point-stroke', GRAPH_THEME_DEFAULTS.pointStroke);
-            GRAPH_THEME_COLORS.pointLabel = _readVar('--graph-canvas-point-label', GRAPH_THEME_DEFAULTS.pointLabel);
-            GRAPH_THEME_COLORS.labelPlate = _readVar('--graph-canvas-label-plate', GRAPH_THEME_DEFAULTS.labelPlate);
-            GRAPH_THEME_COLORS.alert = _readVar('--graph-canvas-alert', GRAPH_THEME_DEFAULTS.alert);
-            GRAPH_LABEL_PLATE = _readVar('--graph-canvas-smart-label-bg', GRAPH_LABEL_PLATE);
-        }
         function computeLabelScale() {
             // [EN] Viewport świata: zoom zmienia widoczny zakres i przerysowuje wektorowo,
             // więc 1 px logiczny = 1 px CSS. Etykiety mają STAŁĄ wielkość (graphLabelScale=1)

@@ -3,7 +3,7 @@
            ============================================================ */
         :root {
             /* Apka zaprojektowana na jasno — natywne kontrolki też renderują się jasno
-               w systemowym dark (patrz <meta name="color-scheme">). TODO: prawdziwy dark. */
+               w systemowym dark (patrz <meta name="color-scheme">). */
             color-scheme: light;
             --primary: #2563eb;
             --primary-hover: #1d4ed8;
