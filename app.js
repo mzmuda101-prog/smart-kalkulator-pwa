@@ -3515,19 +3515,19 @@
         }
 
         function drawEmptyCanvas(_canvas, _ctx) {
+            refreshGraphThemeColors();
             var ctx = _ctx || graphCtx;
             var dims = setCanvasHiDPI(_canvas || graphCanvas, ctx);
             var w = dims.w;
             var h = dims.h;
             ctx.clearRect(0, 0, w, h);
-            ctx.fillStyle = '#94a3b8';
+            ctx.fillStyle = ENGINEERING_THEME_COLORS.warningText;
             ctx.font = lblFont('600', 16);
             ctx.textAlign = 'center';
             ctx.fillText('⚠️ Nieprawidłowe dane', w / 2, h / 2);
         }
 
         function drawEngineeringCanvasMulti(L, ms, me, allSeries, origin, _canvas, _ctx) {
-            var COLORS = ['#2563eb', '#e11d48', '#16a34a', '#d97706', '#7c3aed', '#0891b2'];
             var ctx = _ctx || graphCtx;
             var dims = setCanvasHiDPI(_canvas || graphCanvas, ctx);
             var W = dims.w;
@@ -3542,11 +3542,11 @@
             function toX(pos) { return PAD_L + (pos - (origin || 0)) * scale; }
 
             // Tło
-            ctx.fillStyle = '#ffffff';
+            ctx.fillStyle = ENGINEERING_THEME_COLORS.panelBg;
             ctx.fillRect(0, 0, W, H);
 
             // Delikatna siatka pomocnicza
-            ctx.strokeStyle = 'rgba(226,232,240,0.7)';
+            ctx.strokeStyle = ENGINEERING_THEME_COLORS.helperGrid;
             ctx.lineWidth = 1;
             var nLines = 8;
             for (var gi = 0; gi <= nLines; gi++) {
@@ -3556,21 +3556,21 @@
 
             // Linia bazowa (oś)
             var axisY = PAD_T + (H - PAD_T - PAD_B) / 2;
-            ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 1; ctx.setLineDash([]);
+            ctx.strokeStyle = ENGINEERING_THEME_COLORS.axisGuide; ctx.lineWidth = 1; ctx.setLineDash([]);
             ctx.beginPath(); ctx.moveTo(PAD_L, axisY); ctx.lineTo(PAD_L + drawW, axisY); ctx.stroke();
 
             // Belka — wąski prostokąt z zaokrąglonymi końcami
             var beamH = 14;
             var beamY = axisY - beamH / 2;
-            ctx.fillStyle = '#e8d5b7';
-            ctx.strokeStyle = '#b8956a';
+            ctx.fillStyle = ENGINEERING_THEME_COLORS.board;
+            ctx.strokeStyle = ENGINEERING_THEME_COLORS.boardStroke;
             ctx.lineWidth = 1.5;
             ctx.beginPath();
             ctx.roundRect(PAD_L, beamY, drawW, beamH, 3);
             ctx.fill(); ctx.stroke();
 
             // Etykiety 0 i L pod belką
-            ctx.fillStyle = '#94a3b8';
+            ctx.fillStyle = ENGINEERING_THEME_COLORS.warningText;
             ctx.font = lblFont('', 10);
             ctx.textBaseline = 'top'; ctx.textAlign = 'center';
             ctx.fillText('0', PAD_L, axisY + beamH / 2 + 4);
@@ -3579,23 +3579,23 @@
             // Marginesy — półprzezroczyste strefy
             if (ms > 0) {
                 var msX = toX(ms);
-                ctx.fillStyle = 'rgba(251,191,36,0.12)';
+                ctx.fillStyle = ENGINEERING_THEME_COLORS.marginWarn;
                 ctx.fillRect(PAD_L, beamY, msX - PAD_L, beamH);
-                ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+                ctx.strokeStyle = ENGINEERING_THEME_COLORS.marginWarnStroke; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
                 ctx.beginPath(); ctx.moveTo(msX, PAD_T - 4); ctx.lineTo(msX, H - PAD_B + 4); ctx.stroke();
                 ctx.setLineDash([]);
-                ctx.fillStyle = '#d97706'; ctx.font = 'bold 10px ' + getComputedStyle(document.body).fontFamily;
+                ctx.fillStyle = ENGINEERING_THEME_COLORS.marginLabel; ctx.font = 'bold 10px ' + getComputedStyle(document.body).fontFamily;
                 ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
                 ctx.fillText(formatNum(ms), (PAD_L + msX) / 2, beamY - 2);
             }
             if (me > 0) {
                 var meX = toX(L - me);
-                ctx.fillStyle = 'rgba(251,191,36,0.12)';
+                ctx.fillStyle = ENGINEERING_THEME_COLORS.marginWarn;
                 ctx.fillRect(meX, beamY, PAD_L + drawW - meX, beamH);
-                ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+                ctx.strokeStyle = ENGINEERING_THEME_COLORS.marginWarnStroke; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
                 ctx.beginPath(); ctx.moveTo(meX, PAD_T - 4); ctx.lineTo(meX, H - PAD_B + 4); ctx.stroke();
                 ctx.setLineDash([]);
-                ctx.fillStyle = '#d97706'; ctx.font = 'bold 10px ' + getComputedStyle(document.body).fontFamily;
+                ctx.fillStyle = ENGINEERING_THEME_COLORS.marginLabel; ctx.font = 'bold 10px ' + getComputedStyle(document.body).fontFamily;
                 ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
                 ctx.fillText(formatNum(me), (meX + PAD_L + drawW) / 2, beamY - 2);
             }
@@ -3603,7 +3603,7 @@
             // Serie — każda nad/pod osią na przemian
             var DOT_R = 11;
             allSeries.forEach(function(series, si) {
-                var color = COLORS[si % COLORS.length];
+                var color = ENGINEERING_SERIES_COLORS[si % ENGINEERING_SERIES_COLORS.length];
                 var above = si % 2 === 0;
                 var rowOffset = above ? -(DOT_R + beamH / 2 + 10) : (DOT_R + beamH / 2 + 10);
                 var pts = series.points;
@@ -3650,17 +3650,17 @@
                     ctx.arc(px, cy, DOT_R, 0, Math.PI * 2);
                     ctx.fillStyle = color;
                     ctx.fill();
-                    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+                    ctx.strokeStyle = ENGINEERING_THEME_COLORS.holeCenter; ctx.lineWidth = 2;
                     ctx.stroke();
 
                     // Numer wewnątrz kółka
-                    ctx.fillStyle = '#ffffff';
+                    ctx.fillStyle = ENGINEERING_THEME_COLORS.holeCenter;
                     ctx.font = 'bold ' + (DOT_R > 9 ? '11' : '9') + 'px ' + getComputedStyle(document.body).fontFamily;
                     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                     ctx.fillText(pi + 1, px, cy);
 
                     // Wartość pozycji pod/nad kółkiem
-                    ctx.fillStyle = '#0f172a';
+                    ctx.fillStyle = ENGINEERING_THEME_COLORS.label;
                     ctx.font = lblFont('600', 10);
                     ctx.textAlign = 'center';
                     ctx.textBaseline = above ? 'bottom' : 'top';
@@ -3672,18 +3672,18 @@
                 var legendX = PAD_L + si * 110;
                 ctx.beginPath(); ctx.arc(legendX + 6, 16, 5, 0, Math.PI * 2);
                 ctx.fillStyle = color; ctx.fill();
-                ctx.fillStyle = '#1e293b'; ctx.font = lblFont('600', 11);
+                ctx.fillStyle = ENGINEERING_THEME_COLORS.chipText; ctx.font = lblFont('600', 11);
                 ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
                 ctx.fillText(series.label || ('Seria ' + (si + 1)), legendX + 14, 16);
             });
 
             // Wymiar całkowitej długości — strzałka na górze
             var dimY = PAD_T - 22;
-            ctx.strokeStyle = '#475569'; ctx.lineWidth = 1; ctx.setLineDash([]);
+            ctx.strokeStyle = ENGINEERING_THEME_COLORS.dim; ctx.lineWidth = 1; ctx.setLineDash([]);
             ctx.beginPath(); ctx.moveTo(PAD_L, dimY); ctx.lineTo(PAD_L + drawW, dimY); ctx.stroke();
             drawArrow(ctx, PAD_L, dimY, 'left');
             drawArrow(ctx, PAD_L + drawW, dimY, 'right');
-            ctx.fillStyle = '#0f172a'; ctx.font = 'bold 12px ' + getComputedStyle(document.body).fontFamily;
+            ctx.fillStyle = ENGINEERING_THEME_COLORS.label; ctx.font = 'bold 12px ' + getComputedStyle(document.body).fontFamily;
             ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
             ctx.fillText(formatNum(L) + ' ' + unit, PAD_L + drawW / 2, dimY - 3);
         }
@@ -3700,13 +3700,13 @@
             origin = origin || 0;
 
             // [EN] Layout constants
-            var boardColor = '#e8d5b7';
-            var boardStroke = '#b8956a';
-            var holeColor = '#dc2626';
-            var holeStroke = '#991b1b';
-            var dimColor = '#475569';
-            var labelColor = '#0f172a';
-            var marginColor = 'rgba(100, 116, 139, 0.3)';
+            var boardColor = ENGINEERING_THEME_COLORS.board;
+            var boardStroke = ENGINEERING_THEME_COLORS.boardStroke;
+            var holeColor = ENGINEERING_THEME_COLORS.hole;
+            var holeStroke = ENGINEERING_THEME_COLORS.holeStroke;
+            var dimColor = ENGINEERING_THEME_COLORS.dim;
+            var labelColor = ENGINEERING_THEME_COLORS.label;
+            var marginColor = ENGINEERING_THEME_COLORS.marginFill;
 
             if (isHorizontal) {
                 // ================================================================
@@ -3721,7 +3721,7 @@
                 var boardMidY = h / 2;
 
                 // [EN] Board shadow
-                ctx.fillStyle = 'rgba(0,0,0,0.06)';
+                ctx.fillStyle = ENGINEERING_THEME_COLORS.shadowSoft;
                 ctx.beginPath();
                 ctx.roundRect(boardLeft + 3, boardTop + 3, boardWidth, boardThickness, 6);
                 ctx.fill();
@@ -3736,7 +3736,7 @@
                 ctx.stroke();
 
                 // [EN] Wood grain lines (subtle)
-                ctx.strokeStyle = 'rgba(184, 149, 106, 0.25)';
+                ctx.strokeStyle = ENGINEERING_THEME_COLORS.woodGrain;
                 ctx.lineWidth = 0.5;
                 for (var gy = boardTop + 8; gy < boardBottom; gy += 7) {
                     ctx.beginPath();
@@ -3757,7 +3757,7 @@
                     ctx.fillText(formatNum(marginStart) + ' ' + unit, boardLeft + (msX - boardLeft) / 2, boardTop - 10);
                     // [EN] Dashed line at margin end
                     ctx.setLineDash([4, 3]);
-                    ctx.strokeStyle = '#94a3b8';
+                    ctx.strokeStyle = ENGINEERING_THEME_COLORS.marginDash;
                     ctx.lineWidth = 1;
                     ctx.beginPath();
                     ctx.moveTo(msX, boardTop - 15);
@@ -3774,7 +3774,7 @@
                     ctx.textAlign = 'center';
                     ctx.fillText(formatNum(marginEnd) + ' ' + unit, meX + (boardRight - meX) / 2, boardTop - 10);
                     ctx.setLineDash([4, 3]);
-                    ctx.strokeStyle = '#94a3b8';
+                    ctx.strokeStyle = ENGINEERING_THEME_COLORS.marginDash;
                     ctx.lineWidth = 1;
                     ctx.beginPath();
                     ctx.moveTo(meX, boardTop - 15);
@@ -3814,7 +3814,7 @@
 
                     // [EN] Dashed alignment line from hole to top
                     ctx.setLineDash([2, 4]);
-                    ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
+                    ctx.strokeStyle = ENGINEERING_THEME_COLORS.alignGuide;
                     ctx.lineWidth = 0.8;
                     ctx.beginPath();
                     ctx.moveTo(x, boardMidY);
@@ -3832,7 +3832,7 @@
                     ctx.fill();
                     ctx.stroke();
                     // [EN] Hole center dot
-                    ctx.fillStyle = '#fff';
+                    ctx.fillStyle = ENGINEERING_THEME_COLORS.holeCenter;
                     ctx.beginPath();
                     ctx.arc(x, boardMidY, 1.5, 0, Math.PI * 2);
                     ctx.fill();
@@ -3855,7 +3855,7 @@
                     prevLabelEnd[rowIdx] = x + textWidth / 2;
 
                     // [EN] Label background (semi-transparent for readability)
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+                    ctx.fillStyle = ENGINEERING_THEME_COLORS.labelPlate;
                     ctx.fillRect(x - textWidth / 2 - 2, labelY - 10, textWidth + 4, 16);
                     ctx.fillStyle = labelColor;
                     ctx.textAlign = 'center';
@@ -3884,7 +3884,7 @@
                 var boardMidX = w / 2;
 
                 // [EN] Board shadow
-                ctx.fillStyle = 'rgba(0,0,0,0.06)';
+                ctx.fillStyle = ENGINEERING_THEME_COLORS.shadowSoft;
                 ctx.beginPath();
                 ctx.roundRect(boardLeftV + 3, boardTopV + 3, boardThicknessV, boardHeightV, 6);
                 ctx.fill();
@@ -3899,7 +3899,7 @@
                 ctx.stroke();
 
                 // [EN] Wood grain (vertical)
-                ctx.strokeStyle = 'rgba(184, 149, 106, 0.25)';
+                ctx.strokeStyle = ENGINEERING_THEME_COLORS.woodGrain;
                 ctx.lineWidth = 0.5;
                 for (var gx = boardLeftV + 8; gx < boardRightV; gx += 7) {
                     ctx.beginPath();
@@ -3918,7 +3918,7 @@
                     ctx.textAlign = 'right';
                     ctx.fillText(formatNum(marginStart) + ' ' + unit, boardLeftV - 12, boardTopV + (msY - boardTopV) / 2 + 4);
                     ctx.setLineDash([4, 3]);
-                    ctx.strokeStyle = '#94a3b8';
+                    ctx.strokeStyle = ENGINEERING_THEME_COLORS.marginDash;
                     ctx.lineWidth = 1;
                     ctx.beginPath();
                     ctx.moveTo(boardLeftV - 18, msY);
@@ -3935,7 +3935,7 @@
                     ctx.textAlign = 'right';
                     ctx.fillText(formatNum(marginEnd) + ' ' + unit, boardLeftV - 12, meY + (boardBottomV - meY) / 2 + 4);
                     ctx.setLineDash([4, 3]);
-                    ctx.strokeStyle = '#94a3b8';
+                    ctx.strokeStyle = ENGINEERING_THEME_COLORS.marginDash;
                     ctx.lineWidth = 1;
                     ctx.beginPath();
                     ctx.moveTo(boardLeftV - 18, meY);
@@ -3978,7 +3978,7 @@
 
                     // [EN] Dashed alignment line
                     ctx.setLineDash([2, 4]);
-                    ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
+                    ctx.strokeStyle = ENGINEERING_THEME_COLORS.alignGuide;
                     ctx.lineWidth = 0.8;
                     ctx.beginPath();
                     ctx.moveTo(boardMidX, y);
@@ -3995,7 +3995,7 @@
                     ctx.arc(boardMidX, y, holeRadius, 0, Math.PI * 2);
                     ctx.fill();
                     ctx.stroke();
-                    ctx.fillStyle = '#fff';
+                    ctx.fillStyle = ENGINEERING_THEME_COLORS.holeCenter;
                     ctx.beginPath();
                     ctx.arc(boardMidX, y, 1.5, 0, Math.PI * 2);
                     ctx.fill();
@@ -4018,14 +4018,14 @@
                     prevLabelBottom[colIdx] = labelYCenter + textHeight / 2;
 
                     // [EN] Connector line from hole to label
-                    ctx.strokeStyle = 'rgba(148, 163, 184, 0.5)';
+                    ctx.strokeStyle = ENGINEERING_THEME_COLORS.alignGuideStrong;
                     ctx.lineWidth = 0.5;
                     ctx.beginPath();
                     ctx.moveTo(boardRightV + 20, y);
                     ctx.lineTo(labelX - 4, y);
                     ctx.stroke();
 
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+                    ctx.fillStyle = ENGINEERING_THEME_COLORS.labelPlate;
                     ctx.fillRect(labelX - 4, labelYCenter - 8, ctx.measureText(labelText + ' ' + unit).width + 10, 16);
                     ctx.fillStyle = labelColor;
                     ctx.textAlign = 'left';
@@ -4037,7 +4037,7 @@
 
         /* [EN] Helper: draw small arrowheads */
         function drawArrow(ctx, x, y, direction) {
-            ctx.fillStyle = '#475569';
+            ctx.fillStyle = ENGINEERING_THEME_COLORS.dim;
             ctx.beginPath();
             var s = 5;
             switch (direction) {
@@ -5203,7 +5203,32 @@
         // od linii/wypełnień, ale nie „zabrudza" rysunku). Jedno miejsce do regulacji.
         var GRAPH_LABEL_PLATE = 'rgba(255, 255, 255, 0.25)';
         var GRAPH_SERIES_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2'];
-        var GRAPH_THEME_COLORS = {
+        var ENGINEERING_SERIES_COLORS = ['#2563eb', '#e11d48', '#16a34a', '#d97706', '#7c3aed', '#0891b2'];
+        var ENGINEERING_THEME_COLORS = {
+            warningText: '#94a3b8',
+            panelBg: '#ffffff',
+            helperGrid: 'rgba(226,232,240,0.7)',
+            axisGuide: '#cbd5e1',
+            board: '#e8d5b7',
+            boardStroke: '#b8956a',
+            marginFill: 'rgba(100, 116, 139, 0.3)',
+            marginDash: '#94a3b8',
+            marginLabel: '#d97706',
+            marginWarn: 'rgba(251,191,36,0.12)',
+            marginWarnStroke: '#fbbf24',
+            hole: '#dc2626',
+            holeStroke: '#991b1b',
+            dim: '#475569',
+            label: '#0f172a',
+            chipText: '#1e293b',
+            shadowSoft: 'rgba(0,0,0,0.06)',
+            woodGrain: 'rgba(184, 149, 106, 0.25)',
+            alignGuide: 'rgba(148, 163, 184, 0.4)',
+            alignGuideStrong: 'rgba(148, 163, 184, 0.5)',
+            holeCenter: '#fff',
+            labelPlate: 'rgba(255, 255, 255, 0.55)'
+        };
+        var GRAPH_THEME_DEFAULTS = {
             paper: '#f8fafc',
             grid: '#e2e8f0',
             axisText: '#64748b',
@@ -5214,6 +5239,27 @@
             labelPlate: 'rgba(255,255,255,0.55)',
             alert: '#dc2626'
         };
+        var GRAPH_THEME_COLORS = Object.assign({}, GRAPH_THEME_DEFAULTS);
+        // [EN] Canvas colors follow CSS tokens (light/dark) with hard fallbacks.
+        function refreshGraphThemeColors() {
+            if (typeof window === 'undefined' || !window.getComputedStyle || !document || !document.documentElement) return;
+            var rootStyles = window.getComputedStyle(document.documentElement);
+            function _readVar(name, fallback) {
+                var v = rootStyles.getPropertyValue(name);
+                v = v ? String(v).trim() : '';
+                return v || fallback;
+            }
+            GRAPH_THEME_COLORS.paper = _readVar('--graph-canvas-paper', GRAPH_THEME_DEFAULTS.paper);
+            GRAPH_THEME_COLORS.grid = _readVar('--graph-canvas-grid', GRAPH_THEME_DEFAULTS.grid);
+            GRAPH_THEME_COLORS.axisText = _readVar('--graph-canvas-axis-text', GRAPH_THEME_DEFAULTS.axisText);
+            GRAPH_THEME_COLORS.axisStroke = _readVar('--graph-canvas-axis-stroke', GRAPH_THEME_DEFAULTS.axisStroke);
+            GRAPH_THEME_COLORS.pointFill = _readVar('--graph-canvas-point-fill', GRAPH_THEME_DEFAULTS.pointFill);
+            GRAPH_THEME_COLORS.pointStroke = _readVar('--graph-canvas-point-stroke', GRAPH_THEME_DEFAULTS.pointStroke);
+            GRAPH_THEME_COLORS.pointLabel = _readVar('--graph-canvas-point-label', GRAPH_THEME_DEFAULTS.pointLabel);
+            GRAPH_THEME_COLORS.labelPlate = _readVar('--graph-canvas-label-plate', GRAPH_THEME_DEFAULTS.labelPlate);
+            GRAPH_THEME_COLORS.alert = _readVar('--graph-canvas-alert', GRAPH_THEME_DEFAULTS.alert);
+            GRAPH_LABEL_PLATE = _readVar('--graph-canvas-smart-label-bg', GRAPH_LABEL_PLATE);
+        }
         function computeLabelScale() {
             // [EN] Viewport świata: zoom zmienia widoczny zakres i przerysowuje wektorowo,
             // więc 1 px logiczny = 1 px CSS. Etykiety mają STAŁĄ wielkość (graphLabelScale=1)
@@ -5271,6 +5317,7 @@
         }
 
         function drawGraphBase(bounds) {
+            refreshGraphThemeColors();
             var ctx = graphCtx;
             var dims = setCanvasHiDPI(graphCanvas, ctx);
             var w = dims.w;
