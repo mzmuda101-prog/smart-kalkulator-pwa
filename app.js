@@ -251,6 +251,7 @@
                     var old = [].concat(STATE.recentCommands.engineering || [], STATE.recentCommands.graph || []);
                     STATE.recentCommands.graph = old.slice(0, 6);
                 }
+                if (Object.prototype.hasOwnProperty.call(STATE.recentCommands, 'engineering')) delete STATE.recentCommands.engineering;
                 const fx = localStorage.getItem(STORAGE_KEYS.fxRates);
                 if (fx) {
                     const fxObj = JSON.parse(fx);
@@ -268,6 +269,16 @@
                     // Migracja starej pojedynczej notatki (matm0_notepad) → pierwsza notatka tablicy.
                     const npOld = localStorage.getItem(STORAGE_KEYS.notepad);
                     _npNotes = [{ id: _npNewId(), text: npOld != null ? npOld : '', updatedAt: Date.now() }];
+                    _npCurrentId = _npNotes[0].id;
+                }
+                var _npSeenIds = {};
+                _npNotes = _npNotes.filter(function(n) {
+                    if (!n || typeof n.id !== 'string' || _npSeenIds[n.id]) return false;
+                    _npSeenIds[n.id] = 1;
+                    return true;
+                });
+                if (!_npNotes.length) {
+                    _npNotes = [{ id: _npNewId(), text: '', updatedAt: Date.now() }];
                     _npCurrentId = _npNotes[0].id;
                 }
                 const npg = localStorage.getItem(STORAGE_KEYS.notepadGlobals);
@@ -3376,28 +3387,28 @@
             return div.innerHTML;
         }
 
-        function getCommandErrorEl(target) {
+        function getCommandErrorEl() {
             return graphCommandError;
         }
 
-        function setCommandError(target, message) {
-            var el = getCommandErrorEl(target);
+        function setCommandError(message) {
+            var el = getCommandErrorEl();
             if (!el) return;
             el.textContent = message || '';
         }
 
-        function recordRecentCommand(target, command) {
+        function recordRecentCommand(command) {
             var value = String(command || '').trim();
             if (!value) return;
-            if (!STATE.recentCommands) STATE.recentCommands = { engineering: [], graph: [] };
-            var list = STATE.recentCommands[target] || [];
+            if (!STATE.recentCommands) STATE.recentCommands = { graph: [] };
+            var list = STATE.recentCommands.graph || [];
             list = [value].concat(list.filter(function(item) { return item !== value; })).slice(0, 6);
-            STATE.recentCommands[target] = list;
+            STATE.recentCommands.graph = list;
             saveRecentCommands();
-            renderRecentCommands(target);
+            renderRecentCommands();
         }
 
-        function renderRecentCommands(target) {
+        function renderRecentCommands() {
             var box = graphRecentCommands;
             if (!box) return;
             var list = (STATE.recentCommands && STATE.recentCommands.graph) || [];
@@ -3419,7 +3430,7 @@
         }
 
         function renderAllRecentCommands() {
-            renderRecentCommands('graph');
+            renderRecentCommands();
         }
 
         /* ============================================================
@@ -5443,17 +5454,6 @@
             });
         }
 
-        function parseMultiSeriesCommand(raw) {
-            var parsed = parseCommandSeries(raw);
-            if (!parsed.length) return null;
-            var configs = [];
-            for (var i = 0; i < parsed.length; i++) {
-                if (parsed[i].type !== 'division' || !parsed[i].data.axis) return null;
-                configs.push(parsed[i].data);
-            }
-            return configs;
-        }
-
         function splitCommandSeries(raw) {
             return String(raw || '')
                 .split(/\s*;;\s*|\n+/)
@@ -7086,7 +7086,7 @@
         function updateGraph() {
             var command = graphCommand.value.trim();
             var bounds = getGraphBounds();
-            setCommandError('graph', '');
+            setCommandError('');
             // Domyślnie kadr wykresu (pion na mobilce); belka 1D ustawi sobie szeroki kadr niżej.
             if (typeof graphContainer !== 'undefined' && graphContainer) graphContainer.classList.remove('scene-eng');
             // Nowa komenda = świeża widoczność serii i odpięte etykiety; legendę pokaże render.
@@ -7119,7 +7119,7 @@
                     // Szeroki, krótki kadr dla poziomej belki (przed rysowaniem — by rozmiar canvasa był poprawny).
                     if (typeof graphContainer !== 'undefined' && graphContainer) graphContainer.classList.add('scene-eng');
                     renderAsEngineering(parsedSeries);
-                    recordRecentCommand('graph', command);
+                    recordRecentCommand(command);
                     return;
                 }
 
@@ -7238,12 +7238,12 @@
                 graphScene.bodyText = resultLines.join('\n\n') || ('Rysuję: ' + stripFunctionPrefix(command));
                 renderGraphScene(graphScene, bounds);
                 setGraphResultText(graphScene, bounds);
-                recordRecentCommand('graph', command);
+                recordRecentCommand(command);
 
             } catch (err) {
                 graphScene = { type: 'empty' };
                 drawGraphBase(bounds);
-                setCommandError('graph', err.message || 'Nieprawidłowa komenda.');
+                setCommandError(err.message || 'Nieprawidłowa komenda.');
                 graphResult.textContent = '⚠️ ' + err.message +
                     '\n\nPrzykłady:\n  f(x)=sin(x)\n  rect=400x300\n  siatka=400x300 | co=100x100\n  punkt=150;200 | label=A\n  x(d)=120/4 | m=10 | y=0';
             }
@@ -8148,12 +8148,15 @@
         function npNewFromTemplate(tplId) { // T3-13
             var tpl = _NP_TEMPLATES.filter(function(t) { return t.id === tplId; })[0];
             if (!tpl) return;
-            _npStashCurrent();
+            var prevId = _npCurrentId;
+            _npCancelPersistTimer();
+            _npStashToNote(prevId);
             var n = { id: _npNewId(), text: tpl.text, updatedAt: Date.now() };
             _npNotes.unshift(n);
             _npCurrentId = n.id;
-            flushNotepadPersist();
+            flushNotepadPersist(true);
             _npLoadCurrent();
+            npRenderList();
             npCloseList();
             if (!document.body.classList.contains('notepad-open')) openNotepad();
             showToast('📝 ' + tpl.title, 'success');
@@ -8166,7 +8169,7 @@
             if (cur && !String(cur.text || '').trim()) {
                 cur.text = tpl.text;
                 cur.updatedAt = Date.now();
-                flushNotepadPersist();
+                flushNotepadPersist(true);
                 _npLoadCurrent();
                 npCloseList();
                 if (!document.body.classList.contains('notepad-open')) openNotepad();
@@ -9190,8 +9193,12 @@
         }
         // ── Wiele notatek ─────────────────────────────────────────────
         function _npNewId() { return 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+        function _npNoteById(id) {
+            if (!id) return null;
+            return _npNotes.filter(function(x) { return x.id === id; })[0] || null;
+        }
         function _npCurrentNote() {
-            var n = _npNotes.filter(function(x) { return x.id === _npCurrentId; })[0];
+            var n = _npNoteById(_npCurrentId);
             if (!n) { n = _npNotes[0]; _npCurrentId = n ? n.id : null; }
             return n || null;
         }
@@ -9216,8 +9223,11 @@
             catch (e) { showToast('⚠️ Brak miejsca na notatnik', 'error'); }
         }
         var _npPersistTimer = null;
+        function _npCancelPersistTimer() {
+            if (_npPersistTimer) { clearTimeout(_npPersistTimer); _npPersistTimer = null; }
+        }
         function scheduleNotepadPersist() { // [EN] Debounce localStorage — npRecompute stays sync on each keystroke
-            if (_npPersistTimer) clearTimeout(_npPersistTimer);
+            _npCancelPersistTimer();
             _npPersistTimer = setTimeout(function() {
                 _npPersistTimer = null;
                 _npStashCurrent();
@@ -9225,18 +9235,19 @@
                 saveNotepad();
             }, 450);
         }
-        function flushNotepadPersist() {
-            if (_npPersistTimer) { clearTimeout(_npPersistTimer); _npPersistTimer = null; }
-            _npStashCurrent();
+        function flushNotepadPersist(skipStash) { // [EN] skipStash=true after _npCurrentId change — editor still shows previous note
+            _npCancelPersistTimer();
+            if (!skipStash) _npStashCurrent();
             saveGlobals();
             saveNotepad();
         }
-        function _npStashCurrent() { // zapisz treść z edytora do bieżącej notatki (bez przerysowania)
-            var n = _npCurrentNote();
+        function _npStashToNote(noteId) { // [EN] explicit id — safe before _npCurrentId changes
+            var n = noteId ? _npNoteById(noteId) : _npCurrentNote();
             if (!n || !npEditor) return;
             if (!document.body.classList.contains('notepad-open')) return; // [EN] closed overlay — keep stored text (Node tests + append)
             n.text = _npSerialize(); n.updatedAt = Date.now();
         }
+        function _npStashCurrent() { _npStashToNote(_npCurrentId); } // zapisz treść z edytora do bieżącej notatki (bez przerysowania)
         function _npCommit() { _npStashCurrent(); _npRebuildGlobals(); npRecompute(); npRenderTitle(); scheduleNotepadPersist(); }
         function npRenderTitle() {
             var note = _npCurrentNote();
@@ -9277,23 +9288,50 @@
             npBuildRows(n ? n.text : '');
             npRenderTitle();
         }
+        function _npReloadFromStorage() { // [EN] other tab saved notepads — sync model + editor if open
+            try {
+                var raw = localStorage.getItem(STORAGE_KEYS.notepads);
+                if (!raw) return;
+                var obj = JSON.parse(raw);
+                if (!obj || !Array.isArray(obj.notes)) return;
+                var seen = {};
+                _npNotes = obj.notes.filter(function(n) {
+                    if (!n || typeof n.id !== 'string' || seen[n.id]) return false;
+                    seen[n.id] = 1;
+                    return true;
+                });
+                if (!_npNotes.length) return;
+                var nextId = _npNoteById(obj.currentId) ? obj.currentId : _npNotes[0].id;
+                var idChanged = nextId !== _npCurrentId;
+                _npCurrentId = nextId;
+                if (document.body.classList.contains('notepad-open')) _npLoadCurrent();
+                else if (idChanged) npRenderTitle();
+                if (npListPanel && npListPanel.classList.contains('open')) npRenderList();
+            } catch (e) {}
+        }
         function npSwitchNote(id) {
             if (id === _npCurrentId) { npCloseList(); return; }
-            _npStashCurrent();              // zachowaj bieżącą zanim przełączysz
+            var prevId = _npCurrentId;
+            _npCancelPersistTimer();
+            _npStashToNote(prevId);         // [EN] zawsze do poprzedniej — nie polegaj na _npCurrentId
             _npCurrentId = id;
-            flushNotepadPersist();
+            flushNotepadPersist(true);      // [EN] nie stashuj — textarea ma jeszcze treść poprzedniej notatki
             _npLoadCurrent();
+            npRenderList();
             npCloseList();
             var f = npBody;
             if (f) { f.focus(); var L = f.value.length; try { f.setSelectionRange(L, L); } catch (_) {} }
         }
         function npNewNote() {
-            _npStashCurrent();
+            var prevId = _npCurrentId;
+            _npCancelPersistTimer();
+            _npStashToNote(prevId);
             var n = { id: _npNewId(), text: '', updatedAt: Date.now() };
             _npNotes.unshift(n);
             _npCurrentId = n.id;
-            flushNotepadPersist();
+            flushNotepadPersist(true);
             _npLoadCurrent();
+            npRenderList();
             npCloseList();
             if (npBody) npBody.focus();
         }
@@ -9301,10 +9339,14 @@
             var wasCurrent = id === _npCurrentId;
             _npNotes = _npNotes.filter(function(x) { return x.id !== id; });
             if (!_npNotes.length) _npNotes = [{ id: _npNewId(), text: '', updatedAt: Date.now() }];
-            if (wasCurrent) _npCurrentId = _npNotes[0].id;
-            flushNotepadPersist();
+            if (wasCurrent) {
+                _npCurrentId = _npNotes[0].id;
+                flushNotepadPersist(true);
+                _npLoadCurrent();
+            } else {
+                flushNotepadPersist();
+            }
             npRenderList();
-            if (wasCurrent) _npLoadCurrent();
         }
 
         // Panel listy notatek (slajd nad edytorem). Swipe w lewo → potwierdzenie (jak historia).
@@ -9665,6 +9707,10 @@
         }
         if (npNewBtn) npNewBtn.addEventListener('click', npNewNote);
         if (npLearnExampleBtn) npLearnExampleBtn.addEventListener('click', npInsertLearnExample);
+        window.addEventListener('storage', function(e) { // [EN] sync notepads when another tab writes localStorage
+            if (!e || e.storageArea !== localStorage || e.key !== STORAGE_KEYS.notepads) return;
+            _npReloadFromStorage();
+        });
         if (npTemplateList) {
             npTemplateList.addEventListener('click', function(e) {
                 var btn = e.target.closest('.np-template-btn');
@@ -11851,6 +11897,42 @@
                 evalNotepadLines(noteApp.text).some(function(x) { return x.value === 6; });
             results.push({ expr: 'T1-2 appendToNotepad', pass: appendOk, got: noteApp ? noteApp.text : null });
             _npNotes = savedNotesB; _npCurrentId = savedIdB;
+            // Przełączanie notatek — treść docelowej nie może zostać nadpisana przez poprzednią
+            var savedNotesSw = JSON.parse(JSON.stringify(_npNotes)), savedIdSw = _npCurrentId;
+            var hadNotepadOpen = document.body.classList.contains('notepad-open');
+            _npNotes = [
+                { id: 'sw-a', text: 'Treść notatki A', updatedAt: 1 },
+                { id: 'sw-b', text: 'Treść notatki B', updatedAt: 2 }
+            ];
+            _npCurrentId = 'sw-a';
+            document.body.classList.add('notepad-open');
+            setupNpEditor();
+            npBuildRows('Treść notatki A');
+            npSwitchNote('sw-b');
+            var noteA = _npNotes.filter(function(x) { return x.id === 'sw-a'; })[0];
+            var noteB = _npNotes.filter(function(x) { return x.id === 'sw-b'; })[0];
+            var switchOk = _npCurrentId === 'sw-b' && noteA && noteB &&
+                noteA.text === 'Treść notatki A' && noteB.text === 'Treść notatki B' &&
+                npBody && npBody.value === 'Treść notatki B';
+            if (!hadNotepadOpen) document.body.classList.remove('notepad-open');
+            _npNotes = savedNotesSw; _npCurrentId = savedIdSw;
+            results.push({ expr: 'npSwitchNote nie nadpisuje docelowej', pass: switchOk, got: switchOk ? 'ok' : JSON.stringify({ a: noteA && noteA.text, b: noteB && noteB.text, ed: npBody && npBody.value }) });
+            // Debounce persist — szybka nowa notatka nie może wlać starej treści do świeżej
+            var savedNotesDb = JSON.parse(JSON.stringify(_npNotes)), savedIdDb = _npCurrentId;
+            var hadOpenDb = document.body.classList.contains('notepad-open');
+            _npNotes = [{ id: 'db-a', text: 'DEB_A', updatedAt: 1 }];
+            _npCurrentId = 'db-a';
+            document.body.classList.add('notepad-open');
+            setupNpEditor();
+            npBuildRows('DEB_A_EDIT');
+            scheduleNotepadPersist();
+            npNewNote();
+            var dbA = _npNotes.filter(function(x) { return x.id === 'db-a'; })[0];
+            var dbNew = _npCurrentNote();
+            var debounceOk = dbA && dbA.text === 'DEB_A_EDIT' && dbNew && dbNew.text === '';
+            if (!hadOpenDb) document.body.classList.remove('notepad-open');
+            _npNotes = savedNotesDb; _npCurrentId = savedIdDb;
+            results.push({ expr: 'npNewNote + debounce persist', pass: debounceOk, got: debounceOk ? 'ok' : JSON.stringify({ a: dbA && dbA.text, n: dbNew && dbNew.text }) });
             // T3-14 — eksport Markdown
             var savedNotesE = JSON.parse(JSON.stringify(_npNotes)), savedIdE = _npCurrentId;
             _npNotes = [{ id: 'e1', text: 'Netto: 100\nVAT: 23', updatedAt: Date.now() }];

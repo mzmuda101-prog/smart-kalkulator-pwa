@@ -12,6 +12,19 @@ const vm = require('vm');
 const DIR = path.join(__dirname, "..");
 
 // ── Atrapa DOM: rekurencyjny Proxy na funkcji (callable + indeksowalny). ──
+function makeClassList() { // [EN] track classes for notepad-open stash tests
+  const set = new Set();
+  return {
+    add() { for (let i = 0; i < arguments.length; i++) set.add(arguments[i]); },
+    remove() { for (let i = 0; i < arguments.length; i++) set.delete(arguments[i]); },
+    toggle(c, force) {
+      if (force === undefined) force = !set.has(c);
+      force ? set.add(c) : set.delete(c);
+      return force;
+    },
+    contains(c) { return set.has(c); },
+  };
+}
 function fake() {
   const store = {};
   const t = function () {};
@@ -20,7 +33,7 @@ function fake() {
       if (p === Symbol.toPrimitive) return () => 0;
       if (p === Symbol.iterator) return undefined;
       if (p === 'dataset') return store.__ds || (store.__ds = {});
-      if (p === 'classList') return { add(){}, remove(){}, toggle(){}, contains(){return false} };
+      if (p === 'classList') return store.__cl || (store.__cl = makeClassList());
       if (p === 'style') return store.__st || (store.__st = fake());
       if (p in store) return store[p];
       if (p === 'length') return 0;
