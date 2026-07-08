@@ -778,9 +778,9 @@
         // Temperatura jest skalą afiniczną (offset) → osobna obsługa niżej.
         // Tablice danych przeniesione do js/data-tables.js (clean look) — czytamy z namespace.
         var CALC_UNIT_CATEGORIES = (window.MATM0_DATA || {}).UNIT_CATEGORIES || {};
-        var _PARSER_BOOT = (typeof window !== 'undefined' && window.MATM0_PARSER) || {};
-        var _unitRegistry = (typeof _PARSER_BOOT.buildUnitRegistry === 'function')
-            ? _PARSER_BOOT.buildUnitRegistry(CALC_UNIT_CATEGORIES)
+        var _PARSER = (typeof window !== 'undefined' && window.MATM0_PARSER) || {}; // [EN] single parser handle for units + currency + time
+        var _unitRegistry = (typeof _PARSER.buildUnitRegistry === 'function')
+            ? _PARSER.buildUnitRegistry(CALC_UNIT_CATEGORIES)
             : null;
 
         // Płaska mapa: nazwa jednostki (lowercase) → { cat, factor, base }
@@ -1244,7 +1244,6 @@
            smart-parsera (czas, teraz daty). Tu tylko cienkie wiązanie.
            „za 3 tygodnie", „ile dni do 1.09", „dziś + 90 dni" → evalDateExpression.
            ============================================================ */
-        var _PARSER = (typeof window !== 'undefined' && window.MATM0_PARSER) || {};
         var evalClockExpression = _PARSER.evalClockExpression || function() { return null; };
         var evalDateExpression = _PARSER.evalDateExpression || function() { return null; };
         var evalPeriodPercentage = _PARSER.evalPeriodPercentage || function() { return null; };
@@ -1257,25 +1256,19 @@
            ============================================================ */
         // Aliasy → kod ISO. Kody z NBP (np. CZK) dochodzą dynamicznie z pobranych kursów.
         // UWAGA: NIE mapujemy „funt" na GBP — „funt" to już jednostka masy.
-        // _CUR_ALIAS przeniesione do js/data-tables.js (clean look).
-        var _CUR_ALIAS = (window.MATM0_DATA || {}).CUR_ALIAS || {};
-        var _CUR_DISPLAY_SYM = (window.MATM0_DATA || {}).CUR_DISPLAY_SYM || {};
         var FX_TTL_MS = 6 * 3600 * 1000; // 6 h — po tym czasie odśwież w tle
 
         function _currencyTokenMap() {
             if (typeof _PARSER.currencyTokenMap === 'function') {
                 return _PARSER.currencyTokenMap((STATE.fx && STATE.fx.rates) || {});
             }
+            // Minimalny awaryjny fallback: tylko kody z dostępnych kursów.
             var map = {};
-            Object.keys(_CUR_ALIAS).forEach(function(k) { map[k] = _CUR_ALIAS[k]; });
             var rates = STATE.fx.rates || {};
-            Object.keys(rates).forEach(function(code) { map[code.toLowerCase()] = code; });
+            Object.keys(rates).forEach(function(code) {
+                map[code.toLowerCase()] = code;
+            });
             return map;
-        }
-        function _currencyRate(code) {
-            if (code === 'PLN') return 1;
-            var rates = STATE.fx.rates || {};
-            return rates[code] != null ? rates[code] : null; // PLN za 1 jednostkę
         }
         function _currencyDisplay(code) {
             if (typeof _PARSER.currencyDisplay === 'function') {
@@ -1284,14 +1277,10 @@
                 });
             }
             if (!code) return code;
-            if (code === 'PLN') return 'zł';
-            var compact = !(STATE.settings && STATE.settings.currencyCompactSymbols === false);
-            if (compact && _CUR_DISPLAY_SYM[code]) return _CUR_DISPLAY_SYM[code];
-            return code;
+            return code === 'PLN' ? 'zł' : code;
         }
         function _fxReady() { return STATE.fx.rates && Object.keys(STATE.fx.rates).length > 1; }
         function _fxFresh() { return STATE.fx.ts && (Date.now() - STATE.fx.ts) < FX_TTL_MS; }
-        function _needsFxTable(code) { return code && code !== 'PLN'; } // [EN] PLN rate is always 1 — no API fetch
 
         function _currencyTokenRe() {
             if (typeof _PARSER.currencyTokenRe === 'function') {
@@ -1311,65 +1300,6 @@
             return re.test(String(raw || ''));
         }
 
-        // Zwraca { expr, unit, valueInBase(PLN), hasCurrency, pending } analogicznie do resolveCalcUnits.
-        function _resolveCalcCurrencyLocal(raw) {
-            var map = _currencyTokenMap();
-            var tokenRe = _currencyTokenRe();
-            if (!tokenRe) return { expr: raw, unit: null, hasCurrency: false, pending: false };
-
-            // 1) Konwersja „EXPR na <waluta>"
-            var convRe = new RegExp('^(.+?)\\s+(?:na|do|in|to|w)\\s+(' + tokenRe + ')(?![a-ząćęłńóśźż0-9])\\s*$', 'i');
-            var cm = raw.match(convRe);
-            if (cm) {
-                var targetCode = map[cm[2].toLowerCase()];
-                var inner = _resolveCalcCurrencyLocal(cm[1].trim());
-                if (inner.hasCurrency) {
-                    var tRate = _currencyRate(targetCode);
-                    if (inner.pending || tRate == null || (_needsFxTable(targetCode) && !_fxReady())) {
-                        return { expr: raw, unit: null, hasCurrency: true, pending: true };
-                    }
-                    var converted = inner.valueInBase / tRate;
-                    return { expr: String(converted), unit: _currencyDisplay(targetCode), valueInBase: inner.valueInBase, hasCurrency: true, pending: false };
-                }
-            }
-
-            // 2) Kwoty walutowe → wartości w WALUCIE ROBOCZEJ (pierwsza napotkana). Model
-            // „waluta jako etykieta" (jak jednostki miernicze): liczby liczą się jak wpisane,
-            // a wynik skalujemy do waluty DOMYŚLNEJ przez curMul — stosowane w evalCalcExpression
-            // PO fn(0) (i po vat/%, które liczą się później), więc niczego nie psuje. Naprawia
-            // „100 usd * 4 usd" (był nonsens „6241 zł") i trzyma + − bez zmian.
-            var totalPln = 0, hasCurrency = false, pending = false, workRate = null, workCode = null;
-            var amountRe = new RegExp('([\\d.,]+)\\s*(' + tokenRe + ')(?![a-ząćęłńóśźż0-9])', 'gi');
-            var revAmountRe = new RegExp('\\b(' + tokenRe + ')\\s*([\\d.,]+)(?![a-ząćęłńóśźż0-9])', 'gi');
-            var expr = raw.replace(amountRe, function(m, num, tok) {
-                hasCurrency = true;
-                var code = map[tok.toLowerCase()];
-                var rate = _currencyRate(code);
-                if (rate == null || (_needsFxTable(code) && !_fxReady())) { pending = true; return m; }
-                if (workRate == null) { workRate = rate; workCode = code; } // [EN] first currency token wins
-                var n = parseFloat(num.replace(',', '.'));
-                totalPln += n * rate;
-                return String(n * rate / workRate); // kwota w walucie roboczej
-            });
-            expr = expr.replace(revAmountRe, function(m, tok, num) {
-                hasCurrency = true;
-                var code = map[tok.toLowerCase()];
-                var rate = _currencyRate(code);
-                if (rate == null || (_needsFxTable(code) && !_fxReady())) { pending = true; return m; }
-                if (workRate == null) { workRate = rate; workCode = code; }
-                var n = parseFloat(num.replace(',', '.'));
-                totalPln += n * rate;
-                return String(n * rate / workRate);
-            });
-            if (!hasCurrency) return { expr: raw, unit: null, hasCurrency: false, pending: false };
-            if (pending) return { expr: raw, unit: null, hasCurrency: true, pending: true };
-            // Gołe sumy/wyniki walutowe pokazujemy w walucie DOMYŚLNEJ (ustawienia). PLN zostaje
-            // wewnętrzną osią (valueInBase = suma PLN, dla „na"). curMul: robocza → domyślna.
-            var def = (STATE.settings && STATE.settings.defaultCurrency) || 'PLN';
-            var defRate = _currencyRate(def);
-            if (defRate == null) return { expr: raw, unit: null, hasCurrency: true, pending: true };
-            return { expr: expr, unit: _currencyDisplay(def), valueInBase: totalPln, hasCurrency: true, pending: false, curMul: workRate / defRate, workCode: workCode };
-        }
         function resolveCalcCurrency(raw) {
             if (typeof _PARSER.resolveCurrencyExpression === 'function') {
                 return _PARSER.resolveCurrencyExpression(raw, {
@@ -1379,7 +1309,8 @@
                     currencyCompactSymbols: !(STATE.settings && STATE.settings.currencyCompactSymbols === false),
                 });
             }
-            return _resolveCalcCurrencyLocal(raw);
+            // Minimalny awaryjny fallback: brak parsera walut.
+            return { expr: String(raw || ''), unit: null, hasCurrency: false, pending: false };
         }
 
         // ── Dwa silniki kursów ──────────────────────────────────────────
