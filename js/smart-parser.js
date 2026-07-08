@@ -252,6 +252,42 @@
         if (workUnitLabel && workFactor) return { expr: expr, unit: workUnitLabel, cat: cat, valueInBase: totalBase, displayFactor: workFactor, workFactor: workFactor };
         return { expr: expr, unit: baseUnit, cat: cat, valueInBase: totalBase, workFactor: workFactor };
     }
+    function analyzeUnitMix(raw, options) {
+        var opts = options || {};
+        var unitDefs = opts.unitDefs || {};
+        var unitNamesRe = opts.unitNamesRe || Object.keys(unitDefs)
+            .sort(function(a, b) { return b.length - a.length; })
+            .map(function(u) { return String(u).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); })
+            .join('|');
+        var tokenRe = _currencyTokenRe(_currencyTokenMap(opts.fxRates || {}));
+        var hits = [];
+        var s = String(raw || '');
+        var m;
+        if (tokenRe) {
+            var amountRe = new RegExp('([\\d.,]+)\\s*(' + tokenRe + ')(?![a-ząćęłńóśźż0-9])', 'gi');
+            while ((m = amountRe.exec(s)) !== null) hits.push({ idx: m.index, kind: 'currency' });
+            var revAmountRe = new RegExp('\\b(' + tokenRe + ')\\s*([\\d.,]+)(?![a-ząćęłńóśźż0-9])', 'gi');
+            while ((m = revAmountRe.exec(s)) !== null) hits.push({ idx: m.index, kind: 'currency' });
+        }
+        if (unitNamesRe) {
+            var unitRe = new RegExp('([\\d.,]+)\\s*(' + unitNamesRe + ')(?![A-Za-z0-9])', 'gi');
+            while ((m = unitRe.exec(s)) !== null) {
+                var def = unitDefs[m[2].toLowerCase()];
+                if (!def) continue;
+                hits.push({ idx: m.index, kind: 'physical', cat: def.cat, dimensionless: !!(def.custom && def.dimensionless) });
+            }
+        }
+        hits.sort(function(a, b) { return a.idx - b.idx; });
+        var hasCur = false, hasDimPhys = false, physCats = {};
+        hits.forEach(function(h) {
+            if (h.kind === 'currency') hasCur = true;
+            else if (h.kind === 'physical' && !h.dimensionless) { hasDimPhys = true; physCats[h.cat] = 1; }
+        });
+        return {
+            hits: hits,
+            needsFirstWins: (hasCur && hasDimPhys) || Object.keys(physCats).length > 1
+        };
+    }
 
     function _nowMinutes() { var d = _now(); return d.getHours() * 60 + d.getMinutes(); }
     // Token zegara → minuty doby (0..1439) lub null. Akceptuje HH:MM (nie „teraz" — to datetime w evalDateExpression).
@@ -814,6 +850,7 @@
         currencyDisplay: _currencyDisplay,
         hasCurrencyInInput: hasCurrencyInInput,
         resolveUnitsExpression: resolveUnitsExpression,
+        analyzeUnitMix: analyzeUnitMix,
         time: _TIME,                       // prymityw czasu (parseSeconds, units, base)
         parseDurationMinutes: _parseDuration,
         evalClockExpression: evalClockExpression,

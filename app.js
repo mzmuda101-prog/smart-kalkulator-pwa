@@ -779,13 +779,11 @@
         // Tablice danych przeniesione do js/data-tables.js (clean look) — czytamy z namespace.
         var CALC_UNIT_CATEGORIES = (window.MATM0_DATA || {}).UNIT_CATEGORIES || {};
         var _PARSER = (typeof window !== 'undefined' && window.MATM0_PARSER) || {}; // [EN] single parser handle for units + currency + time
-        var _unitRegistry = (typeof _PARSER.buildUnitRegistry === 'function')
-            ? _PARSER.buildUnitRegistry(CALC_UNIT_CATEGORIES)
-            : null;
+        var _unitRegistry = _PARSER.buildUnitRegistry(CALC_UNIT_CATEGORIES);
 
         // Płaska mapa: nazwa jednostki (lowercase) → { cat, factor, base }
-        var CALC_UNITS = (_unitRegistry && _unitRegistry.units) || {};
-        var CALC_UNIT_DISPLAY = (_unitRegistry && _unitRegistry.display) || {}; // lowercase → oryginalna pisownia (np. „mb" → „MB")
+        var CALC_UNITS = _unitRegistry.units || {};
+        var CALC_UNIT_DISPLAY = _unitRegistry.display || {}; // lowercase → oryginalna pisownia (np. „mb" → „MB")
 
         // PL: odmiana jednostek słownych w wyniku (1 stopa · 2 stopy · 5 stóp).
         function inflectDisplayUnit(value, unit) {
@@ -1178,52 +1176,15 @@
             var unitRe = new RegExp('([\\d.,]+)\\s*(' + _UNIT_NAMES_RE + ')(?![A-Za-z0-9])', 'gi');
             return String(raw || '').replace(unitRe, '$1');
         }
-        // [EN] Scan currency + physical tokens in source order (after constants expanded)
-        function _collectExprUnits(raw) {
-            var hits = [], s = String(raw || ''), m;
-            var tokenRe = _currencyTokenRe();
-            if (tokenRe) {
-                var amountRe = new RegExp('([\\d.,]+)\\s*(' + tokenRe + ')(?![a-ząćęłńóśźż0-9])', 'gi');
-                while ((m = amountRe.exec(s)) !== null) hits.push({ idx: m.index, kind: 'currency' });
-                var revAmountRe = new RegExp('\\b(' + tokenRe + ')\\s*([\\d.,]+)(?![a-ząćęłńóśźż0-9])', 'gi');
-                while ((m = revAmountRe.exec(s)) !== null) hits.push({ idx: m.index, kind: 'currency' });
-            }
-            if (_UNIT_NAMES_RE) {
-                var unitRe = new RegExp('([\\d.,]+)\\s*(' + _UNIT_NAMES_RE + ')(?![A-Za-z0-9])', 'gi');
-                while ((m = unitRe.exec(s)) !== null) {
-                    var def = CALC_UNITS[m[2].toLowerCase()];
-                    if (!def) continue;
-                    hits.push({ idx: m.index, kind: 'physical', cat: def.cat, dimensionless: !!(def.custom && def.dimensionless) });
-                }
-            }
-            hits.sort(function(a, b) { return a.idx - b.idx; });
-            return hits;
-        }
-        // [EN] True when incompatible units appear (currency×physical or two physical categories)
-        function _unitMixNeedsFirstWins(hits) {
-            if (!hits || !hits.length) return false;
-            var hasCur = false, hasDimPhys = false, physCats = {};
-            hits.forEach(function(h) {
-                if (h.kind === 'currency') hasCur = true;
-                else if (h.kind === 'physical' && !h.dimensionless) { hasDimPhys = true; physCats[h.cat] = 1; }
-            });
-            if (hasCur && hasDimPhys) return true;
-            return Object.keys(physCats).length > 1;
-        }
-
         function resolveCalcUnits(raw, opts) {
             opts = opts || {};
-            if (typeof _PARSER.resolveUnitsExpression === 'function') {
-                return _PARSER.resolveUnitsExpression(raw, {
-                    firstUnitWins: !!opts.firstUnitWins,
-                    unitDefs: CALC_UNITS,
-                    unitDisplay: CALC_UNIT_DISPLAY,
-                    unitNamesRe: _UNIT_NAMES_RE,
-                    defaultUnits: (STATE.settings && STATE.settings.defaultUnits) || {},
-                });
-            }
-            // Minimalny awaryjny fallback: brak logiki jednostek, zwróć surowe wyrażenie.
-            return { expr: String(raw || ''), unit: null, cat: null, valueInBase: 0, workFactor: 1 };
+            return _PARSER.resolveUnitsExpression(raw, {
+                firstUnitWins: !!opts.firstUnitWins,
+                unitDefs: CALC_UNITS,
+                unitDisplay: CALC_UNIT_DISPLAY,
+                unitNamesRe: _UNIT_NAMES_RE,
+                defaultUnits: (STATE.settings && STATE.settings.defaultUnits) || {},
+            });
         }
 
         // Preferowana jednostka WYŚWIETLANIA dla kategorii (z ustawień). Generyczne — działa dla
@@ -1244,12 +1205,12 @@
            smart-parsera (czas, teraz daty). Tu tylko cienkie wiązanie.
            „za 3 tygodnie", „ile dni do 1.09", „dziś + 90 dni" → evalDateExpression.
            ============================================================ */
-        var evalClockExpression = _PARSER.evalClockExpression || function() { return null; };
-        var evalDateExpression = _PARSER.evalDateExpression || function() { return null; };
-        var evalPeriodPercentage = _PARSER.evalPeriodPercentage || function() { return null; };
-        var formatDurationSeconds = _PARSER.formatDurationSeconds || function() { return null; };
-        var evalTimezoneExpression = _PARSER.evalTimezoneExpression || function() { return null; };
-        var _isDateUnit = _PARSER.isDateUnit || function() { return false; };
+        var evalClockExpression = _PARSER.evalClockExpression;
+        var evalDateExpression = _PARSER.evalDateExpression;
+        var evalPeriodPercentage = _PARSER.evalPeriodPercentage;
+        var formatDurationSeconds = _PARSER.formatDurationSeconds;
+        var evalTimezoneExpression = _PARSER.evalTimezoneExpression;
+        var _isDateUnit = _PARSER.isDateUnit;
 
         /* ============================================================
            [EN] Waluty — „12 zł + 20 eur", „20 eur na zł" (kursy NBP, offline z cache)
@@ -1259,58 +1220,30 @@
         var FX_TTL_MS = 6 * 3600 * 1000; // 6 h — po tym czasie odśwież w tle
 
         function _currencyTokenMap() {
-            if (typeof _PARSER.currencyTokenMap === 'function') {
-                return _PARSER.currencyTokenMap((STATE.fx && STATE.fx.rates) || {});
-            }
-            // Minimalny awaryjny fallback: tylko kody z dostępnych kursów.
-            var map = {};
-            var rates = STATE.fx.rates || {};
-            Object.keys(rates).forEach(function(code) {
-                map[code.toLowerCase()] = code;
-            });
-            return map;
+            return _PARSER.currencyTokenMap((STATE.fx && STATE.fx.rates) || {});
         }
         function _currencyDisplay(code) {
-            if (typeof _PARSER.currencyDisplay === 'function') {
-                return _PARSER.currencyDisplay(code, {
-                    currencyCompactSymbols: !(STATE.settings && STATE.settings.currencyCompactSymbols === false),
-                });
-            }
-            if (!code) return code;
-            return code === 'PLN' ? 'zł' : code;
+            return _PARSER.currencyDisplay(code, {
+                currencyCompactSymbols: !(STATE.settings && STATE.settings.currencyCompactSymbols === false),
+            });
         }
         function _fxReady() { return STATE.fx.rates && Object.keys(STATE.fx.rates).length > 1; }
         function _fxFresh() { return STATE.fx.ts && (Date.now() - STATE.fx.ts) < FX_TTL_MS; }
 
         function _currencyTokenRe() {
-            if (typeof _PARSER.currencyTokenRe === 'function') {
-                return _PARSER.currencyTokenRe(_currencyTokenMap());
-            }
-            var map = _currencyTokenMap();
-            return Object.keys(map)
-                .sort(function(a, b) { return b.length - a.length; })
-                .map(function(t) { return t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); })
-                .join('|');
+            return _PARSER.currencyTokenRe(_currencyTokenMap());
         }
         function _inputHasCurrency(raw) {
-            if (typeof _PARSER.hasCurrencyInInput === 'function') {
-                return _PARSER.hasCurrencyInInput(raw, { fxRates: (STATE.fx && STATE.fx.rates) || {} });
-            }
-            var re = new RegExp('([\\d.,]+)\\s*(' + _currencyTokenRe() + ')(?![a-ząćęłńóśźż0-9])', 'i');
-            return re.test(String(raw || ''));
+            return _PARSER.hasCurrencyInInput(raw, { fxRates: (STATE.fx && STATE.fx.rates) || {} });
         }
 
         function resolveCalcCurrency(raw) {
-            if (typeof _PARSER.resolveCurrencyExpression === 'function') {
-                return _PARSER.resolveCurrencyExpression(raw, {
-                    fxRates: (STATE.fx && STATE.fx.rates) || {},
-                    fxReady: _fxReady(),
-                    defaultCurrency: (STATE.settings && STATE.settings.defaultCurrency) || 'PLN',
-                    currencyCompactSymbols: !(STATE.settings && STATE.settings.currencyCompactSymbols === false),
-                });
-            }
-            // Minimalny awaryjny fallback: brak parsera walut.
-            return { expr: String(raw || ''), unit: null, hasCurrency: false, pending: false };
+            return _PARSER.resolveCurrencyExpression(raw, {
+                fxRates: (STATE.fx && STATE.fx.rates) || {},
+                fxReady: _fxReady(),
+                defaultCurrency: (STATE.settings && STATE.settings.defaultCurrency) || 'PLN',
+                currencyCompactSymbols: !(STATE.settings && STATE.settings.currencyCompactSymbols === false),
+            });
         }
 
         // ── Dwa silniki kursów ──────────────────────────────────────────
@@ -1789,8 +1722,13 @@
                 expr = resolveCalcConstants(expr, STATE.constants);
                 expr = expandNumericShorthands(expr); // [EN] k/tys przed tokenami walut („2,5k zł")
                 expr = expandCurrencyShorthands(expr); // [EN] „usd 1k" przed resolveCalcCurrency
-                var unitHits = firstUnitWins ? _collectExprUnits(expr) : [];
-                var useFirstWins = firstUnitWins && _unitMixNeedsFirstWins(unitHits);
+                var unitMix = firstUnitWins ? _PARSER.analyzeUnitMix(expr, {
+                    fxRates: (STATE.fx && STATE.fx.rates) || {},
+                    unitDefs: CALC_UNITS,
+                    unitNamesRe: _UNIT_NAMES_RE,
+                }) : null;
+                var unitHits = (unitMix && unitMix.hits) || [];
+                var useFirstWins = !!(firstUnitWins && unitMix && unitMix.needsFirstWins);
                 var firstHit = useFirstWins && unitHits.length ? unitHits[0] : null;
                 if (useFirstWins && firstHit && firstHit.kind === 'physical' && !firstHit.dimensionless) {
                     expr = _stripCurrencyAmounts(expr); // [EN] physical first — currency tokens become bare numbers
@@ -5264,6 +5202,18 @@
         // Podkładka pod tekstem na canvasie — celowo ledwo widoczna (delikatnie odcina tekst
         // od linii/wypełnień, ale nie „zabrudza" rysunku). Jedno miejsce do regulacji.
         var GRAPH_LABEL_PLATE = 'rgba(255, 255, 255, 0.25)';
+        var GRAPH_SERIES_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2'];
+        var GRAPH_THEME_COLORS = {
+            paper: '#f8fafc',
+            grid: '#e2e8f0',
+            axisText: '#64748b',
+            axisStroke: '#475569',
+            pointFill: '#dc2626',
+            pointStroke: '#991b1b',
+            pointLabel: '#0f172a',
+            labelPlate: 'rgba(255,255,255,0.55)',
+            alert: '#dc2626'
+        };
         function computeLabelScale() {
             // [EN] Viewport świata: zoom zmienia widoczny zakres i przerysowuje wektorowo,
             // więc 1 px logiczny = 1 px CSS. Etykiety mają STAŁĄ wielkość (graphLabelScale=1)
@@ -5329,7 +5279,7 @@
             computeLabelScale();
             resetGraphLabels();   // nowy render → czysty rejestr boksów etykiet (anty-nakładanie)
             ctx.clearRect(0, 0, w, h);
-            ctx.fillStyle = '#f8fafc';
+            ctx.fillStyle = GRAPH_THEME_COLORS.paper;
             ctx.fillRect(0, 0, w, h);
 
             var xStepCustom = graphXStep ? parseFloat(graphXStep.value) : NaN;
@@ -5338,8 +5288,8 @@
             var yStep = (isFinite(yStepCustom) && yStepCustom > 0) ? yStepCustom : niceGridStep(bounds.yMax - bounds.yMin);
 
             ctx.lineWidth = 1;
-            ctx.strokeStyle = '#e2e8f0';
-            ctx.fillStyle = '#64748b';
+            ctx.strokeStyle = GRAPH_THEME_COLORS.grid;
+            ctx.fillStyle = GRAPH_THEME_COLORS.axisText;
             ctx.font = lblFont('600', 11);
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
@@ -5370,7 +5320,7 @@
                 ctx.fillText(formatNum(y), pad - 8, ys);
             }
 
-            ctx.strokeStyle = '#475569';
+            ctx.strokeStyle = GRAPH_THEME_COLORS.axisStroke;
             ctx.lineWidth = 2;
             if (bounds.yMin <= 0 && bounds.yMax >= 0) {
                 var axisY = graphToScreen(0, 0, bounds, w, h, pad).y;
@@ -5400,7 +5350,7 @@
             var samples = Math.max(300, w - pad * 2);
             var validCount = 0;
 
-            ctx.strokeStyle = '#2563eb';
+            ctx.strokeStyle = GRAPH_SERIES_COLORS[0];
             ctx.lineWidth = 3;
             ctx.beginPath();
 
@@ -5430,8 +5380,8 @@
             var h = GRAPH_LOGICAL_H;
             var pad = drawGraphBase(bounds);
 
-            ctx.fillStyle = '#dc2626';
-            ctx.strokeStyle = '#991b1b';
+            ctx.fillStyle = GRAPH_THEME_COLORS.pointFill;
+            ctx.strokeStyle = GRAPH_THEME_COLORS.pointStroke;
             ctx.lineWidth = 2;
             ctx.font = lblFont('700', 12);
             ctx.textAlign = 'center';
@@ -5445,9 +5395,9 @@
                 ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.stroke();
-                ctx.fillStyle = '#0f172a';
+                ctx.fillStyle = GRAPH_THEME_COLORS.pointLabel;
                 ctx.fillText((pt.label || labelPrefix || 'P') + (idx + 1), p.x, p.y - radius - 5);
-                ctx.fillStyle = '#dc2626';
+                ctx.fillStyle = GRAPH_THEME_COLORS.pointFill;
             });
         }
 
@@ -6398,7 +6348,7 @@
             var w = GRAPH_LOGICAL_W;
             var h = GRAPH_LOGICAL_H;
             var pad = drawGraphBase(bounds);
-            var colors = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2'];
+            var colors = GRAPH_SERIES_COLORS;
 
             geos.forEach(function(item, si) {
                 var geo = item.geo;
@@ -6459,7 +6409,7 @@
                             var len = Math.hypot(nx.x - pt.x, nx.y - pt.y);
                             var midData = { x: (pt.x + nx.x) / 2, y: (pt.y + nx.y) / 2 };
                             var midScr = graphToScreen(midData.x, midData.y, bounds, w, h, pad);
-                            ctx.fillStyle = 'rgba(255,255,255,0.55)';
+                            ctx.fillStyle = GRAPH_THEME_COLORS.labelPlate;
                             var tw = ctx.measureText(formatNum(len)).width + 6;
                             ctx.fillRect(midScr.x - tw / 2, midScr.y - 7, tw, 14);
                             ctx.fillStyle = color;
@@ -6498,7 +6448,7 @@
                         var nScr = P[(i + 1) % 3];
                         var mx = (pScr.x + nScr.x) / 2, my = (pScr.y + nScr.y) / 2;
                         var label = formatNum(analysis.sides[i]);
-                        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+                        ctx.fillStyle = GRAPH_THEME_COLORS.labelPlate;
                         var tw = ctx.measureText(label).width + 6;
                         ctx.fillRect(mx - tw / 2, my - 8, tw, 16);
                         ctx.fillStyle = color;
@@ -6513,10 +6463,10 @@
                         var d = Math.hypot(dx, dy) || 1;
                         var lx = vScr.x + (dx / d) * 24, ly = vScr.y + (dy / d) * 24;
                         var txt = (analysis.rightVertex === i ? '90°' : formatNum(analysis.angles[i]) + '°');
-                        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+                        ctx.fillStyle = GRAPH_THEME_COLORS.labelPlate;
                         var tw = ctx.measureText(txt).width + 6;
                         ctx.fillRect(lx - tw / 2, ly - 7, tw, 14);
-                        ctx.fillStyle = analysis.rightVertex === i ? '#dc2626' : '#475569';
+                        ctx.fillStyle = analysis.rightVertex === i ? GRAPH_THEME_COLORS.alert : GRAPH_THEME_COLORS.axisStroke;
                         ctx.fillText(txt, lx, ly);
                     });
                 }
@@ -6661,7 +6611,7 @@
                     var camTxt = geo.label || '📷';
                     if (geo.oz > 0) camTxt += ' ↑' + formatNum(geo.oz);
                     // Marker kamery — kluczowy (force:true): zawsze widoczny, odsuwany od innych.
-                    drawSmartLabel(ctx, camTxt, apex.x, apex.y, { font: lblFont('700', 10), fill: '#0f172a', bg: GRAPH_LABEL_PLATE, anchorR: 6, gap: 5, force: true, key: 'cam' + item.si });
+                    drawSmartLabel(ctx, camTxt, apex.x, apex.y, { font: lblFont('700', 10), fill: GRAPH_THEME_COLORS.pointLabel, bg: GRAPH_LABEL_PLATE, anchorR: 6, gap: 5, force: true, key: 'cam' + item.si });
 
                     // Znacznik celu — żeby od razu było widać, gdzie kamera celuje (bez zgadywania z siatki).
                     if (geo.targetX != null && geo.targetY != null) {
@@ -6718,7 +6668,7 @@
                         txt = (pt.label || 'P') + (points.length > 1 ? (idx + 1) : '');
                     }
                     // Podpis punktu — szuka wolnego miejsca, by nie nakładać się na inne (force=kluczowy).
-                    drawSmartLabel(ctx, txt, p.x, p.y, { font: lblFont('700', 10), fill: '#0f172a', anchorR: radius, gap: 3, force: true, key: 'pt' + item.si + '_' + idx });
+                    drawSmartLabel(ctx, txt, p.x, p.y, { font: lblFont('700', 10), fill: GRAPH_THEME_COLORS.pointLabel, anchorR: radius, gap: 3, force: true, key: 'pt' + item.si + '_' + idx });
                     // Plakietka wysokości (oś z) — drugorzędna, pomijana gdy brak miejsca.
                     if (geo.oz && showLabelDetail) {
                         drawSmartLabel(ctx, '▲z=' + formatNum(geo.oz), p.x, p.y, { font: lblFont('600', 9), fill: '#7c3aed', anchorR: radius, gap: 3, key: 'z' + item.si + '_' + idx });
@@ -6958,7 +6908,7 @@
                 graphLabelBoxes.push(box);
                 var key = opts.key || text;
                 var pinned = !!graphPinnedLabels[key];
-                var accent = opts.fill || '#475569';
+                var accent = opts.fill || GRAPH_THEME_COLORS.axisStroke;
                 var bx = box.x1 - 3, by = box.y1 - 2, bw = (box.x2 - box.x1) + 6, bh = (box.y2 - box.y1) + 4;
                 // Przypięta etykieta: linia do kotwicy (pod plakietką) + kropka na kotwicy.
                 if (pinned) {
@@ -7062,7 +7012,7 @@
                     ctx.fillStyle = color; ctx.fill();
                     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
                     drawSmartLabel(ctx, (pt.label || labelPrefix) + (idx + 1), p.x, p.y,
-                        { font: lblFont('700', 12), fill: '#0f172a', anchorR: radius, gap: 4, force: true, key: 'div' + item.si + '_' + idx });
+                        { font: lblFont('700', 12), fill: GRAPH_THEME_COLORS.pointLabel, anchorR: radius, gap: 4, force: true, key: 'div' + item.si + '_' + idx });
                 });
             });
 
@@ -7139,7 +7089,7 @@
                 // Zbierz wszystkie punkty i geometrie ze wszystkich serii
                 var allGeos = [];
                 var resultLines = [];
-                var colors = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2'];
+                var colors = GRAPH_SERIES_COLORS;
                 var hasDivision = false;
                 var hasFunction = false;
                 var hasProportional = false; // okrąg/wielokąt — wymaga równej skali osi

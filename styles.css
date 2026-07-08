@@ -25,6 +25,20 @@
             --success: #10b981;
             --success-light: #d1fae5;
             --warning: #f59e0b;
+            --header-bg: rgba(255, 255, 255, 0.92);
+            --calc-number-active: #e2e8f0;
+            --calc-operator-active: #bfdbfe;
+            --calc-fn-bg: #e2e8f0;
+            --calc-fn-active: #cbd5e1;
+            --calc-clear-bg: #fee2e2;
+            --calc-clear-active: #fecaca;
+            --calc-help-active: #bfdbfe;
+            --history-count-bg: #e2e8f0;
+            --drawer-handle-bg: #cbd5e1;
+            --legend-dot-hidden: #cbd5e1;
+            --graph-result-bg: #eef2ff;
+            --graph-result-text: #3730a3;
+            --eng-result-text: #065f46;
             /* [EN] Waze-style refresh: zaokrąglona forma. Skala promieni podbita ku „pillom". */
             --radius-sm: 10px;
             --radius: 16px;
@@ -74,6 +88,20 @@
             --success: #34d399;
             --success-light: rgba(16, 185, 129, 0.16);
             --warning: #fbbf24;
+            --header-bg: rgba(23, 29, 38, 0.92);
+            --calc-number-active: #2b3440;
+            --calc-operator-active: rgba(79,141,249,0.32);
+            --calc-fn-bg: #2b3440;
+            --calc-fn-active: #374151;
+            --calc-clear-bg: rgba(248,113,113,0.18);
+            --calc-clear-active: rgba(248,113,113,0.30);
+            --calc-help-active: rgba(79,141,249,0.30);
+            --history-count-bg: #2b3440;
+            --drawer-handle-bg: #3a444f;
+            --legend-dot-hidden: #3a444f;
+            --graph-result-bg: rgba(79,141,249,0.14);
+            --graph-result-text: #bcd0ff;
+            --eng-result-text: #6ee7b7;
             /* Cienie na ciemnym muszą być głębsze (czarne), inaczej elewacja znika. */
             --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
             --shadow: 0 6px 22px rgba(0,0,0,0.5), 0 2px 6px rgba(0,0,0,0.4);
@@ -83,27 +111,11 @@
                W dark zamiast tokena --text (jasnego!) używamy własnej, elewowanej powierzchni. */
             --inverse-surface: #283341;
         }
-        /* Twarde hex, których nie obejmują tokeny — celowane nadpisania na ciemny. */
         [data-theme="dark"] .calc-display { background: var(--surface-2); border-color: var(--border); }
-        [data-theme="dark"] .calc-btn--number:active { background: #2b3440; }
-        [data-theme="dark"] .calc-btn--operator:active { background: rgba(79,141,249,0.32); }
-        [data-theme="dark"] .calc-btn--fn { background: #2b3440; }
-        [data-theme="dark"] .calc-btn--fn:active { background: #374151; }
-        [data-theme="dark"] .calc-btn--clear { background: rgba(248,113,113,0.18); }
-        [data-theme="dark"] .calc-btn--clear:active { background: rgba(248,113,113,0.30); }
-        [data-theme="dark"] .calc-help-btn:active { background: rgba(79,141,249,0.30); }
-        [data-theme="dark"] .calc-btn--number:active { background: #2b3440; }
-        [data-theme="dark"] .history-count { background: #2b3440; }
-        [data-theme="dark"] .drawer-handle { background: #3a444f; }
-        [data-theme="dark"] .legend-chip.is-hidden .legend-dot { background: #3a444f !important; }
-        [data-theme="dark"] .graph-result { background: rgba(79,141,249,0.14); color: #bcd0ff; }
-        [data-theme="dark"] .eng-result { color: #6ee7b7; }
         [data-theme="dark"] .toast,
         [data-theme="dark"] .cursor-hint-scaler,
         [data-theme="dark"] .update-banner { background: var(--inverse-surface); }
         [data-theme="dark"] #helpSearch { color: var(--text); }
-        /* Nagłówek ma własne półprzezroczyste tło (pod backdrop-blur) — nie czyta tokenów. */
-        [data-theme="dark"] .app-header { background: rgba(23, 29, 38, 0.92); }
         /* Canvas wizualizacji RYSUJE osie/etykiety w JS zakładając jasne tło — zostaje jasny
            (czytelny „papier") także w dark, by nie zniknęły czarne elementy rysunku. */
 
@@ -295,7 +307,7 @@
             z-index: 100;
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
-            background: rgba(255, 255, 255, 0.92);
+            background: var(--header-bg);
         }
         .app-header h1 {
             font-size: 1.05rem;
@@ -860,13 +872,13 @@
             color: var(--text);
             box-shadow: var(--shadow-sm);
         }
-        .calc-btn--number:active { background: #e2e8f0; }
+        .calc-btn--number:active { background: var(--calc-number-active); }
         .calc-btn--operator {
             background: var(--primary-light);
             color: var(--primary);
             font-size: 1.45rem;
         }
-        .calc-btn--operator:active { background: #bfdbfe; }
+        .calc-btn--operator:active { background: var(--calc-operator-active); }
         .calc-btn--equals {
             background: var(--primary);
             color: #fff;
@@ -875,18 +887,18 @@
         }
         .calc-btn--equals:active { background: var(--primary-hover); }
         .calc-btn--fn {
-            background: #e2e8f0;
+            background: var(--calc-fn-bg);
             color: var(--text);
             font-size: 1.15rem;
             font-weight: 600;
         }
-        .calc-btn--fn:active { background: #cbd5e1; }
+        .calc-btn--fn:active { background: var(--calc-fn-active); }
         .calc-btn--clear {
-            background: #fee2e2;
+            background: var(--calc-clear-bg);
             color: var(--danger);
             font-weight: 700;
         }
-        .calc-btn--clear:active { background: #fecaca; }
+        .calc-btn--clear:active { background: var(--calc-clear-active); }
 
         .calc-tools {
             display: flex;
@@ -918,7 +930,7 @@
         }
 
         .calc-help-btn:active {
-            background: #bfdbfe;
+            background: var(--calc-help-active);
             transform: scale(0.96);
             /* transform: scaleX(6.96) translateX(-2.1rem) scaleY(15) translateY(-1rem); */
         }
@@ -950,7 +962,7 @@
             height: 28px;
             padding: 0 8px;
             border-radius: 999px;
-            background: #e2e8f0;
+            background: var(--history-count-bg);
             color: var(--text-secondary);
             display: inline-flex;
             align-items: center;
@@ -1008,7 +1020,7 @@
             width: 44px;
             height: 5px;
             border-radius: 999px;
-            background: #cbd5e1;
+            background: var(--drawer-handle-bg);
             margin: 0 auto 12px;
         }
         .history-header {
@@ -1857,7 +1869,7 @@
             margin-top: 12px;
             font-family: var(--font-mono);
             font-size: 0.8125rem;
-            color: #065f46;
+            color: var(--eng-result-text);
             white-space: pre-line;
             line-height: 1.6;
             max-height: 180px;
@@ -1935,7 +1947,7 @@
             max-width: 220px;
         }
         .legend-chip.is-hidden { opacity: 0.55; }
-        .legend-chip.is-hidden .legend-dot { background: #cbd5e1 !important; }
+        .legend-chip.is-hidden .legend-dot { background: var(--legend-dot-hidden) !important; }
         .legend-chip.is-hidden .legend-text { text-decoration: line-through; }
 
         .point-list {
@@ -1971,10 +1983,7 @@
             height: auto;
             pointer-events: auto;
         }
-        .graph-result {
-            background: #eef2ff;
-            color: #3730a3;
-        }
+        .graph-result { background: var(--graph-result-bg); color: var(--graph-result-text); }
         .fs-exit-btn {
             display: none;
             position: absolute;
