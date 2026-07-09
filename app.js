@@ -8216,12 +8216,61 @@
             var a = _npParseAlign(String(raw || '').trim());
             return { align: a.align, body: a.body, evalText: _npStripFormatMarkers(a.body) };
         }
-        function _npFillMirrorFormatted(container, text) { // T6-5 — bezpieczny render (text nodes + span, bez innerHTML)
-            container.replaceChildren();
+        function _npFmtRegionVisible(r0, r1, ctx) { // T6-5 — Obsidian Live Preview: markery tylko przy kursorze/zaznaczeniu w regionie
+            if (!ctx) return false;
+            var selA = ctx.selStart, selB = ctx.selEnd, caret = ctx.caret;
+            if (selA != null && selB != null && selA !== selB) {
+                if (!(selB <= r0 || selA >= r1)) return true;
+            }
+            if (caret != null && caret >= r0 && caret <= r1) return true;
+            return false;
+        }
+        function _npLineActive(ctx) { // [EN] kursor/zaznaczenie w bieżącej linii — prefix wyrównania też wtedy
+            if (!ctx) return false;
+            var ls = ctx.lineStart, le = ctx.lineEnd;
+            if (ctx.caret != null && ctx.caret >= ls && ctx.caret <= le) return true;
+            if (ctx.selStart != null && ctx.selEnd != null && ctx.selStart !== ctx.selEnd) {
+                if (!(ctx.selEnd <= ls || ctx.selStart >= le)) return true;
+            }
+            return false;
+        }
+        function _npPushMirrorSpan(container, text, className, g0, g1, ctx) { // [EN] split selection highlight on mirror
             if (!text) return;
+            var selA = ctx && ctx.selStart != null ? ctx.selStart : -1;
+            var selB = ctx && ctx.selEnd != null ? ctx.selEnd : -1;
+            if (selA === selB || selB <= g0 || selA >= g1) {
+                var sp = document.createElement('span');
+                if (className) sp.className = className;
+                sp.textContent = text;
+                container.appendChild(sp);
+                return;
+            }
+            var chunks = [
+                { a: g0, b: Math.min(g1, selA), hl: false },
+                { a: Math.max(g0, selA), b: Math.min(g1, selB), hl: true },
+                { a: Math.max(g0, selB), b: g1, hl: false }
+            ];
+            chunks.forEach(function(c) {
+                if (c.a >= c.b) return;
+                var sp = document.createElement('span');
+                sp.className = (className || '') + (c.hl ? ' np-sel-hl' : '');
+                sp.textContent = text.slice(c.a - g0, c.b - g0);
+                container.appendChild(sp);
+            });
+        }
+        function _npPushMirrorGhost(container, text, g0, g1, ctx, regionStart, regionEnd) {
+            if (!text) return;
+            if (!_npFmtRegionVisible(regionStart, regionEnd, ctx)) return; // [EN] brak DOM = brak miejsca (Obsidian)
+            _npPushMirrorSpan(container, text, 'np-fmt-ghost', g0, g1, ctx);
+        }
+        function _npFillMirrorFormatted(container, text, ctx, globalOff) { // T6-5 — mirror + markery przy kursorze
+            if (globalOff == null) container.replaceChildren();
+            if (!text) return;
+            var base = globalOff || 0;
             var s = text, i = 0;
+            function gPos() { return base + i; }
             function pushPlain(end) {
-                if (end > i) container.appendChild(document.createTextNode(s.slice(i, end)));
+                if (end > i) _npPushMirrorSpan(container, s.slice(i, end), '', base + i, base + end, ctx);
                 i = end;
             }
             while (i < s.length) {
@@ -8229,43 +8278,52 @@
                 if (s.startsWith('**', i)) {
                     var eb = s.indexOf('**', i + 2);
                     if (eb > i) {
+                        var reg0 = base + i, reg1 = base + eb + 2;
                         pushPlain(i);
-                        var b = document.createElement('span');
-                        b.className = 'np-fmt-bold';
-                        b.textContent = s.slice(i + 2, eb);
-                        container.appendChild(b);
-                        i = eb + 2;
+                        _npPushMirrorGhost(container, '**', gPos(), gPos() + 2, ctx, reg0, reg1);
+                        i += 2;
+                        _npPushMirrorSpan(container, s.slice(i, eb), 'np-fmt-bold', base + i, base + eb, ctx);
+                        i = eb;
+                        _npPushMirrorGhost(container, '**', gPos(), gPos() + 2, ctx, reg0, reg1);
+                        i += 2;
                         continue;
                     }
-                    pushPlain(i + 2); // [EN] otwarte ** bez zamknięcia — plain, żeby nie zapętlić while
+                    if (_npLineActive(ctx)) pushPlain(i + 2);
+                    else i += 2;
                     continue;
                 }
                 if (s.startsWith('__', i)) {
                     var eu = s.indexOf('__', i + 2);
                     if (eu > i) {
+                        var regU0 = base + i, regU1 = base + eu + 2;
                         pushPlain(i);
-                        var u = document.createElement('span');
-                        u.className = 'np-fmt-underline';
-                        u.textContent = s.slice(i + 2, eu);
-                        container.appendChild(u);
-                        i = eu + 2;
+                        _npPushMirrorGhost(container, '__', gPos(), gPos() + 2, ctx, regU0, regU1);
+                        i += 2;
+                        _npPushMirrorSpan(container, s.slice(i, eu), 'np-fmt-underline', base + i, base + eu, ctx);
+                        i = eu;
+                        _npPushMirrorGhost(container, '__', gPos(), gPos() + 2, ctx, regU0, regU1);
+                        i += 2;
                         continue;
                     }
-                    pushPlain(i + 2); // [EN] otwarte __ bez zamknięcia
+                    if (_npLineActive(ctx)) pushPlain(i + 2);
+                    else i += 2;
                     continue;
                 }
                 if (s[i] === '_' && s[i + 1] !== '_') {
                     var ei = s.indexOf('_', i + 1);
                     if (ei > i) {
+                        var regI0 = base + i, regI1 = base + ei + 1;
                         pushPlain(i);
-                        var it = document.createElement('span');
-                        it.className = 'np-fmt-italic';
-                        it.textContent = s.slice(i + 1, ei);
-                        container.appendChild(it);
-                        i = ei + 1;
+                        _npPushMirrorGhost(container, '_', gPos(), gPos() + 1, ctx, regI0, regI1);
+                        i += 1;
+                        _npPushMirrorSpan(container, s.slice(i, ei), 'np-fmt-italic', base + i, base + ei, ctx);
+                        i = ei;
+                        _npPushMirrorGhost(container, '_', gPos(), gPos() + 1, ctx, regI0, regI1);
+                        i += 1;
                         continue;
                     }
-                    pushPlain(i + 1); // [EN] otwarte _ bez zamknięcia
+                    if (_npLineActive(ctx)) pushPlain(i + 1);
+                    else i += 1;
                     continue;
                 }
                 var next = s.length;
@@ -8273,8 +8331,51 @@
                 var p2 = s.indexOf('__', i); if (p2 >= 0 && p2 < next) next = p2;
                 var p3 = s.indexOf('_', i); if (p3 >= 0 && p3 < next) next = p3;
                 pushPlain(next);
-                if (i === prev) { i++; } // [EN] safety — nigdy nie zapętlaj mirror render
+                if (i === prev) { i++; }
             }
+        }
+        function _npMirrorCtxForLine(lineIdx, lines) {
+            var lineStart = 0, li = 0;
+            for (; li < lineIdx && li < lines.length; li++) lineStart += lines[li].length + 1;
+            var lineText = lines[lineIdx] != null ? lines[lineIdx] : '';
+            var prep = _npPrepareLine(lineText);
+            var bodyStart = lineText.indexOf(prep.body);
+            if (bodyStart < 0) bodyStart = 0;
+            var selStart = npBody && npBody.selectionStart != null ? npBody.selectionStart : 0;
+            var selEnd = npBody && npBody.selectionEnd != null ? npBody.selectionEnd : selStart;
+            return {
+                selStart: selStart,
+                selEnd: selEnd,
+                caret: selStart,
+                lineStart: lineStart,
+                lineEnd: lineStart + lineText.length,
+                bodyStart: lineStart + bodyStart,
+                bodyText: prep.body,
+                prefixText: lineText.slice(0, bodyStart),
+                align: prep.align
+            };
+        }
+        function _npFillMirrorLine(container, lineText, ctx) {
+            container.replaceChildren();
+            if (!lineText) { container.appendChild(document.createTextNode('\u00a0')); return; }
+            var pfx = ctx.prefixText || '';
+            if (pfx && _npLineActive(ctx)) {
+                _npPushMirrorSpan(container, pfx, 'np-fmt-ghost', ctx.lineStart, ctx.lineStart + pfx.length, ctx);
+            }
+            if (ctx.bodyText.length) _npFillMirrorFormatted(container, ctx.bodyText, ctx, ctx.bodyStart);
+            else container.appendChild(document.createTextNode('\u00a0'));
+        }
+        function _npRefreshMirrorFmt() { // [EN] tylko mirror — bez eval/gutter (szybkie zaznaczenie)
+            if (!npBody || !npMirror || !document.body.classList.contains('notepad-open')) return;
+            var lines = npBody.value.split('\n');
+            var mirrorLines = npMirror.querySelectorAll('.np-mirror-line');
+            lines.forEach(function(line, i) {
+                var md = mirrorLines[i];
+                if (!md) return;
+                var mctx = _npMirrorCtxForLine(i, lines);
+                md.className = 'np-mirror-line np-align-' + mctx.align;
+                _npFillMirrorLine(md, line, mctx);
+            });
         }
         var _NP_SUM_WORDS_RE = /\b(razem|suma|total|subtotal|półsuma|podsuma)\b/giu;
         // [EN] Sum keywords with optional manual unit — razem(zł), półsuma (cm)
@@ -8672,6 +8773,12 @@
             inner.appendChild(npGutter);
             npEditor.appendChild(inner);
             npBody.addEventListener('input', function() { _npCommit(); });
+            npBody.addEventListener('select', function() { _npRefreshMirrorFmt(); });
+            npBody.addEventListener('keyup', function() { _npRefreshMirrorFmt(); });
+            npBody.addEventListener('mouseup', function() { _npRefreshMirrorFmt(); });
+            document.addEventListener('selectionchange', function() {
+                if (document.activeElement === npBody) _npRefreshMirrorFmt();
+            });
             npEditor.addEventListener('scroll', function() { _npSyncEditorScroll(); npHideTip(); });
             npBody.addEventListener('focus', function() {
                 if (npEditor) npEditor.classList.add('np-editing');
@@ -8756,12 +8863,18 @@
             var start = npBody.selectionStart, end = npBody.selectionEnd;
             if (start === end) return;
             var val = npBody.value, sel = val.slice(start, end);
+            var oLen = open.length, cLen = close.length;
             if (sel.startsWith(open) && sel.endsWith(close)) {
-                _npReplaceRange(start, end, sel.slice(open.length, sel.length - close.length));
-                try { npBody.setSelectionRange(start, end - open.length - close.length); } catch (_) {}
+                _npReplaceRange(start, end, sel.slice(oLen, sel.length - cLen));
+                try { npBody.setSelectionRange(start, end - oLen - cLen); } catch (_) {}
+            } else if (start >= oLen && end + cLen <= val.length
+                && val.slice(start - oLen, start) === open
+                && val.slice(end, end + cLen) === close) { // [EN] zaznaczenie w środku **tekst** — zdejmij otoczkę
+                _npReplaceRange(start - oLen, end + cLen, sel);
+                try { npBody.setSelectionRange(start - oLen, end - oLen); } catch (_) {}
             } else {
                 _npReplaceRange(start, end, open + sel + close);
-                try { npBody.setSelectionRange(start + open.length, end + open.length); } catch (_) {}
+                try { npBody.setSelectionRange(start + oLen, end + oLen); } catch (_) {}
             }
             npBody.focus();
         }
@@ -9127,11 +9240,10 @@
             npFoldLayer.replaceChildren();
             if (!lines.length) lines = [''];
             lines.forEach(function(line, i) {
-                var prepM = _npPrepareLine(line);
+                var mctx = _npMirrorCtxForLine(i, lines);
                 var md = document.createElement('div');
-                md.className = 'np-mirror-line np-align-' + prepM.align;
-                if (prepM.body.length) _npFillMirrorFormatted(md, prepM.body);
-                else md.appendChild(document.createTextNode('\u00a0'));
+                md.className = 'np-mirror-line np-align-' + mctx.align;
+                _npFillMirrorLine(md, line, mctx);
                 npMirror.appendChild(md);
             });
             var lineH = _npLineHeightPx();
@@ -12031,10 +12143,23 @@
                 for (var ci = 0; ci < cases.length; ci++) {
                     var el = document.createElement('div');
                     var t0 = Date.now();
-                    _npFillMirrorFormatted(el, cases[ci]);
+                    _npFillMirrorFormatted(el, cases[ci], null);
                     var ms = Date.now() - t0;
                     results.push({ expr: 'T6-5 mirror open "' + cases[ci] + '"', pass: ms < 80, got: ms + 'ms' });
                 }
+                var el2 = document.createElement('div');
+                t0 = Date.now();
+                _npFillMirrorFormatted(el2, '**bold**', { selStart: 2, selEnd: 6, caret: 2 }, 0);
+                ms = Date.now() - t0;
+                results.push({ expr: 'T6-5 mirror paired **', pass: ms < 80, got: ms + 'ms' });
+            })();
+            (function() { // T6-5 — toggle B na zaznaczeniu w środku **tekst** → tekst, nie ****tekst****
+                var sample = '**hmm**', a = 2, b = 5, o = '**', c = '**', ol = 2, cl = 2;
+                var unwrapped = sample;
+                if (a >= ol && b + cl <= sample.length && sample.slice(a - ol, a) === o && sample.slice(b, b + cl) === c) {
+                    unwrapped = sample.slice(0, a - ol) + sample.slice(a, b) + sample.slice(b + cl);
+                }
+                results.push({ expr: 'T6-5 unwrap inner bold', pass: unwrapped === 'hmm', got: unwrapped });
             })();
 
             // Stałe-FUNKCJE f(x) — wywołania w kalkulatorze (test(3)/test 3/3 test), argument-stała,

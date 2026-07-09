@@ -2650,9 +2650,20 @@
         .np-mirror-line.np-align-center { text-align: center; }
         .np-mirror-line.np-align-right { text-align: right; }
         .np-mirror-line.np-align-justify { text-align: justify; }
-        .np-fmt-bold { font-weight: 700; }
+        .np-fmt-bold { font-weight: inherit; text-shadow: 0.55px 0 0 currentColor, -0.55px 0 0 currentColor; } /* [EN] faux-bold — monospace bez zmiany szerokości */
         .np-fmt-italic { font-style: italic; }
         .np-fmt-underline { text-decoration: underline; }
+        .np-fmt-ghost {
+            color: var(--text-muted);
+            opacity: 0.45;
+            font-weight: inherit;
+            font-style: normal;
+            text-decoration: none;
+        }
+        .np-sel-hl {
+            background: color-mix(in srgb, var(--primary) 28%, transparent);
+            border-radius: 2px;
+        }
         .np-text {
             position: relative;
             z-index: 3;
@@ -2687,7 +2698,7 @@
             caret-color: var(--text-muted);
         }
         .np-text::selection {
-            background: color-mix(in srgb, var(--primary) 30%, transparent);
+            background: transparent;
             color: transparent;
             -webkit-text-fill-color: transparent;
         }
