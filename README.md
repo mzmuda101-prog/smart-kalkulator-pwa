@@ -52,6 +52,11 @@ Do v99 bumpuj po prostu: `v94` → `v95` → … → `v99`.
 
 **Przy kolejnym wydaniu po v99 nie używaj `v100`** — wpisz `v1.00` (reset numeracji, jak sensowna „1.0”). Szczegóły i notatka na przyszłość są w komentarzu na górze `version.js`.
 
+## Dokumentacja wewnętrzna
+
+- [`docs/ENGINE-STRATEGY.md`](docs/ENGINE-STRATEGY.md) — strategia silnika (edytor, parser, eksport; cherry-pick z CM6/math.js/marked)
+- [`ROADMAP-QOL.md`](ROADMAP-QOL.md) — roadmap QoL (notatnik Tier 6 itd.)
+
 ## Live demo
 
 https://kalkulator-by-matm0.vercel.app
