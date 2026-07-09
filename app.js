@@ -8225,6 +8225,7 @@
                 i = end;
             }
             while (i < s.length) {
+                var prev = i;
                 if (s.startsWith('**', i)) {
                     var eb = s.indexOf('**', i + 2);
                     if (eb > i) {
@@ -8236,6 +8237,8 @@
                         i = eb + 2;
                         continue;
                     }
+                    pushPlain(i + 2); // [EN] otwarte ** bez zamknięcia — plain, żeby nie zapętlić while
+                    continue;
                 }
                 if (s.startsWith('__', i)) {
                     var eu = s.indexOf('__', i + 2);
@@ -8248,6 +8251,8 @@
                         i = eu + 2;
                         continue;
                     }
+                    pushPlain(i + 2); // [EN] otwarte __ bez zamknięcia
+                    continue;
                 }
                 if (s[i] === '_' && s[i + 1] !== '_') {
                     var ei = s.indexOf('_', i + 1);
@@ -8260,12 +8265,15 @@
                         i = ei + 1;
                         continue;
                     }
+                    pushPlain(i + 1); // [EN] otwarte _ bez zamknięcia
+                    continue;
                 }
                 var next = s.length;
                 var p1 = s.indexOf('**', i); if (p1 >= 0 && p1 < next) next = p1;
                 var p2 = s.indexOf('__', i); if (p2 >= 0 && p2 < next) next = p2;
                 var p3 = s.indexOf('_', i); if (p3 >= 0 && p3 < next) next = p3;
                 pushPlain(next);
+                if (i === prev) { i++; } // [EN] safety — nigdy nie zapętlaj mirror render
             }
         }
         var _NP_SUM_WORDS_RE = /\b(razem|suma|total|subtotal|półsuma|podsuma)\b/giu;
@@ -8686,6 +8694,7 @@
             _npSyncFontSize(true);
             _npBindPanelCtx(npEditor);
             if (npGutter) _npBindPanelCtx(npGutter);
+            _npBindTextCtx(npBody);
         }
         function _npSyncGutterHidden() {
             var hidden = !!(STATE.settings && STATE.settings.notepadGutterHidden);
@@ -8905,6 +8914,45 @@
                 ['align-left', '◀', 'Lewo'], ['align-center', '≡', 'Środek'], ['align-right', '▶', 'Prawo'], ['align-justify', '⊞', 'Justuj'],
                 ['font-down', 'A−', ''], ['font-up', 'A+', ''], ['font-reset', '↺', 'Reset czcionki']
             ];
+        }
+        function _npCtxActsForSelection() { // T6-CTX — formatowanie zaznaczenia (obok iOS Kopiuj/Wytnij)
+            return [
+                ['bold', 'B', 'Pogrubienie'], ['italic', 'I', 'Kursywa'], ['underline', 'U', 'Podkreślenie']
+            ];
+        }
+        function _npHasTextSelection() {
+            if (!npBody) return false;
+            var start = npBody.selectionStart, end = npBody.selectionEnd;
+            return start != null && end != null && start !== end;
+        }
+        function _npBindTextCtx(el) { // T6-CTX — long-press / PPM na zaznaczeniu w textarea
+            if (!el || el._npTextCtxBound) return;
+            el._npTextCtxBound = true;
+            var timer = null, sx = 0, sy = 0;
+            function clearT() { if (timer) clearTimeout(timer); timer = null; }
+            el.addEventListener('pointerdown', function(e) {
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
+                clearT();
+                sx = e.clientX; sy = e.clientY;
+                timer = setTimeout(function() {
+                    timer = null;
+                    if (!_npHasTextSelection()) return; // [EN] bez zaznaczenia — zostaw iOS Kopiuj/Wytnij
+                    hapticTap(18);
+                    _npShowCtxMenu(sx, sy - 48, _npCtxActsForSelection());
+                }, 520);
+            });
+            el.addEventListener('pointermove', function(e) {
+                if (!timer) return;
+                if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) clearT();
+            });
+            ['pointerup', 'pointercancel', 'pointerleave'].forEach(function(ev) {
+                el.addEventListener(ev, clearT);
+            });
+            el.addEventListener('contextmenu', function(e) {
+                if (!_npHasTextSelection()) return;
+                e.preventDefault();
+                _npShowCtxMenu(e.clientX, e.clientY, _npCtxActsForSelection());
+            });
         }
         function _npBindPanelCtx(el) { // T6-CTX — long-press / PPM na tle panelu (NIE na textarea — tam natywne Kopiuj/Wytnij)
             if (!el || el._npPanelCtxBound) return;
@@ -11971,6 +12019,23 @@
             // T6-5 — markery formatowania strip przed eval
             var t65 = evalNotepadLines('**2+2**');
             results.push({ expr: 'T6-5 bold eval', pass: t65[0] && t65[0].value === 4, got: t65[0] && t65[0].value });
+            var t65i = evalNotepadLines('_3*3_');
+            results.push({ expr: 'T6-5 italic eval', pass: t65i[0] && t65i[0].value === 9, got: t65i[0] && t65i[0].value });
+            var t65u = evalNotepadLines('__10+5__');
+            results.push({ expr: 'T6-5 underline eval', pass: t65u[0] && t65u[0].value === 15, got: t65u[0] && t65u[0].value });
+            var t65m = evalNotepadLines('> **Nocleg:** 3 * 180');
+            results.push({ expr: 'T6-5 align+bold eval', pass: t65m[0] && t65m[0].value === 540, got: t65m[0] && t65m[0].value });
+            // T6-5 mirror — niedomknięte markery nie mogą zapętlić renderu (lag przy wpisywaniu *)
+            (function() {
+                var cases = ['**', '**otwarte', '__', '_kurs'];
+                for (var ci = 0; ci < cases.length; ci++) {
+                    var el = document.createElement('div');
+                    var t0 = Date.now();
+                    _npFillMirrorFormatted(el, cases[ci]);
+                    var ms = Date.now() - t0;
+                    results.push({ expr: 'T6-5 mirror open "' + cases[ci] + '"', pass: ms < 80, got: ms + 'ms' });
+                }
+            })();
 
             // Stałe-FUNKCJE f(x) — wywołania w kalkulatorze (test(3)/test 3/3 test), argument-stała,
             // oraz bezpieczne NIE-liczenie form dwuznacznych/bezargumentowych.

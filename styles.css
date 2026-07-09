@@ -2582,6 +2582,7 @@
             min-width: 0;
         }
         .np-wrap-layer {
+            z-index: 1;
             pointer-events: none;
             padding: 6px 8px;
             overflow: hidden;
@@ -2629,7 +2630,7 @@
             z-index: 2;
         }
         .np-mirror {
-            visibility: hidden;
+            z-index: 0;
             pointer-events: none;
             padding: 6px 8px;
             white-space: pre-wrap;
@@ -2637,6 +2638,7 @@
             font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
             font-size: var(--np-font-size);
             line-height: 2;
+            color: var(--text); /* [EN] formatted preview layer — textarea text is transparent on top */
         }
         .np-mirror-line {
             min-height: 2rem;
@@ -2652,13 +2654,17 @@
         .np-fmt-italic { font-style: italic; }
         .np-fmt-underline { text-decoration: underline; }
         .np-text {
+            position: relative;
+            z-index: 3;
             width: 100%;
             min-height: 48px;
             max-height: none;
             border: none;
             outline: none;
             background: transparent;
-            color: var(--text);
+            color: transparent; /* [EN] WYSIWYG-lite — mirror shows formatted text underneath */
+            -webkit-text-fill-color: transparent;
+            caret-color: var(--text);
             padding: 6px 8px;
             margin: 0;
             resize: none;
@@ -2675,7 +2681,18 @@
             -webkit-tap-highlight-color: transparent;
             box-sizing: border-box;
         }
+        .np-text:placeholder-shown:not(:focus) {
+            color: var(--text-muted);
+            -webkit-text-fill-color: var(--text-muted);
+            caret-color: var(--text-muted);
+        }
+        .np-text::selection {
+            background: color-mix(in srgb, var(--primary) 30%, transparent);
+            color: transparent;
+            -webkit-text-fill-color: transparent;
+        }
         .np-fold-layer {
+            z-index: 2;
             padding: 6px 0;
             pointer-events: none;
             overflow: hidden;
@@ -2781,6 +2798,7 @@
             pointer-events: none;
         }
         /* Tryb fold: ukryj treść, pokaż etykiety; tap → edycja */
+        .np-editor.np-fold:not(.np-editing) .np-mirror { visibility: hidden; } /* [EN] fold labels replace mirror preview */
         .np-editor.np-fold:not(.np-editing) .np-text {
             color: transparent;
             caret-color: transparent;
