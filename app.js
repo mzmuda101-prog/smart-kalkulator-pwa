@@ -483,8 +483,12 @@
             for (var i = 0; i < s.length; i++) {
                 var ch = s.charAt(i);
                 if (ch === '\u00a0') out += '<span class="num-grp-sep">\u00a0</span>';
-                else if (ch === '\u202f' || ch === ' ') out += '<span class="txt-sep">' + ch + '</span>';
-                else out += ch;
+                else if (ch === '\u202f' || ch === ' ') {
+                    var prev = i > 0 ? s.charAt(i - 1) : '';
+                    var next = i < s.length - 1 ? s.charAt(i + 1) : '';
+                    var cls = (prev === '=' || next === '=') ? 'eq-sep' : 'txt-sep'; // [EN] tighter gap around =
+                    out += '<span class="' + cls + '">' + ch + '</span>';
+                } else out += ch;
             }
             return out;
         }
@@ -523,7 +527,10 @@
                 if (ch === '\n') { parent.appendChild(document.createTextNode('\n')); continue; }
                 if (ch === '\u00a0' || ch === '\u202f' || ch === ' ') {
                     var sep = document.createElement('span');
-                    sep.className = ch === '\u00a0' ? 'num-grp-sep' : 'txt-sep';
+                    var prevCh = i > 0 ? s.charAt(i - 1) : '';
+                    var nextCh = i < s.length - 1 ? s.charAt(i + 1) : '';
+                    sep.className = ch === '\u00a0' ? 'num-grp-sep'
+                        : ((prevCh === '=' || nextCh === '=') ? 'eq-sep' : 'txt-sep');
                     if (ch === '\u00a0') sep.innerHTML = '\u00a0'; else sep.textContent = ch;
                     parent.appendChild(sep);
                     continue;
@@ -580,6 +587,26 @@
             /* Przeglądarka anulowała touch (np. zaczął się scroll strony) */
             _hapticDown = null;
         }, { passive: true });
+        /* ============================================================
+           [EN] Calc keypad — Samsung-style press glow (pointer origin)
+           ============================================================ */
+        function _spawnCalcBtnGlow(btn, clientX, clientY) {
+            if (!btn || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            var rect = btn.getBoundingClientRect();
+            if (rect.width < 4 || rect.height < 4) return;
+            var glow = document.createElement('span');
+            glow.className = 'calc-btn-glow';
+            glow.setAttribute('aria-hidden', 'true');
+            glow.style.left = (clientX - rect.left) + 'px';
+            glow.style.top = (clientY - rect.top) + 'px';
+            if (btn.classList.contains('calc-btn--equals')) glow.dataset.kind = 'equals';
+            else if (btn.classList.contains('calc-btn--operator')) glow.dataset.kind = 'operator';
+            else if (btn.classList.contains('clear') || btn.classList.contains('calc-btn--clear')) glow.dataset.kind = 'clear';
+            else if (btn.classList.contains('calc-btn--fn')) glow.dataset.kind = 'fn';
+            btn.appendChild(glow);
+            glow.addEventListener('animationend', function() { glow.remove(); }, { once: true });
+        }
+
         /* ============================================================
            [EN] Tab Navigation
            ============================================================ */
@@ -786,7 +813,9 @@
             calcGrid.addEventListener('pointerdown', function(e) {
                 if (e.button !== undefined && e.button !== 0) return;
                 var btn = e.target.closest('.calc-btn');
-                if (btn && calcGrid.contains(btn)) handleCalcAction(btn.getAttribute('data-action'));
+                if (!btn || !calcGrid.contains(btn)) return;
+                _spawnCalcBtnGlow(btn, e.clientX, e.clientY); // [EN] Samsung-style press bloom
+                handleCalcAction(btn.getAttribute('data-action'));
             });
         }
 
@@ -1644,7 +1673,7 @@
             var suffix = unit ? '\u202f' + unit : '';
             return makeVal({
                 value: result, unit: unit, kind: isMoney ? 'money' : 'number', exact: !approx, exactText: ex,
-                text: tgtLabel + '% = ' + valLabel + suffix
+                text: tgtLabel + '%=' + valLabel + suffix // [EN] tight '=' — wrap splits label/value on 2 lines
             });
         }
         function evalPercentBaseQuery(raw) {
@@ -2475,9 +2504,30 @@
             var df = _displayFontTune();
             return df.resultWrapMaxLines != null ? df.resultWrapMaxLines : 2;
         }
+        // [EN] Prefer semantic split at '=' — label (100%=) on top, value below (Samsung-style).
+        function _trySplitResultAtEquals(text, maxW, row, fontSizePx) {
+            var s = String(text || '');
+            var eq = s.indexOf('=');
+            if (eq < 0) return null;
+            var l1 = s.slice(0, eq + 1).replace(/[\s\u00a0\u202f]+$/g, '');
+            var l2 = s.slice(eq + 1).replace(/^[\s\u00a0\u202f]+/g, '');
+            if (!l1 || !l2) return null;
+            if (_measureCalcResultWidth(l1, fontSizePx, row) <= maxW + 1
+                && _measureCalcResultWidth(l2, fontSizePx, row) <= maxW + 1) return [l1, l2];
+            return null;
+        }
+        function _resultHorizOverflows(row) {
+            if (!calcResult || !row) return false;
+            return calcResult.scrollWidth > row.clientWidth + 1
+                || calcResult.getBoundingClientRect().right > row.getBoundingClientRect().right + 1;
+        }
         function _wrapCalcResultLines(text, maxW, row, maxLines, fontSizePx) {
             maxLines = maxLines != null ? maxLines : _resultMaxLines();
             if (!text || maxW <= 0) return [''];
+            if (maxLines > 1) {
+                var eqSplit = _trySplitResultAtEquals(text, maxW, row, fontSizePx);
+                if (eqSplit) return eqSplit;
+            }
             // [EN] Split at thousand-group boundaries (space or NBSP between groups).
             var tokens = String(text).trim().split(/[ \t\r\n\u00a0\u202f]+/).filter(Boolean);
             if (!tokens.length) return [''];
@@ -2628,6 +2678,22 @@
             }
             renderCalcResult(prevRendered, targetMarkup);
             _syncResultWhiteSpace();
+            // [EN] Post-render safety — probe can lie when tight seps/≈ differ; force '=' wrap if clipped.
+            if (_calcResultWrapLines === 1 && _resultHorizOverflows(row) && _resultMaxLines() > 1) {
+                var eqLines = _trySplitResultAtEquals(flat, maxW, row, fs);
+                if (!eqLines) eqLines = _wrapCalcResultLines(flat, maxW, row, _resultMaxLines(), fs);
+                if (eqLines.length > 1) {
+                    targetMarkup = eqLines.join('\n');
+                    _calcResultWrapLines = eqLines.length;
+                    _syncResultWhiteSpace();
+                    calcResult.style.minHeight = (_calcResultStableLinePx(fs) * _calcResultWrapLines) + 'px';
+                    _largestResultFontForLines(maxW, floorPx, basePx, eqLines, row);
+                    renderCalcResult(prevRendered, targetMarkup);
+                    _syncResultWhiteSpace();
+                    var dispFix = calcResult.closest('.calc-display');
+                    if (dispFix) _syncResultWrapLayout(dispFix);
+                }
+            }
             if (_calcResultWrapLines !== prevLines && _usesCalcFlexSplit()) fitCalcLayout();
         }
         // [EN] Sync result + expr — jeden przebieg fit na żywo DOM.

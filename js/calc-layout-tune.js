@@ -67,7 +67,8 @@ window.CALC_LAYOUT_TUNE = {
         mode: 'percent',  // 'em' | 'percent'  (alias w docs: resultGapsMode)
         baselineEm: 0.28, // [percent] szerokość spacji przy 100%
         numGroupPct: 70,  // [percent] grupy tysięcy: 1 234 567 (~89% ≈ to było 0.25em)
-        textPct: 85,      // [percent] tekst/czas: 16 h 40 min (~93% ≈ to było 0.26em)
+        textPct: 78,      // [percent] tekst/czas — lekko ciaśniej (≈ mniej miejsca po '=')
+        eqSepEm: 0.08,    // [em] odstęp wokół '=' w wyniku (CSS --calc-eq-sep)
         numGroupEm: 0.25, // [em] gdy mode === 'em'
         textEm: 0.26,     // [em] gdy mode === 'em'
     },
@@ -451,17 +452,20 @@ function _resolveResultGaps(gaps) {
             mode: 'em',
             numGroupEm: gaps.numGroupEm != null ? gaps.numGroupEm : 0.25,
             textEm: gaps.textEm != null ? gaps.textEm : 0.26,
+            eqSepEm: gaps.eqSepEm != null ? gaps.eqSepEm : 0.08,
         };
     }
     var base = gaps.baselineEm != null ? gaps.baselineEm : 0.28;
     var numPct = gaps.numGroupPct != null ? gaps.numGroupPct : 89;
     var txtPct = gaps.textPct != null ? gaps.textPct : 93;
+    var eqEm = gaps.eqSepEm != null ? gaps.eqSepEm : 0.08;
     function pctToEm(pct) { return Math.round(base * pct / 100 * 1000) / 1000; }
     return {
         mode: 'percent',
         baselineEm: base,
         numGroupPct: numPct,
         textPct: txtPct,
+        eqSepEm: eqEm,
         numGroupEm: pctToEm(numPct),
         textEm: pctToEm(txtPct),
     };
@@ -476,6 +480,7 @@ window.applyCalcLayoutTuneTokens = function applyCalcLayoutTuneTokens(card, tune
     var root = document.documentElement;
     root.style.setProperty('--calc-num-grp-sep', resolved.numGroupEm + 'em');
     root.style.setProperty('--calc-txt-sep', resolved.textEm + 'em');
+    root.style.setProperty('--calc-eq-sep', (resolved.eqSepEm != null ? resolved.eqSepEm : 0.08) + 'em');
     if (!card) return;
     var kf = tune.keypadFont || {};
     var df = tune.displayFont || {};

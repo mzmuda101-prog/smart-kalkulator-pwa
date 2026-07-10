@@ -29,7 +29,12 @@
             --header-bg: rgba(255, 255, 255, 0.92);
             --calc-number-active: #e2e8f0;
             --calc-operator-active: #bfdbfe;
+            --calc-number-bg: #eef2f7;
+            --calc-number-text: #0f172a;
+            --calc-operator-text: #1d4ed8;
             --calc-fn-bg: #e2e8f0;
+            --calc-fn-text: #1e293b;
+            --calc-expr-text: #334155;
             --calc-fn-active: #cbd5e1;
             --calc-clear-bg: #fee2e2;
             --calc-clear-active: #fecaca;
@@ -106,7 +111,12 @@
             --header-bg: rgba(23, 29, 38, 0.92);
             --calc-number-active: #2b3440;
             --calc-operator-active: rgba(79,141,249,0.32);
+            --calc-number-bg: #161c25;
+            --calc-number-text: #eef2f7;
+            --calc-operator-text: #8bb8ff;
             --calc-fn-bg: #2b3440;
+            --calc-fn-text: #e8edf3;
+            --calc-expr-text: #c5d0dc;
             --calc-fn-active: #374151;
             --calc-clear-bg: rgba(248,113,113,0.18);
             --calc-clear-active: rgba(248,113,113,0.30);
@@ -601,7 +611,7 @@
         }
         .calc-expression {
             font-size: var(--calc-expr-font, 1.25rem);
-            color: var(--text-secondary);
+            color: var(--calc-expr-text, var(--text-secondary));
             font-family: var(--font-mono);
             line-height: 1.3;
             min-height: 28px;
@@ -796,6 +806,12 @@
             overflow: hidden;
             vertical-align: baseline;
         }
+        .eq-sep { /* [EN] minimal gap around '=' — saves horizontal room on long results */
+            display: inline-block;
+            width: var(--calc-eq-sep, 0.08em);
+            overflow: hidden;
+            vertical-align: baseline;
+        }
         /* Wiersz wyniku: opcjonalny znacznik „≈" (zaokrąglenie) tuż przed liczbą, do prawej. */
         .calc-result-row {
             display: flex;
@@ -824,8 +840,8 @@
             font-size: var(--calc-approx-font, 1.6rem);
             font-weight: 700;
             color: var(--primary);                                              /* fallback */
-            color: color-mix(in srgb, var(--primary) 30%, #94a3b8 70%);         /* lekko wyszarzony niebieski */
-            opacity: 0.9;
+            color: color-mix(in srgb, var(--primary) 42%, var(--text) 58%);    /* [EN] slightly brighter ≈ on dark */
+            opacity: 0.95;
             cursor: pointer;
             user-select: none;
             -webkit-user-select: none;
@@ -886,6 +902,38 @@
             -webkit-user-select: none;
             position: relative;
             overflow: hidden;
+            isolation: isolate; /* [EN] glow stays inside rounded btn */
+        }
+        /* [EN] Samsung-style press bloom — spawned at pointer coords in app.js */
+        .calc-btn-glow {
+            position: absolute;
+            width: 2.4em;
+            height: 2.4em;
+            margin: -1.2em 0 0 -1.2em;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+            background: radial-gradient(circle, rgba(255,255,255,0.38) 0%, rgba(255,255,255,0.12) 42%, transparent 72%);
+            animation: calcBtnGlow 0.42s cubic-bezier(0.2, 0.85, 0.3, 1) forwards;
+        }
+        .calc-btn-glow[data-kind="operator"] {
+            background: radial-gradient(circle, rgba(255,255,255,0.32) 0%, rgba(79,141,249,0.22) 45%, transparent 72%);
+        }
+        .calc-btn-glow[data-kind="equals"] {
+            background: radial-gradient(circle, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.14) 40%, transparent 70%);
+        }
+        .calc-btn-glow[data-kind="clear"] {
+            background: radial-gradient(circle, rgba(255,255,255,0.34) 0%, rgba(255,120,160,0.18) 44%, transparent 72%);
+        }
+        .calc-btn-glow[data-kind="fn"] {
+            background: radial-gradient(circle, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.08) 46%, transparent 72%);
+        }
+        @keyframes calcBtnGlow {
+            0%   { transform: scale(0.15); opacity: 0.85; }
+            100% { transform: scale(2.6); opacity: 0; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .calc-btn-glow { animation: none; opacity: 0; }
         }
         /* [EN] Ripple effect handled in JS — static styles only */
         .calc-btn.clear {
@@ -895,29 +943,31 @@
         }
         .calc-btn:active { transform: scale(0.94); }
         .calc-btn--number {
-            background: var(--bg);
-            color: var(--text);
+            background: var(--calc-number-bg, var(--bg));
+            color: var(--calc-number-text, var(--text));
             box-shadow: var(--shadow-sm);
         }
         .calc-btn--number:active { background: var(--calc-number-active); }
         .calc-btn--operator {
             background: var(--primary-light);
-            color: var(--primary);
+            color: var(--calc-operator-text, var(--primary));
             font-size: 1.45rem;
+            font-weight: 800;
         }
         .calc-btn--operator:active { background: var(--calc-operator-active); }
         .calc-btn--equals {
             background: var(--primary);
             color: var(--text-on-accent);
             font-size: 1.6rem;
+            font-weight: 800;
             box-shadow: var(--shadow-primary);
         }
         .calc-btn--equals:active { background: var(--primary-hover); }
         .calc-btn--fn {
             background: var(--calc-fn-bg);
-            color: var(--text);
+            color: var(--calc-fn-text, var(--text));
             font-size: 1.15rem;
-            font-weight: 600;
+            font-weight: 700;
         }
         .calc-btn--fn:active { background: var(--calc-fn-active); }
         .calc-btn--clear {
