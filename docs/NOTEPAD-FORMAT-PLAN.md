@@ -55,9 +55,11 @@ Inline i linia **nie mieszają się w jednym tokenie** — inna semantyka, inny 
 
 ---
 
-## 4. Faza B — wyrównanie w opcji formatowania (plan)
+## 4. Faza B — wyrównanie w opcji formatowania
 
 **Cel:** użytkownik ustawia **lewo / środek / prawo** z tego samego „miejsca co formatowanie”, bez szukania pustego tła panelu.
+
+**Status:** częściowo wdrożone (rejestr `LINE`, menu zaznaczenia jednoliniowe, panel + kb z rejestru). Do dopracowania: aktywny stan przycisku, testy dedykowane.
 
 ### 4.1 Rejestr `LINE` (obok `INLINE`)
 
@@ -98,11 +100,11 @@ Implementacja akcji zostaje w `app.js` (`_npSetLineAlign`) — rejestr tylko **o
 
 ### 4.5 Testy akceptacji Fazy B
 
-- [ ] Menu przy zaznaczeniu jednej linii zawiera ◀≡▶⊞
-- [ ] Menu przy zaznaczeniu 2+ linii **nie** zawiera align
-- [ ] `> 100+200` nadal = 300 (smoke T6-4)
-- [ ] Toggle: `< Nocleg:` → tap ◀ → `Nocleg:` bez prefixu
-- [ ] Mobile: long-press na zaznaczeniu — inline + align obok natywnego Kopiuj/Wytnij
+- [x] Menu przy zaznaczeniu jednej linii zawiera ◀≡▶ (bez ⊞ w menu zaznaczenia)
+- [x] Menu przy zaznaczeniu 2+ linii **nie** zawiera align
+- [x] `> 100+200` nadal = 300 (smoke T6-4)
+- [ ] Toggle wizualny: aktywny przycisk gdy linia ma dany prefix
+- [ ] Mobile: long-press na zaznaczeniu — smoke manualny obok natywnego Kopiuj/Wytnij
 
 ### 4.6 Effort
 

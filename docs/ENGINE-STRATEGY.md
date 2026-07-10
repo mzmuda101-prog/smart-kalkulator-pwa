@@ -130,6 +130,8 @@ Storage             → localStorage → IndexedDB gdy urośnie
 | `app.js` | `_np*`, `evalNotepadLines`, mirror Live Preview |
 | `js/smart-parser.js` | Parser wyrażeń |
 | `docs/ENGINE-EXTRACTION-PLAN.md` | Plan migracji pozostałej logiki eval z app.js → parser (fazy 1–6) |
+| `docs/NOTEPAD-FORMAT-PLAN.md` | Plan formatowania notatnika (inline, wyrównanie lewo/środek/prawo — Faza B) |
+| `js/notepad-format.js` | Rejestr `MATM0_NP_FMT` (INLINE + LINE + FONT) |
 | `ROADMAP-QOL.md` | Tier 6 notatnik UX |
 | `test/*.js` | Smoke, property, oracle |
 

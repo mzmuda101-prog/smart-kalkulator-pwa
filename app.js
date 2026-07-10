@@ -8938,14 +8938,16 @@
             npKbBar.setAttribute('role', 'toolbar');
             npKbBar.setAttribute('aria-label', 'Formatowanie notatnika');
             npKbBar.hidden = true;
-            var specs = (_NP_FMT && typeof _NP_FMT.kbInlineItems === 'function' ? _NP_FMT.kbInlineItems() : [
-                ['bold', 'B', 'Pogrubienie'], ['italic', 'I', 'Kursywa'], ['underline', 'U', 'Podkreślenie']
-            ]).concat([
-                ['sep'],
-                ['align-left', '◀', 'Wyrównaj do lewej'], ['align-center', '≡', 'Wyśrodkuj'], ['align-right', '▶', 'Wyrównaj do prawej'], ['align-justify', '⊞', 'Wyjustuj'],
-                ['sep'],
-                ['font-down', 'A−', 'Mniejsza czcionka'], ['font-up', 'A+', 'Większa czcionka'], ['font-reset', '↺', 'Domyślna czcionka']
-            ]);
+            var specs = (_NP_FMT && typeof _NP_FMT.kbBarSpecs === 'function' ? _NP_FMT.kbBarSpecs() : (
+                (_NP_FMT && typeof _NP_FMT.kbInlineItems === 'function' ? _NP_FMT.kbInlineItems() : [
+                    ['bold', 'B', 'Pogrubienie'], ['italic', 'I', 'Kursywa'], ['underline', 'U', 'Podkreślenie']
+                ]).concat([
+                    ['sep'],
+                    ['align-left', '◀', 'Wyrównaj do lewej'], ['align-center', '≡', 'Wyśrodkuj'], ['align-right', '▶', 'Wyrównaj do prawej'], ['align-justify', '⊞', 'Wyjustuj'],
+                    ['sep'],
+                    ['font-down', 'A−', 'Mniejsza czcionka'], ['font-up', 'A+', 'Większa czcionka'], ['font-reset', '↺', 'Domyślna czcionka']
+                ])
+            ));
             specs.forEach(function(sp) {
                 if (sp[0] === 'sep') {
                     var sep = document.createElement('span');
@@ -9172,13 +9174,22 @@
             npCtxMenu.style.top = top + 'px';
         }
         function _npCtxActsForPanel() {
+            if (_NP_FMT && typeof _NP_FMT.panelMenuItems === 'function') return _NP_FMT.panelMenuItems();
             return [
                 ['align-left', '◀', 'Lewo'], ['align-center', '≡', 'Środek'], ['align-right', '▶', 'Prawo'], ['align-justify', '⊞', 'Justuj'],
                 ['font-down', 'A−', ''], ['font-up', 'A+', ''], ['font-reset', '↺', 'Reset czcionki']
             ];
         }
+        function _npSelectionIsSingleLine() { // [EN] same line index for caret/selection ends — Faza B align in fmt menu
+            if (!npBody) return false;
+            var start = npBody.selectionStart, end = npBody.selectionEnd;
+            if (start == null || end == null) return false;
+            return _npLineIndexAt(start) === _npLineIndexAt(end);
+        }
         function _npCtxActsForSelection() { // T6-CTX — formatowanie zaznaczenia (rejestr MATM0_NP_FMT)
-            if (_NP_FMT && typeof _NP_FMT.selectionMenuItems === 'function') return _NP_FMT.selectionMenuItems();
+            if (_NP_FMT && typeof _NP_FMT.selectionMenuItems === 'function') {
+                return _NP_FMT.selectionMenuItems({ singleLine: _npSelectionIsSingleLine() });
+            }
             return [
                 ['bold', 'B', 'Pogrubienie'], ['italic', 'I', 'Kursywa'], ['underline', 'U', 'Podkreślenie']
             ];
