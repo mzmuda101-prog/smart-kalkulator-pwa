@@ -31,6 +31,12 @@ function seedFx() {
 }
 seedFx();
 
+function round2(x) { // [EN] ten sam kontrakt co silnik (MATM0_MONEY.roundMoney)
+  const M = global.window.MATM0_MONEY;
+  if (M && typeof M.roundMoney === 'function') return M.roundMoney(x);
+  return Math.round(x * 100) / 100;
+}
+
 // Liczba zwracana przez silnik (null gdy nie policzono / ścieżka BigInt).
 function val(expr) {
   const r = api.evalCalcExpression(expr);
@@ -92,7 +98,7 @@ const properties = [
   { name: 'waluta: konwersja krzyżowa "a EUR na USD" == round2(a*(EUR/USD))',
     // Wyniki walutowe są zaokrąglane do groszy (2 miejsca) — model oczekiwany też.
     run: () => fc.assert(fc.property(posA, (a) =>
-      approx(val(`${a} EUR na USD`), Math.round(a * (FX.EUR / FX.USD) * 100) / 100)), { numRuns: NUM_RUNS }) },
+      approx(val(`${a} EUR na USD`), round2(a * (FX.EUR / FX.USD)))), { numRuns: NUM_RUNS }) },
 
   { name: 'waluta: konwersja na tę samą walutę jest tożsamością: "a EUR na EUR" == a',
     run: () => fc.assert(fc.property(posA, (a) =>

@@ -465,6 +465,12 @@
                 useGrouping: true,
             });
         }
+        function _roundMoney(n) { // [EN] grosze — decimal.js when loaded, else float fallback
+            var M = (typeof window !== 'undefined' && window.MATM0_MONEY) || null;
+            if (M && typeof M.roundMoney === 'function') return M.roundMoney(n);
+            if (!isFinite(n)) return n;
+            return Math.round(n * 100) / 100;
+        }
         // [EN] Tight display gaps — CSS clip inside fixed-width spans; copy via textContent unchanged.
         function _needsTightMarkup(text) { return !!text && /[\u00a0 \u202f]/.test(String(text)); }
         function _htmlTightResult(text) {
@@ -1608,7 +1614,7 @@
             }
             var unit = _pctBaseCurrencyUnit(currencyTok);
             var isMoney = !!unit;
-            var result = isMoney ? Math.round(raw * 100) / 100 : parseFloat(raw.toPrecision(12));
+            var result = isMoney ? _roundMoney(raw) : parseFloat(raw.toPrecision(12));
             var approx = false, ex = null;
             if (isMoney && Math.abs(raw - result) > 0.0045) {
                 approx = true; ex = formatLocaleNumber(raw, 15) + '\u202f' + unit;
@@ -1800,7 +1806,7 @@
                 var preciseValue = null;
                 if (curRes.hasCurrency && isFinite(value)) {
                     preciseValue = value;
-                    value = Math.round(value * 100) / 100;
+                    value = _roundMoney(value);
                 }
                 var valueBase = value; // [EN] Wartość w jednostce bazowej kategorii — dla __auto__ (przed displayFactor).
                 // Wartość jest teraz BAZOWA. Jeśli resolveCalcUnits wskazał preferowaną jednostkę
@@ -8977,7 +8983,44 @@
         function _npHideCtxMenu() {
             if (npCtxMenu) npCtxMenu.hidden = true;
         }
-        function _npEnsureCtxMenu() { // T6-CTX — long-press / PPM
+        function _npIsCoarsePointer() { // [EN] touch-first — double-tap zamiast long-press (zostaw natywne menu)
+            return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+        }
+        function _npBindDoubleTap(el, onTap, opts) {
+            if (!el || el._npDblTapBound) return;
+            el._npDblTapBound = true;
+            opts = opts || {};
+            var windowMs = opts.windowMs != null ? opts.windowMs : 380;
+            var movePx = opts.movePx != null ? opts.movePx : 20;
+            var lastTap = 0, lastX = 0, lastY = 0, lastKey = '';
+            var downX = 0, downY = 0;
+            function tapKey() {
+                if (opts.selectionKey && npBody) return String(npBody.selectionStart) + ':' + String(npBody.selectionEnd);
+                return '';
+            }
+            el.addEventListener('pointerdown', function(e) {
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
+                downX = e.clientX; downY = e.clientY;
+            });
+            el.addEventListener('pointerup', function(e) {
+                if (!_npIsCoarsePointer()) return;
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
+                if (Math.abs(e.clientX - downX) > movePx || Math.abs(e.clientY - downY) > movePx) return;
+                if (typeof opts.allow === 'function' && !opts.allow(e)) return;
+                var now = Date.now();
+                var key = tapKey();
+                if (now - lastTap < windowMs && key === lastKey) {
+                    lastTap = 0; lastKey = '';
+                    hapticTap(18);
+                    onTap(e);
+                    return;
+                }
+                lastTap = now;
+                lastX = e.clientX; lastY = e.clientY;
+                lastKey = key;
+            });
+        }
+        function _npEnsureCtxMenu() { // T6-CTX — double-tap (mobile) / long-press + PPM (desktop)
             if (npCtxMenu) return;
             npCtxMenu = document.createElement('div');
             npCtxMenu.className = 'np-ctx-menu';
@@ -9038,63 +9081,83 @@
             var start = npBody.selectionStart, end = npBody.selectionEnd;
             return start != null && end != null && start !== end;
         }
-        function _npBindTextCtx(el) { // T6-CTX — long-press / PPM na zaznaczeniu w textarea
+        function _npBindTextCtx(el) { // T6-CTX — mobile: double-tap na zaznaczeniu; desktop: long-press / PPM
             if (!el || el._npTextCtxBound) return;
             el._npTextCtxBound = true;
-            var timer = null, sx = 0, sy = 0;
-            function clearT() { if (timer) clearTimeout(timer); timer = null; }
-            el.addEventListener('pointerdown', function(e) {
-                if (e.pointerType === 'mouse' && e.button !== 0) return;
-                clearT();
-                sx = e.clientX; sy = e.clientY;
-                timer = setTimeout(function() {
-                    timer = null;
-                    if (!_npHasTextSelection()) return; // [EN] bez zaznaczenia — zostaw iOS Kopiuj/Wytnij
-                    hapticTap(18);
-                    _npShowCtxMenu(sx, sy - 48, _npCtxActsForSelection());
-                }, 520);
+            _npBindDoubleTap(el, function(e) {
+                if (!_npHasTextSelection()) return;
+                _npShowCtxMenu(e.clientX, e.clientY - 48, _npCtxActsForSelection());
+            }, {
+                selectionKey: true,
+                allow: function() { return _npHasTextSelection(); }
             });
-            el.addEventListener('pointermove', function(e) {
-                if (!timer) return;
-                if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) clearT();
-            });
-            ['pointerup', 'pointercancel', 'pointerleave'].forEach(function(ev) {
-                el.addEventListener(ev, clearT);
-            });
+            if (!_npIsCoarsePointer()) {
+                var timer = null, sx = 0, sy = 0;
+                function clearT() { if (timer) clearTimeout(timer); timer = null; }
+                el.addEventListener('pointerdown', function(e) {
+                    if (e.pointerType === 'mouse' && e.button !== 0) return;
+                    clearT();
+                    sx = e.clientX; sy = e.clientY;
+                    timer = setTimeout(function() {
+                        timer = null;
+                        if (!_npHasTextSelection()) return;
+                        hapticTap(18);
+                        _npShowCtxMenu(sx, sy - 48, _npCtxActsForSelection());
+                    }, 520);
+                });
+                el.addEventListener('pointermove', function(e) {
+                    if (!timer) return;
+                    if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) clearT();
+                });
+                ['pointerup', 'pointercancel', 'pointerleave'].forEach(function(ev) {
+                    el.addEventListener(ev, clearT);
+                });
+            }
             el.addEventListener('contextmenu', function(e) {
+                if (_npIsCoarsePointer()) return; // [EN] natywne Kopiuj/Wytnij na mobile
                 if (!_npHasTextSelection()) return;
                 e.preventDefault();
                 _npShowCtxMenu(e.clientX, e.clientY, _npCtxActsForSelection());
             });
         }
-        function _npBindPanelCtx(el) { // T6-CTX — long-press / PPM na tle panelu (NIE na textarea — tam natywne Kopiuj/Wytnij)
+        function _npBindPanelCtx(el) { // T6-CTX — mobile: double-tap na tle; desktop: long-press / PPM
             if (!el || el._npPanelCtxBound) return;
             el._npPanelCtxBound = true;
-            var timer = null, sx = 0, sy = 0;
-            function clearT() { if (timer) clearTimeout(timer); timer = null; }
             function isTextTarget(node) {
                 return !!(node && node.closest && node.closest('.np-text, textarea.np-text'));
             }
-            el.addEventListener('pointerdown', function(e) {
-                if (isTextTarget(e.target)) return;
-                if (e.target.closest('.np-res') || e.target.closest('.np-kb-bar')) return;
-                if (e.pointerType === 'mouse' && e.button !== 0) return;
-                clearT();
-                sx = e.clientX; sy = e.clientY;
-                timer = setTimeout(function() {
-                    timer = null;
-                    hapticTap(18);
-                    _npShowCtxMenu(sx, sy - 48, _npCtxActsForPanel());
-                }, 500);
-            });
-            el.addEventListener('pointermove', function(e) {
-                if (!timer) return;
-                if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) clearT();
-            });
-            ['pointerup', 'pointercancel', 'pointerleave'].forEach(function(ev) {
-                el.addEventListener(ev, clearT);
-            });
+            function panelAllowed(e) {
+                if (isTextTarget(e.target)) return false;
+                if (e.target.closest('.np-res') || e.target.closest('.np-kb-bar')) return false;
+                return true;
+            }
+            _npBindDoubleTap(el, function(e) {
+                _npShowCtxMenu(e.clientX, e.clientY - 48, _npCtxActsForPanel());
+            }, { allow: panelAllowed });
+            if (!_npIsCoarsePointer()) {
+                var timer = null, sx = 0, sy = 0;
+                function clearT() { if (timer) clearTimeout(timer); timer = null; }
+                el.addEventListener('pointerdown', function(e) {
+                    if (!panelAllowed(e)) return;
+                    if (e.pointerType === 'mouse' && e.button !== 0) return;
+                    clearT();
+                    sx = e.clientX; sy = e.clientY;
+                    timer = setTimeout(function() {
+                        timer = null;
+                        hapticTap(18);
+                        _npShowCtxMenu(sx, sy - 48, _npCtxActsForPanel());
+                    }, 500);
+                });
+                el.addEventListener('pointermove', function(e) {
+                    if (!timer) return;
+                    if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) clearT();
+                });
+                ['pointerup', 'pointercancel', 'pointerleave'].forEach(function(ev) {
+                    el.addEventListener(ev, clearT);
+                });
+            }
             el.addEventListener('contextmenu', function(e) {
+                if (_npIsCoarsePointer()) return;
                 if (isTextTarget(e.target) || e.target.closest('.np-res')) return;
                 e.preventDefault();
                 _npShowCtxMenu(e.clientX, e.clientY, _npCtxActsForPanel());

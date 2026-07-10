@@ -3095,7 +3095,7 @@
             margin: 6px 4px;
             background: var(--border);
         }
-        /* T6-CTX — menu kontekstowe (long-press / PPM) */
+        /* T6-CTX — menu formatowania (mobile: double-tap; desktop: long-press / PPM) */
         .np-ctx-menu {
             position: fixed;
             z-index: 10060;

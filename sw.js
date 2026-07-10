@@ -17,6 +17,8 @@ const ASSETS_TO_CACHE = [
     './assets/img/logo-refresh.png',
     './sw.js',
     './js/theme-init.js',
+    './js/vendor/decimal.js',
+    './js/money-decimal.js',
     './js/calc-layout-tune.js',
     './js/cursor-hint.js',
     './js/data-tables.js',
