@@ -60,6 +60,7 @@ const PAIRS = [
   { pl: 'vat od 1000', en: 'tax on 1000', sameValue: true },
   { pl: 'sin(30 deg)', en: 'sin(30 deg)', sameValue: true },
   { pl: 'różnica % między 30 a 90', en: 'percent difference between 30 and 90', kind: 'percent', sameValue: true },
+  { pl: 'z 8 na 5 to ile %', en: 'from 8 to 5 is what percent', kind: 'percent', sameValue: true },
   { pl: 'poniedziałek za 3 tygodnie', en: 'monday in 3 weeks', kind: 'date' },
   { pl: '145 min', en: '145 min', kind: 'duration' },
 ];

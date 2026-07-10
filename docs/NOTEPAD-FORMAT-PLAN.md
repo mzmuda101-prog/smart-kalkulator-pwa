@@ -59,7 +59,7 @@ Inline i linia **nie mieszają się w jednym tokenie** — inna semantyka, inny 
 
 **Cel:** użytkownik ustawia **lewo / środek / prawo** z tego samego „miejsca co formatowanie”, bez szukania pustego tła panelu.
 
-**Status:** częściowo wdrożone (rejestr `LINE`, menu zaznaczenia jednoliniowe, panel + kb z rejestru). Do dopracowania: aktywny stan przycisku, testy dedykowane.
+**Status:** align w menu zaznaczenia **ukryty** (`selectionMenu: false`) do czasu naprawy Fazy B. Panel tła + pasek tabletu bez zmian.
 
 ### 4.1 Rejestr `LINE` (obok `INLINE`)
 
@@ -100,7 +100,7 @@ Implementacja akcji zostaje w `app.js` (`_npSetLineAlign`) — rejestr tylko **o
 
 ### 4.5 Testy akceptacji Fazy B
 
-- [x] Menu przy zaznaczeniu jednej linii zawiera ◀≡▶ (bez ⊞ w menu zaznaczenia)
+- [ ] Menu przy zaznaczeniu jednej linii zawiera ◀≡▶ (ukryte do naprawy Fazy B)
 - [x] Menu przy zaznaczeniu 2+ linii **nie** zawiera align
 - [x] `> 100+200` nadal = 300 (smoke T6-4)
 - [ ] Toggle wizualny: aktywny przycisk gdy linia ma dany prefix

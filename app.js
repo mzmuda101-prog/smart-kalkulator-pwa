@@ -1579,13 +1579,21 @@
         // Różnica procentowa między wartościami: (B−A)/A·100 — Raycast-style.
         function evalPercentDifference(raw) {
             var s = String(raw || '').trim().toLowerCase();
-            if (!s || !/(%|procent|percent|różnica|róznica|difference|change)/i.test(s)) return null;
-            var P = '([\\d.,]+)';
+            if (!s || !/(%|procent|percent|różnica|róznica|difference|change|ile\s+(?:%|procent|percent))/i.test(s)) return null;
+            var P = '([\\d.,]+)', PCT = '(?:%|procent[a-ząćęłńóśźż]*|percent)';
             var m;
             if ((m = s.match(new RegExp('^(?:różnica|róznica|percent\\s+(?:difference|change))\\s*(?:%|procent[a-ząćęłńóśźż]*)?\\s*(?:między|between|from)\\s+' + P + '\\s+(?:a|and|to)\\s+' + P + '\\s*$')))) {
                 return _pctDiff(m[1], m[2]);
             }
             if ((m = s.match(new RegExp('^' + P + '\\s+(?:to|na|→)\\s+' + P + '\\s+(?:percent\\s+)?(?:difference|change|różnica|róznica)\\s*$')))) {
+                return _pctDiff(m[1], m[2]);
+            }
+            // PL: „z A na B to ile %" · „z A na B o ile procent" · „od A do B to ile %"
+            if ((m = s.match(new RegExp('^(?:z|od)\\s+' + P + '\\s+(?:na|do)\\s+' + P + '\\s+(?:to\\s+|o\\s+)?ile\\s+' + PCT + '\\s*$')))) {
+                return _pctDiff(m[1], m[2]);
+            }
+            // EN: „from A to B is what %/percent"
+            if ((m = s.match(new RegExp('^from\\s+' + P + '\\s+to\\s+' + P + '\\s+(?:is\\s+)?what\\s+' + PCT + '\\s*$')))) {
                 return _pctDiff(m[1], m[2]);
             }
             return null;
@@ -12450,6 +12458,10 @@
             results.push({ expr: 'różnica % między 30 a 90', pass: pctDiff.unit === '%' && Math.abs(pctDiff.value - 200) < 1e-6, got: pctDiff.value + ' ' + pctDiff.unit });
             var pctDiffEn = evalCalcExpression('percent difference between 30 and 90');
             results.push({ expr: 'percent difference between 30 and 90', pass: pctDiffEn.unit === '%' && Math.abs(pctDiffEn.value - 200) < 1e-6, got: pctDiffEn.value + ' ' + pctDiffEn.unit });
+            var pctDiffZ = evalCalcExpression('z 8 na 5 to ile %');
+            results.push({ expr: 'z 8 na 5 to ile %', pass: pctDiffZ.unit === '%' && Math.abs(pctDiffZ.value - (-37.5)) < 1e-6, got: pctDiffZ.value + ' ' + pctDiffZ.unit });
+            var pctDiffOd = evalCalcExpression('od 8 do 5 o ile procent');
+            results.push({ expr: 'od 8 do 5 o ile procent', pass: pctDiffOd.unit === '%' && Math.abs(pctDiffOd.value - (-37.5)) < 1e-6, got: pctDiffOd.value + ' ' + pctDiffOd.unit });
             var savedTRead = STATE.settings.defaultUnits.time;
             STATE.settings.defaultUnits.time = '__auto__';
             var dur145 = evalCalcExpression('145 min');

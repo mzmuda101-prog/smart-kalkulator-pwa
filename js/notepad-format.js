@@ -16,11 +16,11 @@
     ];
 
     // [EN] Line-level formats (prefix before body) — handlers stay in app.js (_npSetLineAlign)
-    // Faza B: selectionMenuItems({ singleLine }) will append LINE when cursor in one line
+    // selectionMenu: false until Faza B align-in-selection works reliably (docs/NOTEPAD-FORMAT-PLAN.md)
     var LINE = [
-        { id: 'align-left', act: 'align-left', label: '◀', title: 'Do lewej', mode: 'left', panelMenu: true, kb: true, selectionMenu: true },
-        { id: 'align-center', act: 'align-center', label: '≡', title: 'Do środka', mode: 'center', panelMenu: true, kb: true, selectionMenu: true },
-        { id: 'align-right', act: 'align-right', label: '▶', title: 'Do prawej', mode: 'right', panelMenu: true, kb: true, selectionMenu: true },
+        { id: 'align-left', act: 'align-left', label: '◀', title: 'Do lewej', mode: 'left', panelMenu: true, kb: true, selectionMenu: false },
+        { id: 'align-center', act: 'align-center', label: '≡', title: 'Do środka', mode: 'center', panelMenu: true, kb: true, selectionMenu: false },
+        { id: 'align-right', act: 'align-right', label: '▶', title: 'Do prawej', mode: 'right', panelMenu: true, kb: true, selectionMenu: false },
         { id: 'align-justify', act: 'align-justify', label: '⊞', title: 'Justuj', mode: 'justify', panelMenu: true, kb: true, selectionMenu: false }
     ];
 
