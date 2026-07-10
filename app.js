@@ -8983,8 +8983,104 @@
         function _npHideCtxMenu() {
             if (npCtxMenu) npCtxMenu.hidden = true;
         }
-        function _npIsCoarsePointer() { // [EN] touch-first — double-tap zamiast long-press (zostaw natywne menu)
+        function _npIsCoarsePointer() { // [EN] touch — long-press + double-tap; natywne menu obok naszego
             return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+        }
+        var _npCaretMirror = null;
+        function _npEnsureCaretMirror() { // [EN] off-screen clone for textarea caret/selection coords
+            if (_npCaretMirror) return _npCaretMirror;
+            _npCaretMirror = document.createElement('div');
+            _npCaretMirror.setAttribute('aria-hidden', 'true');
+            _npCaretMirror.style.cssText = 'position:absolute;left:-9999px;top:0;visibility:hidden;white-space:pre-wrap;word-wrap:break-word;overflow:hidden;';
+            document.body.appendChild(_npCaretMirror);
+            return _npCaretMirror;
+        }
+        function _npSyncCaretMirrorStyle(ta, div) {
+            var cs = getComputedStyle(ta);
+            ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing', 'textTransform',
+                'wordSpacing', 'textIndent', 'boxSizing', 'borderLeftWidth', 'borderRightWidth',
+                'borderTopWidth', 'borderBottomWidth', 'paddingLeft', 'paddingRight', 'paddingTop',
+                'paddingBottom', 'lineHeight'].forEach(function(p) { div.style[p] = cs[p]; });
+            div.style.width = ta.clientWidth + 'px';
+        }
+        function _npCaretClientRect(ta, index) {
+            if (!ta) return null;
+            var div = _npEnsureCaretMirror();
+            _npSyncCaretMirrorStyle(ta, div);
+            var val = String(ta.value || '');
+            var i = Math.max(0, Math.min(index == null ? 0 : index, val.length));
+            div.textContent = val.substring(0, i);
+            var span = document.createElement('span');
+            span.textContent = val.substring(i, i + 1) || '\u200b';
+            div.appendChild(span);
+            var taRect = ta.getBoundingClientRect();
+            return {
+                left: taRect.left + span.offsetLeft - ta.scrollLeft,
+                top: taRect.top + span.offsetTop - ta.scrollTop,
+                right: taRect.left + span.offsetLeft + span.offsetWidth - ta.scrollLeft,
+                bottom: taRect.top + span.offsetTop + span.offsetHeight - ta.scrollTop
+            };
+        }
+        function _npSelectionClientRect(ta) {
+            if (!ta || ta.selectionStart == null || ta.selectionEnd == null) return null;
+            var a = Math.min(ta.selectionStart, ta.selectionEnd);
+            var b = Math.max(ta.selectionStart, ta.selectionEnd);
+            if (a === b) return null;
+            var r0 = _npCaretClientRect(ta, a);
+            var r1 = _npCaretClientRect(ta, b);
+            if (!r0 || !r1) return null;
+            return {
+                left: Math.min(r0.left, r1.left),
+                top: Math.min(r0.top, r1.top),
+                right: Math.max(r0.right, r1.right),
+                bottom: Math.max(r0.bottom, r1.bottom)
+            };
+        }
+        function _npCtxPointForSelection(fallbackX, fallbackY) {
+            var rect = _npSelectionClientRect(npBody);
+            if (!rect) return { x: fallbackX, y: fallbackY - 48 };
+            var menuW = 160, menuH = 44;
+            if (_npIsCoarsePointer()) {
+                // [EN] iOS/Android callout is OS-owned (usually above selection) — park B/I/U aside
+                var x = rect.right + 12;
+                var y = rect.top + Math.max(0, (rect.bottom - rect.top - menuH) / 2);
+                if (x + menuW > window.innerWidth - 8) x = Math.max(8, rect.left - menuW - 12);
+                if (y + menuH > window.innerHeight - 8) y = Math.max(8, rect.bottom + 12);
+                return { x: x, y: y };
+            }
+            return { x: rect.left, y: rect.top - 48 };
+        }
+        function _npCtxPointForPanel(fallbackX, fallbackY) {
+            if (_npIsCoarsePointer()) return { x: fallbackX, y: fallbackY + 12 };
+            return { x: fallbackX, y: fallbackY - 48 };
+        }
+        function _npBindLongPress(el, onHold, opts) {
+            if (!el || el._npLongPressBound) return;
+            el._npLongPressBound = true;
+            opts = opts || {};
+            var holdMs = opts.holdMs != null ? opts.holdMs : 520;
+            var movePx = opts.movePx != null ? opts.movePx : 10;
+            var timer = null, sx = 0, sy = 0;
+            function clearT() { if (timer) clearTimeout(timer); timer = null; }
+            el.addEventListener('pointerdown', function(e) {
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
+                if (typeof opts.allow === 'function' && !opts.allow(e)) return;
+                clearT();
+                sx = e.clientX; sy = e.clientY;
+                timer = setTimeout(function() {
+                    timer = null;
+                    if (typeof opts.validate === 'function' && !opts.validate()) return;
+                    hapticTap(18);
+                    onHold(sx, sy);
+                }, holdMs);
+            });
+            el.addEventListener('pointermove', function(e) {
+                if (!timer) return;
+                if (Math.abs(e.clientX - sx) > movePx || Math.abs(e.clientY - sy) > movePx) clearT();
+            });
+            ['pointerup', 'pointercancel', 'pointerleave'].forEach(function(ev) {
+                el.addEventListener(ev, clearT);
+            });
         }
         function _npBindDoubleTap(el, onTap, opts) {
             if (!el || el._npDblTapBound) return;
@@ -9020,7 +9116,7 @@
                 lastKey = key;
             });
         }
-        function _npEnsureCtxMenu() { // T6-CTX — double-tap (mobile) / long-press + PPM (desktop)
+        function _npEnsureCtxMenu() { // T6-CTX — long-press + double-tap (mobile) / long-press + PPM (desktop)
             if (npCtxMenu) return;
             npCtxMenu = document.createElement('div');
             npCtxMenu.className = 'np-ctx-menu';
@@ -9081,46 +9177,31 @@
             var start = npBody.selectionStart, end = npBody.selectionEnd;
             return start != null && end != null && start !== end;
         }
-        function _npBindTextCtx(el) { // T6-CTX — mobile: double-tap na zaznaczeniu; desktop: long-press / PPM
+        function _npBindTextCtx(el) { // T6-CTX — mobile: long-press + double-tap; desktop: long-press / PPM
             if (!el || el._npTextCtxBound) return;
             el._npTextCtxBound = true;
-            _npBindDoubleTap(el, function(e) {
+            function showFmtMenu(fx, fy) {
                 if (!_npHasTextSelection()) return;
-                _npShowCtxMenu(e.clientX, e.clientY - 48, _npCtxActsForSelection());
-            }, {
+                var pt = _npCtxPointForSelection(fx, fy);
+                _npShowCtxMenu(pt.x, pt.y, _npCtxActsForSelection());
+            }
+            _npBindDoubleTap(el, function(e) { showFmtMenu(e.clientX, e.clientY); }, {
                 selectionKey: true,
                 allow: function() { return _npHasTextSelection(); }
             });
-            if (!_npIsCoarsePointer()) {
-                var timer = null, sx = 0, sy = 0;
-                function clearT() { if (timer) clearTimeout(timer); timer = null; }
-                el.addEventListener('pointerdown', function(e) {
-                    if (e.pointerType === 'mouse' && e.button !== 0) return;
-                    clearT();
-                    sx = e.clientX; sy = e.clientY;
-                    timer = setTimeout(function() {
-                        timer = null;
-                        if (!_npHasTextSelection()) return;
-                        hapticTap(18);
-                        _npShowCtxMenu(sx, sy - 48, _npCtxActsForSelection());
-                    }, 520);
-                });
-                el.addEventListener('pointermove', function(e) {
-                    if (!timer) return;
-                    if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) clearT();
-                });
-                ['pointerup', 'pointercancel', 'pointerleave'].forEach(function(ev) {
-                    el.addEventListener(ev, clearT);
-                });
-            }
+            _npBindLongPress(el, showFmtMenu, {
+                holdMs: 560,
+                validate: _npHasTextSelection
+            });
             el.addEventListener('contextmenu', function(e) {
-                if (_npIsCoarsePointer()) return; // [EN] natywne Kopiuj/Wytnij na mobile
+                if (_npIsCoarsePointer()) return; // [EN] pozycja natywnego menu = OS; nie blokuj na mobile
                 if (!_npHasTextSelection()) return;
                 e.preventDefault();
-                _npShowCtxMenu(e.clientX, e.clientY, _npCtxActsForSelection());
+                var pt = _npCtxPointForSelection(e.clientX, e.clientY);
+                _npShowCtxMenu(pt.x, pt.y, _npCtxActsForSelection());
             });
         }
-        function _npBindPanelCtx(el) { // T6-CTX — mobile: double-tap na tle; desktop: long-press / PPM
+        function _npBindPanelCtx(el) { // T6-CTX — long-press + double-tap (mobile) / long-press + PPM (desktop)
             if (!el || el._npPanelCtxBound) return;
             el._npPanelCtxBound = true;
             function isTextTarget(node) {
@@ -9131,36 +9212,24 @@
                 if (e.target.closest('.np-res') || e.target.closest('.np-kb-bar')) return false;
                 return true;
             }
-            _npBindDoubleTap(el, function(e) {
-                _npShowCtxMenu(e.clientX, e.clientY - 48, _npCtxActsForPanel());
-            }, { allow: panelAllowed });
-            if (!_npIsCoarsePointer()) {
-                var timer = null, sx = 0, sy = 0;
-                function clearT() { if (timer) clearTimeout(timer); timer = null; }
-                el.addEventListener('pointerdown', function(e) {
-                    if (!panelAllowed(e)) return;
-                    if (e.pointerType === 'mouse' && e.button !== 0) return;
-                    clearT();
-                    sx = e.clientX; sy = e.clientY;
-                    timer = setTimeout(function() {
-                        timer = null;
-                        hapticTap(18);
-                        _npShowCtxMenu(sx, sy - 48, _npCtxActsForPanel());
-                    }, 500);
-                });
-                el.addEventListener('pointermove', function(e) {
-                    if (!timer) return;
-                    if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) clearT();
-                });
-                ['pointerup', 'pointercancel', 'pointerleave'].forEach(function(ev) {
-                    el.addEventListener(ev, clearT);
-                });
+            function showPanelMenu(fx, fy) {
+                var pt = _npCtxPointForPanel(fx, fy);
+                _npShowCtxMenu(pt.x, pt.y, _npCtxActsForPanel());
             }
+            _npBindDoubleTap(el, function(e) {
+                if (!panelAllowed(e)) return;
+                showPanelMenu(e.clientX, e.clientY);
+            }, { allow: panelAllowed });
+            _npBindLongPress(el, showPanelMenu, {
+                holdMs: 500,
+                allow: panelAllowed
+            });
             el.addEventListener('contextmenu', function(e) {
                 if (_npIsCoarsePointer()) return;
                 if (isTextTarget(e.target) || e.target.closest('.np-res')) return;
                 e.preventDefault();
-                _npShowCtxMenu(e.clientX, e.clientY, _npCtxActsForPanel());
+                var pt = _npCtxPointForPanel(e.clientX, e.clientY);
+                _npShowCtxMenu(pt.x, pt.y, _npCtxActsForPanel());
             });
         }
         var _npGutterPanelSwipeBound = false;
