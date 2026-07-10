@@ -2653,6 +2653,8 @@
         .np-fmt-bold { font-weight: inherit; text-shadow: 0.55px 0 0 currentColor, -0.55px 0 0 currentColor; } /* [EN] faux-bold — monospace bez zmiany szerokości */
         .np-fmt-italic { font-style: italic; }
         .np-fmt-underline { text-decoration: underline; }
+        .np-fmt-strike { text-decoration: line-through; }
+        .np-fmt-accent { color: var(--primary, #2563eb); }
         .np-fmt-ghost {
             color: var(--text-muted);
             opacity: 0.45;

@@ -8202,6 +8202,7 @@
         var _NP_GLOBAL_RE = /^@\s*([\p{L}][\p{L}\p{N}_]*)\s*:\s*(.+)$/u;
         var _NP_TOTAL_RE = /^(razem|suma|total)$/i;
         var _NP_SUBTOTAL_RE = /^(subtotal|półsuma|podsuma)$/i;
+        var _NP_FMT = (typeof window !== 'undefined' && window.MATM0_NP_FMT) || null;
         var _NP_SECTION_RE = /^-{3,}\s*$/;
         var _NP_ALIGN_MAP = { left: '', center: '< ', right: '> ', justify: '| ' }; // T6-4 — prefixy wyrównania linii
         function _npParseAlign(line) { // T6-4 — strip prefix przed ewaluacją / renderem mirror
@@ -8211,7 +8212,8 @@
             if (s.startsWith('| ')) return { align: 'justify', body: s.slice(2) };
             return { align: 'left', body: s };
         }
-        function _npStripFormatMarkers(s) { // T6-5 — usuń markery przed liczeniem (kolejność: ** __ _)
+        function _npStripFormatMarkers(s) { // T6-5/6 — delegacja do rejestru formatów
+            if (_NP_FMT && typeof _NP_FMT.stripMarkers === 'function') return _NP_FMT.stripMarkers(s);
             var t = String(s || '');
             t = t.replace(/\*\*([^*]+)\*\*/g, '$1');
             t = t.replace(/__([^_]+)__/g, '$1');
@@ -8269,7 +8271,15 @@
             if (!_npFmtRegionVisible(regionStart, regionEnd, ctx)) return; // [EN] brak DOM = brak miejsca (Obsidian)
             _npPushMirrorSpan(container, text, 'np-fmt-ghost', g0, g1, ctx);
         }
-        function _npFillMirrorFormatted(container, text, ctx, globalOff) { // T6-5 — mirror + markery przy kursorze
+        function _npFillMirrorFormatted(container, text, ctx, globalOff) { // T6-5/6 — mirror via MATM0_NP_FMT
+            if (_NP_FMT && typeof _NP_FMT.fillMirror === 'function') {
+                _NP_FMT.fillMirror(container, text, ctx, globalOff, {
+                    pushSpan: _npPushMirrorSpan,
+                    pushGhost: _npPushMirrorGhost,
+                    lineActive: _npLineActive
+                });
+                return;
+            }
             if (globalOff == null) container.replaceChildren();
             if (!text) return;
             var base = globalOff || 0;
@@ -8910,10 +8920,9 @@
         }
         function _npRunEditorAction(act) {
             if (!act) return;
-            if (act === 'bold') _npWrapSelection('**', '**');
-            else if (act === 'italic') _npWrapSelection('_', '_');
-            else if (act === 'underline') _npWrapSelection('__', '__');
-            else if (act === 'align-left') _npSetLineAlign('left');
+            var wrap = _NP_FMT && _NP_FMT.wrapByAct(act);
+            if (wrap) { _npWrapSelection(wrap.open, wrap.close); return; }
+            if (act === 'align-left') _npSetLineAlign('left');
             else if (act === 'align-center') _npSetLineAlign('center');
             else if (act === 'align-right') _npSetLineAlign('right');
             else if (act === 'align-justify') _npSetLineAlign('justify');
@@ -8929,13 +8938,14 @@
             npKbBar.setAttribute('role', 'toolbar');
             npKbBar.setAttribute('aria-label', 'Formatowanie notatnika');
             npKbBar.hidden = true;
-            var specs = [
-                ['bold', 'B', 'Pogrubienie'], ['italic', 'I', 'Kursywa'], ['underline', 'U', 'Podkreślenie'],
+            var specs = (_NP_FMT && typeof _NP_FMT.kbInlineItems === 'function' ? _NP_FMT.kbInlineItems() : [
+                ['bold', 'B', 'Pogrubienie'], ['italic', 'I', 'Kursywa'], ['underline', 'U', 'Podkreślenie']
+            ]).concat([
                 ['sep'],
                 ['align-left', '◀', 'Wyrównaj do lewej'], ['align-center', '≡', 'Wyśrodkuj'], ['align-right', '▶', 'Wyrównaj do prawej'], ['align-justify', '⊞', 'Wyjustuj'],
                 ['sep'],
                 ['font-down', 'A−', 'Mniejsza czcionka'], ['font-up', 'A+', 'Większa czcionka'], ['font-reset', '↺', 'Domyślna czcionka']
-            ];
+            ]);
             specs.forEach(function(sp) {
                 if (sp[0] === 'sep') {
                     var sep = document.createElement('span');
@@ -9167,7 +9177,8 @@
                 ['font-down', 'A−', ''], ['font-up', 'A+', ''], ['font-reset', '↺', 'Reset czcionki']
             ];
         }
-        function _npCtxActsForSelection() { // T6-CTX — formatowanie zaznaczenia (obok iOS Kopiuj/Wytnij)
+        function _npCtxActsForSelection() { // T6-CTX — formatowanie zaznaczenia (rejestr MATM0_NP_FMT)
+            if (_NP_FMT && typeof _NP_FMT.selectionMenuItems === 'function') return _NP_FMT.selectionMenuItems();
             return [
                 ['bold', 'B', 'Pogrubienie'], ['italic', 'I', 'Kursywa'], ['underline', 'U', 'Podkreślenie']
             ];
@@ -12269,9 +12280,13 @@
             results.push({ expr: 'T6-5 underline eval', pass: t65u[0] && t65u[0].value === 15, got: t65u[0] && t65u[0].value });
             var t65m = evalNotepadLines('> **Nocleg:** 3 * 180');
             results.push({ expr: 'T6-5 align+bold eval', pass: t65m[0] && t65m[0].value === 540, got: t65m[0] && t65m[0].value });
+            var t66s = evalNotepadLines('~~2+2~~');
+            results.push({ expr: 'T6-6 strike eval', pass: t66s[0] && t66s[0].value === 4, got: t66s[0] && t66s[0].value });
+            var t66a = evalNotepadLines('::10+5::');
+            results.push({ expr: 'T6-6 accent eval', pass: t66a[0] && t66a[0].value === 15, got: t66a[0] && t66a[0].value });
             // T6-5 mirror — niedomknięte markery nie mogą zapętlić renderu (lag przy wpisywaniu *)
             (function() {
-                var cases = ['**', '**otwarte', '__', '_kurs'];
+                var cases = ['**', '**otwarte', '__', '_kurs', '~~', '::otw'];
                 for (var ci = 0; ci < cases.length; ci++) {
                     var el = document.createElement('div');
                     var t0 = Date.now();

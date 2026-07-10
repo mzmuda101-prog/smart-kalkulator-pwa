@@ -24,6 +24,8 @@ const ASSETS_TO_CACHE = [
     './js/data-tables.js',
     './js/smart-parser.js',
     './js/smart-quantity.js',
+    './js/hint-rules.js',
+    './js/notepad-format.js',
     './command-definitions.js',
     './app.js',
     './styles.css'

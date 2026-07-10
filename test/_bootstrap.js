@@ -121,6 +121,7 @@ try {
   load('js/smart-parser.js'); // podsilniki czasu+dat (MATM0_PARSER) — app.js wiąże się z nimi
   load('js/smart-quantity.js'); // fundament typowanej wielkości (MATM0_QTY) — parytet z index.html
   load('js/hint-rules.js');
+  load('js/notepad-format.js');
   load('command-definitions.js');
   load('app.js');
 } catch (e) {
