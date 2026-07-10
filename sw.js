@@ -22,6 +22,7 @@ const ASSETS_TO_CACHE = [
     './js/calc-layout-tune.js',
     './js/cursor-hint.js',
     './js/data-tables.js',
+    './js/pl-fold.js',
     './js/smart-parser.js',
     './js/smart-quantity.js',
     './js/hint-rules.js',

@@ -877,7 +877,13 @@
             return raw;
         }
 
+        function _plFold(s) { // [EN] PL diacritics → ASCII before NL regex (MATM0_PL_FOLD)
+            var F = (typeof window !== 'undefined' && window.MATM0_PL_FOLD) || null;
+            return F && F.foldLower ? F.foldLower(s) : String(s || '').toLowerCase();
+        }
+
         function parseNaturalShortcuts(raw) {
+            raw = _plFold(raw);
             // --- Normalizacja klawiaturowego minusa: „−" (U+2212) → „-" ---
             // Reguły niżej (procenty „100-10%", VAT „1560 - vat") łapią tylko ASCII „-";
             // bez tej zamiany minus z keypada omijał je i dawał zły wynik (100−10% = 99,9).
@@ -1537,9 +1543,9 @@
             return makeVal({ value: v, unit: '%', kind: 'percent', exact: !approx, exactText: ex });
         }
         function evalPercentQuery(raw) {
-            var s = String(raw || '').trim().toLowerCase();
+            var s = _plFold(raw).trim();
             if (!s || (s.indexOf('%') === -1 && s.indexOf('procent') === -1 && s.indexOf('percent') === -1)) return null;
-            var P = '([\\d.,]+)', PCT = '(?:%|procent[a-ząćęłńóśźż]*|percent)';
+            var P = '([\\d.,]+)', PCT = '(?:%|procent[a-z]*|percent)';
             var m;
             // PL: „ile % [to|stanowi] A z B"
             if (s.indexOf('ile') !== -1 && (m = s.match(new RegExp('^ile\\s+' + PCT + '\\s+(?:to\\s+|stanowi\\s+)?' + P + '\\s+z\\s+' + P + '\\s*$')))) {
@@ -1565,7 +1571,7 @@
             if ((m = s.match(new RegExp('^' + P + '\\s+z\\s+' + P + '\\s+(?:stanowi\\s+)?(?:to\\s+)?ile\\s+' + PCT + '\\s*$')))) {
                 return _pctFrac(m[1], m[2]);
             }
-            if ((m = s.match(new RegExp('^jaki\\s+(?:procent[a-ząćęłńóśźż]*|' + PCT + ')\\s+(?:stanowi\\s+|to\\s+)?' + P + '\\s+z\\s+' + P + '\\s*$')))) {
+            if ((m = s.match(new RegExp('^jaki\\s+(?:procent[a-z]*|' + PCT + ')\\s+(?:stanowi\\s+|to\\s+)?' + P + '\\s+z\\s+' + P + '\\s*$')))) {
                 return _pctFrac(m[1], m[2]);
             }
             return null;
@@ -1578,21 +1584,19 @@
 
         // Różnica procentowa między wartościami: (B−A)/A·100 — Raycast-style.
         function evalPercentDifference(raw) {
-            var s = String(raw || '').trim().toLowerCase();
-            if (!s || !/(%|procent|percent|różnica|róznica|difference|change|ile\s+(?:%|procent|percent))/i.test(s)) return null;
-            var P = '([\\d.,]+)', PCT = '(?:%|procent[a-ząćęłńóśźż]*|percent)';
+            var s = _plFold(raw).trim();
+            if (!s || !/(%|procent|percent|roznica|difference|change|ile\s+(?:%|procent|percent))/i.test(s)) return null;
+            var P = '([\\d.,]+)', PCT = '(?:%|procent[a-z]*|percent)';
             var m;
-            if ((m = s.match(new RegExp('^(?:różnica|róznica|percent\\s+(?:difference|change))\\s*(?:%|procent[a-ząćęłńóśźż]*)?\\s*(?:między|between|from)\\s+' + P + '\\s+(?:a|and|to)\\s+' + P + '\\s*$')))) {
+            if ((m = s.match(new RegExp('^(?:roznica|percent\\s+(?:difference|change))\\s*(?:%|procent[a-z]*)?\\s*(?:miedzy|between|from)\\s+' + P + '\\s+(?:a|and|to)\\s+' + P + '\\s*$')))) {
                 return _pctDiff(m[1], m[2]);
             }
-            if ((m = s.match(new RegExp('^' + P + '\\s+(?:to|na|→)\\s+' + P + '\\s+(?:percent\\s+)?(?:difference|change|różnica|róznica)\\s*$')))) {
-                return _pctDiff(m[1], m[2]);
-            }
-            // PL: „z A na B to ile %" · „z A na B o ile procent" · „od A do B to ile %"
             if ((m = s.match(new RegExp('^(?:z|od)\\s+' + P + '\\s+(?:na|do)\\s+' + P + '\\s+(?:to\\s+|o\\s+)?ile\\s+' + PCT + '\\s*$')))) {
                 return _pctDiff(m[1], m[2]);
             }
-            // EN: „from A to B is what %/percent"
+            if ((m = s.match(new RegExp('^' + P + '\\s+(?:to|na|→)\\s+' + P + '\\s+(?:percent\\s+)?(?:difference|change|roznica)\\s*$')))) {
+                return _pctDiff(m[1], m[2]);
+            }
             if ((m = s.match(new RegExp('^from\\s+' + P + '\\s+to\\s+' + P + '\\s+(?:is\\s+)?what\\s+' + PCT + '\\s*$')))) {
                 return _pctDiff(m[1], m[2]);
             }
@@ -1640,10 +1644,10 @@
             });
         }
         function evalPercentBaseQuery(raw) {
-            var s = String(raw || '').trim().toLowerCase();
+            var s = _plFold(raw).trim();
             if (!s || (s.indexOf('%') === -1 && s.indexOf('procent') === -1 && s.indexOf('percent') === -1)) return null;
             s = s.replace(/→|->/g, ';').replace(/\s+/g, ' ').trim();
-            var P = '([\\d.,]+)', PC = '([\\d.,]+)\\s*(?:%|procent[a-ząćęłńóśźż]*|percent)';
+            var P = '([\\d.,]+)', PC = '([\\d.,]+)\\s*(?:%|procent[a-z]*|percent)';
             var curTok = _currencyTokenRe();
             var PV = curTok
                 ? P + '(?:\\s*(' + curTok + ')(?![a-ząćęłńóśźż0-9]))?'
@@ -1685,11 +1689,11 @@
         // Kolejność dowolna; np. „koszt trasy 300 km 7 l/100km 6,50 zł/l", „paliwo na 420 km
         // przy 6 l/100 i 6,29 zł/l". litry = dystans/100·spalanie; koszt = litry·cena.
         function evalRouteCost(raw) {
-            var s = String(raw || '').trim().toLowerCase().replace(',', ',');
+            var s = _plFold(raw).replace(',', ',');
             if (!s) return null;
             var dist = s.match(/([\d.,]+)\s*km\b/);
-            var cons = s.match(/([\d.,]+)\s*l(?:itr[a-ząćęłńóśźż]*)?\s*\/?\s*(?:(?:na|per)\s*)?100/);
-            var price = s.match(/([\d.,]+)\s*(?:zł|zl|pln)\s*\/?\s*(?:l\b|litr[a-ząćęłńóśźż]*)/); // 6,50 zł/l, 6.29 zł/litr
+            var cons = s.match(/([\d.,]+)\s*l(?:itr[a-z]*)?\s*\/?\s*(?:(?:na|per)\s*)?100/);
+            var price = s.match(/([\d.,]+)\s*(?:zł|zl|pln)\s*\/?\s*(?:l\b|litr[a-z]*)/); // 6,50 zł/l, 6.29 zł/litr
             if (!dist || !cons || !price) return null;
             var D = parseFloat(dist[1].replace(',', '.')), C = parseFloat(cons[1].replace(',', '.')), P = parseFloat(price[1].replace(',', '.'));
             if (!isFinite(D) || !isFinite(C) || !isFinite(P)) return null;
@@ -10737,11 +10741,13 @@
 
         function acFilterStdSuggestions(query) {
             if (!query || query.length < 1) return [];
-            var q = query.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            var foldFn = (window.MATM0_PL_FOLD && window.MATM0_PL_FOLD.foldLower) ||
+                function (x) { return String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); };
+            var q = foldFn(query);
             var results = [];
             getStdACSuggestions().forEach(function (s) {
-                var synLower = s.syntax.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                var descLower = (s.description || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                var synLower = foldFn(s.syntax);
+                var descLower = foldFn(s.description || '');
                 if (synLower.startsWith(q)) results.unshift(s);
                 else if (synLower.includes(q)) results.push(s);
                 else if (descLower.includes(q) && results.length < 8) results.push(s);
@@ -12462,6 +12468,12 @@
             results.push({ expr: 'z 8 na 5 to ile %', pass: pctDiffZ.unit === '%' && Math.abs(pctDiffZ.value - (-37.5)) < 1e-6, got: pctDiffZ.value + ' ' + pctDiffZ.unit });
             var pctDiffOd = evalCalcExpression('od 8 do 5 o ile procent');
             results.push({ expr: 'od 8 do 5 o ile procent', pass: pctDiffOd.unit === '%' && Math.abs(pctDiffOd.value - (-37.5)) < 1e-6, got: pctDiffOd.value + ' ' + pctDiffOd.unit });
+            var plFoldDiff = evalCalcExpression('roznica % miedzy 8 a 5');
+            results.push({ expr: 'roznica % miedzy 8 a 5', pass: plFoldDiff.unit === '%' && Math.abs(plFoldDiff.value - (-37.5)) < 1e-6, got: plFoldDiff.value + ' ' + plFoldDiff.unit });
+            var plFoldDisc = evalCalcExpression('20% znizki na 150');
+            results.push({ expr: '20% znizki na 150', pass: plFoldDisc.value === 120, got: plFoldDisc.value });
+            var plFoldHalf = evalCalcExpression('polowa 100');
+            results.push({ expr: 'polowa 100', pass: plFoldHalf.value === 50, got: plFoldHalf.value });
             var savedTRead = STATE.settings.defaultUnits.time;
             STATE.settings.defaultUnits.time = '__auto__';
             var dur145 = evalCalcExpression('145 min');

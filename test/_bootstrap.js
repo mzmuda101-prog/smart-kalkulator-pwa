@@ -118,6 +118,7 @@ try {
   load('js/vendor/decimal.js');
   load('js/money-decimal.js');
   load('js/data-tables.js');
+  load('js/pl-fold.js');
   load('js/smart-parser.js'); // podsilniki czasu+dat (MATM0_PARSER) — app.js wiąże się z nimi
   load('js/smart-quantity.js'); // fundament typowanej wielkości (MATM0_QTY) — parytet z index.html
   load('js/hint-rules.js');
