@@ -24,6 +24,7 @@
             --danger-hover: #dc2626;
             --success: #10b981;
             --success-light: #d1fae5;
+            --help-yields: #15803d; /* [EN] ściąga → wynik — ciemniejszy zielony na jasnym tle */
             --warning: #f59e0b;
             --header-bg: rgba(255, 255, 255, 0.92);
             --calc-number-active: #e2e8f0;
@@ -99,6 +100,7 @@
             --danger: #f87171;
             --danger-hover: #ef4444;
             --success: #34d399;
+            --help-yields: #4ade80; /* [EN] jaśniejszy zielony na ciemnym tle ściągi */
             --success-light: rgba(16, 185, 129, 0.16);
             --warning: #fbbf24;
             --header-bg: rgba(23, 29, 38, 0.92);
@@ -1651,6 +1653,23 @@
             font-weight: 800;
             color: var(--primary);
             overflow-wrap: anywhere;
+        }
+        .command-help-content .help-yields {
+            display: block;
+            margin-top: 3px;
+            font-size: 0.88em;
+            color: var(--help-yields);
+            font-weight: 600;
+        }
+        .command-help-content .help-yields code {
+            color: var(--help-yields); /* [EN] wyższa specyficzność niż .command-help-content code */
+            font-weight: 700;
+        }
+        .command-help-content .help-desc {
+            display: block;
+            margin-top: 2px;
+            font-size: 0.9em;
+            opacity: 0.72;
         }
         .parser-gap-section {
             padding: 10px 12px;

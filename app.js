@@ -4422,7 +4422,7 @@
             var chunks = [];
             (groups || []).forEach(function(group) {
                 (group.items || []).forEach(function(item) {
-                    chunks.push(item.syntax || '', item.command || '', item.description || '');
+                    chunks.push(item.syntax || '', item.command || '', item.yields || '', item.description || '');
                 });
             });
             return normalizeHelpText(chunks.join(' | '));
@@ -4441,6 +4441,12 @@
         }
 
         function createHelpCommandRow(item) {
+            if (item.prose) {
+                var proseRow = document.createElement('p');
+                proseRow.innerHTML = item.prose;
+                return proseRow;
+            }
+
             var row = document.createElement('p');
             if (item.command) {
                 row.className = 'help-command';
@@ -4448,12 +4454,44 @@
                 row.title = 'Kliknij, aby wstawić komendę';
             }
 
-            var code = document.createElement('code');
-            code.textContent = expandTokens(item.syntax || item.command || '');
-            row.appendChild(code);
+            var syntaxText = expandTokens(item.syntax || item.command || '');
+            if (item.syntaxAlt) {
+                var pair = document.createElement('span');
+                pair.className = 'help-pair';
+                var codes = [syntaxText].concat(Array.isArray(item.syntaxAlt) ? item.syntaxAlt : [item.syntaxAlt]);
+                codes.forEach(function(text, i) {
+                    if (i > 0) {
+                        var sep = document.createElement('span');
+                        sep.className = 'help-sep';
+                        sep.textContent = '·';
+                        pair.appendChild(sep);
+                    }
+                    var code = document.createElement('code');
+                    code.textContent = text;
+                    pair.appendChild(code);
+                });
+                row.appendChild(pair);
+            } else if (syntaxText) {
+                var codeEl = document.createElement('code');
+                codeEl.textContent = syntaxText;
+                row.appendChild(codeEl);
+            }
+
+            if (item.yields) {
+                var yieldsWrap = document.createElement('span');
+                yieldsWrap.className = 'help-yields';
+                yieldsWrap.appendChild(document.createTextNode('→ '));
+                var yieldsCode = document.createElement('code');
+                yieldsCode.textContent = item.yields;
+                yieldsWrap.appendChild(yieldsCode);
+                row.appendChild(yieldsWrap);
+            }
 
             if (item.description) {
-                row.appendChild(document.createTextNode(' ' + item.description));
+                var descSpan = document.createElement('span');
+                descSpan.className = 'help-desc';
+                descSpan.textContent = item.description;
+                row.appendChild(descSpan);
             }
             return row;
         }
@@ -4463,32 +4501,48 @@
             if (!definitions) return;
 
             var allMissing = [];
-            var lastSection = null;
+            var lastGapSection = null;
 
-            ['engineering', 'graph'].forEach(function(helpType) {
+            ['calculator', 'engineering', 'graph'].forEach(function(helpType) {
                 var helpSection = document.querySelector('.help-section[data-help="' + helpType + '"]');
                 var groups = definitions[helpType];
                 if (!helpSection || !Array.isArray(groups)) return;
 
                 helpSection.replaceChildren();
                 groups.forEach(function(group) {
+                    if (group.langNote) {
+                        var note = document.createElement('p');
+                        note.className = 'help-lang-note';
+                        note.innerHTML = group.langNote;
+                        helpSection.appendChild(note);
+                        return;
+                    }
+
                     var section = document.createElement('section');
-                    var title = document.createElement('h4');
-                    title.textContent = group.title;
-                    section.appendChild(title);
+                    if (group.title) {
+                        var title = document.createElement('h4');
+                        title.textContent = group.title;
+                        section.appendChild(title);
+                    }
+                    if (group.intro) {
+                        var intro = document.createElement('p');
+                        intro.innerHTML = group.intro;
+                        section.appendChild(intro);
+                    }
                     (group.items || []).forEach(function(item) {
                         section.appendChild(createHelpCommandRow(item));
                     });
                     helpSection.appendChild(section);
                 });
 
-                // Collect all missing capabilities — render ONE combined section at the end
-                var missing = getMissingHelpCapabilities(helpType);
-                allMissing = allMissing.concat(missing);
-                lastSection = helpSection;
+                if (helpType === 'engineering' || helpType === 'graph') {
+                    var missing = getMissingHelpCapabilities(helpType);
+                    allMissing = allMissing.concat(missing);
+                    lastGapSection = helpSection;
+                }
             });
 
-            if (allMissing.length && lastSection) {
+            if (allMissing.length && lastGapSection) {
                 var missingSection = document.createElement('section');
                 missingSection.className = 'parser-gap-section';
                 var missingTitle = document.createElement('h4');
@@ -4501,7 +4555,7 @@
                 allMissing.forEach(function(item) {
                     missingSection.appendChild(createHelpCommandRow(item));
                 });
-                lastSection.appendChild(missingSection);
+                lastGapSection.appendChild(missingSection);
             }
         }
 

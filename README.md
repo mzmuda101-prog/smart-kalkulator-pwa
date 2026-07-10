@@ -42,9 +42,10 @@ window.__matm0.getHelpCoverageReport()
 
 ## Edycja sciagi
 
-Sciaga komend jest w pliku `command-definitions.js`. Wzorzec jak w zaawansowanych kalkulatorach (HP 48G, TI-Nspire):
+Sciaga komend jest w pliku `command-definitions.js` (sekcje: `calculator`, `engineering`, `graph`). **Notatnik** — ten sam model zaplanowany, na razie statyczny HTML; patrz [`docs/COMMAND-HELP-NOTEPAD-PLAN.md`](docs/COMMAND-HELP-NOTEPAD-PLAN.md). Wzorzec jak w zaawansowanych kalkulatorach (HP 48G, TI-Nspire):
 
 - **syntax** — zapis symboliczny (`x=L/N`, `punkt=x;y`, `kąt=K`) — to widzi uzytkownik
+- **yields** — co kalkulator policzy (`P% × B`, `100% = A ÷ P × 100`) — wzór lub typ wyniku, w UI jako `→`
 - **command** — szablon z `{PLACEHOLDER}` — po kliknieciu wstawiane sa wartosci z `HELP_DEFAULTS`
 - **Przykłady** — jedyne miejsce z konkretnymi liczbami (pitagoras 3;4, dzialka 120×80)
 
@@ -63,6 +64,7 @@ Do v99 bumpuj po prostu: `v94` → `v95` → … → `v99`.
 ## Dokumentacja wewnętrzna
 
 - [`docs/ENGINE-STRATEGY.md`](docs/ENGINE-STRATEGY.md) — strategia silnika (edytor, parser, eksport; cherry-pick z CM6/math.js/marked)
+- [`docs/COMMAND-HELP-NOTEPAD-PLAN.md`](docs/COMMAND-HELP-NOTEPAD-PLAN.md) — plan migracji ściągi notatnika (zaplanowane)
 - [`ROADMAP-QOL.md`](ROADMAP-QOL.md) — roadmap QoL (notatnik Tier 6 itd.)
 
 ## Live demo
