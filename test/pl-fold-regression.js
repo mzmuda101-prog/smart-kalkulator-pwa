@@ -32,3 +32,4 @@ cases.forEach(function (c) {
 
 console.log('  ✓ pl-fold-regression: ' + pass + '/' + pass + ' PASS');
 console.log('\n=== pl-fold-regression: OK ===');
+process.exit(0); // [EN] app.js trzyma event-loop (timery/idle) — kończymy jawnie jak smoke-node
