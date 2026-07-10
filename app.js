@@ -32,6 +32,10 @@
         function expandTokens(s) {
             return s.replace(/\{PIPE\}/g, SYNTAX.PIPE).replace(/\{SERIES\}/g, SYNTAX.SERIES).replace(/\{MODE\}/g, SYNTAX.MODE);
         }
+        function expandHelpCommand(s) { // [EN] syntax tokens first, then HELP_DEFAULTS placeholders
+            var filled = window.fillHelpDefaults ? window.fillHelpDefaults(expandTokens(s)) : expandTokens(s);
+            return filled;
+        }
 
         /* ============================================================
            [EN] App State
@@ -4364,42 +4368,42 @@
 
         function getParserCapabilities() {
             // [EN] Katalog zdolności parsera dla gap-detektora ściągi (display-only — NIE wpływa
-            // na właściwe regexy parsera). Każda pozycja ma JEDEN kanoniczny `term`, który musi
-            // istnieć w odchudzonej ściądze (command-definitions.js). Dzięki temu sekcja
+            // na właściwe regexy parsera). Każda pozycja ma JEDEN kanoniczny `term` (symboliczny),
+            // który musi istnieć w ściądze (command-definitions.js). Dzięki temu sekcja
             // „Parser umie więcej" zostaje pusta, dopóki nie dojdzie naprawdę nieudokumentowana
             // funkcja. Synonimy (step=, every=, kolo=, dia=, kątXY=, hfov=, wys=, tilt= …) wciąż
             // działają w parserze — po prostu nie zaśmiecają ściągi.
             return {
                 engineering: [
-                    { syntax: 'x=120/4', command: 'x=120/4', description: 'podstawowy podzial osi X.', terms: ['x=120/4'] },
-                    { syntax: 'y=L/N', command: 'y=200/5', description: 'podstawowy podzial osi Y.', terms: ['y=200/5'] },
-                    { syntax: '120/4', command: '120/4', description: 'skrot bez nazwy osi.', terms: ['120/4'] },
-                    { syntax: 'co=20', command: 'x=120 | co=20', description: 'staly odstep.', terms: ['co=20'] },
-                    { syntax: 'co=20;30', command: 'x=120 | co=20;30', description: 'naprzemienny odstep: 20, 30, 20, 30...', terms: ['co=20;30'] },
-                    { syntax: '@between / @edges / @centered', command: 'x=120/4 | @edges', description: 'tryby rozmieszczenia punktow.', terms: ['edges'] },
-                    { syntax: 'm=10/20', command: 'x=120/4 | m=10/20', description: 'margines start/koniec.', terms: ['m=10/20'] },
-                    { syntax: '<-10 / ->20', command: 'x=120/4 | <-10 | ->20', description: 'marginesy strzalkami.', terms: ['<-10'] },
-                    { syntax: 'ms=10 / me=20', command: 'x=120/4 | ms=10 | me=20', description: 'margines jednostronny.', terms: ['ms=10'] },
-                    { syntax: 'origin=50', command: 'x=120/4 | origin=50', description: 'przesuniecie poczatku osi.', terms: ['origin=50'] },
-                    { syntax: 'x=30 / y=-2', command: 'y=120/4 | x=30', description: 'przesuniecie serii na drugiej osi.', terms: ['x=30'] },
-                    { syntax: 'r=8', command: 'x=120/4 | r=8', description: 'promien punktu.', terms: ['r=8'] },
-                    { syntax: 'u=mm', command: 'x=120/4 | u=mm', description: 'jednostka wyniku.', terms: ['u=mm'] },
-                    { syntax: 'opis=A', command: 'x=120/4 | opis=A', description: 'nazwa serii.', terms: ['opis='] },
-                    { syntax: ';;', command: 'x=120/4 ;; x=120/6 | y=30', description: 'wiele serii.', terms: [';;'] },
+                    { syntax: 'x=L/N', command: 'x={L}/{N}', description: 'podstawowy podzial osi X.', terms: ['x=L/N'] },
+                    { syntax: 'y=L/N', command: 'y={Ly}/{Ny}', description: 'podstawowy podzial osi Y.', terms: ['y=L/N'] },
+                    { syntax: 'L/N', command: '{L}/{N}', description: 'skrot bez nazwy osi.', terms: ['L/N'] },
+                    { syntax: 'co=S', command: 'x={L} | co={S}', description: 'staly odstep.', terms: ['co=S'] },
+                    { syntax: 'co=S1;S2', command: 'x={L} | co={S1};{S2}', description: 'naprzemienny odstep.', terms: ['co=S1;S2'] },
+                    { syntax: '@between / @edges / @centered', command: 'x={L}/{N} | @edges', description: 'tryby rozmieszczenia punktow.', terms: ['edges'] },
+                    { syntax: 'm=A/B', command: 'x={L}/{N} | m={A}/{B}', description: 'margines start/koniec.', terms: ['m=A/B'] },
+                    { syntax: '<-A / ->B', command: 'x={L}/{N} | <-{A} | ->{B}', description: 'marginesy strzalkami.', terms: ['<-A'] },
+                    { syntax: 'ms=A / me=B', command: 'x={L}/{N} | ms={A} | me={B}', description: 'margines jednostronny.', terms: ['ms=A'] },
+                    { syntax: 'origin=Z', command: 'x={L}/{N} | origin={O}', description: 'przesuniecie poczatku osi.', terms: ['origin=Z'] },
+                    { syntax: 'x=D / y=D', command: 'y={Ly}/{Ny} | x={D}', description: 'przesuniecie serii na drugiej osi.', terms: ['x=D'] },
+                    { syntax: 'r=P', command: 'x={L}/{N} | r={P}', description: 'promien punktu.', terms: ['r=P'] },
+                    { syntax: 'u=mm', command: 'x={L}/{N} | u=mm', description: 'jednostka wyniku.', terms: ['u=mm'] },
+                    { syntax: 'opis=T', command: 'x={L}/{N} | opis={T}', description: 'nazwa serii.', terms: ['opis=T'] },
+                    { syntax: ';;', command: 'x={L}/{N} ;; x={L2}/{N2} | y={D}', description: 'wiele serii.', terms: [';;'] },
                 ],
                 graph: [
-                    { syntax: 'f(x)=x', command: 'f(x)=x^2', description: 'funkcja matematyczna.', terms: ['f(x)='] },
+                    { syntax: 'f(x)=wyrażenie', command: 'f(x)=x^2', description: 'funkcja matematyczna.', terms: ['f(x)='] },
                     { syntax: 'sin cos tan sqrt abs log ln exp', command: 'f(x)=sqrt(abs(x))', description: 'obslugiwane funkcje w wykresach.', terms: ['sin cos tan sqrt abs log ln exp'] },
                     { syntax: 'asin acos atan sinh cosh tanh cot csc', command: 'f(x)=asin(x)', description: 'odwrotna i hiperboliczna trygonometria w wykresach.', terms: ['asin acos atan sinh cosh tanh'] },
                     { syntax: 'floor ceil round', command: 'f(x)=floor(x)', description: 'zaokraglenia.', terms: ['floor ceil round'] },
                     { syntax: 'pi / π / e', command: 'f(x)=sin(pi*x)', description: 'stale matematyczne.', terms: ['pi'] },
-                    { syntax: 'punkt=150;200', command: 'punkt=150;200 | opis=A', description: 'punkt 2D.', terms: ['punkt=150;200'] },
-                    { syntax: 'rect=WxH / prostokat=WxH', command: 'prostokat=400x300', description: 'prostokat 2D.', terms: ['prostokat=400x300'] },
-                    { syntax: 'okrąg=R / circle=R', command: 'okrąg=100', description: 'okrag.', terms: ['okrag=r'] },
-                    { syntax: 'wielokat=N;R', command: 'wielokat=6;100', description: 'wielokat foremny.', terms: ['wielokat=6;100'] },
-                    { syntax: 'ox=50 / oy=50', command: 'rect=200x100 | ox=50 | oy=50', description: 'przesuniecie geometrii.', terms: ['ox=50'] },
-                    { syntax: 'siatka=400x300', command: 'siatka=400x300 | co=100x100', description: 'siatka punktow.', terms: ['siatka=400x300'] },
-                    { syntax: 'kamera=x;y | kąt=K | zasięg=Z', command: 'kamera=0;0 | kąt=110 | zasięg=15', description: 'pole widzenia 2D.', terms: ['kamera=0;0'] },
+                    { syntax: 'punkt=x;y', command: 'punkt={Xp};{Yp} | opis=A', description: 'punkt 2D.', terms: ['punkt=x;y'] },
+                    { syntax: 'rect=WxH / prostokat=WxH', command: 'prostokat={W}x{H}', description: 'prostokat 2D.', terms: ['prostokat=WxH'] },
+                    { syntax: 'okrąg=R / circle=R', command: 'okrąg={R}', description: 'okrag.', terms: ['okrąg=R'] },
+                    { syntax: 'wielokat=N;R', command: 'wielokat={Ns};{R}', description: 'wielokat foremny.', terms: ['wielokat=N;R'] },
+                    { syntax: 'ox=A / oy=B', command: 'rect={W}x{H} | ox={Ox} | oy={Oy}', description: 'przesuniecie geometrii.', terms: ['ox=A'] },
+                    { syntax: 'siatka=WxH', command: 'siatka={W}x{H} | co={dx}x{dy}', description: 'siatka punktow.', terms: ['siatka=WxH'] },
+                    { syntax: 'kamera=x;y | kąt=K | zasięg=Z', command: 'kamera={Xp};{Yp} | kąt={K} | zasięg={Zr}', description: 'pole widzenia 2D.', terms: ['kamera=x;y'] },
                     { syntax: ';;', command: 'f(x)=sin(x) ;; punkt=0;0', description: 'wiele serii na wykresie.', terms: [';;'] },
                 ],
             };
@@ -4440,7 +4444,7 @@
             var row = document.createElement('p');
             if (item.command) {
                 row.className = 'help-command';
-                row.setAttribute('data-command', expandTokens(item.command));
+                row.setAttribute('data-command', expandHelpCommand(item.command));
                 row.title = 'Kliknij, aby wstawić komendę';
             }
 
@@ -10679,7 +10683,7 @@
                 var key = String(syntax).toLowerCase().replace(/\s+/g, '');
                 if (seen[key]) return;
                 seen[key] = true;
-                list.push({ syntax: expandTokens(syntax), description: description || '', command: command ? expandTokens(command) : null });
+                list.push({ syntax: expandTokens(syntax), description: description || '', command: command ? expandHelpCommand(command) : null });
             }
 
             var caps = getParserCapabilities();
@@ -11520,7 +11524,7 @@
         init();
 
         document.querySelectorAll('[data-command]').forEach(function(el) {
-            el.setAttribute('data-command', expandTokens(el.getAttribute('data-command')));
+            el.setAttribute('data-command', expandHelpCommand(el.getAttribute('data-command')));
         });
 
         function runParserSmokeTests() {

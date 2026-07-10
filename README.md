@@ -11,23 +11,23 @@ PWA do codziennych i technicznych obliczen: standardowy kalkulator, podzialy inz
 
 ## Przyklady komend
 
-Inzynieria i podzialy:
+Inzynieria i podzialy (wzorzec symboliczny — klik wstawia domyslne L=120, N=4):
 
 ```text
-x=120/4 | m=10/10 | @edges
-x=120 | co=20 | opis=otwory
-y=200/5 | @edges | x=30
-x=120/4 ;; x=120/6 | y=30
+x=L/N | m=A/B | @edges
+x=L | co=S | opis=T
+y=L/N | @edges | x=D
+x=L/N ;; x=L/N | y=D
 ```
 
-Wykresy i geometria:
+Wykresy i geometria (wzorzec symboliczny — klik wstawia domyslne W=400, H=300, R=100):
 
 ```text
 f(x)=sin(x)
 f(x)=x^2-4 ;; f(x)=cos(x)
-punkt=150,200 | label=A | r=8
-rect=400x300 | ox=50 | oy=50
-siatka=400x300 | co=100x100 | label=P
+punkt=x;y | opis=A | r=P
+prostokat=WxH | ox=A | oy=B
+siatka=WxH | co=dx x dy
 ```
 
 ## Debug parsera
@@ -42,7 +42,15 @@ window.__matm0.getHelpCoverageReport()
 
 ## Edycja sciagi
 
-Sciaga komend jest w pliku `command-definitions.js`. Ten plik opisuje tylko UI i dokumentacje; parser w `app.js` nadal decyduje, jakie komendy aplikacja realnie obsluguje. Jesli parser umie cos, czego nie ma w sciadze, aplikacja pokazuje to w sekcji `Parser umie wiecej`.
+Sciaga komend jest w pliku `command-definitions.js`. Wzorzec jak w zaawansowanych kalkulatorach (HP 48G, TI-Nspire):
+
+- **syntax** — zapis symboliczny (`x=L/N`, `punkt=x;y`, `kąt=K`) — to widzi uzytkownik
+- **command** — szablon z `{PLACEHOLDER}` — po kliknieciu wstawiane sa wartosci z `HELP_DEFAULTS`
+- **Przykłady** — jedyne miejsce z konkretnymi liczbami (pitagoras 3;4, dzialka 120×80)
+
+Zmiana domyslnych wartosci: edytuj `HELP_DEFAULTS` na gorze pliku — cala sciaga sie aktualizuje.
+
+Parser w `app.js` nadal decyduje, jakie komendy aplikacja realnie obsluguje. Jesli parser umie cos, czego nie ma w sciadze, aplikacja pokazuje to w sekcji `Parser umie wiecej`.
 
 ## Wersjonowanie
 

@@ -1092,33 +1092,37 @@
             <div class="help-section" data-help="notepad">
                 <p class="help-lang-note">Notatnik obliczeniowy — każda linia liczy się osobno. Klik w przykład wstawia linię w aktywnej notatce. Pełna ściąga: <strong>≣</strong> → <strong>ⓘ Ściąga</strong>.</p>
                 <section>
+                    <h4>Legenda</h4>
+                    <p><code>a × b</code> — działanie (etykieta przed <code>:</code> jest pomijana). <code>@nazwa</code> — zmienna. <code>@razem</code> — wynik ostatniej sumy.</p>
+                </section>
+                <section>
                     <h4>Podstawy</h4>
-                    <p>Każda linia = osobne działanie; wynik na końcu wiersza. <strong>Dotknij wynik</strong> — dymek z rozpisanym równaniem (np. <code>razem</code> → <code>294 + 540</code>).</p>
-                    <p class="help-command" data-command="Nocleg: 3 * 180"><span class="help-pair"><code>Nocleg: 3 * 180</code></span> etykieta przed <code>:</code> pomijana w liczeniu → 540</p>
-                    <p class="help-command" data-command="Wyjazd w góry"><span class="help-pair"><code>Wyjazd w góry</code></span> linia bez działania = czysty tekst (nagłówek)</p>
+                    <p>Każda linia = osobne działanie; wynik na końcu wiersza. <strong>Dotknij wynik</strong> — dymek z rozpisanym równaniem (np. <code>razem</code> → <code>a + b</code>).</p>
+                    <p class="help-command" data-command="Nocleg: {nocleg} * {cena}"><span class="help-pair"><code>Etykieta: a × b</code></span> etykieta przed <code>:</code> pomijana w liczeniu</p>
+                    <p class="help-command" data-command="Wyjazd w góry"><span class="help-pair"><code>Nagłówek tekstowy</code></span> linia bez działania = czysty tekst (nagłówek)</p>
                     <p><strong>Wiele notatek:</strong> <strong>＋</strong> nowa · <strong>≣</strong> lista (tytuł = pierwsza linia) · kosz usuwa · ⬆ eksport.</p>
                 </section>
                 <section>
                     <h4>Sumy i sekcje</h4>
                     <p><code>razem</code> / <code>suma</code> — suma wyników od ostatniego <code>---</code>. <code>półsuma</code> / <code>subtotal</code> — podobnie, inny styl.</p>
                     <p class="help-command" data-command="---"><span class="help-pair"><code>---</code></span> nowa sekcja (zeruje sumę)</p>
-                    <p class="help-command" data-command="razem(usd)"><span class="help-pair"><code>razem(usd)</code><span class="help-sep">·</span><code>razem(zł)</code><span class="help-sep">·</span><code>półsuma(cm)</code></span> ręczna jednostka sumy → też <code>@razem</code></p>
-                    <p>W ⚙️ <strong>Dziedzicz jednostkę przy sumie</strong> — gdy wszystkie pozycje mają tę samą (np. zł + zł → <code>1 710 zł</code>). Bez tego <code>razem</code> = sam numer.</p>
+                    <p class="help-command" data-command="razem(usd)"><span class="help-pair"><code>razem(jednostka)</code><span class="help-sep">·</span><code>półsuma(jednostka)</code></span> ręczna jednostka sumy → też <code>@razem</code></p>
+                    <p>W ⚙️ <strong>Dziedzicz jednostkę przy sumie</strong> — gdy wszystkie pozycje mają tę samą (np. zł + zł → <code>suma zł</code>). Bez tego <code>razem</code> = sam numer.</p>
                 </section>
                 <section>
                     <h4>Zmienne</h4>
-                    <p class="help-command" data-command="@stawka: 50"><span class="help-pair"><code>@stawka: 50</code></span> zmienna dzielona między notatkami</p>
-                    <p class="help-command" data-command="@stawka * 8"><span class="help-pair"><code>@stawka * 8</code></span> użycie @globalnej w innej notatce</p>
-                    <p>Etykieta jednowyrazowa (<code>Paliwo: 294</code>) → zmienna <code>@paliwo</code> w panelu Zmienne. Sam tekst <code>paliwo</code> już nie podstawia wartości.</p>
-                    <p class="help-command" data-command="test: @razem × 2.5"><span class="help-pair"><code>test: @razem × 2.5</code></span> odwołanie do wyniku sumy</p>
+                    <p class="help-command" data-command="@stawka: {stawka}"><span class="help-pair"><code>@nazwa: wartość</code></span> zmienna dzielona między notatkami</p>
+                    <p class="help-command" data-command="@stawka * 8"><span class="help-pair"><code>@nazwa × k</code></span> użycie @globalnej w innej notatce</p>
+                    <p>Etykieta jednowyrazowa (<code>Pozycja: wartość</code>) → zmienna <code>@pozycja</code> w panelu Zmienne. Sam tekst <code>pozycja</code> już nie podstawia wartości.</p>
+                    <p class="help-command" data-command="test: @razem × {mnoznik}"><span class="help-pair"><code>test: @razem × k</code></span> odwołanie do wyniku sumy</p>
                 </section>
                 <section>
                     <h4>Jednostki i waluty (notatnik)</h4>
-                    <p class="help-command" data-command="115pln×10os"><span class="help-pair"><code>115pln×10os</code></span> miks bez spacji — w ⚙️ <strong>Pierwsza jednostka wygrywa</strong></p>
-                    <p class="help-command" data-command="10 pln × 5 km"><span class="help-pair"><code>10 pln × 5 km</code></span> wynik w jednostce pierwszej (np. zł)</p>
-                    <p><strong>Waluty</strong> nie przeliczają się same na zł: <code>razem(usd)</code> + <code>@razem × 2</code> zostaje w USD. Konwersja jawnie:</p>
-                    <p class="help-command" data-command="@razem na zł"><span class="help-pair"><code>@razem na zł</code><span class="help-sep">·</span><code>100 usd na eur</code></span> przelicz dopiero gdy chcesz</p>
-                    <p>Nieznane słowa (<code>os</code>, <code>grzybów</code>) = liczniki bezwymiarowe. W ⚙️: <strong>zachowawczo</strong> (proza bez wyniku) lub <strong>pełne auto</strong>.</p>
+                    <p class="help-command" data-command="115pln×10os"><span class="help-pair"><code>cena×ilość</code></span> miks bez spacji — w ⚙️ <strong>Pierwsza jednostka wygrywa</strong></p>
+                    <p class="help-command" data-command="10 pln × 5 km"><span class="help-pair"><code>a jedn. × b jedn.</code></span> wynik w jednostce pierwszej</p>
+                    <p><strong>Waluty</strong> nie przeliczają się same: <code>razem(usd)</code> + <code>@razem × k</code> zostaje w USD. Konwersja jawnie:</p>
+                    <p class="help-command" data-command="@razem na zł"><span class="help-pair"><code>@razem na jedn.</code><span class="help-sep">·</span><code>kwota waluta na waluta</code></span> przelicz dopiero gdy chcesz</p>
+                    <p>Nieznane słowa (<code>os</code>, <code>szt</code>) = liczniki bezwymiarowe. W ⚙️: <strong>zachowawczo</strong> (proza bez wyniku) lub <strong>pełne auto</strong>.</p>
                 </section>
                 <section>
                     <h4>Edycja i fold</h4>
@@ -1127,375 +1131,19 @@
                     <p>Pod edytorem: <strong>Przykład: wyjazd</strong> — gotowy szablon do nauki (jednostki, <code>razem(usd)</code>, <code>@razem</code>).</p>
                 </section>
                 <section>
-                    <h4>Przykład wyjazdu (klik = wstaw)</h4>
+                    <h4>Przykład wyjazdu (konkretne liczby — klik = wstaw)</h4>
                     <p class="help-command" data-command="Nocleg: 115pln×10os"><code>Nocleg: 115pln×10os</code></p>
-                    <p class="help-command" data-command="paliwo: 5,60pln×100km"><code>paliwo: 5,60pln×100km</code></p>
+                    <p class="help-command" data-command="paliwo: {paliwo}pln×{km}km"><code>paliwo: cena×dystans</code></p>
                     <p class="help-command" data-command="razem(usd)"><code>razem(usd)</code></p>
-                    <p class="help-command" data-command="test: @razem × 2.5"><code>test: @razem × 2.5</code></p>
+                    <p class="help-command" data-command="test: @razem × {mnoznik}"><code>test: @razem × k</code></p>
                     <p class="help-command" data-command="test2: @test na pln"><code>test2: @test na pln</code></p>
                 </section>
             </div>
             <div class="help-section" data-help="engineering">
-            <p class="help-lang-note">Komendy inżynierskie — tokeny głównie uniwersalne (<code>@edges</code>, <code>origin</code>). Polskie aliasy: <code>@krawedzie</code>, <code>jednostka=</code>, <code>opis=</code>.</p>
-            <section>
-                <h4>Najkrócej</h4>
-                <p><code>x=120/4</code> podziel długość 120 na 4 punkty na osi X.</p>
-                <p><code>y=200/5</code> to samo pionowo na osi Y.</p>
-                <p><code>120/4</code> działa jak skrót dla osi X.</p>
-            </section>
-            <section>
-                <h4>Tryby rozmieszczenia</h4>
-                <p><code>@between</code> punkty równo wewnątrz pola.</p>
-                <p><code>@edges</code> pierwszy i ostatni punkt na krańcach pola.</p>
-                <p><code>co=20</code> albo <code>@every:20</code> stały odstęp 20.</p>
-                <p><code>@centered</code> automatyczne wyśrodkowanie osi względem 0.</p>
-                <p><code>@inside</code> alias dla trybu rozmieszczenia wewnątrz pola.</p>
-                <p><code>@krance</code> i <code>@krawedzie</code> aliasy dla @edges.</p>
-            </section>
-            <section>
-                <h4>Marginesy i początek osi</h4>
-                <p><code>m=10/20</code> margines start 10, koniec 20.</p>
-                <p><code>&lt;-10</code> i <code>-&gt;20</code> to samo zapisane strzałkami.</p>
-                <p><code>origin=-60</code> przesuwa początek osi, przydatne przy liczeniu od środka.</p>
-                <p><code>start=10</code>, <code>left=10</code>, <code>ms=10</code> margines początkowy.</p>
-                <p><code>end=20</code>, <code>right=20</code>, <code>me=20</code> margines końcowy.</p>
-                <p><code>offset=50</code>, <code>zero=50</code> aliasy przesunięcia osi.</p>
-            </section>
-            <section>
-                <h4>Jednostki i opis</h4>
-                <p><code>u=mm</code>, <code>u=cm</code>, <code>u=m</code> ustawia jednostkę.</p>
-                <p><code>opis=otwory</code>, <code>label=A</code> opisuje serię punktów w wykresach.</p>
-                <p><code>r=5</code>, <code>dia=5</code>, <code>fi=5</code> ustawia promień punktu w wykresach.</p>
-                <p><code>ø=5</code> alternatywny zapis średnicy.</p>
-                <p><code>label=A</code>, <code>nazwa=A</code> aliasy opisu serii.</p>
-                <p><code>unit=mm</code>, <code>jednostka=mm</code> aliasy jednostek.</p>
-            </section>
-            <section>
-                <h4>Przykłady</h4>
-                <p class="help-command"
-                data-command="x=120/4 {PIPE} m=10/10 {PIPE} {MODE}edges {PIPE} u=mm">
-
-                    <code>x=120/4 | m=10/10 | @edges | u=mm</code>
-                </p>
-                <p class="help-command"
-                data-command="x=120/4 {PIPE} co=20 {PIPE} opis=otwory">
-
-                    <code>x=120/4 | co=20 | opis=otwory</code>
-                </p>
-                <p class="help-command"
-                data-command="y=200/5 {PIPE} {MODE}edges {PIPE} x=30">
-
-                    <code>y=200/5 | @edges | x=30</code>
-                </p>
-                <p class="help-command"
-                data-command="x=120/4 {PIPE} origin=-60 {PIPE} {MODE}edges">
-
-                    <code>x=120/4 | origin=-60 | @edges</code>
-                </p>
-                <h4>Zaawansowane</h4>
-                <p class="help-command"
-                data-command="x=200/5 {PIPE} {MODE}centered {PIPE} {MODE}edges">
-                    <code>@centered + @edges</code>
-                    wyśrodkowana oś z punktami na krańcach
-                </p>
-
-                <p class="help-command"
-                data-command="x=120 {PIPE} co=15 {PIPE} fi=8 {PIPE} opis=otwory">
-                    <code>co + fi + opis</code>
-                    odstęp, średnica i opis serii
-                </p>
-
-                <p class="help-command"
-                data-command="x=120/4 {PIPE} left=10 {PIPE} right=20">
-                    <code>left/right</code>
-                    aliasowe marginesy
-                </p>
-
-                <p class="help-command"
-                data-command="y=200/5 {PIPE} origin=-100 {PIPE} {MODE}edges">
-                    <code>origin + y</code>
-                    pionowa oś liczona od środka
-                </p>
-
-                <p class="help-command"
-                data-command="x=120/4 {PIPE} {MODE}centered">
-                    <code>@centered</code>
-                    wyśrodkuj oś względem 0
-                </p>
-
-                <p class="help-command"
-                data-command="x=120 {PIPE} co=20">
-                    <code>co=20</code>
-                    stały odstęp między punktami
-                </p>
-
-                <p class="help-command"
-                data-command="x=120/4 {PIPE} m=10/20">
-                    <code>m=10/20</code>
-                    margines start / koniec
-                </p>
-
-                <p class="help-command"
-                data-command="x=120/4 {PIPE} @edges">
-                    <code>@edges</code>
-                    pierwszy i ostatni punkt na krawędzi
-                </p>
-
-                <p class="help-command"
-                data-command="x=120/4 {PIPE} origin=-60">
-                    <code>origin=-60</code>
-                    przesunięcie początku osi
-                </p>
-
-                <p class="help-command"
-                data-command="x=120/4 {PIPE} fi=10">
-                    <code>fi=10</code>
-                    średnica punktów
-                </p>
-
-                <p class="help-command"
-                data-command="x=120/4 {PIPE} opis=otwory">
-                    <code>opis=otwory</code>
-                    nazwa serii
-                </p>
-
-                <p class="help-command"
-                data-command="x=120/4 {PIPE} u=mm">
-                    <code>u=mm</code>
-                    ustaw jednostkę
-                </p>
-
-                <p class="help-command"
-                data-command="x=120/4 ;; x=120/6 {PIPE} y=30">
-                    <code>;;</code>
-                    wiele serii punktów
-                </p>
-            </section>
+                <p class="help-lang-note">Ładowanie ściągi z <code>command-definitions.js</code>…</p>
             </div>
-            
             <div class="help-section" data-help="graph">
-                <section>
-                    <h4>Funkcje podstawowe</h4>
-
-                    <p class="help-command"
-                    data-command="f(x)=x">
-                        <code>f(x)=x</code>
-                        prosta liniowa
-                    </p>
-
-                    <p class="help-command"
-                    data-command="f(x)=x^2">
-                        <code>f(x)=x^2</code>
-                        parabola
-                    </p>
-
-                    <p class="help-command"
-                    data-command="f(x)=x^3">
-                        <code>f(x)=x^3</code>
-                        funkcja sześcienna
-                    </p>
-                </section>
-
-                <section>
-                    <h4>Trygonometria</h4>
-
-                    <p class="help-command"
-                    data-command="f(x)=sin(x)">
-                        <code>sin(x)</code>
-                        funkcja sinus
-                    </p>
-
-                    <p class="help-command"
-                    data-command="f(x)=cos(x)">
-                        <code>cos(x)</code>
-                        funkcja cosinus
-                    </p>
-
-                    <p class="help-command"
-                    data-command="f(x)=tan(x)">
-                        <code>tan(x)</code>
-                        funkcja tangens
-                    </p>
-                </section>
-
-                <section>
-                    <h4>Zaawansowane</h4>
-
-                    <p class="help-command"
-                    data-command="f(x)=sqrt(x)">
-                        <code>sqrt(x)</code>
-                        pierwiastek
-                    </p>
-
-                    <p class="help-command"
-                    data-command="f(x)=abs(x)">
-                        <code>abs(x)</code>
-                        wartość bezwzględna
-                    </p>
-
-                    <p class="help-command"
-                    data-command="f(x)=log(x)">
-                        <code>log(x)</code>
-                        logarytm dziesiętny
-                    </p>
-
-                    <p class="help-command"
-                    data-command="f(x)=ln(x)">
-                        <code>ln(x)</code>
-                        logarytm naturalny
-                    </p>
-
-                    <p class="help-command"
-                    data-command="f(x)=exp(x)">
-                        <code>exp(x)</code>
-                        funkcja wykładnicza
-                    </p>
-                </section>
-
-                <section>
-                    <h4>Zaokrąglenia</h4>
-
-                    <p class="help-command"
-                    data-command="f(x)=floor(x)">
-                        <code>floor(x)</code>
-                        zaokrąglenie w dół
-                    </p>
-
-                    <p class="help-command"
-                    data-command="f(x)=ceil(x)">
-                        <code>ceil(x)</code>
-                        zaokrąglenie w górę
-                    </p>
-
-                    <p class="help-command"
-                    data-command="f(x)=round(x)">
-                        <code>round(x)</code>
-                        klasyczne zaokrąglenie
-                    </p>
-                </section>
-
-                <section>
-                    <h4>Stałe matematyczne</h4>
-
-                    <p class="help-command"
-                    data-command="f(x)=sin(pi*x)">
-                        <code>pi</code>
-                        liczba π
-                    </p>
-
-                    <p class="help-command"
-                    data-command="f(x)=e^x">
-                        <code>e</code>
-                        liczba Eulera
-                    </p>
-                </section>
-
-                <section>
-                    <h4>Kombinacje</h4>
-
-                    <p class="help-command"
-                    data-command="f(x)=sin(x)*5">
-                        <code>sin(x)*5</code>
-                        amplituda ×5
-                    </p>
-
-                    <p class="help-command"
-                    data-command="f(x)=x^2-4">
-                        <code>x^2-4</code>
-                        parabola przesunięta
-                    </p>
-
-                    <p class="help-command"
-                    data-command="f(x)=sqrt(abs(x))">
-                        <code>sqrt(abs(x))</code>
-                        funkcje zagnieżdżone
-                    </p>
-
-                    <p class="help-command"
-                    data-command="f(x)=sin(x)*x">
-                        <code>sin(x)*x</code>
-                        fala rosnąca
-                    </p>
-
-                    <p class="help-command"
-                    data-command="f(x)=cos(x)*5">
-                        <code>cos(x)*5</code>
-                        cosinus ze skalą
-                    </p>
-</section>
-
-                <section>
-                    <h4>📐 Geometria 2D</h4>
-
-                    <p class="help-command" data-command="punkt=150;200 | label=A | r=8">
-                        <code>punkt=150;200 | label=A | r=8</code>
-                        punkt w miejscu X=150, Y=200, rozmiar r=8
-                    </p>
-
-                    <p class="help-command" data-command="punkt=0;0 | label=środek">
-                        <code>punkt=0;0 | label=środek</code>
-                        punkt w centrum układu
-                    </p>
-
-                    <p class="help-command" data-command="rect=400x300">
-                        <code>rect=400x300</code>
-                        prostokąt 400×300 (np. rzut altanki z góry)
-                    </p>
-
-                    <p class="help-command" data-command="rect=400x300 | ox=50 | oy=50 | label=płyta">
-                        <code>rect=400x300 | ox=50 | oy=50</code>
-                        prostokąt przesunięty o ox/oy od początku
-                    </p>
-
-                    <p class="help-command" data-command="siatka=400x300 | co=200x150 | label=słup">
-                        <code>siatka=400x300 | co=200x150 | label=słup</code>
-                        siatka punktów co 200×150 (np. słupy altanki)
-                    </p>
-
-                    <p class="help-command" data-command="siatka=400x300 | co=100x100 | r=5 | label=P">
-                        <code>siatka=400x300 | co=100x100 | r=5</code>
-                        gęstsza siatka, mniejsze punkty
-                    </p>
-                </section>
-
-                <section>
-                    <h4>🔀 Wieloseria (;;)</h4>
-
-                    <p>Wpisz kilka komend oddzielonych <code>;;</code> — każda rysuje się innym kolorem na tym samym wykresie.</p>
-
-                    <p class="help-command" data-command="f(x)=sin(x) ;; f(x)=cos(x)">
-                        <code>f(x)=sin(x) ;; f(x)=cos(x)</code>
-                        dwie funkcje naraz
-                    </p>
-
-                    <p class="help-command" data-command="f(x)=x^2 ;; f(x)=x^3">
-                        <code>f(x)=x^2 ;; f(x)=x^3</code>
-                        porównanie funkcji
-                    </p>
-
-                    <p class="help-command" data-command="rect=400x300 ;; siatka=400x300 | co=200x150 | label=słup ;; punkt=200;150 | label=środek">
-                        <code>rect=400x300 ;; siatka=... ;; punkt=...</code>
-                        rzut altanki: obrys + słupy + środek
-                    </p>
-
-                    <p class="help-command" data-command="x(d)=300/4 | m=10 | y=-2 ;; punkt=150;0 | label=kotwica">
-                        <code>x(d)=300/4 | y=-2 ;; punkt=150;0</code>
-                        punkty na belce + dodatkowy punkt
-                    </p>
-                </section>
-
-                <section>
-                    <h4>🧩 Moje Stałe w komendach</h4>
-                    <p>Nazwa stałej (z zakładki <strong>📊 Moje Stałe</strong>) podstawia w komendzie swoją wartość <strong>dosłownie</strong>, jako fragment komendy.</p>
-                    <p class="help-command" data-command="belka">
-                        <code>belka</code> = <code>x=120/4 ,, @edges</code> → wpisz <code>belka</code>, rozwinie się w pełną komendę
-                    </p>
-                    <p class="help-command" data-command="f(x)=wzor">
-                        <code>wzor</code> = <code>50-(20x+5)</code> (stała-funkcja) → <code>f(x)=wzor</code> rysuje <code>50-(20x+5)</code> (<code>x</code> = zmienna wykresu)
-                    </p>
-                    <p>Uwaga: w kalkulatorze ta sama stała <em>wywołuje się</em> (<code>wzor(3)</code> = liczba); w komendzie <em>podstawia wzór</em> do rysowania.</p>
-                </section>
-
+                <p class="help-lang-note">Ładowanie ściągi z <code>command-definitions.js</code>…</p>
             </div>
         </div>
     </aside>
