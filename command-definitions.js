@@ -41,7 +41,7 @@
         paliwo: '5,60', km: 100, mnoznik: 2.5,
         /* kalkulator Standard */
         Ca: 5, Cb: 3, Cc: 2, pow: 10, sqrtN: 144, deg: 30,
-        pct: 20, base: 150, pctAdd: 10, addBase: 150,
+        pct: 20, base: 150, pctAdd: 10, addBase: 150, pctOf: 6,
         pctOff: 20, offBase: 150, pctMarkup: 15, markupBase: 200,
         pctTip: 15, tipBase: 42,
         partA: 25, partB: 200, diffA: 30, diffB: 90,
@@ -96,9 +96,10 @@
             },
             {
                 title: 'Procenty',
-                intro: 'Trzy kierunki: <strong>% z kwoty</strong> (<code>P% z B</code>), <strong>jaki % to A z B</strong> (<code>ile % stanowi…</code>), <strong>znasz ułamek → szukasz reszty</strong> (<code>P% to A, ile 100%</code>). Szukaj linii <code>→</code> — tam widać typ wyniku.',
+                intro: 'Cztery kierunki: <strong>% z kwoty</strong> (<code>P% z B</code>), <strong>% z %</strong> (<code>P% z Q%</code>), <strong>jaki % to A z B</strong> (<code>ile % stanowi…</code>), <strong>znasz ułamek → szukasz reszty</strong> (<code>P% to A, ile 100%</code>). Szukaj linii <code>→</code> — tam widać typ wyniku.',
                 items: [
                     { syntax: 'P% z B', syntaxAlt: 'P% of B', command: '{pct}% z {base}', yields: 'P% × B', description: 'też słowo: procent' },
+                    { syntax: 'P% z Q%', syntaxAlt: 'P% of Q%', command: '{pct}% z {pctOf}%', yields: 'P% × Q% ÷ 100', description: 'procent z procenta (składany %)' },
                     { syntax: 'B + P%', command: '{addBase} + {pctAdd}%', yields: 'B + (P% × B)', description: 'dolicza procent do bazy' },
                     { syntax: 'a*b + P%', command: '3*160 + 12%', yields: 'wynik działania + (P% × wynik)', description: 'procent od całego wyrażenia' },
                     { syntax: 'P% rabatu na B', syntaxAlt: 'P% off B', command: '{pctOff}% rabatu na {offBase}', yields: 'B − (P% × B)', description: 'cena po rabacie' },

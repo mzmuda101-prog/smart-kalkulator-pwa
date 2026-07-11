@@ -1055,6 +1055,9 @@
                 function(_, b, p) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
             raw = raw.replace(/([\d.,]+)\s*\+\s*add\s+([\d.,]+)%/gi,
                 function(_, b, p) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
+            // "P% z Q%" / "P% of Q%" — procent z procenta (P×Q/100 w punktach procentowych)
+            raw = raw.replace(/([\d.,]+)%\s+(?:z|of)\s+([\d.,]+)%/gi,
+                function(_, p, q) { return '(' + p.replace(',', '.') + '*' + q.replace(',', '.') + '/100)'; });
             // "X% z Y" / "X% of Y" / "Y z X%" (odwrócona kolejność — to samo)
             raw = raw.replace(/([\d.,]+)%\s+(?:z|of)\s+([\d.,]+)/gi, '($2*$1/100)');
             raw = raw.replace(/([\d.,]+)\s+(?:z|of)\s+([\d.,]+)%/gi, '($1*$2/100)');
@@ -1642,6 +1645,18 @@
             if (!isFinite(a) || !isFinite(b) || b === 0) return null;
             return _pctResult(a / b * 100);
         }
+        // „P% z Q%" — procent z procenta (= P×Q/100 w punktach procentowych). PL/EN: „89% z 6%", „89% of 6%".
+        function evalPercentOfPercent(raw) {
+            var s = _plFold(raw).trim();
+            if (!s || s.indexOf('%') === -1) return null;
+            var P = '([\\d.,]+)', PCT = '(?:%|procent[a-z]*|percent)';
+            var m = s.match(new RegExp('^' + P + PCT + '\\s+(?:z|of)\\s+' + P + PCT + '\\s*$'));
+            if (!m) return null;
+            var p = parseFloat(String(m[1]).replace(',', '.'));
+            var q = parseFloat(String(m[2]).replace(',', '.'));
+            if (!isFinite(p) || !isFinite(q)) return null;
+            return _pctResult(p * q / 100);
+        }
 
         // Różnica procentowa między wartościami: (B−A)/A·100 — Raycast-style.
         function evalPercentDifference(raw) {
@@ -1792,6 +1807,8 @@
             // „ile % stanowi A z B" / „A z B to ile %" — kierunek ODWROTNY do „X% z Y" (wynik = procent).
             var pctBaseQ = evalPercentBaseQuery(original);
             if (pctBaseQ) return pctBaseQ;
+            var pctOfPct = evalPercentOfPercent(original);
+            if (pctOfPct) return pctOfPct;
             var pctQ = evalPercentQuery(original);
             if (pctQ) return pctQ;
             var pctDiffQ = evalPercentDifference(original);
@@ -2886,6 +2903,7 @@
         function _normalizeResultFlat(flat) { // [EN] fit mierzy jak DOM — surowe cyfry bez spacji zaniżają probe vs groupBigIntStr
             var s = String(flat || '').replace(/\n/g, ' ').trim();
             if (!s || /[ \t\u00a0\u202f]/.test(s)) return s;
+            if (/[,.]\d/.test(s)) return s; // [EN] ułamek dziesiętny — nie zdejmuj przecinka (0,0486 ≠ 00486)
             var core = s.replace(/[^\d-]/g, '');
             if (/^-?\d+$/.test(core) && core.replace('-', '').length >= 4) return groupBigIntStr(core);
             return s;
@@ -12430,6 +12448,9 @@
                 { expr: '8,5% to 80 pln, ile 50%', value: Math.round(80 * 50 / 8.5 * 100) / 100, unit: 'zł' },
                 { expr: '80 pln to 8,5% z czego', value: Math.round(80 * 100 / 8.5 * 100) / 100, unit: 'zł' },
                 { expr: '20% z 100', value: 20, tol: 1e-6 },            // FORWARD nadal liczba (nie %)
+                { expr: '89% z 6%', value: 5.34, tol: 1e-6, unit: '%' },
+                { expr: '89% of 6%', value: 5.34, tol: 1e-6, unit: '%' },
+                { expr: '81%*6%', value: 0.0486, tol: 1e-6 },
                 // daty — deterministyczny zakres
                 { expr: 'ile dni od 1.01.2026 do 1.02.2026', value: 31 },
                 // koszt trasy/paliwa (deterministyczny): 300/100·7=21 l · 6,50 = 136,50 zł

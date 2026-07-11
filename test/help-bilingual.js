@@ -37,6 +37,7 @@ const PAIRS = [
   { pl: 'ile dni od 1.01.2026 do 1.02.2026', en: 'how many days from 1.01.2026 to 1.02.2026', kind: 'date', sameValue: true },
   { pl: 'od 9:30 do 17:15', en: 'from 9:30 to 17:15', kind: 'duration' },
   { pl: '20% z 150', en: '20% of 150', sameValue: true },
+  { pl: '89% z 6%', en: '89% of 6%', kind: 'percent', sameValue: true },
   { pl: 'ile % stanowi 25 z 200', en: 'what percent is 25 of 200', kind: 'percent', sameValue: true },
   { pl: '25 z 200 stanowi ile %', en: '25 of 200 is what percent', kind: 'percent', sameValue: true },
   { pl: '20% z 150', en: '150 z 20%', sameValue: true },
