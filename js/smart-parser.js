@@ -70,15 +70,15 @@
         if (compact && CUR_DISPLAY_SYM[code]) return CUR_DISPLAY_SYM[code];
         return code;
     }
-    function _formatLocaleNumber(num, maxDigits) { // [EN] pl-PL display — shared by percent-base router
+    function _fmt() { // [EN] lazy — format-pl.js loads before smart-parser
+        return (typeof window !== 'undefined' && window.MATM0_FMT) ||
+            (typeof self !== 'undefined' && self.MATM0_FMT) || {};
+    }
+    function _formatLocaleNumber(num, maxDigits) {
+        var F = _fmt();
+        if (F.formatLocaleNumber) return F.formatLocaleNumber(num, maxDigits);
         if (!isFinite(num)) return String(num);
-        var rounded = (Number.isInteger(num) && Math.abs(num) <= Number.MAX_SAFE_INTEGER)
-            ? num
-            : (Math.abs(num) < 1e308 ? parseFloat(num.toPrecision(15)) : num);
-        return rounded.toLocaleString('pl-PL', {
-            maximumFractionDigits: maxDigits == null ? 6 : maxDigits,
-            useGrouping: true,
-        });
+        return String(num);
     }
     function _roundMoney(n) { // [EN] grosze — decimal.js when loaded, else float fallback
         var M = (typeof window !== 'undefined' && window.MATM0_MONEY) ||
@@ -1027,73 +1027,10 @@
     /* ============================================================
        [PL] Podsilnik STREF CZASOWYCH — OFFLINE przez Intl (z DST, bez sieci).
             Raycast-style: „time in Tokyo", „czas w Kioto", „5pm ldn in sf" (zegar).
-            Skróty miast w _TZ_CITY; pre pozycje: w / we / in / w/in.
+            Skróty miast w MATM0_DATA.TZ_CITY; pre pozycje: w / we / in / w/in.
        ============================================================ */
     var _TZ_PREP = '(?:w\\/in|w|we|in)'; // [EN] PL „w" + EN „in" (+ opcjonalnie „w/in")
-    var _TZ_CITY = {
-        'warszawa': 'Europe/Warsaw', 'warszawie': 'Europe/Warsaw', 'warszawę': 'Europe/Warsaw',
-        'warsaw': 'Europe/Warsaw', 'polska': 'Europe/Warsaw', 'polsce': 'Europe/Warsaw', 'pl': 'Europe/Warsaw',
-        'kraków': 'Europe/Warsaw', 'krakow': 'Europe/Warsaw', 'krakowie': 'Europe/Warsaw',
-        'gdańsk': 'Europe/Warsaw', 'gdansk': 'Europe/Warsaw', 'gdańsku': 'Europe/Warsaw', 'gdn': 'Europe/Warsaw',
-        'wrocław': 'Europe/Warsaw', 'wroclaw': 'Europe/Warsaw', 'wrocławiu': 'Europe/Warsaw', 'wro': 'Europe/Warsaw',
-        'poznań': 'Europe/Warsaw', 'poznan': 'Europe/Warsaw', 'poznaniu': 'Europe/Warsaw', 'poz': 'Europe/Warsaw',
-        'łódź': 'Europe/Warsaw', 'lodz': 'Europe/Warsaw', 'łodzi': 'Europe/Warsaw',
-        'katowice': 'Europe/Warsaw', 'katowicach': 'Europe/Warsaw', 'ktw': 'Europe/Warsaw',
-        'szczecin': 'Europe/Warsaw', 'szczecinie': 'Europe/Warsaw', 'szz': 'Europe/Warsaw',
-        'lublin': 'Europe/Warsaw', 'lublinie': 'Europe/Warsaw', 'luq': 'Europe/Warsaw',
-        'londyn': 'Europe/London', 'londynie': 'Europe/London', 'london': 'Europe/London', 'ldn': 'Europe/London',
-        'heathrow': 'Europe/London', 'lhr': 'Europe/London', 'lgw': 'Europe/London', 'stansted': 'Europe/London', 'stn': 'Europe/London',
-        'paryż': 'Europe/Paris', 'paryz': 'Europe/Paris', 'paryżu': 'Europe/Paris', 'paryzu': 'Europe/Paris', 'paris': 'Europe/Paris',
-        'cdg': 'Europe/Paris', 'ory': 'Europe/Paris',
-        'berlin': 'Europe/Berlin', 'berlinie': 'Europe/Berlin', 'txl': 'Europe/Berlin', 'ber': 'Europe/Berlin',
-        'frankfurt': 'Europe/Berlin', 'frankfurcie': 'Europe/Berlin', 'fra': 'Europe/Berlin',
-        'monachium': 'Europe/Berlin', 'monachiumie': 'Europe/Berlin', 'münchen': 'Europe/Berlin', 'munich': 'Europe/Berlin', 'muc': 'Europe/Berlin',
-        'hamburg': 'Europe/Berlin', 'hamburgu': 'Europe/Berlin', 'ham': 'Europe/Berlin',
-        'amsterdam': 'Europe/Amsterdam', 'amsterdamie': 'Europe/Amsterdam', 'ams': 'Europe/Amsterdam',
-        'madryt': 'Europe/Madrid', 'madrycie': 'Europe/Madrid', 'madrid': 'Europe/Madrid', 'mad': 'Europe/Madrid',
-        'barcelona': 'Europe/Madrid', 'barcelonie': 'Europe/Madrid', 'bcn': 'Europe/Madrid',
-        'rzym': 'Europe/Rome', 'rzymie': 'Europe/Rome', 'rome': 'Europe/Rome', 'fco': 'Europe/Rome',
-        'mediolan': 'Europe/Rome', 'mediolanie': 'Europe/Rome', 'milan': 'Europe/Rome', 'mxp': 'Europe/Rome',
-        'wiedeń': 'Europe/Vienna', 'wiedniu': 'Europe/Vienna', 'wien': 'Europe/Vienna', 'vienna': 'Europe/Vienna', 'vie': 'Europe/Vienna',
-        'praga': 'Europe/Prague', 'pradze': 'Europe/Prague', 'prague': 'Europe/Prague', 'prg': 'Europe/Prague',
-        'bruksela': 'Europe/Brussels', 'brukseli': 'Europe/Brussels', 'brussels': 'Europe/Brussels', 'bru': 'Europe/Brussels',
-        'zurych': 'Europe/Zurich', 'zurychu': 'Europe/Zurich', 'zurich': 'Europe/Zurich', 'zrh': 'Europe/Zurich',
-        'kopenhaga': 'Europe/Copenhagen', 'kopenhadze': 'Europe/Copenhagen', 'copenhagen': 'Europe/Copenhagen', 'cph': 'Europe/Copenhagen',
-        'sztokholm': 'Europe/Stockholm', 'stockholm': 'Europe/Stockholm', 'arn': 'Europe/Stockholm',
-        'oslo': 'Europe/Oslo', 'osl': 'Europe/Oslo',
-        'helsinki': 'Europe/Helsinki', 'helsinku': 'Europe/Helsinki', 'hel': 'Europe/Helsinki',
-        'ateny': 'Europe/Athens', 'atenach': 'Europe/Athens', 'athens': 'Europe/Athens', 'ath': 'Europe/Athens',
-        'moskwa': 'Europe/Moscow', 'moskwie': 'Europe/Moscow', 'moskwę': 'Europe/Moscow', 'moscow': 'Europe/Moscow', 'svo': 'Europe/Moscow',
-        'kijów': 'Europe/Kiev', 'kijow': 'Europe/Kiev', 'kijowie': 'Europe/Kiev', 'kyiv': 'Europe/Kiev', 'iev': 'Europe/Kiev',
-        'stambuł': 'Europe/Istanbul', 'stambule': 'Europe/Istanbul', 'istanbul': 'Europe/Istanbul', 'ist': 'Europe/Istanbul',
-        'nowy jork': 'America/New_York', 'nowym jorku': 'America/New_York', 'new york': 'America/New_York',
-        'nyc': 'America/New_York', 'jfk': 'America/New_York', 'ewr': 'America/New_York', 'lga': 'America/New_York',
-        'miami': 'America/New_York', 'mia': 'America/New_York', 'boston': 'America/New_York', 'bos': 'America/New_York',
-        'los angeles': 'America/Los_Angeles', 'la': 'America/Los_Angeles', 'lax': 'America/Los_Angeles',
-        'san francisco': 'America/Los_Angeles', 'sf': 'America/Los_Angeles', 'sfo': 'America/Los_Angeles',
-        'seattle': 'America/Los_Angeles', 'sea': 'America/Los_Angeles',
-        'chicago': 'America/Chicago', 'ord': 'America/Chicago',
-        'denver': 'America/Denver', 'den': 'America/Denver',
-        'toronto': 'America/Toronto', 'yyz': 'America/Toronto',
-        'vancouver': 'America/Vancouver', 'yvr': 'America/Vancouver',
-        'mexico city': 'America/Mexico_City', 'mex': 'America/Mexico_City',
-        'são paulo': 'America/Sao_Paulo', 'sao paulo': 'America/Sao_Paulo', 'gru': 'America/Sao_Paulo',
-        'buenos aires': 'America/Argentina/Buenos_Aires', 'eze': 'America/Argentina/Buenos_Aires',
-        'tokio': 'Asia/Tokyo', 'tokyo': 'Asia/Tokyo', 'kioto': 'Asia/Tokyo', 'kyoto': 'Asia/Tokyo', 'nrt': 'Asia/Tokyo', 'hnd': 'Asia/Tokyo',
-        'pekin': 'Asia/Shanghai', 'pekinie': 'Asia/Shanghai', 'beijing': 'Asia/Shanghai', 'pek': 'Asia/Shanghai',
-        'szanghaj': 'Asia/Shanghai', 'szanghaju': 'Asia/Shanghai', 'shanghai': 'Asia/Shanghai', 'pvg': 'Asia/Shanghai',
-        'hong kong': 'Asia/Hong_Kong', 'hkg': 'Asia/Hong_Kong',
-        'singapur': 'Asia/Singapore', 'singapore': 'Asia/Singapore', 'sin': 'Asia/Singapore',
-        'seul': 'Asia/Seoul', 'seoul': 'Asia/Seoul', 'icn': 'Asia/Seoul',
-        'bangkok': 'Asia/Bangkok', 'bkk': 'Asia/Bangkok',
-        'mumbai': 'Asia/Kolkata', 'bom': 'Asia/Kolkata',
-        'delhi': 'Asia/Kolkata', 'indie': 'Asia/Kolkata', 'indiach': 'Asia/Kolkata', 'del': 'Asia/Kolkata',
-        'sydney': 'Australia/Sydney', 'syd': 'Australia/Sydney',
-        'melbourne': 'Australia/Melbourne', 'mel': 'Australia/Melbourne',
-        'dubaj': 'Asia/Dubai', 'dubaju': 'Asia/Dubai', 'dubai': 'Asia/Dubai', 'dxb': 'Asia/Dubai',
-        'doha': 'Asia/Qatar', 'doh': 'Asia/Qatar',
-        'utc': 'UTC', 'gmt': 'UTC', 'zulu': 'UTC'
-    };
+    var _TZ_CITY = DATA.TZ_CITY || {}; // [EN] alias → IANA tz; tablica w js/data-tables.js
     function _tzLookup(name) { return _TZ_CITY[String(name).trim().toLowerCase()] || null; }
     function _tzLabel(name) {
         return String(name).trim().split(/\s+/).map(function (w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' ');
@@ -1320,9 +1257,9 @@
         return { label: unitDisplay[key] || name, factor: def.factor };
     }
     function _inflectDisplayUnit(value, unit) {
-        if (unit == null || unit === '') return unit;
-        var inflect = DATA.inflectUnit || DATA.plInflectUnit;
-        return typeof inflect === 'function' ? inflect(value, unit) : unit;
+        var F = _fmt();
+        if (F.inflectDisplayUnit) return F.inflectDisplayUnit(value, unit);
+        return unit;
     }
     // [EN] faza 5 — orkiestrator pipeline evalCalcExpression (plain object, bez STATE)
     /** @typedef {Object} EvaluateResult
@@ -1337,15 +1274,21 @@
      *  @property {boolean} [pendingFx] czeka na kursy — app zwraca makeVal({ pendingFx: true })
      *  @property {boolean} [big] ścieżka BigInt (>15 cyfr)
      *  @property {string|null} [bigStr] surowy wynik BigInt
-     *  @property {boolean} [_stateClear] wewnętrzne — TZ: app zeruje STATE.calc.lastResult */
+     *  @property {boolean} [_stateClear] wewnętrzne — TZ: app zeruje STATE.calc.lastResult
+     *  @property {string} [_debugCode] tylko opts.debug — kod przyczyny pustego wyniku
+     *  @property {string|null} [_debugDetail] tylko opts.debug — szczegół (np. message wyjątku) */
     /** @param {string} raw wyrażenie użytkownika
-     *  @param {Object} [options] fxRates, fxReady, constants, lastAnswer, unitDefs, …
+     *  @param {Object} [options] fxRates, fxReady, constants, lastAnswer, unitDefs, …, debug
      *  @returns {EvaluateResult} plain object — app opakowuje makeVal() */
+    function _dbgFail(opts, code, detail) { // [EN] opts.debug → diagnostyka zamiast cichego {}
+        if (!opts || !opts.debug) return {};
+        return { _debugCode: code, _debugDetail: detail != null ? String(detail) : null };
+    }
     function evaluate(raw, options) {
         var opts = options || {};
         var firstUnitWins = !!opts.firstUnitWins;
         var original = String(raw || '').trim();
-        if (!original) return {};
+        if (!original) return _dbgFail(opts, 'empty_input');
         var fxRates = opts.fxRates || {};
         var currencyOpts = {
             fxRates: fxRates,
@@ -1435,7 +1378,7 @@
             var customKey = unitIsCustom ? String(unitResult.cat).slice('custom:'.length) : null;
             var unitIsDimensionless = customKey && unitDefs[customKey] && unitDefs[customKey].dimensionless;
             if (curRes.hasCurrency && unitResult.unit !== null && !unitIsDimensionless && !useFirstWins) {
-                return {};
+                return _dbgFail(opts, 'unit_mix', 'currency+physical without firstUnitWins');
             }
             var unit = curRes.hasCurrency ? curRes.unit : unitResult.unit;
             if (opts.keepWorkCurrency && curRes.hasCurrency && curRes.workCode) {
@@ -1444,9 +1387,9 @@
             expr = expr.replace(/,(?=\d)/g, '.');
             expr = expr.replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-');
             expr = expr.replace(/\s+/g, '');
-            if (!expr) return {};
+            if (!expr) return _dbgFail(opts, 'empty_expr');
             var fn = _NUM.compileGraphExpression ? _NUM.compileGraphExpression(expr) : null;
-            if (!fn) return {};
+            if (!fn) return _dbgFail(opts, 'no_numeric', 'MATM0_NUMERIC.compileGraphExpression missing');
             var value = fn(0);
             if (!curRes.hasCurrency && unitResult.workFactor) value = value * unitResult.workFactor;
             if (curRes.hasCurrency && curRes.curMul && isFinite(value) && !opts.keepWorkCurrency) value = value * curRes.curMul;
@@ -1497,7 +1440,7 @@
                 exact: !approxNum, exactText: exactNumText, preciseValue: preciseValue,
             };
         } catch (err) {
-            return {};
+            return _dbgFail(opts, 'parse_error', err && err.message);
         }
     }
     // [EN] przed walutą: k/tys + „usd 1k"; po walucie: NL + trig (app.js woła w dwóch miejscach pipeline)
