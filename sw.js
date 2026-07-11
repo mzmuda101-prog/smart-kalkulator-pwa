@@ -20,6 +20,7 @@ const ASSETS_TO_CACHE = [
     './js/theme-init.js',
     './js/vendor/decimal.js',
     './js/money-decimal.js',
+    './js/numeric-eval.js',
     './js/calc-layout-tune.js',
     './js/cursor-hint.js',
     './js/data-tables.js',
