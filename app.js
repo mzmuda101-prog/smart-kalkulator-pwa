@@ -2182,13 +2182,10 @@
             input.value = input.value.slice(0, start) + text + input.value.slice(end);
             try { input.setSelectionRange(start + text.length, start + text.length); } catch(e) {}
         }
-        function _focusCalcExprAfterPad() { // [EN] po kliku pada — klawiatura wpada w to samo pole
-            if (!calcExpr) return;
-            try { calcExpr.focus({ preventScroll: true }); } catch (e) { calcExpr.focus(); }
-        }
         function _insertCalcExprText(text) {
-            _focusCalcExprAfterPad();
+            var wasFocused = document.activeElement === calcExpr; // [EN] pad nie focusuje — inaczej mobile otwiera klawiaturę co tap
             insertAtCursor(calcExpr, text);
+            if (!wasFocused && calcExpr && document.activeElement === calcExpr) calcExpr.blur(); // [EN] fallback gdy platforma sama da focus
             liveEval();
         }
 

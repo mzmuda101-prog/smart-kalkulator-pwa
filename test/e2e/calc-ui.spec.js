@@ -99,6 +99,30 @@ test('klawisz po klawiszu — łańcuchy keypad (% i działania)', async ({ page
     }
 });
 
+test('pad nie otwiera focusu expr — brak mignięcia klawiatury (mobile)', async ({ page }, testInfo) => {
+    test.skip(!['mobile', 'tablet'].includes(testInfo.project.name), 'regresja mobile/tablet');
+    await page.locator('#calcExpr').evaluate((el) => el.blur());
+    await page.waitForTimeout(80);
+    await H.tapKey(page, '7');
+    await H.waitResultStable(page);
+    const activeId = await page.evaluate(() => document.activeElement && document.activeElement.id);
+    expect(activeId, 'tap pada nie powinien zostawiać focus na calcExpr').not.toBe('calcExpr');
+    const st = await H.readResultState(page);
+    expect(st.expr).toBe('7');
+});
+
+test('pad z aktywnym polem — wstawia w pozycji kursora', async ({ page }) => {
+    const field = page.locator('#calcExpr');
+    await field.click();
+    await field.fill('12');
+    await field.dispatchEvent('input', { bubbles: true });
+    await field.evaluate((el) => { el.focus(); el.setSelectionRange(1, 1); });
+    await H.tapKey(page, '9');
+    await H.waitResultStable(page);
+    const st = await H.readResultState(page);
+    expect(st.expr.replace(/\s/g, '')).toBe('192');
+});
+
 test('⌫ i AC — edycja i reset', async ({ page }) => {
     await H.typeDigitsSequentially(page, '12345', 40);
     await H.tapKey(page, '⌫');
