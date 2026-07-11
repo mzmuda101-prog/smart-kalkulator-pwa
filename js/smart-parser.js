@@ -10,10 +10,15 @@
    Kolejne podsilniki (daty/waluty/jednostki) dochodzą tu ewolucyjnie.
    Preprocess (faza 1): expandNumeric/CurrencyShorthands, parseNaturalShortcuts, resolveTrigDegrees.
    Routery procentowe (faza 2): evalPercentQuery/Difference/BaseQuery/OfPercent — plain result, bez STATE.
+   Stałe + ans + route cost (faza 4): resolveCalcConstants/Answer, evalRouteCost — opts z app.
    ============================================================ */
 (function() {
     'use strict';
     var DATA = (typeof window !== 'undefined' && window.MATM0_DATA) || {};
+    function _numeric() { // [EN] lazy — numeric-eval loads before smart-parser in index.html
+        return (typeof window !== 'undefined' && window.MATM0_NUMERIC) ||
+            (typeof self !== 'undefined' && self.MATM0_NUMERIC) || {};
+    }
     function _plFold(s) { // [EN] shared PL diacritics fold — MATM0_PL_FOLD loaded before this file
         var F = (typeof window !== 'undefined' && window.MATM0_PL_FOLD) ||
             (typeof self !== 'undefined' && self.MATM0_PL_FOLD);
@@ -904,6 +909,119 @@
         return null;
     }
 
+    // ── Stałe + ans + koszt trasy (faza 4) ──
+    var _CONST_SIMPLE_RE = /^-?[\d.,]+%?$/;
+    function valueIsFunc(val) {
+        var v = String(val == null ? '' : val).trim().replace(/×/g, '*').replace(/÷/g, '/').replace(/\s+/g, '').toLowerCase();
+        if (!/(^|[^a-z])x([^a-z]|$)/.test(v)) return false;
+        try { _numeric().compileGraphExpression(v); return true; } catch (e) { return false; }
+    }
+    function isFuncConst(c) { return !!c && valueIsFunc(c.value); }
+    function funcConstBody(c) { return String(c.value).trim().replace(/×/g, '*').replace(/÷/g, '/'); }
+    function classifyConstValue(val) {
+        var raw = String(val).trim();
+        if (valueIsFunc(raw)) return { mode: 'func', sub: raw, norm: raw };
+        var norm = raw.replace(/×/g, '*').replace(/÷/g, '/');
+        if (_CONST_SIMPLE_RE.test(norm)) return { mode: 'simple', sub: norm, norm: norm };
+        if (/^[+*/^]/.test(norm) || /^-[^\d.,]/.test(norm)) return { mode: 'op', sub: norm, norm: norm };
+        return { mode: 'expr', sub: '(' + norm + ')', norm: norm };
+    }
+    function knownConstUnit(u, options) {
+        u = String(u || '').trim();
+        if (!u) return null;
+        var low = u.toLowerCase();
+        var unitDefs = (options && options.unitDefs) || {};
+        if (unitDefs[low]) return u;
+        var map = _currencyTokenMap((options && options.fxRates) || {});
+        if (map[low]) return u;
+        return null;
+    }
+    function resolveCalcAnswer(raw, lastAnswer) {
+        if (lastAnswer === null || !isFinite(lastAnswer)) return raw;
+        return String(raw == null ? '' : raw).replace(/\b(?:ans|wynik|poprzedni|ostatni|last|previous)\b/gi, '(' + String(lastAnswer) + ')');
+    }
+    function resolveFunctionConstants(raw, options) {
+        var opts = options || {};
+        var constants = opts.constants || [];
+        var evalConstNumeric = opts.evalConstNumeric;
+        var funcs = constants.filter(isFuncConst);
+        if (!funcs.length) return String(raw == null ? '' : raw);
+        var result = String(raw);
+        for (var pass = 0; pass < 5; pass++) {
+            var before = result;
+            funcs.forEach(function(c) {
+                if (!c.name) return;
+                var fn;
+                try { fn = _numeric().compileGraphExpression(funcConstBody(c)); }
+                catch (e) { return; }
+                var nm = c.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                var B = '(?![\\p{L}\\p{N}_])';
+                var ARG = '(-?[\\d.,]+|[\\p{L}\\p{N}_]+)';
+                function argNum(s) {
+                    if (/^-?[\d.,]+$/.test(s)) { var n = parseFloat(s.replace(',', '.')); return isFinite(n) ? n : null; }
+                    var k = constants.filter(function(d) { return !isFuncConst(d); })
+                        .filter(function(d) { return d.name && d.name.toLowerCase() === s.toLowerCase(); })[0];
+                    if (k && typeof evalConstNumeric === 'function') {
+                        var v = evalConstNumeric(k);
+                        return isFinite(v) ? v : null;
+                    }
+                    return null;
+                }
+                function out(a) { var v = fn(a); return isFinite(v) ? '(' + v + ')' : null; }
+                result = result.replace(new RegExp('(^|[^\\p{L}\\p{N}_])' + nm + B + '\\s*\\(\\s*' + ARG + '\\s*\\)', 'giu'),
+                    function(m, pre, arg) { var a = argNum(arg); if (a == null) return m; var r = out(a); return r == null ? m : pre + r; });
+                result = result.replace(new RegExp('(^|[-+*/^(]\\s*)' + nm + B + '\\s+' + ARG, 'giu'),
+                    function(m, pre, arg) { var a = argNum(arg); if (a == null) return m; var r = out(a); return r == null ? m : pre + r; });
+                result = result.replace(new RegExp('(^|[^\\p{L}\\p{N}_)])' + ARG + '\\s+' + nm + B + '(?=\\s*(?:$|[-+*/^)]))', 'giu'),
+                    function(m, pre, arg) { var a = argNum(arg); if (a == null) return m; var r = out(a); return r == null ? m : pre + r; });
+            });
+            if (result === before) break;
+        }
+        return result;
+    }
+    function resolveCalcConstants(raw, options) {
+        var opts = options || {};
+        var constants = opts.constants || [];
+        if (!constants.length) return raw;
+        var result = resolveFunctionConstants(raw, opts);
+        for (var pass = 0; pass < 5; pass++) {
+            var before = result;
+            constants.forEach(function(c) {
+                if (!c.name || c.kind === 'unit' || isFuncConst(c)) return;
+                var escaped = c.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                var val = String(c.value).trim();
+                var info = classifyConstValue(val);
+                var sub = info.sub;
+                if (c.unit && info.mode === 'simple' && /^-?[\d.,]+$/.test(info.norm)) {
+                    var u = knownConstUnit(c.unit, opts);
+                    if (u) sub = info.norm + ' ' + u;
+                }
+                var re = new RegExp('(^|[^\\p{L}\\p{N}_])(' + escaped + ')(?![\\p{L}\\p{N}_])', 'giu');
+                result = result.replace(re, function(_m, pre) { return pre + sub; });
+            });
+            if (result === before) break;
+        }
+        return result;
+    }
+    function evalRouteCost(raw) {
+        var s = _plFold(raw).replace(',', ',');
+        if (!s) return null;
+        var dist = s.match(/([\d.,]+)\s*km\b/);
+        var cons = s.match(/([\d.,]+)\s*l(?:itr[a-z]*)?\s*\/?\s*(?:(?:na|per)\s*)?100/);
+        var price = s.match(/([\d.,]+)\s*(?:zł|zl|pln)\s*\/?\s*(?:l\b|litr[a-z]*)/);
+        if (!dist || !cons || !price) return null;
+        var D = parseFloat(dist[1].replace(',', '.'));
+        var C = parseFloat(cons[1].replace(',', '.'));
+        var P = parseFloat(price[1].replace(',', '.'));
+        if (!isFinite(D) || !isFinite(C) || !isFinite(P)) return null;
+        var liters = D / 100 * C;
+        var cost = liters * P;
+        return {
+            value: cost, unit: 'zł', kind: 'money',
+            text: _formatLocaleNumber(cost, 2) + ' zł (paliwo: ' + _formatLocaleNumber(liters, 2) + ' l)'
+        };
+    }
+
     /* ============================================================
        [PL] Podsilnik STREF CZASOWYCH — OFFLINE przez Intl (z DST, bez sieci).
             Raycast-style: „time in Tokyo", „czas w Kioto", „5pm ldn in sf" (zegar).
@@ -1200,6 +1318,15 @@
         evalPercentOfPercent: evalPercentOfPercent,
         evalPercentDifference: evalPercentDifference,
         evalPercentBaseQuery: evalPercentBaseQuery,
+        classifyConstValue: classifyConstValue,
+        valueIsFunc: valueIsFunc,
+        isFuncConst: isFuncConst,
+        funcConstBody: funcConstBody,
+        knownConstUnit: knownConstUnit,
+        resolveCalcAnswer: resolveCalcAnswer,
+        resolveCalcConstants: resolveCalcConstants,
+        resolveFunctionConstants: resolveFunctionConstants,
+        evalRouteCost: evalRouteCost,
         formatDurationSeconds: formatDurationSeconds,
         evalTimezoneExpression: evalTimezoneExpression,
         isDateUnit: _isDateUnit,           // app.js używa go też w rozpoznawaniu tokenów notatnika

@@ -894,133 +894,6 @@
             return _PARSER.parseNaturalShortcuts(raw);
         }
 
-        // „ans" / „wynik" / „poprzedni" → ostatni zatwierdzony wynik (STATE.calc.ans).
-        // Gdy brak zatwierdzonego wyniku — zostawiamy słowo, więc wyrażenie po prostu
-        // nie da rezultatu (zamiast cichego podstawienia 0).
-        function resolveCalcAnswer(raw) {
-            if (STATE.calc.ans === null || !isFinite(STATE.calc.ans)) return raw;
-            return raw.replace(/\b(?:ans|wynik|poprzedni|ostatni|last|previous)\b/gi, '(' + String(STATE.calc.ans) + ')');
-        }
-
-        // Stała może mieć wartość-LICZBĘ albo wartość-WYRAŻENIE/KOMENDĘ (np. „23%", „5+5*2",
-        // „5+5*vat"). Podstawiamy SUROWY tekst wartości: proste (liczba lub „N%") wstawiamy gołe,
-        // żeby reguły procentowe/VAT zadziałały (np. vat=„23%" → „100 - 23%”); złożone owijamy w
-        // nawias, by zachować kolejność działań (np. c=„5+5*2” → „2*(5+5*2)”). Iterujemy kilka razy,
-        // żeby obsłużyć stałą odwołującą się do innej stałej; stabilny wynik kończy pętlę.
-        var _CONST_SIMPLE_RE = /^-?[\d.,]+%?$/;
-        // Klasyfikacja wartości stałej → jak ją PODSTAWIĆ w wyrażeniu kalkulatora.
-        //   • „simple"  — liczba albo „N%" (np. „4,80", „23%"): dosłownie, bez nawiasów.
-        //   • „op"      — NIEDOKOŃCZONA operacja: zaczyna się od operatora (× ÷ * / ^ +),
-        //                 np. „×5+2%", „*1,23", „+10": podstawiamy DOSŁOWNE (bez nawiasów),
-        //                 żeby dopełniało bieżące wyrażenie: „100 marża" → „100×5+2%".
-        //   • „expr"    — inne wyrażenie (np. „5+5*2"): owijamy w nawias, by zachować
-        //                 kolejność działań (np. „2*stała" → „2*(5+5*2)").
-        // Normalizujemy × → *, ÷ → / (operandy z klawiatury i z UI). UWAGA: „-5" to LICZBA
-        // (simple), nie operacja — minus wiodący przy gołej liczbie traktujemy jako znak.
-        function classifyConstValue(val) {
-            var raw = String(val).trim();
-            // Stała-FUNKCJA: wartość zawiera zmienną x i kompiluje się jako f(x).
-            if (_valueIsFunc(raw)) return { mode: 'func', sub: raw, norm: raw };
-            var norm = raw.replace(/×/g, '*').replace(/÷/g, '/');
-            if (_CONST_SIMPLE_RE.test(norm)) return { mode: 'simple', sub: norm, norm: norm };
-            if (/^[+*/^]/.test(norm) || /^-[^\d.,]/.test(norm)) return { mode: 'op', sub: norm, norm: norm };
-            return { mode: 'expr', sub: '(' + norm + ')', norm: norm };
-        }
-        // ── Stałe-FUNKCJE = funkcje jednej zmiennej x, reużywają compileGraphExpression. BEZ markera „!":
-        // SMART, kontekstowo — wartość jest funkcją, gdy zawiera samodzielne „x" ORAZ kompiluje się jako f(x).
-        // To czysto oddziela funkcje od snippetów komend („x=120/4" ma x, ale się nie kompiluje → NIE funkcja).
-        //   • KALKULATOR (resolveFunctionConstants): „test"=„50-(20x+5)" wywoływalne — „test(3)", „test 3",
-        //     „3 test" → fn(3)=-15.
-        //   • KOMENDA (resolveCommandConstants): ta sama stała podstawia się DOSŁOWNIE (x = zmienna wykresu),
-        //     np. „f(x)=test" → „f(x)=50-(20x+5)".
-        // Ciało używa tylko x + funkcji matematycznych (jak graf); „×"/„÷" → „*"/„/". [[project_kalkulator_constants_expressions]]
-        function _valueIsFunc(val) {
-            var v = String(val == null ? '' : val).trim().replace(/×/g, '*').replace(/÷/g, '/').replace(/\s+/g, '').toLowerCase();
-            if (!/(^|[^a-z])x([^a-z]|$)/.test(v)) return false; // musi zawierać SAMODZIELNĄ zmienną x
-            try { compileGraphExpression(v); return true; } catch (e) { return false; }
-        }
-        function _isFuncConst(c) { return !!c && _valueIsFunc(c.value); }
-        function _funcConstBody(c) { return String(c.value).trim().replace(/×/g, '*').replace(/÷/g, '/'); }
-        // Wywołania stałych-funkcji w KALKULATORZE. Sąsiedztwo („test 3"/„3 test") działa tylko gdy
-        // operand jest po JEDNEJ stronie; operand z OBU stron („5 test 3") celowo NIE liczy się
-        // (zamiast zgadywać i dać zły wynik) — wtedy użytkownik daje nawiasy „test(3)".
-        function resolveFunctionConstants(raw, constants) {
-            var funcs = (constants || []).filter(_isFuncConst);
-            if (!funcs.length) return String(raw == null ? '' : raw);
-            var result = String(raw);
-            for (var pass = 0; pass < 5; pass++) {
-                var before = result;
-                funcs.forEach(function(c) {
-                    if (!c.name) return;
-                    var fn;
-                    try { fn = compileGraphExpression(_funcConstBody(c)); }
-                    catch (e) { return; }                       // niepoprawne ciało → pomijamy
-                    var nm = c.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                    var B = '(?![\\p{L}\\p{N}_])';              // prawa granica nazwy
-                    var ARG = '(-?[\\d.,]+|[\\p{L}\\p{N}_]+)';  // liczba albo nazwa stałej
-                    function argNum(s) {
-                        if (/^-?[\d.,]+$/.test(s)) { var n = parseFloat(s.replace(',', '.')); return isFinite(n) ? n : null; }
-                        var k = constants.filter(function(d) { return !_isFuncConst(d); })
-                                         .filter(function(d) { return d.name && d.name.toLowerCase() === s.toLowerCase(); })[0];
-                        if (k) { var v = constNumericValue(k); return isFinite(v) ? v : null; }
-                        return null;
-                    }
-                    function out(a) { var v = fn(a); return isFinite(v) ? '(' + v + ')' : null; }
-                    // (a) nawiasy: NAME(ARG) — jednoznaczne, zawsze.
-                    result = result.replace(new RegExp('(^|[^\\p{L}\\p{N}_])' + nm + B + '\\s*\\(\\s*' + ARG + '\\s*\\)', 'giu'),
-                        function(m, pre, arg) { var a = argNum(arg); if (a == null) return m; var r = out(a); return r == null ? m : pre + r; });
-                    // (b) PO: <start|operator|(> NAME <sp> ARG — operand tylko z prawej.
-                    result = result.replace(new RegExp('(^|[-+*/^(]\\s*)' + nm + B + '\\s+' + ARG, 'giu'),
-                        function(m, pre, arg) { var a = argNum(arg); if (a == null) return m; var r = out(a); return r == null ? m : pre + r; });
-                    // (c) PRZED: ARG <sp> NAME <end|operator|)> — operand tylko z lewej.
-                    result = result.replace(new RegExp('(^|[^\\p{L}\\p{N}_)])' + ARG + '\\s+' + nm + B + '(?=\\s*(?:$|[-+*/^)]))', 'giu'),
-                        function(m, pre, arg) { var a = argNum(arg); if (a == null) return m; var r = out(a); return r == null ? m : pre + r; });
-                });
-                if (result === before) break;
-            }
-            return result;
-        }
-        // Jednostka stałej do doklejenia: tylko ROZPOZNANA (CALC_UNITS lub waluta) — inaczej
-        // zwracamy null i podstawiamy samą liczbę (żeby nieznana etykieta typu „szt" nie
-        // psuła dotąd działającej liczbowej stałej). [[project_kalkulator_constants_expressions]]
-        function _knownConstUnit(u) {
-            u = String(u || '').trim();
-            if (!u) return null;
-            var low = u.toLowerCase();
-            if (CALC_UNITS[low]) return u;
-            if (_currencyTokenMap()[low]) return u;
-            return null;
-        }
-        function resolveCalcConstants(raw, constants) {
-            if (!constants || !constants.length) return raw;
-            // Stałe-FUNKCJE najpierw: „test 3"/„test(3)" → fn(3). Reszta (zwykłe stałe) niżej.
-            var result = resolveFunctionConstants(raw, constants);
-            for (var pass = 0; pass < 5; pass++) {
-                var before = result;
-                constants.forEach(function(c) {
-                    if (!c.name || c.kind === 'unit' || _isFuncConst(c)) return; // jednostki/funkcje obsłużone osobno
-                    var escaped = c.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                    var val = String(c.value).trim();
-                    var info = classifyConstValue(val);
-                    var sub = info.sub;
-                    // Stała z JEDNOSTKĄ: dla GOŁEJ liczby doklejamy jednostkę, by silnik
-                    // jednostek/walut ją podchwycił — „cena"=4,80 zł → „cena*12" = 57,6 zł;
-                    // „dł"=120 cm → „dł na m" = 1,2 m. Tylko czyste liczby (operacje/wyrażenia/%
-                    // bez jednostki) i tylko rozpoznane jednostki.
-                    if (c.unit && info.mode === 'simple' && /^-?[\d.,]+$/.test(info.norm)) {
-                        var u = _knownConstUnit(c.unit);
-                        if (u) sub = info.norm + ' ' + u;
-                    }
-                    // Granice słowa ODPORNE NA POLSKIE ZNAKI (\b opiera się tylko na [A-Za-z0-9_],
-                    // ucinał nazwy z diakrytykami jak „kwartał”). Klasa liter/cyfr Unicode (\p{L}\p{N}_,
-                    // flaga u); lewa granica w grupie (bez lookbehind = szersza zgodność), prawa lookaheadem.
-                    var re = new RegExp('(^|[^\\p{L}\\p{N}_])(' + escaped + ')(?![\\p{L}\\p{N}_])', 'giu');
-                    result = result.replace(re, function(_m, pre) { return pre + sub; });
-                });
-                if (result === before) break;
-            }
-            return result;
-        }
 
         // Regex nazw jednostek — najdłuższe najpierw, żeby „m2" nie złapało się jako „m".
         // Przebudowywalny: własne jednostki użytkownika (stałe kind:'unit') dochodzą po
@@ -1117,6 +990,33 @@
             STATE.calc.lastUnit = r.unit != null ? r.unit : null;
             return makeVal(r);
         }
+        function classifyConstValue(val) { return _PARSER.classifyConstValue(val); }
+        function _valueIsFunc(val) { return _PARSER.valueIsFunc(val); }
+        function _isFuncConst(c) { return _PARSER.isFuncConst(c); }
+        function _funcConstBody(c) { return _PARSER.funcConstBody(c); }
+        function _knownConstUnit(u) {
+            return _PARSER.knownConstUnit(u, {
+                unitDefs: CALC_UNITS,
+                fxRates: (STATE.fx && STATE.fx.rates) || {},
+            });
+        }
+        function _parserConstOpts(constants) {
+            return {
+                constants: constants != null ? constants : STATE.constants,
+                unitDefs: CALC_UNITS,
+                fxRates: (STATE.fx && STATE.fx.rates) || {},
+                evalConstNumeric: _evalConstNumeric,
+            };
+        }
+        function _evalConstNumeric(c) { // [EN] callback for func-const args — stays in app (uses full eval)
+            if (_isFuncConst(c)) return NaN;
+            if (typeof c.value === 'number') return c.value;
+            var r = evalCalcExpression(String(c.value));
+            return r && typeof r.value === 'number' && isFinite(r.value) ? r.value : NaN;
+        }
+        function resolveCalcAnswer(raw) { return _PARSER.resolveCalcAnswer(raw, STATE.calc.ans); }
+        function resolveCalcConstants(raw, constants) { return _PARSER.resolveCalcConstants(raw, _parserConstOpts(constants)); }
+        function evalRouteCost(raw) { return _applyParserCalcResult(_PARSER.evalRouteCost(raw)); }
         var formatDurationSeconds = _PARSER.formatDurationSeconds;
         var evalTimezoneExpression = _PARSER.evalTimezoneExpression;
         var _isDateUnit = _PARSER.isDateUnit;
@@ -1352,24 +1252,6 @@
                 bigStr: o.bigStr != null ? o.bigStr : null
             };
         }
-        // KOSZT TRASY / PALIWA — dystans (km) + spalanie (l/100km) + cena (zł/l) → koszt.
-        // Kolejność dowolna; np. „koszt trasy 300 km 7 l/100km 6,50 zł/l", „paliwo na 420 km
-        // przy 6 l/100 i 6,29 zł/l". litry = dystans/100·spalanie; koszt = litry·cena.
-        function evalRouteCost(raw) {
-            var s = _plFold(raw).replace(',', ',');
-            if (!s) return null;
-            var dist = s.match(/([\d.,]+)\s*km\b/);
-            var cons = s.match(/([\d.,]+)\s*l(?:itr[a-z]*)?\s*\/?\s*(?:(?:na|per)\s*)?100/);
-            var price = s.match(/([\d.,]+)\s*(?:zł|zl|pln)\s*\/?\s*(?:l\b|litr[a-z]*)/); // 6,50 zł/l, 6.29 zł/litr
-            if (!dist || !cons || !price) return null;
-            var D = parseFloat(dist[1].replace(',', '.')), C = parseFloat(cons[1].replace(',', '.')), P = parseFloat(price[1].replace(',', '.'));
-            if (!isFinite(D) || !isFinite(C) || !isFinite(P)) return null;
-            var liters = D / 100 * C, cost = liters * P;
-            STATE.calc.lastResult = cost; STATE.calc.lastUnit = 'zł';
-            return makeVal({ value: cost, unit: 'zł', kind: 'money',
-                text: formatLocaleNumber(cost, 2) + ' zł (paliwo: ' + formatLocaleNumber(liters, 2) + ' l)' });
-        }
-
         function evalCalcExpression(raw, opts) {
             opts = opts || {};
             var firstUnitWins = !!opts.firstUnitWins;
