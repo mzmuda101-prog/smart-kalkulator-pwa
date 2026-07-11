@@ -8030,15 +8030,6 @@
             return _npEngineInst;
         }
         function _npPrepareLine(raw) { return _npEngine().prepareLine(raw); }
-        function _npFmtRegionVisible(r0, r1, ctx) { // T6-5 — Obsidian Live Preview: markery tylko przy kursorze/zaznaczeniu w regionie
-            if (!ctx) return false;
-            var selA = ctx.selStart, selB = ctx.selEnd, caret = ctx.caret;
-            if (selA != null && selB != null && selA !== selB) {
-                if (!(selB <= r0 || selA >= r1)) return true;
-            }
-            if (caret != null && caret >= r0 && caret <= r1) return true;
-            return false;
-        }
         function _npLineActive(ctx) { // [EN] kursor/zaznaczenie w bieżącej linii — prefix wyrównania też wtedy
             if (!ctx) return false;
             var ls = ctx.lineStart, le = ctx.lineEnd;
@@ -8072,16 +8063,10 @@
                 container.appendChild(sp);
             });
         }
-        function _npPushMirrorGhost(container, text, g0, g1, ctx, regionStart, regionEnd) {
-            if (!text) return;
-            if (!_npFmtRegionVisible(regionStart, regionEnd, ctx)) return; // [EN] brak DOM = brak miejsca (Obsidian)
-            _npPushMirrorSpan(container, text, 'np-fmt-ghost', g0, g1, ctx);
-        }
         function _npFillMirrorFormatted(container, text, ctx, globalOff) { // T6-5/6 — mirror via MATM0_NP_FMT
             if (_NP_FMT && typeof _NP_FMT.fillMirror === 'function') {
                 _NP_FMT.fillMirror(container, text, ctx, globalOff, {
                     pushSpan: _npPushMirrorSpan,
-                    pushGhost: _npPushMirrorGhost,
                     lineActive: _npLineActive
                 });
                 return;
@@ -8090,7 +8075,6 @@
             if (!text) return;
             var base = globalOff || 0;
             var s = text, i = 0;
-            function gPos() { return base + i; }
             function pushPlain(end) {
                 if (end > i) _npPushMirrorSpan(container, s.slice(i, end), '', base + i, base + end, ctx);
                 i = end;
@@ -8100,14 +8084,10 @@
                 if (s.startsWith('**', i)) {
                     var eb = s.indexOf('**', i + 2);
                     if (eb > i) {
-                        var reg0 = base + i, reg1 = base + eb + 2;
                         pushPlain(i);
-                        _npPushMirrorGhost(container, '**', gPos(), gPos() + 2, ctx, reg0, reg1);
-                        i += 2;
-                        _npPushMirrorSpan(container, s.slice(i, eb), 'np-fmt-bold', base + i, base + eb, ctx);
-                        i = eb;
-                        _npPushMirrorGhost(container, '**', gPos(), gPos() + 2, ctx, reg0, reg1);
-                        i += 2;
+                        var bIn = i + 2;
+                        _npPushMirrorSpan(container, s.slice(bIn, eb), 'np-fmt-bold', base + bIn, base + eb, ctx);
+                        i = eb + 2;
                         continue;
                     }
                     if (_npLineActive(ctx)) pushPlain(i + 2);
@@ -8117,14 +8097,10 @@
                 if (s.startsWith('__', i)) {
                     var eu = s.indexOf('__', i + 2);
                     if (eu > i) {
-                        var regU0 = base + i, regU1 = base + eu + 2;
                         pushPlain(i);
-                        _npPushMirrorGhost(container, '__', gPos(), gPos() + 2, ctx, regU0, regU1);
-                        i += 2;
-                        _npPushMirrorSpan(container, s.slice(i, eu), 'np-fmt-underline', base + i, base + eu, ctx);
-                        i = eu;
-                        _npPushMirrorGhost(container, '__', gPos(), gPos() + 2, ctx, regU0, regU1);
-                        i += 2;
+                        var uIn = i + 2;
+                        _npPushMirrorSpan(container, s.slice(uIn, eu), 'np-fmt-underline', base + uIn, base + eu, ctx);
+                        i = eu + 2;
                         continue;
                     }
                     if (_npLineActive(ctx)) pushPlain(i + 2);
@@ -8134,14 +8110,10 @@
                 if (s[i] === '_' && s[i + 1] !== '_') {
                     var ei = s.indexOf('_', i + 1);
                     if (ei > i) {
-                        var regI0 = base + i, regI1 = base + ei + 1;
                         pushPlain(i);
-                        _npPushMirrorGhost(container, '_', gPos(), gPos() + 1, ctx, regI0, regI1);
-                        i += 1;
-                        _npPushMirrorSpan(container, s.slice(i, ei), 'np-fmt-italic', base + i, base + ei, ctx);
-                        i = ei;
-                        _npPushMirrorGhost(container, '_', gPos(), gPos() + 1, ctx, regI0, regI1);
-                        i += 1;
+                        var iIn = i + 1;
+                        _npPushMirrorSpan(container, s.slice(iIn, ei), 'np-fmt-italic', base + iIn, base + ei, ctx);
+                        i = ei + 1;
                         continue;
                     }
                     if (_npLineActive(ctx)) pushPlain(i + 1);
@@ -8182,7 +8154,7 @@
             if (!lineText) { container.appendChild(document.createTextNode('\u00a0')); return; }
             var pfx = ctx.prefixText || '';
             if (pfx && _npLineActive(ctx)) {
-                _npPushMirrorSpan(container, pfx, 'np-fmt-ghost', ctx.lineStart, ctx.lineStart + pfx.length, ctx);
+                _npPushMirrorSpan(container, pfx, '', ctx.lineStart, ctx.lineStart + pfx.length, ctx); // [EN] prefix wyrównania widoczny przy edycji linii
             }
             if (ctx.bodyText.length) _npFillMirrorFormatted(container, ctx.bodyText, ctx, ctx.bodyStart);
             else container.appendChild(document.createTextNode('\u00a0'));
@@ -8255,27 +8227,28 @@
             inner.appendChild(npBody);
             inner.appendChild(npGutter);
             npEditor.appendChild(inner);
-            npBody.addEventListener('input', function() { _npCommit(); });
-            npBody.addEventListener('select', function() { _npRefreshMirrorFmt(); _npScheduleSelectionFmtMenu(); });
-            npBody.addEventListener('keyup', function() { _npRefreshMirrorFmt(); _npScheduleSelectionFmtMenu(); });
-            npBody.addEventListener('mouseup', function() { _npRefreshMirrorFmt(); _npScheduleSelectionFmtMenu(); });
-            npBody.addEventListener('pointerup', _npScheduleSelectionFmtMenu);
-            npBody.addEventListener('touchend', _npScheduleSelectionFmtMenu);
+            npBody.addEventListener('input', function() { _npCommit(); _npUpdateVisualCaret(); });
+            npBody.addEventListener('select', _npOnFmtSelectionLive);
+            npBody.addEventListener('keyup', _npOnFmtSelectionEnd);
+            npBody.addEventListener('keydown', function() { requestAnimationFrame(_npUpdateVisualCaret); });
+            npBody.addEventListener('pointerdown', _npOnCaretPointerDown);
+            npBody.addEventListener('mousedown', _npOnCaretPointerDown);
+            npBody.addEventListener('mouseup', _npOnFmtPointerUp);
+            npBody.addEventListener('pointerup', _npOnFmtPointerUp);
+            npBody.addEventListener('touchend', _npOnFmtPointerUp);
             document.addEventListener('selectionchange', function() {
-                if (document.activeElement === npBody) {
-                    _npRefreshMirrorFmt();
-                    _npScheduleSelectionFmtMenu();
-                }
+                if (document.activeElement === npBody) _npOnFmtSelectionLive();
             });
-            npEditor.addEventListener('scroll', function() { _npSyncEditorScroll(); npHideTip(); _npScheduleSelectionFmtMenu(); });
+            npEditor.addEventListener('scroll', function() { _npSyncEditorScroll(); npHideTip(); _npScheduleSelectionFmtMenu(); _npUpdateVisualCaret(); });
             npBody.addEventListener('focus', function() {
                 if (npEditor) npEditor.classList.add('np-editing');
                 _npSyncKbBar();
-                requestAnimationFrame(function() { try { npBody.scrollIntoView({ block: 'nearest' }); } catch (_) {} });
+                requestAnimationFrame(function() { try { npBody.scrollIntoView({ block: 'nearest' }); } catch (_) {} _npUpdateVisualCaret(); });
             });
             npBody.addEventListener('blur', function() {
                 if (npEditor) npEditor.classList.remove('np-editing');
                 _npSyncKbBar();
+                _npUpdateVisualCaret();
             });
             npFoldLayer.addEventListener('click', function(e) {
                 var row = e.target.closest('[data-np-line]');
@@ -8346,25 +8319,56 @@
             npBody.value = val.slice(0, start) + insert + val.slice(end);
             _npCommit();
         }
+        function _npMarkerEnvelope(val, start, end, open, close) {
+            if (_NP_FMT && typeof _NP_FMT.markerEnvelope === 'function') {
+                return _NP_FMT.markerEnvelope(val, start, end, open, close);
+            }
+            return { wrapped: false, uStart: start, uEnd: end, inner: val.slice(start, end) };
+        }
+        var _npSelSnapGuard = false;
+        function _npSnapFmtSelection() { // [EN] snap zaznaczenia do treści — markery ** __ ~~ :: _ poza zasięgiem
+            if (_npSelSnapGuard || !npBody) return false;
+            var start = npBody.selectionStart, end = npBody.selectionEnd;
+            if (start == null || end == null || start === end) return false;
+            if (!_NP_FMT || typeof _NP_FMT.normalizeSelectionRange !== 'function') return false;
+            var norm = _NP_FMT.normalizeSelectionRange(npBody.value, start, end);
+            if (!norm.changed || norm.start === start && norm.end === end) return false;
+            _npSelSnapGuard = true;
+            try { npBody.setSelectionRange(norm.start, norm.end); } catch (_) {}
+            _npSelSnapGuard = false;
+            return true;
+        }
+        function _npOnFmtSelectionLive() { // [EN] podgląd zaznaczenia w mirrorze podczas przeciągania
+            if (_npSelSnapGuard) return;
+            _npRefreshMirrorFmt();
+            _npScheduleSelectionFmtMenu();
+            _npUpdateVisualCaret();
+        }
+        function _npOnFmtSelectionEnd() { // [EN] po puszczeniu — snap poza markery, potem mirror + toolbar
+            if (_npSelSnapGuard) return;
+            _npSnapFmtSelection();
+            _npRefreshMirrorFmt();
+            _npScheduleSelectionFmtMenu();
+            _npUpdateVisualCaret();
+        }
         function _npWrapSelection(open, close) { // T6-5 — owijanie zaznaczenia markerami (toggle)
             if (!npBody) return;
             var start = npBody.selectionStart, end = npBody.selectionEnd;
+            if (start === end && _npFmtSel) { start = _npFmtSel.start; end = _npFmtSel.end; } // [EN] fallback gdy tap na toolbar zwinął selection
             if (start === end) return;
-            var val = npBody.value, sel = val.slice(start, end);
-            var oLen = open.length, cLen = close.length;
-            if (sel.startsWith(open) && sel.endsWith(close)) {
-                _npReplaceRange(start, end, sel.slice(oLen, sel.length - cLen));
-                try { npBody.setSelectionRange(start, end - oLen - cLen); } catch (_) {}
-            } else if (start >= oLen && end + cLen <= val.length
-                && val.slice(start - oLen, start) === open
-                && val.slice(end, end + cLen) === close) { // [EN] zaznaczenie w środku **tekst** — zdejmij otoczkę
-                _npReplaceRange(start - oLen, end + cLen, sel);
-                try { npBody.setSelectionRange(start - oLen, end - oLen); } catch (_) {}
+            try { npBody.setSelectionRange(start, end); } catch (_) {}
+            var val = npBody.value, oLen = open.length, cLen = close.length;
+            var env = _npMarkerEnvelope(val, start, end, open, close);
+            if (env.wrapped) {
+                _npReplaceRange(env.uStart, env.uEnd, env.inner);
+                try { npBody.setSelectionRange(env.uStart, env.uStart + env.inner.length); } catch (_) {}
             } else {
-                _npReplaceRange(start, end, open + sel + close);
-                try { npBody.setSelectionRange(start + oLen, end + oLen); } catch (_) {}
+                _npReplaceRange(start, end, open + env.inner + close);
+                try { npBody.setSelectionRange(start + oLen, start + oLen + env.inner.length); } catch (_) {}
             }
+            _npSaveFmtSelection(); // [EN] utrzymaj zakres po wrap — kolejny tap B/I/U działa na tym samym fragmencie
             npBody.focus();
+            _npUpdateVisualCaret();
         }
         function _npSetLineAlign(mode) { // T6-4 — prefix bieżącej linii (tap ten sam = wyłącz)
             if (!npBody) return;
@@ -8463,17 +8467,124 @@
             npKbBar.style.left = vv.offsetLeft + 'px';
             npKbBar.style.width = vv.width + 'px';
         }
-        var npCtxMenu = null, _npCtxMenuMode = null, _npSelMenuRaf = null, _npSelMenuSig = '';
+        var npCtxMenu = null, _npCtxMenuMode = null, _npSelMenuRaf = null, _npSelMenuSig = '', _npFmtSel = null;
+        function _npSaveFmtSelection() { // [EN] cache range — toolbar tap steals textarea focus/selection
+            if (!npBody) return;
+            var s = npBody.selectionStart, e = npBody.selectionEnd;
+            if (s != null && e != null && s !== e) _npFmtSel = { start: s, end: e };
+        }
+        function _npRestoreFmtSelection() {
+            if (!npBody || !_npFmtSel) return false;
+            try {
+                npBody.focus({ preventScroll: true });
+                npBody.setSelectionRange(_npFmtSel.start, _npFmtSel.end);
+            } catch (_) {}
+            return npBody.selectionStart !== npBody.selectionEnd;
+        }
         function _npHideCtxMenu() {
             if (npCtxMenu) npCtxMenu.hidden = true;
             _npCtxMenuMode = null;
             _npSelMenuSig = '';
+            _npFmtSel = null;
             if (npCtxMenu) npCtxMenu.classList.remove('is-selection');
         }
         function _npIsCoarsePointer() { // [EN] touch — long-press + double-tap; natywne menu obok naszego
             return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
         }
-        var _npCaretMirror = null;
+        var _npCaretMirror = null, _npVisualCaret = null;
+        function _npDisplayPrefix(val, index) { // [EN] bufor → tekst wizualny (bez zamkniętych markerów)
+            if (_NP_FMT && typeof _NP_FMT.displayPrefix === 'function') return _NP_FMT.displayPrefix(val, index);
+            return String(val || '').substring(0, index == null ? 0 : index);
+        }
+        function _npBufferIndexFromPoint(ta, clientX, clientY) { // [EN] klik/tap → indeks bufora zgodny z mirror (nie z ukrytymi markerami)
+            if (!ta) return 0;
+            var val = ta.value, len = val.length;
+            var taRect = ta.getBoundingClientRect();
+            var cs = getComputedStyle(ta);
+            var padT = parseFloat(cs.paddingTop) || 0;
+            var lh = parseFloat(cs.lineHeight) || 20;
+            var relY = clientY - taRect.top + ta.scrollTop - padT;
+            var lineIdx = Math.max(0, Math.floor(relY / lh));
+            var lineCount = val.split('\n').length;
+            if (lineIdx >= lineCount) lineIdx = Math.max(0, lineCount - 1);
+            var bounds = _npLineBounds(lineIdx);
+            var lo = bounds.start, hi = bounds.end, best = lo;
+            for (var i = lo; i <= hi; i++) {
+                var r = _npCaretClientRect(ta, i);
+                if (!r) continue;
+                if (clientX >= r.left - 1) best = i;
+                else break;
+            }
+            if (_NP_FMT && typeof _NP_FMT.listRegions === 'function' && npMirror) {
+                var regs = _NP_FMT.listRegions(val);
+                for (var ri = 0; ri < regs.length; ri++) {
+                    var rg = regs[ri];
+                    if (best <= rg.innerEnd || best > rg.uEnd) continue;
+                    var mLine = npMirror.querySelectorAll('.np-mirror-line')[lineIdx];
+                    var fmtEl = mLine && mLine.querySelector('.' + rg.fmt.cls);
+                    if (!fmtEl) break;
+                    var fr = fmtEl.getBoundingClientRect();
+                    best = clientX <= fr.right - 2 ? rg.innerEnd : rg.uEnd;
+                    break;
+                }
+            }
+            return Math.max(0, Math.min(best, len));
+        }
+        var _npCaretTap = null;
+        function _npOnCaretPointerDown(e) {
+            if (e.button != null && e.button !== 0) return;
+            var pt = e.touches && e.touches[0] ? e.touches[0] : e;
+            _npCaretTap = { x: pt.clientX, y: pt.clientY };
+        }
+        function _npOnFmtPointerUp(e) { // [EN] tap — kursor pod kliknięciem; drag — snap zaznaczenia
+            var pt = e.changedTouches && e.changedTouches[0] ? e.changedTouches[0] : e;
+            var isTap = _npCaretTap && Math.hypot(pt.clientX - _npCaretTap.x, pt.clientY - _npCaretTap.y) <= 8;
+            _npCaretTap = null;
+            if (isTap && npBody) {
+                var idx = _npBufferIndexFromPoint(npBody, pt.clientX, pt.clientY);
+                _npSelSnapGuard = true;
+                try { npBody.setSelectionRange(idx, idx); } catch (_) {}
+                _npSelSnapGuard = false;
+            }
+            _npOnFmtSelectionEnd();
+        }
+        function _npNeedsVisualCaret(val, index) { // [EN] tylko gdy zamknięte markery przed kursorem zabierają szerokość
+            if (index == null || index <= 0) return false;
+            return _npDisplayPrefix(val, index).length !== index;
+        }
+        function _npEnsureVisualCaret() {
+            if (_npVisualCaret) return _npVisualCaret;
+            _npVisualCaret = document.createElement('span');
+            _npVisualCaret.className = 'np-visual-caret';
+            _npVisualCaret.setAttribute('aria-hidden', 'true');
+            _npVisualCaret.hidden = true;
+            (npEditorInner || document.body).appendChild(_npVisualCaret);
+            return _npVisualCaret;
+        }
+        function _npUpdateVisualCaret() { // [EN] natywny kursor w plain tekście; overlay tylko przy ukrytych markerach
+            var caret = _npEnsureVisualCaret();
+            if (!npBody || document.activeElement !== npBody || !document.body.classList.contains('notepad-open')) {
+                caret.hidden = true;
+                if (npBody) npBody.classList.remove('np-visual-caret-on');
+                return;
+            }
+            var a = npBody.selectionStart, b = npBody.selectionEnd;
+            if (a == null || b == null || a !== b) {
+                caret.hidden = true;
+                npBody.classList.remove('np-visual-caret-on');
+                return;
+            }
+            var val = npBody.value || '';
+            var needVisual = _npNeedsVisualCaret(val, a);
+            npBody.classList.toggle('np-visual-caret-on', needVisual);
+            if (!needVisual) { caret.hidden = true; return; }
+            var r = _npCaretClientRect(npBody, a);
+            if (!r) { caret.hidden = true; return; }
+            caret.hidden = false;
+            caret.style.left = r.left + 'px';
+            caret.style.top = r.top + 'px';
+            caret.style.height = Math.max(14, r.bottom - r.top) + 'px';
+        }
         function _npEnsureCaretMirror() { // [EN] off-screen clone for textarea caret/selection coords
             if (_npCaretMirror) return _npCaretMirror;
             _npCaretMirror = document.createElement('div');
@@ -8496,9 +8607,10 @@
             _npSyncCaretMirrorStyle(ta, div);
             var val = String(ta.value || '');
             var i = Math.max(0, Math.min(index == null ? 0 : index, val.length));
-            div.textContent = val.substring(0, i);
+            div.replaceChildren();
+            div.appendChild(document.createTextNode(_npDisplayPrefix(val, i)));
             var span = document.createElement('span');
-            span.textContent = val.substring(i, i + 1) || '\u200b';
+            span.textContent = '\u200b';
             div.appendChild(span);
             var taRect = ta.getBoundingClientRect();
             return {
@@ -8657,12 +8769,19 @@
                     btn.setAttribute('data-np-act', sp[0]);
                     btn.textContent = sp[1];
                     btn.title = sp[2] || sp[1];
+                    btn.addEventListener('pointerdown', function(e) {
+                        e.preventDefault(); // [EN] tap na toolbar nie może zabrać focusu ani zwinąć zaznaczenia w textarea
+                    });
+                    btn.addEventListener('mousedown', function(e) { e.preventDefault(); });
                     btn.addEventListener('click', function(e) {
                         e.preventDefault();
                         e.stopPropagation();
+                        if (_npCtxMenuMode === 'selection' && npBody.selectionStart === npBody.selectionEnd) _npRestoreFmtSelection(); // [EN] nie nadpisuj świeżego zaznaczenia użytkownika
                         _npRunEditorAction(sp[0]);
-                        if (_npCtxMenuMode === 'selection') _npScheduleSelectionFmtMenu();
-                        else _npHideCtxMenu();
+                        if (_npCtxMenuMode === 'selection') {
+                            _npSaveFmtSelection();
+                            _npScheduleSelectionFmtMenu();
+                        } else _npHideCtxMenu();
                     });
                     npCtxMenu.appendChild(btn);
                 });
@@ -8689,6 +8808,7 @@
                 if (_npCtxMenuMode === 'selection') _npHideCtxMenu();
                 return;
             }
+            _npSaveFmtSelection();
             var pt = _npCtxPointForSelection();
             _npShowCtxMenu(pt.x, pt.y, _npCtxActsForSelection(), { mode: 'selection' });
         }
@@ -8721,8 +8841,11 @@
         function _npBindSelectionFmtMenu(el) { // [EN] Signal-style — toolbar przy zaznaczeniu, bez blokady natywnego menu
             if (!el || el._npSelFmtBound) return;
             el._npSelFmtBound = true;
-            el.addEventListener('blur', function() {
-                if (_npCtxMenuMode === 'selection') _npHideCtxMenu();
+            el.addEventListener('blur', function(e) {
+                if (_npCtxMenuMode !== 'selection') return;
+                var rt = e.relatedTarget;
+                if (rt && npCtxMenu && npCtxMenu.contains(rt)) return; // [EN] focus na przycisku toolbara ≠ koniec zaznaczenia
+                _npHideCtxMenu();
             });
             el.addEventListener('scroll', _npScheduleSelectionFmtMenu);
         }
@@ -8995,6 +9118,7 @@
             _npSyncGutterHidden();
             npBindHints();
             npRenderVarsPanel();
+            _npUpdateVisualCaret();
         }
         function _npRecomputeSync(text) {
             var lines = text.split('\n');
@@ -11894,6 +12018,36 @@
                     unwrapped = sample.slice(0, a - ol) + sample.slice(a, b) + sample.slice(b + cl);
                 }
                 results.push({ expr: 'T6-5 unwrap inner bold', pass: unwrapped === 'hmm', got: unwrapped });
+            })();
+            (function() { // T6-5 — snap zaznaczenia pomija markery ** __ ~~ :: _
+                if (!_NP_FMT || typeof _NP_FMT.normalizeSelectionRange !== 'function') {
+                    results.push({ expr: 'T6-5 snap markers', pass: false, got: 'no fmt api' });
+                    return;
+                }
+                var snapCases = [
+                    ['**tekst**', 0, 9, 2, 7],
+                    ['**tekst**', 0, 8, 2, 7],
+                    ['::_a_::', 0, 7, 2, 5],
+                    ['plain', 0, 5, 0, 5]
+                ];
+                var snapOk = true, snapGot = '';
+                for (var si = 0; si < snapCases.length; si++) {
+                    var sc = snapCases[si];
+                    var sn = _NP_FMT.normalizeSelectionRange(sc[0], sc[1], sc[2]);
+                    if (sn.start !== sc[3] || sn.end !== sc[4]) { snapOk = false; snapGot = sc[0] + '→' + sn.start + ',' + sn.end; break; }
+                }
+                results.push({ expr: 'T6-5 snap markers', pass: snapOk, got: snapGot || 'ok' });
+            })();
+            (function() { // T6-5 — displayPrefix: kursor bez szerokości zamkniętych markerów
+                if (!_NP_FMT || typeof _NP_FMT.displayPrefix !== 'function') {
+                    results.push({ expr: 'T6-5 displayPrefix', pass: false, got: 'no fmt api' });
+                    return;
+                }
+                var dpOk = _NP_FMT.displayPrefix('**tekst**', 9) === 'tekst'
+                    && _NP_FMT.displayPrefix('**tekst**', 7) === 'tekst'
+                    && _NP_FMT.displayPrefix('**tekst**', 2) === ''
+                    && _NP_FMT.displayPrefix('**otw', 2) === '**';
+                results.push({ expr: 'T6-5 displayPrefix', pass: dpOk, got: dpOk ? 'ok' : _NP_FMT.displayPrefix('**tekst**', 9) });
             })();
 
             // Stałe-FUNKCJE f(x) — wywołania w kalkulatorze (test(3)/test 3/3 test), argument-stała,

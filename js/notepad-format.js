@@ -117,7 +117,6 @@
         if (!text) return;
         var s = text, i = 0;
         var order = _scanOrder();
-        function gPos() { return base + i; }
         function pushPlain(end) {
             if (end > i) api.pushSpan(container, s.slice(i, end), '', base + i, base + end, ctx);
             i = end;
@@ -129,19 +128,15 @@
                 var o = fmt.open, c = fmt.close, oLen = o.length, cLen = c.length;
                 if (!s.startsWith(o, i)) continue;
                 var end = s.indexOf(c, i + oLen);
-                if (end > i) {
-                    var reg0 = base + i, reg1 = base + end + cLen;
+                if (end > i) { // [EN] zamknięta klamra — tylko treść w mirrorze, markery bez miejsca
                     pushPlain(i);
-                    api.pushGhost(container, o, gPos(), gPos() + oLen, ctx, reg0, reg1);
-                    i += oLen;
-                    api.pushSpan(container, s.slice(i, end), fmt.cls, base + i, base + end, ctx);
-                    i = end;
-                    api.pushGhost(container, c, gPos(), gPos() + cLen, ctx, reg0, reg1);
-                    i += cLen;
+                    var innerStart = i + oLen, innerEnd = end;
+                    api.pushSpan(container, s.slice(innerStart, innerEnd), fmt.cls, base + innerStart, base + innerEnd, ctx);
+                    i = innerEnd + cLen;
                     matched = true;
                     break;
                 }
-                if (api.lineActive(ctx)) pushPlain(i + oLen);
+                if (api.lineActive(ctx)) pushPlain(i + oLen); // [EN] otwarta klamra — ** jak zwykłe znaki
                 else i += oLen;
                 matched = true;
                 break;
@@ -150,6 +145,122 @@
             pushPlain(_nextPlainEnd(s, i, order));
             if (i === prev) i++;
         }
+    }
+
+    function listRegions(val) { // [EN] sparowane regiony inline — do snap zaznaczenia poza markery
+        var regions = [];
+        var order = _scanOrder();
+        function scan(s, base) {
+            var i = 0;
+            while (i < s.length) {
+                var matched = false;
+                for (var fi = 0; fi < order.length; fi++) {
+                    var fmt = order[fi], o = fmt.open, c = fmt.close, oLen = o.length, cLen = c.length;
+                    if (!s.startsWith(o, i)) continue;
+                    var closeAt = s.indexOf(c, i + oLen);
+                    if (closeAt <= i) { i += oLen; matched = true; break; }
+                    var innerStart = base + i + oLen;
+                    var innerEnd = base + closeAt;
+                    regions.push({
+                        fmt: fmt, open: o, close: c,
+                        uStart: base + i, innerStart: innerStart, innerEnd: innerEnd, uEnd: innerEnd + cLen
+                    });
+                    scan(s.slice(i + oLen, closeAt), innerStart);
+                    i = closeAt + cLen;
+                    matched = true;
+                    break;
+                }
+                if (!matched) i++;
+            }
+        }
+        scan(String(val || ''), 0);
+        return regions;
+    }
+
+    function normalizeSelectionRange(val, start, end) { // [EN] zaznaczenie = treść, nie ** / __ / ~~ / ::
+        if (start == null || end == null || start === end) return { start: start, end: end, changed: false };
+        var a = Math.min(start, end), b = Math.max(start, end);
+        var regions = listRegions(val);
+        if (!regions.length) return { start: a, end: b, changed: false };
+        var changed = false;
+        var outer = null;
+        regions.forEach(function(r) {
+            if (a <= r.uStart && b >= r.uEnd && (!outer || (r.uEnd - r.uStart) > (outer.uEnd - outer.uStart))) outer = r;
+        });
+        if (outer) { a = outer.innerStart; b = outer.innerEnd; changed = true; }
+        else {
+            regions.forEach(function(r) {
+                if (a <= r.uStart && b > r.innerEnd && b <= r.uEnd) { a = r.innerStart; b = r.innerEnd; changed = true; }
+            });
+            regions.forEach(function(r) {
+                if (a > r.uStart && a < r.innerStart) { a = r.innerStart; changed = true; }
+                else if (a > r.innerEnd && a < r.uEnd) { a = r.innerEnd; changed = true; }
+                if (b > r.innerEnd && b < r.uEnd) { b = r.innerEnd; changed = true; }
+                else if (b > r.uStart && b < r.innerStart) { b = r.innerStart; changed = true; }
+            });
+        }
+        if (a >= b) return { start: start, end: end, changed: false };
+        return { start: a, end: b, changed: changed };
+    }
+
+    function markerEnvelope(val, start, end, open, close) { // [EN] toggle — rozpoznaj otoczkę bez dokładania ****
+        var oLen = open.length, cLen = close.length;
+        var sel = val.slice(start, end);
+        if (sel.length >= oLen + cLen && sel.startsWith(open) && sel.endsWith(close)) {
+            return { wrapped: true, uStart: start, uEnd: end, inner: sel.slice(oLen, sel.length - cLen) };
+        }
+        if (sel.startsWith(open)) {
+            var bodyStart = start + oLen;
+            var closeAt = val.indexOf(close, bodyStart);
+            if (closeAt >= 0) {
+                return { wrapped: true, uStart: start, uEnd: closeAt + cLen, inner: val.slice(bodyStart, closeAt) };
+            }
+        }
+        var hasOpenBefore = start >= oLen && val.slice(start - oLen, start) === open;
+        if (hasOpenBefore) {
+            var uStart = start - oLen, uEnd = end;
+            if (end + cLen <= val.length && val.slice(end, end + cLen) === close) uEnd = end + cLen;
+            else {
+                var found = val.indexOf(close, end);
+                if (found >= 0) uEnd = found + cLen;
+            }
+            var chunk = val.slice(uStart, uEnd);
+            if (chunk.startsWith(open) && chunk.endsWith(close)) {
+                return { wrapped: true, uStart: uStart, uEnd: uEnd, inner: chunk.slice(oLen, chunk.length - cLen) };
+            }
+        }
+        return { wrapped: false, uStart: start, uEnd: end, inner: sel };
+    }
+
+    function displayPrefix(val, bufEnd) { // [EN] tekst wizualny przed kursorem — zamknięte markery bez szerokości
+        val = String(val || '');
+        bufEnd = Math.max(0, Math.min(bufEnd, val.length));
+        if (!bufEnd) return '';
+        var order = _scanOrder();
+        var out = '', i = 0;
+        while (i < bufEnd) {
+            var matched = false;
+            for (var fi = 0; fi < order.length && !matched; fi++) {
+                var fmt = order[fi], o = fmt.open, c = fmt.close, oLen = o.length, cLen = c.length;
+                if (!val.startsWith(o, i)) continue;
+                var closeAt = val.indexOf(c, i + oLen);
+                if (closeAt > i) {
+                    var innerStart = i + oLen, innerEnd = closeAt, uEnd = closeAt + cLen;
+                    if (bufEnd <= innerStart) { i = bufEnd; } // [EN] zamknięte — markery bez miejsca (jak mirror)
+                    else if (bufEnd <= innerEnd) { out += val.slice(innerStart, bufEnd); i = bufEnd; }
+                    else if (bufEnd <= uEnd) { out += val.slice(innerStart, innerEnd); i = bufEnd; }
+                    else { out += val.slice(innerStart, innerEnd); i = uEnd; }
+                    matched = true;
+                } else {
+                    var take = Math.min(oLen, bufEnd - i);
+                    out += val.slice(i, i + take);
+                    i += take;
+                    matched = true;
+                }
+            }
+            if (!matched) { out += val[i]; i++; }
+        }
+        return out;
     }
 
     var API = {
@@ -162,7 +273,11 @@
         selectionMenuItems: selectionMenuItems,
         panelMenuItems: panelMenuItems,
         kbInlineItems: kbInlineItems,
-        kbBarSpecs: kbBarSpecs
+        kbBarSpecs: kbBarSpecs,
+        listRegions: listRegions,
+        normalizeSelectionRange: normalizeSelectionRange,
+        markerEnvelope: markerEnvelope,
+        displayPrefix: displayPrefix
     };
 
     if (typeof window !== 'undefined') window.MATM0_NP_FMT = API;
