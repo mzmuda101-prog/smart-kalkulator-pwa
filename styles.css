@@ -34,8 +34,20 @@
             --calc-operator-text: #1d4ed8;
             --calc-fn-bg: #e2e8f0;
             --calc-fn-text: #1e293b;
-            --calc-expr-text: #334155;
+            --calc-expr-text: #64748b;
+            --calc-expr-text-focus: #475569;
             --calc-fn-active: #cbd5e1;
+            /* [EN] Klawiatura — poświata wyrównana do dark mode (jaśniejsze tło = mocniejsze halo) */
+            --calc-glow-default: radial-gradient(circle, rgba(37,99,235,0.34) 0%, rgba(37,99,235,0.14) 40%, transparent 72%);
+            --calc-glow-operator: radial-gradient(circle, rgba(37,99,235,0.42) 0%, rgba(100,160,255,0.20) 42%, transparent 72%);
+            --calc-glow-equals: radial-gradient(circle, rgba(255,255,255,0.72) 0%, rgba(37,99,235,0.32) 38%, transparent 70%);
+            --calc-glow-clear: radial-gradient(circle, rgba(211,61,118,0.42) 0%, rgba(255,120,160,0.16) 44%, transparent 72%);
+            --calc-glow-fn: radial-gradient(circle, rgba(37,99,235,0.20) 0%, rgba(15,23,42,0.08) 46%, transparent 72%);
+            --calc-press-halo-number: 0 8px 30px rgba(37,99,235,0.22), 0 4px 14px rgba(15,23,42,0.10);
+            --calc-press-halo-operator: 0 10px 36px rgba(37,99,235,0.38), 0 4px 16px rgba(100,160,255,0.22);
+            --calc-press-halo-equals: 0 14px 44px rgba(37,99,235,0.44), 0 6px 18px rgba(37,99,235,0.24);
+            --calc-press-halo-clear: 0 10px 36px rgba(211,61,118,0.38), 0 4px 16px rgba(255,120,160,0.20);
+            --calc-press-halo-fn: 0 8px 28px rgba(37,99,235,0.18), 0 3px 12px rgba(15,23,42,0.08);
             --calc-clear-bg: #fee2e2;
             --calc-clear-active: #fecaca;
             --calc-help-active: #bfdbfe;
@@ -116,8 +128,20 @@
             --calc-operator-text: #8bb8ff;
             --calc-fn-bg: #2b3440;
             --calc-fn-text: #e8edf3;
-            --calc-expr-text: #c5d0dc;
+            --calc-expr-text: #b3bfd0;
+            --calc-expr-text-focus: #c5d0dc;
             --calc-fn-active: #374151;
+            /* [EN] Dark — kolorowe halo (czarne cienie znikały na ciemnym tle) + jaśniejszy ripple */
+            --calc-glow-default: radial-gradient(circle, rgba(180,210,255,0.42) 0%, rgba(79,141,249,0.18) 40%, transparent 72%);
+            --calc-glow-operator: radial-gradient(circle, rgba(190,220,255,0.48) 0%, rgba(79,141,249,0.28) 42%, transparent 72%);
+            --calc-glow-equals: radial-gradient(circle, rgba(255,255,255,0.55) 0%, rgba(127,181,255,0.26) 38%, transparent 70%);
+            --calc-glow-clear: radial-gradient(circle, rgba(255,190,210,0.44) 0%, rgba(248,113,113,0.24) 42%, transparent 72%);
+            --calc-glow-fn: radial-gradient(circle, rgba(200,215,235,0.32) 0%, rgba(127,181,255,0.12) 46%, transparent 72%);
+            --calc-press-halo-number: 0 8px 30px rgba(79,141,249,0.28), 0 4px 14px rgba(180,210,255,0.14);
+            --calc-press-halo-operator: 0 10px 36px rgba(79,141,249,0.52), 0 4px 16px rgba(140,190,255,0.30);
+            --calc-press-halo-equals: 0 14px 44px rgba(79,141,249,0.62), 0 6px 18px rgba(200,220,255,0.24);
+            --calc-press-halo-clear: 0 10px 36px rgba(248,113,113,0.52), 0 4px 16px rgba(255,160,180,0.28);
+            --calc-press-halo-fn: 0 8px 28px rgba(127,181,255,0.26), 0 3px 12px rgba(220,230,245,0.12);
             --calc-clear-bg: rgba(248,113,113,0.18);
             --calc-clear-active: rgba(248,113,113,0.30);
             --calc-help-active: rgba(79,141,249,0.30);
@@ -600,9 +624,9 @@
             padding: var(--calc-display-pad-y, 20px) var(--calc-display-pad-x, 22px) var(--calc-display-pad-bottom, var(--calc-display-pad-y, 20px));
             margin-bottom: 18px;
             min-height: 7.5rem;
-            /* [EN] auto/auto — expr row never collapses to 0 (1fr bez fixed height = 0 px). */
+            /* [EN] expr flex + hint + fixed result row + suggest — wynik przypięty do dołu */
             display: grid;
-            grid-template-rows: auto auto; /* mobile: expr + result — assist via cursor-hint */
+            grid-template-rows: minmax(0, 1fr) auto var(--calc-result-row-min, calc(var(--calc-result-font, 2.5rem) * 1.1)) auto;
             align-content: stretch;
             gap: 6px;
             border: 1px solid rgba(226,232,240,0.6);
@@ -642,12 +666,21 @@
             scrollbar-width: none;
         }
         .calc-expression.is-clipped::-webkit-scrollbar { display: none; }
+        /* [EN] wrap wyniku — expr 1–2 linie, mniejszy font; wys. ekranika bez skoku */
+        .calc-display.calc-result-wrap .calc-expr-wrap {
+            min-height: var(--calc-expr-min, 28px);
+            max-height: var(--calc-expr-max-h, none);
+            overflow: hidden;
+        }
+        .calc-display.calc-result-wrap .calc-expression {
+            max-height: var(--calc-expr-max-h, none);
+        }
         .calc-expression::placeholder {
             color: var(--text-muted);
             opacity: 0.75;
         }
         .calc-expression:focus {
-            color: var(--text);
+            color: var(--calc-expr-text-focus, var(--calc-expr-text, var(--text)));
         }
         /* Placeholder-marquee: gdy podpowiedź pola nie mieści się na wąsko (jest ucinana),
            przewija się ping-pongiem (w prawo i z powrotem), by dało się ją całą odczytać.
@@ -656,9 +689,9 @@
             position: relative;
             width: 100%;
             grid-row: 1;
-            min-height: 1.75rem;
             align-self: stretch;
             overflow: hidden;
+            min-height: 0; /* [EN] 1fr row — expr może się kurczyć, wynik zostaje na dole */
         }
         /* [EN] Desktop: natural flow. Mobile: absolute fill — see @media (max-width: 639px). */
         .calc-expr-wrap .calc-expression {
@@ -747,7 +780,7 @@
             .calc-live-hint, .calc-empty-suggest { display: none !important; } /* T4-17/19 — mobile: cursor-hint */
         }
         @media (min-width: 600px) {
-            .calc-display { grid-template-rows: auto auto auto auto; }
+            .calc-display { grid-template-rows: minmax(0, 1fr) auto var(--calc-result-row-min, calc(var(--calc-result-font, 2.5rem) * 1.1)) auto; }
         }
         .calc-suggest-btn {
             border: none;
@@ -772,7 +805,6 @@
             font-family: var(--font-mono);
             letter-spacing: -0.03em;
             line-height: 1.1;
-            /* Zawijanie max 2 linie; ewentualny shrink dopiero po zapełnieniu obu. */
             min-height: 1.1em;
             white-space: pre-line;
             word-break: normal;
@@ -781,14 +813,13 @@
             min-width: 0;
             max-width: 100%;
             width: 100%;
-            overflow: hidden; /* [EN] clip until JS shrinks font — prevents bleed off-screen */
+            overflow: hidden; /* [EN] clip — max 2 linie; bez widocznego owijania w 3. wiersz */
             transition: font-size 0.12s ease-out;
             cursor: pointer;
+            box-sizing: border-box;
         }
         /* [EN] JS fit sets inline font-size — transition fights binary search and clips mid-frame */
         .calc-result[style*="font-size"] { transition: none; }
-        /* [EN] 2-line result — don't clip second row while layout reserve catches up */
-        .calc-result[style*="white-space: pre-line"] { overflow: visible; }
         /* Zapasowe klasy — JS nie stosuje ich prewencyjnie; tylko gdy brak inline font-size. */
         .calc-result.small { font-size: 2.1rem; }
         .calc-result.xsmall { font-size: 1.75rem; }
@@ -799,6 +830,18 @@
             width: var(--calc-num-grp-sep, 0.25em);
             overflow: hidden;
             vertical-align: baseline;
+        }
+        /* [EN] 2 linie — sep inline (inline-block rozpycha 2. linię); probe w wrap kontekście — szerokość */
+        .calc-display.calc-result-wrap .num-grp-sep {
+            display: inline;
+            width: auto;
+            overflow: visible;
+        }
+        .calc-display.calc-result-wrap .txt-sep,
+        .calc-display.calc-result-wrap .eq-sep {
+            display: inline;
+            width: auto;
+            overflow: visible;
         }
         .txt-sep {
             display: inline-block;
@@ -819,10 +862,12 @@
             justify-content: flex-end;
             gap: 6px;
             width: 100%;
-            grid-row: 3;
+            grid-row: 3; /* desktop: expr(1) hint(2) result(3) suggest(4) */
             min-width: 0;
             flex: 0 0 auto;
             overflow: visible;
+            /* [EN] min-height stabilizuje wiersz — height:auto żeby nie clipować fontu */
+            min-height: var(--calc-result-row-min, calc(var(--calc-result-font, 2.5rem) * 1.1));
         }
         .calc-result-row .calc-result {
             flex: 1 1 auto;
@@ -873,7 +918,23 @@
         }
         .calc-result-new {
             display: inline-block; /* transform wymaga blokowości */
+            vertical-align: baseline;
             animation: calcCharIn 0.2s cubic-bezier(0.2, 0, 0.8, 1);
+        }
+        /* [EN] 2 linie — ciaśniejszy leading; tune: --calc-result-wrap-lh (domyślnie 1) */
+        .calc-display.calc-result-wrap .calc-result {
+            line-height: var(--calc-result-wrap-lh, 1);
+            overflow: hidden; /* [EN] pre + jawne \n — nigdy 3. wiersz wizualnie */
+        }
+        .calc-display.calc-result-wrap .calc-result-new {
+            display: inline-block; /* [EN] transform w animacji — mniejszy translateY niż 1 linia */
+            vertical-align: baseline;
+            animation: calcCharInWrap 0.2s cubic-bezier(0.2, 0, 0.8, 1);
+        }
+        @keyframes calcCharInWrap {
+            from { opacity: 0; transform: translateY(0.35em); }
+            75%  { opacity: 0.85; transform: translateY(-0.04em); }
+            to   { opacity: 1; transform: translateY(0); }
         }
         @media (prefers-reduced-motion: reduce) {
             .calc-result-new { animation: none; }
@@ -883,6 +944,7 @@
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 10px;
+            overflow: visible; /* [EN] halo za klawiszami nie obcinane przez siatkę */
         }
         .calc-btn {
             aspect-ratio: 1;
@@ -892,48 +954,52 @@
             font-size: 1.3rem;
             font-weight: 700;
             cursor: pointer;
-            transition: transform var(--transition), background var(--transition), box-shadow var(--transition);
+            /* [EN] Release 2× szybsze odbicie; press osobno w :active / .is-pressed (~10% szybciej) */
+            transition: transform 0.06s cubic-bezier(0.2, 0, 0.2, 1), box-shadow 0.07s ease-out, background 0.14s ease-out, filter 0.06s ease-out;
             display: flex;
             align-items: center;
             justify-content: center;
             min-height: 60px;
             -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation; /* [EN] mniejszy tap delay + stabilniejszy press */
             user-select: none;
             -webkit-user-select: none;
             position: relative;
             overflow: hidden;
-            isolation: isolate; /* [EN] glow stays inside rounded btn */
+            isolation: isolate;
+            transform: translateZ(0); /* [EN] compositing — transform press bez reflow */
+        }
+        /* [EN] Samsung-style press: wciśnięcie + halo za przyciskiem (box-shadow, GPU-friendly) */
+        .calc-btn.is-pressed,
+        .calc-btn:active {
+            transition: transform 0.11s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.13s ease-out, background 0.14s ease-out, filter 0.11s ease-out;
+            transform: scale(0.915) translateY(1px);
+            filter: brightness(0.97);
         }
         /* [EN] Samsung-style press bloom — spawned at pointer coords in app.js */
         .calc-btn-glow {
             position: absolute;
-            width: 2.4em;
-            height: 2.4em;
-            margin: -1.2em 0 0 -1.2em;
+            width: 2.6em;
+            height: 2.6em;
+            margin: -1.3em 0 0 -1.3em;
             border-radius: 50%;
             pointer-events: none;
             z-index: 0;
-            background: radial-gradient(circle, rgba(255,255,255,0.38) 0%, rgba(255,255,255,0.12) 42%, transparent 72%);
-            animation: calcBtnGlow 0.42s cubic-bezier(0.2, 0.85, 0.3, 1) forwards;
+            background: var(--calc-glow-default);
+            animation: calcBtnGlow 0.38s cubic-bezier(0.2, 0.85, 0.3, 1) forwards;
+            will-change: transform, opacity;
         }
-        .calc-btn-glow[data-kind="operator"] {
-            background: radial-gradient(circle, rgba(255,255,255,0.32) 0%, rgba(79,141,249,0.22) 45%, transparent 72%);
-        }
-        .calc-btn-glow[data-kind="equals"] {
-            background: radial-gradient(circle, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.14) 40%, transparent 70%);
-        }
-        .calc-btn-glow[data-kind="clear"] {
-            background: radial-gradient(circle, rgba(255,255,255,0.34) 0%, rgba(255,120,160,0.18) 44%, transparent 72%);
-        }
-        .calc-btn-glow[data-kind="fn"] {
-            background: radial-gradient(circle, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.08) 46%, transparent 72%);
-        }
+        .calc-btn-glow[data-kind="operator"] { background: var(--calc-glow-operator); }
+        .calc-btn-glow[data-kind="equals"] { background: var(--calc-glow-equals); }
+        .calc-btn-glow[data-kind="clear"] { background: var(--calc-glow-clear); }
+        .calc-btn-glow[data-kind="fn"] { background: var(--calc-glow-fn); }
         @keyframes calcBtnGlow {
-            0%   { transform: scale(0.15); opacity: 0.85; }
-            100% { transform: scale(2.6); opacity: 0; }
+            0%   { transform: scale(0.12); opacity: 0.9; }
+            100% { transform: scale(2.8); opacity: 0; }
         }
         @media (prefers-reduced-motion: reduce) {
             .calc-btn-glow { animation: none; opacity: 0; }
+            .calc-btn.is-pressed, .calc-btn:active { filter: none; transition-duration: 0.01ms; }
         }
         /* [EN] Ripple effect handled in JS — static styles only */
         .calc-btn.clear {
@@ -941,20 +1007,29 @@
             color: var(--text-on-accent);
             box-shadow: var(--shadow-accent);
         }
-        .calc-btn:active { transform: scale(0.94); }
+        .calc-btn.clear.is-pressed,
+        .calc-btn.clear:active { box-shadow: var(--shadow-accent), var(--calc-press-halo-clear); }
         .calc-btn--number {
             background: var(--calc-number-bg, var(--bg));
             color: var(--calc-number-text, var(--text));
             box-shadow: var(--shadow-sm);
         }
-        .calc-btn--number:active { background: var(--calc-number-active); }
+        .calc-btn--number.is-pressed,
+        .calc-btn--number:active {
+            background: var(--calc-number-active);
+            box-shadow: var(--shadow-sm), var(--calc-press-halo-number);
+        }
         .calc-btn--operator {
             background: var(--primary-light);
             color: var(--calc-operator-text, var(--primary));
             font-size: 1.45rem;
             font-weight: 800;
         }
-        .calc-btn--operator:active { background: var(--calc-operator-active); }
+        .calc-btn--operator.is-pressed,
+        .calc-btn--operator:active {
+            background: var(--calc-operator-active);
+            box-shadow: var(--calc-press-halo-operator);
+        }
         .calc-btn--equals {
             background: var(--primary);
             color: var(--text-on-accent);
@@ -962,20 +1037,26 @@
             font-weight: 800;
             box-shadow: var(--shadow-primary);
         }
-        .calc-btn--equals:active { background: var(--primary-hover); }
+        .calc-btn--equals.is-pressed,
+        .calc-btn--equals:active {
+            background: var(--primary-hover);
+            box-shadow: var(--shadow-primary), var(--calc-press-halo-equals);
+        }
         .calc-btn--fn {
             background: var(--calc-fn-bg);
             color: var(--calc-fn-text, var(--text));
             font-size: 1.15rem;
             font-weight: 700;
         }
-        .calc-btn--fn:active { background: var(--calc-fn-active); }
+        .calc-btn--fn.is-pressed,
+        .calc-btn--fn:active { background: var(--calc-fn-active); box-shadow: var(--calc-press-halo-fn); }
         .calc-btn--clear {
             background: var(--calc-clear-bg);
             color: var(--danger);
             font-weight: 700;
         }
-        .calc-btn--clear:active { background: var(--calc-clear-active); }
+        .calc-btn--clear.is-pressed,
+        .calc-btn--clear:active { background: var(--calc-clear-active); box-shadow: var(--calc-press-halo-clear); }
 
         .calc-tools {
             display: flex;
@@ -3114,10 +3195,10 @@
         }
         @media (min-width: 600px) {
             #panel-calculator .calc-display {
-                grid-template-rows: minmax(var(--calc-expr-min, 44px), 1fr) auto auto auto;
+                grid-template-rows: minmax(var(--calc-expr-min, 44px), 1fr) auto var(--calc-result-row-min, calc(var(--calc-result-font, 2.5rem) * 1.1)) auto;
             }
             body.calc-split-active #panel-calculator .calc-display {
-                grid-template-rows: minmax(var(--calc-expr-min, 40px), 1fr) auto auto auto;
+                grid-template-rows: minmax(var(--calc-expr-min, 40px), 1fr) auto var(--calc-result-row-min, calc(var(--calc-result-font, 2.5rem) * 1.1)) auto;
             }
         }
         .np-hint {
@@ -3751,23 +3832,30 @@
                 padding: var(--calc-display-pad-y, 12px) var(--calc-display-pad-x, 14px) var(--calc-display-pad-bottom, var(--calc-display-pad-y, 12px));
                 overflow: hidden;
                 gap: var(--calc-display-gap, 6px);
-                grid-template-rows: minmax(var(--calc-expr-min, 44px), 1fr) auto; /* mobile: bez wierszy assist */
+                grid-template-rows: auto minmax(var(--calc-result-row-min, calc(var(--calc-result-font, 2.5rem) * 1.1)), auto);
             }
-            #panel-calculator .calc-expr-wrap {
-                height: 100%;
-                min-height: 0;
+            #panel-calculator .calc-display.calc-result-wrap {
+                grid-template-rows: minmax(0, 1fr) minmax(var(--calc-result-row-min, calc(var(--calc-result-font, 2.5rem) * 1.1)), auto);
             }
-            #panel-calculator .calc-expr-wrap .calc-expression {
-                position: absolute;
-                inset: 0;
-                height: 100%;
+            #panel-calculator .calc-display.calc-result-wrap .calc-expr-wrap {
                 min-height: 0;
+                max-height: var(--calc-expr-max-h, none);
             }
             #panel-calculator .calc-result-row {
+                grid-row: 2; /* [EN] mobile: 2-row grid — row 3 wypadało poza display i clipowało wynik */
                 flex-shrink: 0;
                 overflow: visible;
             }
-            /* [EN] Flex-fill: 5×1fr rows eat all space between display and calc-tools. */
+            #panel-calculator .calc-expr-wrap {
+                height: auto;
+                min-height: var(--calc-expr-min, 44px);
+            }
+            #panel-calculator .calc-expr-wrap .calc-expression {
+                position: relative;
+                inset: auto;
+                height: auto;
+                min-height: var(--calc-expr-min, 44px);
+            }
             #panel-calculator .calc-grid {
                 flex: 1 1 auto;
                 min-height: 0;
@@ -3823,8 +3911,16 @@
                 min-height: 0;
                 padding: var(--calc-display-pad-y, 20px) var(--calc-display-pad-x, 22px) var(--calc-display-pad-bottom, var(--calc-display-pad-y, 20px));
                 gap: var(--calc-display-gap, 6px);
-                grid-template-rows: minmax(var(--calc-expr-min, 40px), 1fr) auto; /* mobile: bez wierszy assist */
+                /* [EN] 4 rows: expr / hint / result / suggest — grid-row 3–4 bez implicit overflow */
+                grid-template-rows: minmax(0, 1fr) auto var(--calc-result-row-min, calc(var(--calc-result-font, 2.5rem) * 1.1)) auto;
                 overflow: hidden;
+            }
+            body.calc-split-active #panel-calculator .calc-display.calc-result-wrap {
+                grid-template-rows: minmax(0, 1fr) auto var(--calc-result-row-min, calc(var(--calc-result-font, 2.5rem) * 1.1)) auto;
+            }
+            body.calc-split-active #panel-calculator .calc-display.calc-result-wrap .calc-expr-wrap {
+                min-height: 0;
+                max-height: var(--calc-expr-max-h, none);
             }
             body.calc-split-active #panel-calculator .calc-expr-wrap {
                 height: 100%;
@@ -3886,7 +3982,7 @@
                 margin-right: auto;
             }
             .calc-btn { font-size: 1.5rem; min-height: 68px; }
-            .calc-result { font-size: 3.5rem; }
+            /* [EN] wynik z tune (--calc-result-font) — bez twardego 3.5rem psującego fit */
             .card { padding: 24px; }
             .app-header h1 { font-size: 1.5rem; }
 

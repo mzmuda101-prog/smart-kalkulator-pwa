@@ -118,7 +118,7 @@ window.CALC_LAYOUT_TUNE = {
         resultAnimSlack: 4, // zapas w _calcResultReserve (expr max-height)
         resultReserveMin: 36, // min. rezerwa wyniku gdy coś wpisane (budżet expr)
         resultWrapPadBottom: 6, // padding-bottom .calc-display gdy wynik ma 2 linie
-        resultWrapExprMinPx: 28, // --calc-expr-min na display gdy 2 linie (domyślnie 44)
+        resultWrapExprMinPx: 28, // legacy — prefer resultWrapExpr*Rem w displayFont
         gridGapPx: 8, // szczelina między klawiszami
         cardPadEstimate: 28, // fallback gdy brak viewportBottomGapPx
         btnRowBase: 56, // odniesienie do skali fontu (nie wys. rzędu!)
@@ -130,8 +130,13 @@ window.CALC_LAYOUT_TUNE = {
             exprMinPx: 16, // próg iOS — focus bez zoomu WebKit
             resultRem: 2.5, // bazowy rozmiar wyniku (CSS --calc-result-font)
             resultShrinkMinRem: 1.2, // dolna granica fontu wyniku (probe binary search)
-            resultWrapMaxLines: 2, // max linii; najpierw shrink 1 linia, potem wrap
-            resultWrapMaxExtraLines: 1, // +1× linePx do budżetu wys. ekraniku (resolveCalcDisplayBudget)
+            resultWrapMaxLines: 2, // max 2 linie @ base; shrink dopiero gdy 2 linie @ base overflow
+            resultWrapMaxExtraLines: 0,
+            resultWrapLineHeight: 1, // [EN] ciaśniejszy leading 2 linii — więcej miejsca na expr
+            resultWrapFontRem: 2, // [EN] stabilny font 2 linii na mobile
+            resultWrapExprRem: 1.05, // expr przy wrap wyniku — start fontu (1–2 linie)
+            resultWrapExprMinRem: 0.82, // dolna granica shrinku expr w trybie wrap
+            resultWrapExprMaxLines: 2, // max linii wpisywanego wyrażenia przy wrap wyniku
             approxRem: 1.6, // znacznik „≈"
         },
 
@@ -183,12 +188,17 @@ window.CALC_LAYOUT_TUNE = {
             scrollOverflow: {
                 // .panels ma scroll — karta może wystawać pod dół ekranu
                 enabled: true, // false → wszystko musi się zmieścić bez scrolla
-                belowPx: 100, // +100 px pod viewport (najprostszy knob)
-                belowShare: 0, // alternatywa: 0.06 = 6% wys. okna (bierze max z belowPx)
-                maxBelowPx: 140, // nie wystawaj bardziej niż tyle
+                belowPx: 100, // tablet/desktop: +100 px pod viewport
+                belowShare: 0,
+                maxBelowPx: 140,
+                wideMinWidthPx: 1024, // laptop/PC — więcej scrolla pod klawiaturą
+                wideBelowPx: 220,
+                wideBelowShare: 0.12, // max(220px, 12% vh) — laptop/PC chowa klawiaturę pod scroll
+                wideMaxBelowPx: 380,
+                wideCardMaxPx: 1080,
                 viewportBottomGapPx: 8, // luz nad dołem ekranu (mniej = więcej miejsca)
                 cardMinPx: 360, // min. wys. referencyjna całej karty
-                cardMaxPx: 960, // max. wys. karty
+                cardMaxPx: 960, // max. wys. karty (tablet); wide → wideCardMaxPx
             },
         },
 
@@ -199,7 +209,7 @@ window.CALC_LAYOUT_TUNE = {
         resultReserveEmpty: 52,
         resultAnimSlack: 4,
         resultReserveMin: 40,
-        resultWrapPadBottom: 8, // padding-bottom ekranika przy 2 liniach wyniku
+        resultWrapPadBottom: 4, // padding-bottom ekranika przy 2 liniach wyniku
         resultWrapExprMinPx: 32, // --calc-expr-min na display przy 2 liniach
         gridGapPx: 10,
         cardPadEstimate: 24,
@@ -212,7 +222,12 @@ window.CALC_LAYOUT_TUNE = {
             resultRem: 3, // desktop: większy wynik niż mobile (2.5)
             resultShrinkMinRem: 1.25, // dolna granica fontu wyniku (probe binary search)
             resultWrapMaxLines: 2,
-            resultWrapMaxExtraLines: 1, // +linePx w budżecie przy drugiej linii
+            resultWrapMaxExtraLines: 0,
+            resultWrapLineHeight: 1, // [EN] ciaśniejszy leading 2 linii — więcej miejsca na expr
+            resultWrapFontRem: 2.25, // [EN] stabilny font 2 linii — bez „tańca" przy kolejnych cyfrach
+            resultWrapExprRem: 1.1,
+            resultWrapExprMinRem: 0.85,
+            resultWrapExprMaxLines: 2,
             approxRem: 1.6,
         },
 
@@ -275,7 +290,7 @@ function _calcScrollOverflowOpts(tune) {
         if (t[legacy] != null) return t[legacy];
         return fb;
     }
-    return {
+    var out = {
         enabled: pick('enabled', 'allowScrollOverflow', false),
         compactViewportPx: s.compactViewportPx != null ? s.compactViewportPx : 500,
         keypadMinPx: s.keypadMinPx != null ? s.keypadMinPx : 280,
@@ -286,6 +301,14 @@ function _calcScrollOverflowOpts(tune) {
         cardMinPx: pick('cardMinPx', 'availMinPx', 300),
         cardMaxPx: pick('cardMaxPx', 'availMaxPx', 2000),
     };
+    var wideMin = s.wideMinWidthPx != null ? s.wideMinWidthPx : 1024;
+    if (typeof window !== 'undefined' && window.innerWidth >= wideMin) {
+        if (s.wideBelowPx != null) out.belowPx = s.wideBelowPx;
+        if (s.wideBelowShare != null) out.belowShare = s.wideBelowShare;
+        if (s.wideMaxBelowPx != null) out.maxBelowPx = s.wideMaxBelowPx;
+        if (s.wideCardMaxPx != null) out.cardMaxPx = s.wideCardMaxPx;
+    }
+    return out;
 }
 
 function _calcDisplayStructuralMin(tune, curve) {
@@ -496,6 +519,8 @@ window.applyCalcLayoutTuneTokens = function applyCalcLayoutTuneTokens(card, tune
     card.style.setProperty('--calc-expr-min-rem', (df.exprMinRem != null ? df.exprMinRem : 1) + 'rem');
     card.style.setProperty('--calc-expr-min-px', (df.exprMinPx != null ? df.exprMinPx : 16) + 'px');
     card.style.setProperty('--calc-result-font', (df.resultRem != null ? df.resultRem : 2.5) + 'rem');
+    card.style.setProperty('--calc-result-wrap-lh', String(df.resultWrapLineHeight != null ? df.resultWrapLineHeight : 1));
+    card.style.setProperty('--calc-result-row-min', ((df.resultRem != null ? df.resultRem : 2.5) * 1.1) + 'rem');
     card.style.setProperty('--calc-approx-font', (df.approxRem != null ? df.approxRem : 1.6) + 'rem');
     card.style.setProperty('--calc-font-base', (kf.baseRem != null ? kf.baseRem : 1.35) + 'rem');
     var groups = kf.groups || {};

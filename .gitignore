@@ -64,6 +64,9 @@ target
 
 # Lokalne artefakty z testów wizualnych (GIF/MP4) — nie commitować na GitHub
 test/output/
+# Playwright
+test-results/
+playwright-report/
 
 # Lokalny plan QoL / notatki sesji — tylko na dysku, nie na GitHub
 ROADMAP-QOL.md
