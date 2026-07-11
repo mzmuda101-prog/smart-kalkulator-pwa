@@ -11,6 +11,8 @@
    Preprocess (faza 1): expandNumeric/CurrencyShorthands, parseNaturalShortcuts, resolveTrigDegrees.
    Routery procentowe (faza 2): evalPercentQuery/Difference/BaseQuery/OfPercent — plain result, bez STATE.
    Stałe + ans + route cost (faza 4): resolveCalcConstants/Answer, evalRouteCost — opts z app.
+   Orkiestrator evaluate (faza 5): pełny pipeline eval — plain result, bez STATE/makeVal.
+   Pipeline reguły: docs/ENGINE-PREPROCESS-RULES.md
    ============================================================ */
 (function() {
     'use strict';
@@ -1292,6 +1294,212 @@
         raw = raw.replace(/([\d.,]+)%/g, '($1/100)');
         return raw;
     }
+    // [EN] strip helpers — notepad first-unit mode (faza 5, wcześniej app.js)
+    function _stripCurrencyAmounts(raw, fxRates) {
+        var tokenRe = _currencyTokenRe(_currencyTokenMap(fxRates || {}));
+        if (!tokenRe) return raw;
+        var amountRe = new RegExp('([\\d.,]+)\\s*(' + tokenRe + ')(?![a-ząćęłńóśźż0-9])', 'gi');
+        var revAmountRe = new RegExp('\\b(' + tokenRe + ')\\s*([\\d.,]+)(?![a-ząćęłńóśźż0-9])', 'gi');
+        var out = String(raw || '').replace(amountRe, '$1');
+        return out.replace(revAmountRe, '$2');
+    }
+    function _stripPhysicalUnits(raw, unitNamesRe) {
+        if (!unitNamesRe) return raw;
+        var unitRe = new RegExp('([\\d.,]+)\\s*(' + unitNamesRe + ')(?![A-Za-z0-9])', 'gi');
+        return String(raw || '').replace(unitRe, '$1');
+    }
+    function _preferredDisplayUnit(cat, opts) {
+        var du = (opts && opts.defaultUnits) || {};
+        var unitDefs = (opts && opts.unitDefs) || {};
+        var unitDisplay = (opts && opts.unitDisplay) || {};
+        var name = du[cat];
+        if (!name || name === '__auto__') return null;
+        var key = String(name).toLowerCase();
+        var def = unitDefs[key];
+        if (!def || def.cat !== cat) return null;
+        return { label: unitDisplay[key] || name, factor: def.factor };
+    }
+    function _inflectDisplayUnit(value, unit) {
+        if (unit == null || unit === '') return unit;
+        var inflect = DATA.inflectUnit || DATA.plInflectUnit;
+        return typeof inflect === 'function' ? inflect(value, unit) : unit;
+    }
+    // [EN] faza 5 — orkiestrator pipeline evalCalcExpression (plain object, bez STATE)
+    /** @typedef {Object} EvaluateResult
+     *  @property {number|null} [value] wynik liczbowy (null gdy brak / bigint-only)
+     *  @property {string|null} [unit] etykieta jednostki wyświetlanej
+     *  @property {string|null} [text] tekst daty/czasu/czytelny czas (override formatCalcResult)
+     *  @property {string|null} [error] np. '∞'
+     *  @property {'number'|'duration'|'clock'|'date'|'money'|'physical'|null} [kind]
+     *  @property {boolean} [exact=false] false → UI pokazuje ≈
+     *  @property {string|null} [exactText] dokładna forma dla hintu ≈
+     *  @property {number|null} [preciseValue] przed zaokr. waluty (hint kursu FX)
+     *  @property {boolean} [pendingFx] czeka na kursy — app zwraca makeVal({ pendingFx: true })
+     *  @property {boolean} [big] ścieżka BigInt (>15 cyfr)
+     *  @property {string|null} [bigStr] surowy wynik BigInt
+     *  @property {boolean} [_stateClear] wewnętrzne — TZ: app zeruje STATE.calc.lastResult */
+    /** @param {string} raw wyrażenie użytkownika
+     *  @param {Object} [options] fxRates, fxReady, constants, lastAnswer, unitDefs, …
+     *  @returns {EvaluateResult} plain object — app opakowuje makeVal() */
+    function evaluate(raw, options) {
+        var opts = options || {};
+        var firstUnitWins = !!opts.firstUnitWins;
+        var original = String(raw || '').trim();
+        if (!original) return {};
+        var fxRates = opts.fxRates || {};
+        var currencyOpts = {
+            fxRates: fxRates,
+            fxReady: !!opts.fxReady,
+            defaultCurrency: opts.defaultCurrency || 'PLN',
+            currencyCompactSymbols: opts.currencyCompactSymbols !== false,
+        };
+        var constOpts = {
+            constants: opts.constants,
+            unitDefs: opts.unitDefs || {},
+            fxRates: fxRates,
+            evalConstNumeric: opts.evalConstNumeric,
+        };
+        var unitOpts = {
+            firstUnitWins: firstUnitWins,
+            unitDefs: opts.unitDefs || {},
+            unitDisplay: opts.unitDisplay || {},
+            unitNamesRe: opts.unitNamesRe || '',
+            defaultUnits: opts.defaultUnits || {},
+        };
+        var clockRes = evalClockExpression(original);
+        if (clockRes) {
+            return { value: clockRes.value, text: clockRes.text, kind: clockRes.kind || 'clock', exact: clockRes.exact, exactText: clockRes.exactText };
+        }
+        var tzRes = evalTimezoneExpression(original);
+        if (tzRes) {
+            return { value: tzRes.value, text: tzRes.text, kind: tzRes.kind || 'clock', exact: tzRes.exact !== false, _stateClear: true };
+        }
+        var dateRes = evalDateExpression(original);
+        if (dateRes) {
+            return { value: dateRes.value, text: dateRes.text, kind: 'date' };
+        }
+        var pctBaseQ = evalPercentBaseQuery(original, currencyOpts);
+        if (pctBaseQ) return pctBaseQ;
+        var pctOfPct = evalPercentOfPercent(original);
+        if (pctOfPct) return pctOfPct;
+        var pctQ = evalPercentQuery(original);
+        if (pctQ) return pctQ;
+        var pctDiffQ = evalPercentDifference(original);
+        if (pctDiffQ) return pctDiffQ;
+        var periodPctQ = evalPeriodPercentage(original);
+        if (periodPctQ) return periodPctQ;
+        var routeQ = evalRouteCost(original);
+        if (routeQ) return routeQ;
+        try {
+            var expr = original;
+            expr = resolveCalcConstants(expr, constOpts);
+            expr = expandNumericShorthands(expr);
+            expr = expandCurrencyShorthands(expr, { fxRates: fxRates });
+            var unitMix = firstUnitWins ? analyzeUnitMix(expr, {
+                fxRates: fxRates,
+                unitDefs: unitOpts.unitDefs,
+                unitNamesRe: unitOpts.unitNamesRe,
+            }) : null;
+            var unitHits = (unitMix && unitMix.hits) || [];
+            var useFirstWins = !!(firstUnitWins && unitMix && unitMix.needsFirstWins);
+            var firstHit = useFirstWins && unitHits.length ? unitHits[0] : null;
+            if (useFirstWins && firstHit && firstHit.kind === 'physical' && !firstHit.dimensionless) {
+                expr = _stripCurrencyAmounts(expr, fxRates);
+            }
+            var curRes = resolveCurrencyExpression(expr, currencyOpts);
+            if (curRes.pending) return { pendingFx: true };
+            expr = curRes.expr;
+            if (useFirstWins && firstHit && firstHit.kind === 'currency') {
+                expr = _stripPhysicalUnits(expr, unitOpts.unitNamesRe);
+            }
+            expr = parseNaturalShortcuts(expr);
+            expr = resolveCalcAnswer(expr, opts.lastAnswer);
+            expr = resolveTrigDegrees(expr);
+            var _NUM = _numeric();
+            var bigStr = _NUM.tryBigIntCalc ? _NUM.tryBigIntCalc(expr) : null;
+            if (bigStr !== null) {
+                var bigNeeded = /\d{16,}/.test(expr.replace(/\s+/g, '')) ||
+                    bigStr.replace('-', '').length > 15;
+                if (bigNeeded) {
+                    return {
+                        big: true, bigStr: bigStr,
+                        text: _NUM.groupBigIntStr ? _NUM.groupBigIntStr(bigStr) : bigStr,
+                        kind: 'number',
+                    };
+                }
+            }
+            var unitResult = resolveUnitsExpression(expr, unitOpts);
+            expr = unitResult.expr;
+            var unitDefs = unitOpts.unitDefs;
+            var unitIsCustom = unitResult.cat && String(unitResult.cat).indexOf('custom:') === 0;
+            var customKey = unitIsCustom ? String(unitResult.cat).slice('custom:'.length) : null;
+            var unitIsDimensionless = customKey && unitDefs[customKey] && unitDefs[customKey].dimensionless;
+            if (curRes.hasCurrency && unitResult.unit !== null && !unitIsDimensionless && !useFirstWins) {
+                return {};
+            }
+            var unit = curRes.hasCurrency ? curRes.unit : unitResult.unit;
+            if (opts.keepWorkCurrency && curRes.hasCurrency && curRes.workCode) {
+                unit = _currencyDisplay(curRes.workCode, { currencyCompactSymbols: currencyOpts.currencyCompactSymbols });
+            }
+            expr = expr.replace(/,(?=\d)/g, '.');
+            expr = expr.replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-');
+            expr = expr.replace(/\s+/g, '');
+            if (!expr) return {};
+            var fn = _NUM.compileGraphExpression ? _NUM.compileGraphExpression(expr) : null;
+            if (!fn) return {};
+            var value = fn(0);
+            if (!curRes.hasCurrency && unitResult.workFactor) value = value * unitResult.workFactor;
+            if (curRes.hasCurrency && curRes.curMul && isFinite(value) && !opts.keepWorkCurrency) value = value * curRes.curMul;
+            var preciseValue = null;
+            if (curRes.hasCurrency && isFinite(value)) {
+                preciseValue = value;
+                value = _roundMoney(value);
+            }
+            var valueBase = value;
+            if (!curRes.hasCurrency && unitResult.displayFactor) value = value / unitResult.displayFactor;
+            var _QTY = (typeof window !== 'undefined' && window.MATM0_QTY) ||
+                (typeof self !== 'undefined' && self.MATM0_QTY) || null;
+            var _autoMode = (opts.defaultUnits || {})[unitResult.cat] === '__auto__';
+            if (!curRes.hasCurrency && unitResult.cat && isFinite(valueBase) && _QTY &&
+                _autoMode && unitResult.cat !== 'time' && !unitResult.explicitConvert &&
+                Math.abs(valueBase) > 0) {
+                var _autoU = _QTY.chooseUnit(unitResult.cat, valueBase);
+                var _autoInfo = _autoU && _QTY.unitInfo ? _QTY.unitInfo(_autoU) : null;
+                if (_autoInfo) {
+                    value = valueBase / _autoInfo.factor;
+                    unit = (opts.unitDisplay || {})[_autoU] || _autoU;
+                }
+            }
+            if (!isFinite(value)) return { value: Infinity, unit: unit, error: '∞', kind: 'number' };
+            if (Math.abs(value) < 1e308 && value !== 0 &&
+                !(Number.isInteger(value) && Math.abs(value) <= Number.MAX_SAFE_INTEGER)) {
+                value = parseFloat(value.toPrecision(15));
+            }
+            if (unit) unit = _inflectDisplayUnit(value, unit);
+            var valKind = curRes.hasCurrency ? 'money' : (unitResult.cat ? (unitResult.cat === 'time' ? 'duration' : 'physical') : 'number');
+            var _timeDu = (opts.defaultUnits || {}).time;
+            var readableTime = null;
+            if (!curRes.hasCurrency && unitResult.cat === 'time' && !unitResult.explicitConvert &&
+                (_timeDu === '' || _timeDu === '__auto__') && !_preferredDisplayUnit('time', opts) &&
+                isFinite(unitResult.valueInBase) && typeof formatDurationSeconds === 'function') {
+                readableTime = formatDurationSeconds(unitResult.valueInBase);
+            }
+            var approxNum = false, exactNumText = null;
+            if (isFinite(value) && !Number.isInteger(value)) {
+                var disp6 = Number(value.toFixed(6));
+                if (Math.abs(value - disp6) > Math.abs(value) * 1e-12) {
+                    approxNum = true;
+                    exactNumText = _formatLocaleNumber(value, 15) + (unit ? ' ' + unit : '');
+                }
+            }
+            return {
+                value: value, unit: unit, text: readableTime, kind: valKind,
+                exact: !approxNum, exactText: exactNumText, preciseValue: preciseValue,
+            };
+        } catch (err) {
+            return {};
+        }
+    }
     // [EN] przed walutą: k/tys + „usd 1k"; po walucie: NL + trig (app.js woła w dwóch miejscach pipeline)
     function preprocessShorthands(raw, options) {
         return expandCurrencyShorthands(expandNumericShorthands(raw), options);
@@ -1327,6 +1535,7 @@
         resolveCalcConstants: resolveCalcConstants,
         resolveFunctionConstants: resolveFunctionConstants,
         evalRouteCost: evalRouteCost,
+        evaluate: evaluate,
         formatDurationSeconds: formatDurationSeconds,
         evalTimezoneExpression: evalTimezoneExpression,
         isDateUnit: _isDateUnit,           // app.js używa go też w rozpoznawaniu tokenów notatnika

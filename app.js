@@ -858,7 +858,6 @@
         var CALC_UNIT_CATEGORIES = (window.MATM0_DATA || {}).UNIT_CATEGORIES || {};
         var _PARSER = (typeof window !== 'undefined' && window.MATM0_PARSER) || {}; // [EN] single parser handle for units + currency + time
         var _NUMERIC = (typeof window !== 'undefined' && window.MATM0_NUMERIC) || {}; // [EN] faza 3 — BigInt + compileExpression
-        function tryBigIntCalc(raw) { return _NUMERIC.tryBigIntCalc(raw); }
         function groupBigIntStr(str) { return _NUMERIC.groupBigIntStr(str); }
         function compileGraphExpression(raw) { return _NUMERIC.compileGraphExpression(raw); }
         function stripFunctionPrefix(raw) { return _NUMERIC.stripFunctionPrefix(raw); }
@@ -876,24 +875,10 @@
             return typeof inflect === 'function' ? inflect(value, unit) : unit;
         }
 
-        // [EN] Preprocess — faza 1 ekstrakcji (logika w js/smart-parser.js)
-        function expandNumericShorthands(raw) {
-            return _PARSER.expandNumericShorthands(raw);
-        }
-        function expandCurrencyShorthands(raw) {
-            return _PARSER.expandCurrencyShorthands(raw, { fxRates: (STATE.fx && STATE.fx.rates) || {} });
-        }
-        function resolveTrigDegrees(raw) {
-            return _PARSER.resolveTrigDegrees(raw);
-        }
         function _plFold(s) { // [EN] PL diacritics → ASCII before NL regex (MATM0_PL_FOLD)
             var F = (typeof window !== 'undefined' && window.MATM0_PL_FOLD) || null;
             return F && F.foldLower ? F.foldLower(s) : String(s || '').toLowerCase();
         }
-        function parseNaturalShortcuts(raw) {
-            return _PARSER.parseNaturalShortcuts(raw);
-        }
-
 
         // Regex nazw jednostek — najdłuższe najpierw, żeby „m2" nie złapało się jako „m".
         // Przebudowywalny: własne jednostki użytkownika (stałe kind:'unit') dochodzą po
@@ -927,86 +912,17 @@
         }
         rebuildUnitNamesRe();
 
-        // ── Temperatura (skala afiniczna) — tylko jawna konwersja „X na Y" ──
-        // [EN] Strip currency tokens to bare numbers — notepad first-unit mode when physical wins
-        function _stripCurrencyAmounts(raw) {
-            var tokenRe = _currencyTokenRe();
-            if (!tokenRe) return raw;
-            var amountRe = new RegExp('([\\d.,]+)\\s*(' + tokenRe + ')(?![a-ząćęłńóśźż0-9])', 'gi');
-            var revAmountRe = new RegExp('\\b(' + tokenRe + ')\\s*([\\d.,]+)(?![a-ząćęłńóśźż0-9])', 'gi');
-            var out = String(raw || '').replace(amountRe, '$1');
-            return out.replace(revAmountRe, '$2');
-        }
-        // [EN] Strip physical unit labels — notepad first-unit mode when currency wins
-        function _stripPhysicalUnits(raw) {
-            if (!_UNIT_NAMES_RE) return raw;
-            var unitRe = new RegExp('([\\d.,]+)\\s*(' + _UNIT_NAMES_RE + ')(?![A-Za-z0-9])', 'gi');
-            return String(raw || '').replace(unitRe, '$1');
-        }
-        function resolveCalcUnits(raw, opts) {
-            opts = opts || {};
-            return _PARSER.resolveUnitsExpression(raw, {
-                firstUnitWins: !!opts.firstUnitWins,
-                unitDefs: CALC_UNITS,
-                unitDisplay: CALC_UNIT_DISPLAY,
-                unitNamesRe: _UNIT_NAMES_RE,
-                defaultUnits: (STATE.settings && STATE.settings.defaultUnits) || {},
-            });
-        }
-
-        // Preferowana jednostka WYŚWIETLANIA dla kategorii (z ustawień). Generyczne — działa dla
-        // dowolnej kategorii z CALC_UNITS; UI wystawia tylko część. Zwraca { label, factor } albo null.
-        function _preferredDisplayUnit(cat) {
-            var du = (STATE.settings && STATE.settings.defaultUnits) || {};
-            var name = du[cat];
-            if (!name || name === '__auto__') return null; // [EN] __auto__ handled separately (chooseUnit / readable time)
-            var key = String(name).toLowerCase();
-            var def = CALC_UNITS[key];
-            if (!def || def.cat !== cat) return null; // nieznana/niepasująca → ignoruj (bezpiecznie)
-            return { label: CALC_UNIT_DISPLAY[key] || name, factor: def.factor };
-        }
-
         /* ============================================================
-           [EN] Czas zegarowy + DATY — wydzielone do modułu js/smart-parser.js
-           (window.MATM0_PARSER). Pkt 2 kierunku „typowanego silnika": kolejni najemcy
-           smart-parsera (czas, teraz daty). Tu tylko cienkie wiązanie.
-           „za 3 tygodnie", „ile dni do 1.09", „dziś + 90 dni" → evalDateExpression.
+           [EN] Silnik eval — MATM0_PARSER.evaluate (fazy 1–5 ekstrakcji).
+           app.js: makeVal + STATE + opts z FX/ustawień. Szczegóły pipeline → docs/ENGINE-PREPROCESS-RULES.md
            ============================================================ */
-        var evalClockExpression = _PARSER.evalClockExpression;
-        var evalDateExpression = _PARSER.evalDateExpression;
-        var evalPeriodPercentage = _PARSER.evalPeriodPercentage;
-        var evalPercentQuery = _PARSER.evalPercentQuery;
-        var evalPercentOfPercent = _PARSER.evalPercentOfPercent;
-        var evalPercentDifference = _PARSER.evalPercentDifference;
-        function evalPercentBaseQuery(raw) {
-            return _PARSER.evalPercentBaseQuery(raw, {
-                fxRates: (STATE.fx && STATE.fx.rates) || {},
-                currencyCompactSymbols: !(STATE.settings && STATE.settings.currencyCompactSymbols === false),
-            });
-        }
-        function _applyParserCalcResult(r) { // [EN] plain parser result → STATE + makeVal
-            if (!r) return null;
-            STATE.calc.lastResult = r.value;
-            STATE.calc.lastUnit = r.unit != null ? r.unit : null;
-            return makeVal(r);
-        }
         function classifyConstValue(val) { return _PARSER.classifyConstValue(val); }
-        function _valueIsFunc(val) { return _PARSER.valueIsFunc(val); }
         function _isFuncConst(c) { return _PARSER.isFuncConst(c); }
-        function _funcConstBody(c) { return _PARSER.funcConstBody(c); }
         function _knownConstUnit(u) {
             return _PARSER.knownConstUnit(u, {
                 unitDefs: CALC_UNITS,
                 fxRates: (STATE.fx && STATE.fx.rates) || {},
             });
-        }
-        function _parserConstOpts(constants) {
-            return {
-                constants: constants != null ? constants : STATE.constants,
-                unitDefs: CALC_UNITS,
-                fxRates: (STATE.fx && STATE.fx.rates) || {},
-                evalConstNumeric: _evalConstNumeric,
-            };
         }
         function _evalConstNumeric(c) { // [EN] callback for func-const args — stays in app (uses full eval)
             if (_isFuncConst(c)) return NaN;
@@ -1014,12 +930,7 @@
             var r = evalCalcExpression(String(c.value));
             return r && typeof r.value === 'number' && isFinite(r.value) ? r.value : NaN;
         }
-        function resolveCalcAnswer(raw) { return _PARSER.resolveCalcAnswer(raw, STATE.calc.ans); }
-        function resolveCalcConstants(raw, constants) { return _PARSER.resolveCalcConstants(raw, _parserConstOpts(constants)); }
-        function evalRouteCost(raw) { return _applyParserCalcResult(_PARSER.evalRouteCost(raw)); }
-        var formatDurationSeconds = _PARSER.formatDurationSeconds;
-        var evalTimezoneExpression = _PARSER.evalTimezoneExpression;
-        var _isDateUnit = _PARSER.isDateUnit;
+        var _isDateUnit = _PARSER.isDateUnit; // notatnik — tokeny dat vs auto-jednostki
 
         /* ============================================================
            [EN] Waluty — „12 zł + 20 eur", „20 eur na zł" (kursy NBP, offline z cache)
@@ -1252,174 +1163,41 @@
                 bigStr: o.bigStr != null ? o.bigStr : null
             };
         }
+        function _parserEvaluateOpts(extra) { // [EN] faza 5 — opts dla MATM0_PARSER.evaluate
+            extra = extra || {};
+            return {
+                firstUnitWins: !!extra.firstUnitWins,
+                keepWorkCurrency: !!extra.keepWorkCurrency,
+                fxRates: (STATE.fx && STATE.fx.rates) || {},
+                fxReady: _fxReady(),
+                defaultCurrency: (STATE.settings && STATE.settings.defaultCurrency) || 'PLN',
+                currencyCompactSymbols: !(STATE.settings && STATE.settings.currencyCompactSymbols === false),
+                constants: STATE.constants,
+                lastAnswer: STATE.calc.ans,
+                evalConstNumeric: _evalConstNumeric,
+                unitDefs: CALC_UNITS,
+                unitDisplay: CALC_UNIT_DISPLAY,
+                unitNamesRe: _UNIT_NAMES_RE,
+                defaultUnits: (STATE.settings && STATE.settings.defaultUnits) || {},
+            };
+        }
+        function _syncCalcStateFromResult(r) { // [EN] STATE.calc — jak dawny evalCalcExpression per ścieżka
+            if (!r || r.pendingFx) return;
+            if (r._stateClear) { STATE.calc.lastResult = null; STATE.calc.lastUnit = null; return; }
+            if (r.big) { STATE.calc.lastResult = r.bigStr; STATE.calc.lastUnit = null; return; }
+            if (Object.prototype.hasOwnProperty.call(r, 'value')) {
+                STATE.calc.lastResult = r.value;
+                STATE.calc.lastUnit = r.unit != null ? r.unit : null;
+            }
+        }
         function evalCalcExpression(raw, opts) {
             opts = opts || {};
-            var firstUnitWins = !!opts.firstUnitWins;
             var original = String(raw || '').trim();
             if (!original) return makeVal({});
-            // Najpierw czas zegarowy („17:00 + 3h", „od 9:30 do 17:15") — krócej niż daty, ma własne tokeny.
-            var clockRes = evalClockExpression(original);
-            if (clockRes) {
-                STATE.calc.lastResult = clockRes.value;
-                STATE.calc.lastUnit = null;
-                return makeVal({ value: clockRes.value, text: clockRes.text, kind: clockRes.kind || 'clock', exact: clockRes.exact, exactText: clockRes.exactText });
-            }
-            // Strefy czasowe („17:00 w Londynie na Tokio", „która godzina w Tokio") — po zegarze.
-            var tzRes = evalTimezoneExpression(original);
-            if (tzRes) {
-                STATE.calc.lastResult = null; STATE.calc.lastUnit = null;
-                return makeVal({ value: tzRes.value, text: tzRes.text, kind: tzRes.kind || 'clock', exact: tzRes.exact !== false });
-            }
-            // Najpierw daty/czas — zanim „dni"/„za" trafią do matematyki/jednostek.
-            var dateRes = evalDateExpression(original);
-            if (dateRes) {
-                STATE.calc.lastResult = dateRes.value;
-                STATE.calc.lastUnit = null;
-                return makeVal({ value: dateRes.value, text: dateRes.text, kind: 'date' });
-            }
-            // „ile % stanowi A z B" / „A z B to ile %" — kierunek ODWROTNY do „X% z Y" (wynik = procent).
-            var pctBaseQ = _applyParserCalcResult(evalPercentBaseQuery(original));
-            if (pctBaseQ) return pctBaseQ;
-            var pctOfPct = _applyParserCalcResult(evalPercentOfPercent(original));
-            if (pctOfPct) return pctOfPct;
-            var pctQ = _applyParserCalcResult(evalPercentQuery(original));
-            if (pctQ) return pctQ;
-            var pctDiffQ = _applyParserCalcResult(evalPercentDifference(original));
-            if (pctDiffQ) return pctDiffQ;
-            var periodPctQ = _applyParserCalcResult(evalPeriodPercentage(original));
-            if (periodPctQ) return periodPctQ;
-            // Koszt trasy / paliwa: dystans + spalanie l/100km + cena zł/l → koszt (+ litry w dymku).
-            var routeQ = evalRouteCost(original);
-            if (routeQ) return routeQ;
-            try {
-                var expr = original;
-                // Stałe NAJPIERW — ich wartości mogą zawierać „%", „vat", frazy naturalne, które
-                // dopiero kolejne etapy (parseNaturalShortcuts) zamienią na właściwą matematykę.
-                expr = resolveCalcConstants(expr, STATE.constants);
-                expr = expandNumericShorthands(expr); // [EN] k/tys przed tokenami walut („2,5k zł")
-                expr = expandCurrencyShorthands(expr); // [EN] „usd 1k" przed resolveCalcCurrency
-                var unitMix = firstUnitWins ? _PARSER.analyzeUnitMix(expr, {
-                    fxRates: (STATE.fx && STATE.fx.rates) || {},
-                    unitDefs: CALC_UNITS,
-                    unitNamesRe: _UNIT_NAMES_RE,
-                }) : null;
-                var unitHits = (unitMix && unitMix.hits) || [];
-                var useFirstWins = !!(firstUnitWins && unitMix && unitMix.needsFirstWins);
-                var firstHit = useFirstWins && unitHits.length ? unitHits[0] : null;
-                if (useFirstWins && firstHit && firstHit.kind === 'physical' && !firstHit.dimensionless) {
-                    expr = _stripCurrencyAmounts(expr); // [EN] physical first — currency tokens become bare numbers
-                }
-                // Waluty NAJPIERW (zaraz po stałych, PRZED parserem naturalnym): zamieniamy kwoty
-                // walutowe na liczby (wartość w PLN / konwersja „na X") i zapamiętujemy docelową
-                // jednostkę. Dzięki temu finanse/procenty/matematyka komponują się z walutą — token
-                // waluty już nie blokuje reguł typu „brutto 12 zł", „12 pln - vat", „20% z 100 zł".
-                var curRes = resolveCalcCurrency(expr);
-                if (curRes.pending) return makeVal({ pendingFx: true });
-                expr = curRes.expr;
-                if (useFirstWins && firstHit && firstHit.kind === 'currency') {
-                    expr = _stripPhysicalUnits(expr); // [EN] currency first — physical tokens become bare numbers
-                }
-                expr = parseNaturalShortcuts(expr);
-                expr = resolveCalcAnswer(expr);
-                expr = resolveTrigDegrees(expr); // [EN] sin(30 deg) → radiany, zanim jednostki zdejmą „deg"
-                // Duże liczby całkowite (+, −, ×): licz dokładnie BigInt-em, ale TYLKO gdy
-                // to potrzebne (liczba/wynik > 15 cyfr) — krótkie działania idą zwykłą
-                // ścieżką float, żeby zachować dotychczasowe formatowanie i testy.
-                var bigStr = tryBigIntCalc(expr);
-                if (bigStr !== null) {
-                    var bigNeeded = /\d{16,}/.test(expr.replace(/\s+/g, '')) ||
-                                    bigStr.replace('-', '').length > 15;
-                    if (bigNeeded) {
-                        STATE.calc.lastResult = bigStr;
-                        STATE.calc.lastUnit = null;
-                        return makeVal({ big: true, bigStr: bigStr, text: groupBigIntStr(bigStr), kind: 'number' });
-                    }
-                }
-                var unitResult = resolveCalcUnits(expr, useFirstWins ? { firstUnitWins: true } : null);
-                expr = unitResult.expr;
-                // Własna jednostka (np. „os.") jest BEZWYMIAROWA — to licznik, nie wymiar fizyczny.
-                // Nie kłóci się więc z walutą: „3 os. * 180 zł" = 540 zł (wygrywa ostatnia realna
-                // jednostka — tu waluta). Blokujemy tylko miks WALUTY z FIZYCZNĄ jednostką
-                // („12 gb − 12 zł"), który nie ma sensu. [[project_kalkulator_notepad_planning]]
-                var unitIsCustom = unitResult.cat && String(unitResult.cat).indexOf('custom:') === 0;
-                var customKey = unitIsCustom ? String(unitResult.cat).slice('custom:'.length) : null;
-                var unitIsDimensionless = customKey && CALC_UNITS[customKey] && CALC_UNITS[customKey].dimensionless;
-                if (curRes.hasCurrency && unitResult.unit !== null && !unitIsDimensionless && !useFirstWins) {
-                    return makeVal({});
-                }
-                var unit = curRes.hasCurrency ? curRes.unit : unitResult.unit;
-                if (opts.keepWorkCurrency && curRes.hasCurrency && curRes.workCode) unit = _currencyDisplay(curRes.workCode);
-                expr = expr.replace(/,(?=\d)/g, '.');
-                expr = expr.replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-');
-                expr = expr.replace(/\s+/g, '');
-                if (!expr) return makeVal({});
-                var fn = compileGraphExpression(expr);
-                var value = fn(0);
-                // resolveCalcUnits liczy w JEDNOSTCE ROBOCZEJ (etykieta jedzie z wynikiem) →
-                // mnożymy z powrotem na bazę. Dla + − / pojedynczej jednostki = bez zmian; dla
-                // × ÷ naprawia wymiar wg modelu „jednostka jako etykieta" (10 km/2 km = 5 km).
-                if (!curRes.hasCurrency && unitResult.workFactor) value = value * unitResult.workFactor;
-                // Waluty: wynik policzony w walucie roboczej → skala do domyślnej (po vat/%).
-                if (curRes.hasCurrency && curRes.curMul && isFinite(value) && !opts.keepWorkCurrency) value = value * curRes.curMul;
-                // Waluty: zaokrąglij do 2 miejsc (grosze); preciseValue = przed zaokr. — hint ≈ pokazuje kurs.
-                var preciseValue = null;
-                if (curRes.hasCurrency && isFinite(value)) {
-                    preciseValue = value;
-                    value = _roundMoney(value);
-                }
-                var valueBase = value; // [EN] Wartość w jednostce bazowej kategorii — dla __auto__ (przed displayFactor).
-                // Wartość jest teraz BAZOWA. Jeśli resolveCalcUnits wskazał preferowaną jednostkę
-                // wyświetlania (ustawienia), przelicz wartość.
-                if (!curRes.hasCurrency && unitResult.displayFactor) value = value / unitResult.displayFactor;
-                // Autodobór czytelnej jednostki — ustawienie „Czytelnie (auto)" per kategoria
-                // ('__auto__'). Domyślnie kategorie = '' (baza), więc to nie rusza baseline.
-                // Wybór jednostki liczymy z wartości BAZOWEJ (MATM0_QTY.chooseUnit), nie roboczej.
-                var _QTY = (typeof window !== 'undefined' && window.MATM0_QTY) || null;
-                // Autodobór liczbowy (chooseUnit) — poza czasem; czas __auto__ = format czytelny h/min/dni.
-                var _autoMode = (STATE.settings.defaultUnits || {})[unitResult.cat] === '__auto__';
-                if (!curRes.hasCurrency && unitResult.cat && isFinite(valueBase) && _QTY &&
-                    _autoMode && unitResult.cat !== 'time' && !unitResult.explicitConvert &&
-                    Math.abs(valueBase) > 0) { // [EN] 0 zostaje w jednostce roboczej (np. 12 km − 12 km → 0 km)
-                    var _autoU = _QTY.chooseUnit(unitResult.cat, valueBase);
-                    var _autoInfo = _autoU && _QTY.unitInfo(_autoU);
-                    if (_autoInfo) { value = valueBase / _autoInfo.factor; unit = CALC_UNIT_DISPLAY[_autoU] || _autoU; }
-                }
-                if (!isFinite(value)) return makeVal({ value: Infinity, unit: unit, error: '∞', kind: 'number' });
-                // Dokładne liczby całkowite do MAX_SAFE_INTEGER (16 cyfr) zostaw bez
-                // zaokrąglania; tylko ułamki/duże floaty tnij do 15 cyfr znaczących,
-                // by ukryć szum zmiennoprzecinkowy (np. 0,1+0,2).
-                if (Math.abs(value) < 1e308 && value !== 0 &&
-                    !(Number.isInteger(value) && Math.abs(value) <= Number.MAX_SAFE_INTEGER)) {
-                    value = parseFloat(value.toPrecision(15));
-                }
-                if (unit) unit = inflectDisplayUnit(value, unit);
-                STATE.calc.lastResult = value;
-                STATE.calc.lastUnit = unit;
-                // kind: waluta→money, fizyczna jednostka→physical, inaczej czysta liczba.
-                var valKind = curRes.hasCurrency ? 'money' : (unitResult.cat ? (unitResult.cat === 'time' ? 'duration' : 'physical') : 'number');
-                // Czytelny czas: tryb '' lub __auto__ (nie jawna konwersja „na X", nie sztywna jednostka z ⚙️).
-                var _timeDu = (STATE.settings.defaultUnits || {}).time;
-                var readableTime = null;
-                if (!curRes.hasCurrency && unitResult.cat === 'time' && !unitResult.explicitConvert &&
-                    (_timeDu === '' || _timeDu === '__auto__') && !_preferredDisplayUnit('time') &&
-                    isFinite(unitResult.valueInBase) && typeof formatDurationSeconds === 'function') {
-                    readableTime = formatDurationSeconds(unitResult.valueInBase);
-                }
-                // OGÓLNY sygnał ≈: gdy wyświetlenie (6 miejsc po przecinku, jak formatCalcResult)
-                // gubi realne cyfry → wynik PRZYBLIŻONY (np. 1/3, √2, waluta z wieloma groszami).
-                // NIE dotyczy czyszczenia szumu float — to już wyczyszczone wyżej (round-trip = dokładny).
-                var approxNum = false, exactNumText = null;
-                if (isFinite(value) && !Number.isInteger(value)) {
-                    var disp6 = Number(value.toFixed(6));
-                    if (Math.abs(value - disp6) > Math.abs(value) * 1e-12) {
-                        approxNum = true;
-                        exactNumText = formatLocaleNumber(value, 15) + (unit ? ' ' + unit : '');
-                    }
-                }
-                return makeVal({ value: value, unit: unit, text: readableTime, kind: valKind, exact: !approxNum, exactText: exactNumText, preciseValue: preciseValue });
-            } catch (err) {
-                return makeVal({});
-            }
+            var r = _PARSER.evaluate(original, _parserEvaluateOpts(opts));
+            if (!r) return makeVal({});
+            _syncCalcStateFromResult(r);
+            return makeVal(r);
         }
 
         function formatCalcResult(res) {
@@ -11875,7 +11653,7 @@
                 } catch (err) { results.push({ expr: t.expr + ' (zegar)', pass: false, error: err.message }); }
             });
             // Czas: „16:9" to proporcja, NIE zegar (1-cyfrowe minuty) → zegar zwraca null
-            results.push({ expr: '16:9 nie jest zegarem', pass: evalClockExpression('16:9') === null, got: String(evalClockExpression('16:9')) });
+            results.push({ expr: '16:9 nie jest zegarem', pass: _PARSER.evalClockExpression('16:9') === null, got: String(_PARSER.evalClockExpression('16:9')) });
             // Kanoniczny model wartości (pkt 1): kind + exact na różnych ścieżkach
             [
                 { expr: '2+2', kind: 'number', exact: true },

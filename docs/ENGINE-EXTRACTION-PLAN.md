@@ -190,11 +190,11 @@ function evalCalcExpression(raw, opts) {
 
 ---
 
-### Faza 6 — Porządki i dokumentacja
+### Faza 6 — Porządki i dokumentacja ✅
 
-- Jedna tabela reguł preprocess w komentarzu / mały `RULES.md` w `docs/`
-- Usunąć martwe duplikaty z `app.js`
-- Opcjonalnie: `smart-parser.d.ts` lub JSDoc `@typedef` dla `EvaluateResult`
+- Tabela reguł preprocess: [`ENGINE-PREPROCESS-RULES.md`](./ENGINE-PREPROCESS-RULES.md)
+- Usunięto martwe delegacje z `app.js` (preprocess, routery %, strip, resolveCalcUnits…)
+- JSDoc `@typedef EvaluateResult` w `smart-parser.js`
 
 ---
 
@@ -240,14 +240,11 @@ function evalCalcExpression(raw, opts) {
 
 ---
 
-## 8. Następny krok (rekomendacja)
+## 8. Status (2026-07)
 
-**Faza 1 — `parseNaturalShortcuts`** jako `MATM0_PARSER.preprocessExpression`:
+**Ekstrakcja zakończona** (fazy 1–6). Kolejne zmiany silnika → `smart-parser.js` + test gate.
 
-1. Skopiuj funkcje do `smart-parser.js` (bez zmian logiki).
-2. `app.js` → jedna linia delegacji.
-3. `npm test` + baseline diff = 0.
-4. Commit: `refactor: przeniesienie preprocess do smart-parser (faza 1)`
+Opcjonalnie na przyszłość: `smart-parser.d.ts` dla TypeScript consumerów.
 
 ---
 
