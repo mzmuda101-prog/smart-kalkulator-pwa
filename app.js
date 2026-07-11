@@ -1097,6 +1097,21 @@
         var evalClockExpression = _PARSER.evalClockExpression;
         var evalDateExpression = _PARSER.evalDateExpression;
         var evalPeriodPercentage = _PARSER.evalPeriodPercentage;
+        var evalPercentQuery = _PARSER.evalPercentQuery;
+        var evalPercentOfPercent = _PARSER.evalPercentOfPercent;
+        var evalPercentDifference = _PARSER.evalPercentDifference;
+        function evalPercentBaseQuery(raw) {
+            return _PARSER.evalPercentBaseQuery(raw, {
+                fxRates: (STATE.fx && STATE.fx.rates) || {},
+                currencyCompactSymbols: !(STATE.settings && STATE.settings.currencyCompactSymbols === false),
+            });
+        }
+        function _applyParserCalcResult(r) { // [EN] plain parser result → STATE + makeVal
+            if (!r) return null;
+            STATE.calc.lastResult = r.value;
+            STATE.calc.lastUnit = r.unit != null ? r.unit : null;
+            return makeVal(r);
+        }
         var formatDurationSeconds = _PARSER.formatDurationSeconds;
         var evalTimezoneExpression = _PARSER.evalTimezoneExpression;
         var _isDateUnit = _PARSER.isDateUnit;
@@ -1393,176 +1408,6 @@
                 bigStr: o.bigStr != null ? o.bigStr : null
             };
         }
-        // „ile %" — KIERUNEK ODWROTNY do „X% z Y": pytamy jaki PROCENT stanowi A z B (= A/B·100).
-        // Wynik jest procentem → unit '%'. Obsługiwane formy (PL):
-        //   „ile % stanowi A z B", „ile procent to A z B", „A z B to ile %", „A to ile % z B".
-        // Czyszczenie szumu float + sygnał ≈ jak główna ścieżka liczbowa.
-        function _pctResult(p) {
-            var v = p;
-            if (isFinite(v) && v !== 0 && !(Number.isInteger(v) && Math.abs(v) <= Number.MAX_SAFE_INTEGER)) v = parseFloat(v.toPrecision(15));
-            var approx = false, ex = null;
-            if (isFinite(v) && !Number.isInteger(v)) {
-                var d = Number(v.toFixed(10));
-                if (Math.abs(v - d) > Math.abs(v) * 1e-12) { approx = true; ex = formatLocaleNumber(v, 15) + '%'; }
-            }
-            STATE.calc.lastResult = v; STATE.calc.lastUnit = '%';
-            return makeVal({ value: v, unit: '%', kind: 'percent', exact: !approx, exactText: ex });
-        }
-        function evalPercentQuery(raw) {
-            var s = _plFold(raw).trim();
-            if (!s || (s.indexOf('%') === -1 && s.indexOf('procent') === -1 && s.indexOf('percent') === -1)) return null;
-            var P = '([\\d.,]+)', PCT = '(?:%|procent[a-z]*|percent)';
-            var m;
-            // PL: „ile % [to|stanowi] A z B"
-            if (s.indexOf('ile') !== -1 && (m = s.match(new RegExp('^ile\\s+' + PCT + '\\s+(?:to\\s+|stanowi\\s+)?' + P + '\\s+z\\s+' + P + '\\s*$')))) {
-                return _pctFrac(m[1], m[2]);
-            }
-            // PL: „A z B to ile %"
-            if ((m = s.match(new RegExp('^' + P + '\\s+z\\s+' + P + '\\s+to\\s+ile\\s+' + PCT + '\\s*$')))) {
-                return _pctFrac(m[1], m[2]);
-            }
-            // PL: „A to ile % z B" · EN: „A is what % of B"
-            if ((m = s.match(new RegExp('^' + P + '\\s+(?:to\\s+ile\\s+' + PCT + '\\s+z|is\\s+what\\s+' + PCT + '\\s+of)\\s+' + P + '\\s*$')))) {
-                return _pctFrac(m[1], m[2]);
-            }
-            // EN: „what % is A of B" / „what percent is A of B"
-            if ((m = s.match(new RegExp('^what\\s+' + PCT + '\\s+is\\s+' + P + '\\s+of\\s+' + P + '\\s*$')))) {
-                return _pctFrac(m[1], m[2]);
-            }
-            // EN: „A of B is what %"
-            if ((m = s.match(new RegExp('^' + P + '\\s+of\\s+' + P + '\\s+is\\s+what\\s+' + PCT + '\\s*$')))) {
-                return _pctFrac(m[1], m[2]);
-            }
-            // PL: „25 z 200 stanowi ile %" · „jaki procent stanowi 25 z 200"
-            if ((m = s.match(new RegExp('^' + P + '\\s+z\\s+' + P + '\\s+(?:stanowi\\s+)?(?:to\\s+)?ile\\s+' + PCT + '\\s*$')))) {
-                return _pctFrac(m[1], m[2]);
-            }
-            if ((m = s.match(new RegExp('^jaki\\s+(?:procent[a-z]*|' + PCT + ')\\s+(?:stanowi\\s+|to\\s+)?' + P + '\\s+z\\s+' + P + '\\s*$')))) {
-                return _pctFrac(m[1], m[2]);
-            }
-            return null;
-        }
-        function _pctFrac(aStr, bStr) {
-            var a = parseFloat(String(aStr).replace(',', '.')), b = parseFloat(String(bStr).replace(',', '.'));
-            if (!isFinite(a) || !isFinite(b) || b === 0) return null;
-            return _pctResult(a / b * 100);
-        }
-        // „P% z Q%" — procent z procenta (= P×Q/100 w punktach procentowych). PL/EN: „89% z 6%", „89% of 6%".
-        function evalPercentOfPercent(raw) {
-            var s = _plFold(raw).trim();
-            if (!s || s.indexOf('%') === -1) return null;
-            var P = '([\\d.,]+)', PCT = '(?:%|procent[a-z]*|percent)';
-            var m = s.match(new RegExp('^' + P + PCT + '\\s+(?:z|of)\\s+' + P + PCT + '\\s*$'));
-            if (!m) return null;
-            var p = parseFloat(String(m[1]).replace(',', '.'));
-            var q = parseFloat(String(m[2]).replace(',', '.'));
-            if (!isFinite(p) || !isFinite(q)) return null;
-            return _pctResult(p * q / 100);
-        }
-
-        // Różnica procentowa między wartościami: (B−A)/A·100 — Raycast-style.
-        function evalPercentDifference(raw) {
-            var s = _plFold(raw).trim();
-            if (!s || !/(%|procent|percent|roznica|difference|change|ile\s+(?:%|procent|percent))/i.test(s)) return null;
-            var P = '([\\d.,]+)', PCT = '(?:%|procent[a-z]*|percent)';
-            var m;
-            if ((m = s.match(new RegExp('^(?:roznica|percent\\s+(?:difference|change))\\s*(?:%|procent[a-z]*)?\\s*(?:miedzy|between|from)\\s+' + P + '\\s+(?:a|and|to)\\s+' + P + '\\s*$')))) {
-                return _pctDiff(m[1], m[2]);
-            }
-            if ((m = s.match(new RegExp('^(?:z|od)\\s+' + P + '\\s+(?:na|do)\\s+' + P + '\\s+(?:to\\s+|o\\s+)?ile\\s+' + PCT + '\\s*$')))) {
-                return _pctDiff(m[1], m[2]);
-            }
-            if ((m = s.match(new RegExp('^' + P + '\\s+(?:to|na|→)\\s+' + P + '\\s+(?:percent\\s+)?(?:difference|change|roznica)\\s*$')))) {
-                return _pctDiff(m[1], m[2]);
-            }
-            if ((m = s.match(new RegExp('^from\\s+' + P + '\\s+to\\s+' + P + '\\s+(?:is\\s+)?what\\s+' + PCT + '\\s*$')))) {
-                return _pctDiff(m[1], m[2]);
-            }
-            return null;
-        }
-        function _pctDiff(aStr, bStr) {
-            var a = parseFloat(String(aStr).replace(',', '.')), b = parseFloat(String(bStr).replace(',', '.'));
-            if (!isFinite(a) || !isFinite(b) || a === 0) return null;
-            return _pctResult((b - a) / a * 100);
-        }
-
-        // „Baza procentowa" — znasz ułamek (X% = Y), szukasz innej części całości (domyślnie 100%).
-        function _pctBaseCurrencyUnit(tok) {
-            if (!tok) return null;
-            var code = _currencyTokenMap()[String(tok).toLowerCase()];
-            return code ? _currencyDisplay(code) : null;
-        }
-        function _pctBaseResult(pctStr, valStr, targetPctStr, currencyTok) {
-            var pct = parseFloat(String(pctStr).replace(',', '.'));
-            var val = parseFloat(String(valStr).replace(',', '.'));
-            var target = targetPctStr != null && targetPctStr !== ''
-                ? parseFloat(String(targetPctStr).replace(',', '.')) : 100;
-            if (!isFinite(pct) || !isFinite(val) || !isFinite(target) || pct === 0) return null;
-            var raw = val * target / pct;
-            if (isFinite(raw) && raw !== 0 && !(Number.isInteger(raw) && Math.abs(raw) <= Number.MAX_SAFE_INTEGER)) {
-                raw = parseFloat(raw.toPrecision(15));
-            }
-            var unit = _pctBaseCurrencyUnit(currencyTok);
-            var isMoney = !!unit;
-            var result = isMoney ? _roundMoney(raw) : parseFloat(raw.toPrecision(12));
-            var approx = false, ex = null;
-            if (isMoney && Math.abs(raw - result) > 0.0045) {
-                approx = true; ex = formatLocaleNumber(raw, 15) + '\u202f' + unit;
-            } else if (!isMoney && isFinite(raw) && !Number.isInteger(raw)) {
-                var d = Number(raw.toFixed(6));
-                if (Math.abs(raw - d) > Math.abs(raw) * 1e-9) { approx = true; ex = formatLocaleNumber(raw, 15); }
-            }
-            STATE.calc.lastResult = result; STATE.calc.lastUnit = unit;
-            var tgtLabel = formatLocaleNumber(target, Number.isInteger(target) ? undefined : 6);
-            var valLabel = formatLocaleNumber(result, isMoney ? 2 : 6);
-            var suffix = unit ? '\u202f' + unit : '';
-            return makeVal({
-                value: result, unit: unit, kind: isMoney ? 'money' : 'number', exact: !approx, exactText: ex,
-                text: tgtLabel + '%=' + valLabel + suffix // [EN] tight '=' — wrap splits label/value on 2 lines
-            });
-        }
-        function evalPercentBaseQuery(raw) {
-            var s = _plFold(raw).trim();
-            if (!s || (s.indexOf('%') === -1 && s.indexOf('procent') === -1 && s.indexOf('percent') === -1)) return null;
-            s = s.replace(/→|->/g, ';').replace(/\s+/g, ' ').trim();
-            var P = '([\\d.,]+)', PC = '([\\d.,]+)\\s*(?:%|procent[a-z]*|percent)';
-            var curTok = _currencyTokenRe();
-            var PV = curTok
-                ? P + '(?:\\s*(' + curTok + ')(?![a-ząćęłńóśźż0-9]))?'
-                : P;
-            var m;
-            // „8,5% to 80 pln" [; 50%]  ·  „8,5% to 80pln" — bez sufiksu = 100%
-            if ((m = s.match(new RegExp('^' + PC + '\\s*(?:=|to|jest|is)\\s*' + PV + '(?:\\s*;\\s*([\\d.,]+)\\s*%\\s*(?:=)?\\s*\\??)?\\s*$', 'i')))) {
-                return _pctBaseResult(m[1], m[2], m[4], m[3]);
-            }
-            // „80pln to 8,5%" · „20pln=10%" — wartość przed procentem (kolejność dowolna)
-            if ((m = s.match(new RegExp('^' + PV + '\\s*=\\s*' + PC + '(?:\\s*;\\s*([\\d.,]+)\\s*%\\s*(?:=)?\\s*\\??)?\\s*$', 'i')))) {
-                return _pctBaseResult(m[3], m[1], m[4], m[2]);
-            }
-            if ((m = s.match(new RegExp('^' + PV + '\\s+(?:to|jest|is)\\s+' + PC + '(?:\\s*[,;]\\s*|\\s+)(?:ile\\s+|what\\s+is\\s+)?([\\d.,]+)\\s*%\\s*$', 'i')))) {
-                return _pctBaseResult(m[3], m[1], m[4], m[2]);
-            }
-            if ((m = s.match(new RegExp('^' + PV + '\\s+(?:to|jest|is)\\s+' + PC + '\\s*$', 'i')))) {
-                return _pctBaseResult(m[3], m[1], 100, m[2]);
-            }
-            // „80 pln to 8,5% z czego" · „80 pln is 8.5% of what"
-            if ((m = s.match(new RegExp('^' + PV + '\\s+(?:(?:is|to)\\s+)?' + PC + '\\s+(?:of\\s+what|z\\s+czego)\\s*$', 'i')))) {
-                return _pctBaseResult(m[3], m[1], 100, m[2]);
-            }
-            // „ile to 50% gdy 8,5% to 80 pln" · „ile to 50% gdy 80 pln to 8,5%"
-            if ((m = s.match(new RegExp('^(?:ile\\s+(?:to|wynosi)\\s+|what\\s+is\\s+)?([\\d.,]+)\\s*%\\s+(?:gdy|jak|if)\\s+' + PC + '\\s+(?:to|jest|is|=)\\s*' + PV + '\\s*$', 'i')))) {
-                return _pctBaseResult(m[2], m[3], m[1], m[4]);
-            }
-            if ((m = s.match(new RegExp('^(?:ile\\s+(?:to|wynosi)\\s+|what\\s+is\\s+)?([\\d.,]+)\\s*%\\s+(?:gdy|jak|if)\\s+' + PV + '\\s+(?:to|jest|is)\\s+' + PC + '\\s*$', 'i')))) {
-                return _pctBaseResult(m[4], m[2], m[1], m[3]);
-            }
-            // „8,5% to 80 pln, ile 50%" · „8,5% to 80 pln ile 50%"
-            if ((m = s.match(new RegExp('^' + PC + '\\s+(?:to|jest|is)\\s*' + PV + '(?:\\s*[,;]\\s*|\\s+)(?:ile\\s+|what\\s+is\\s+)?([\\d.,]+)\\s*%\\s*$', 'i')))) {
-                return _pctBaseResult(m[1], m[2], m[4], m[3]);
-            }
-            return null;
-        }
-
         // KOSZT TRASY / PALIWA — dystans (km) + spalanie (l/100km) + cena (zł/l) → koszt.
         // Kolejność dowolna; np. „koszt trasy 300 km 7 l/100km 6,50 zł/l", „paliwo na 420 km
         // przy 6 l/100 i 6,29 zł/l". litry = dystans/100·spalanie; koszt = litry·cena.
@@ -1607,20 +1452,16 @@
                 return makeVal({ value: dateRes.value, text: dateRes.text, kind: 'date' });
             }
             // „ile % stanowi A z B" / „A z B to ile %" — kierunek ODWROTNY do „X% z Y" (wynik = procent).
-            var pctBaseQ = evalPercentBaseQuery(original);
+            var pctBaseQ = _applyParserCalcResult(evalPercentBaseQuery(original));
             if (pctBaseQ) return pctBaseQ;
-            var pctOfPct = evalPercentOfPercent(original);
+            var pctOfPct = _applyParserCalcResult(evalPercentOfPercent(original));
             if (pctOfPct) return pctOfPct;
-            var pctQ = evalPercentQuery(original);
+            var pctQ = _applyParserCalcResult(evalPercentQuery(original));
             if (pctQ) return pctQ;
-            var pctDiffQ = evalPercentDifference(original);
+            var pctDiffQ = _applyParserCalcResult(evalPercentDifference(original));
             if (pctDiffQ) return pctDiffQ;
-            var periodPctQ = evalPeriodPercentage(original);
-            if (periodPctQ) {
-                STATE.calc.lastResult = periodPctQ.value;
-                STATE.calc.lastUnit = periodPctQ.unit;
-                return makeVal({ value: periodPctQ.value, unit: periodPctQ.unit, kind: periodPctQ.kind || 'percent' });
-            }
+            var periodPctQ = _applyParserCalcResult(evalPeriodPercentage(original));
+            if (periodPctQ) return periodPctQ;
             // Koszt trasy / paliwa: dystans + spalanie l/100km + cena zł/l → koszt (+ litry w dymku).
             var routeQ = evalRouteCost(original);
             if (routeQ) return routeQ;

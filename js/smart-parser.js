@@ -9,6 +9,7 @@
    Wystawia window.MATM0_PARSER. app.js konsumuje go jako cienkie wiązanie.
    Kolejne podsilniki (daty/waluty/jednostki) dochodzą tu ewolucyjnie.
    Preprocess (faza 1): expandNumeric/CurrencyShorthands, parseNaturalShortcuts, resolveTrigDegrees.
+   Routery procentowe (faza 2): evalPercentQuery/Difference/BaseQuery/OfPercent — plain result, bez STATE.
    ============================================================ */
 (function() {
     'use strict';
@@ -61,6 +62,23 @@
         var compact = !(options && options.currencyCompactSymbols === false);
         if (compact && CUR_DISPLAY_SYM[code]) return CUR_DISPLAY_SYM[code];
         return code;
+    }
+    function _formatLocaleNumber(num, maxDigits) { // [EN] pl-PL display — shared by percent-base router
+        if (!isFinite(num)) return String(num);
+        var rounded = (Number.isInteger(num) && Math.abs(num) <= Number.MAX_SAFE_INTEGER)
+            ? num
+            : (Math.abs(num) < 1e308 ? parseFloat(num.toPrecision(15)) : num);
+        return rounded.toLocaleString('pl-PL', {
+            maximumFractionDigits: maxDigits == null ? 6 : maxDigits,
+            useGrouping: true,
+        });
+    }
+    function _roundMoney(n) { // [EN] grosze — decimal.js when loaded, else float fallback
+        var M = (typeof window !== 'undefined' && window.MATM0_MONEY) ||
+            (typeof self !== 'undefined' && self.MATM0_MONEY) || null;
+        if (M && typeof M.roundMoney === 'function') return M.roundMoney(n);
+        if (!isFinite(n)) return n;
+        return Math.round(n * 100) / 100;
     }
     function _needsFxTable(code) { return code && code !== 'PLN'; } // [EN] PLN always equals 1
     function hasCurrencyInInput(raw, options) {
@@ -732,6 +750,160 @@
         return { value: pct, unit: '%', kind: 'percent', label: label };
     }
 
+    // „ile %" — kierunek odwrotny do „X% z Y": A/B·100 → unit '%'.
+    function _pctResult(p) {
+        var v = p;
+        if (isFinite(v) && v !== 0 && !(Number.isInteger(v) && Math.abs(v) <= Number.MAX_SAFE_INTEGER)) v = parseFloat(v.toPrecision(15));
+        var approx = false, ex = null;
+        if (isFinite(v) && !Number.isInteger(v)) {
+            var d = Number(v.toFixed(10));
+            if (Math.abs(v - d) > Math.abs(v) * 1e-12) { approx = true; ex = _formatLocaleNumber(v, 15) + '%'; }
+        }
+        return { value: v, unit: '%', kind: 'percent', exact: !approx, exactText: ex };
+    }
+    function _pctFrac(aStr, bStr) {
+        var a = parseFloat(String(aStr).replace(',', '.')), b = parseFloat(String(bStr).replace(',', '.'));
+        if (!isFinite(a) || !isFinite(b) || b === 0) return null;
+        return _pctResult(a / b * 100);
+    }
+    function evalPercentQuery(raw) {
+        var s = _plFold(raw).trim();
+        if (!s || (s.indexOf('%') === -1 && s.indexOf('procent') === -1 && s.indexOf('percent') === -1)) return null;
+        var P = '([\\d.,]+)', PCT = '(?:%|procent[a-z]*|percent)';
+        var m;
+        if (s.indexOf('ile') !== -1 && (m = s.match(new RegExp('^ile\\s+' + PCT + '\\s+(?:to\\s+|stanowi\\s+)?' + P + '\\s+z\\s+' + P + '\\s*$')))) {
+            return _pctFrac(m[1], m[2]);
+        }
+        if ((m = s.match(new RegExp('^' + P + '\\s+z\\s+' + P + '\\s+to\\s+ile\\s+' + PCT + '\\s*$')))) {
+            return _pctFrac(m[1], m[2]);
+        }
+        if ((m = s.match(new RegExp('^' + P + '\\s+(?:to\\s+ile\\s+' + PCT + '\\s+z|is\\s+what\\s+' + PCT + '\\s+of)\\s+' + P + '\\s*$')))) {
+            return _pctFrac(m[1], m[2]);
+        }
+        if ((m = s.match(new RegExp('^what\\s+' + PCT + '\\s+is\\s+' + P + '\\s+of\\s+' + P + '\\s*$')))) {
+            return _pctFrac(m[1], m[2]);
+        }
+        if ((m = s.match(new RegExp('^' + P + '\\s+of\\s+' + P + '\\s+is\\s+what\\s+' + PCT + '\\s*$')))) {
+            return _pctFrac(m[1], m[2]);
+        }
+        if ((m = s.match(new RegExp('^' + P + '\\s+z\\s+' + P + '\\s+(?:stanowi\\s+)?(?:to\\s+)?ile\\s+' + PCT + '\\s*$')))) {
+            return _pctFrac(m[1], m[2]);
+        }
+        if ((m = s.match(new RegExp('^jaki\\s+(?:procent[a-z]*|' + PCT + ')\\s+(?:stanowi\\s+|to\\s+)?' + P + '\\s+z\\s+' + P + '\\s*$')))) {
+            return _pctFrac(m[1], m[2]);
+        }
+        return null;
+    }
+    // „P% z Q%" — procent z procenta (= P×Q/100 w punktach procentowych).
+    function evalPercentOfPercent(raw) {
+        var s = _plFold(raw).trim();
+        if (!s || s.indexOf('%') === -1) return null;
+        var P = '([\\d.,]+)', PCT = '(?:%|procent[a-z]*|percent)';
+        var m = s.match(new RegExp('^' + P + PCT + '\\s+(?:z|of)\\s+' + P + PCT + '\\s*$'));
+        if (!m) return null;
+        var p = parseFloat(String(m[1]).replace(',', '.'));
+        var q = parseFloat(String(m[2]).replace(',', '.'));
+        if (!isFinite(p) || !isFinite(q)) return null;
+        return _pctResult(p * q / 100);
+    }
+    // Różnica procentowa: (B−A)/A·100 — Raycast-style.
+    function _pctDiff(aStr, bStr) {
+        var a = parseFloat(String(aStr).replace(',', '.')), b = parseFloat(String(bStr).replace(',', '.'));
+        if (!isFinite(a) || !isFinite(b) || a === 0) return null;
+        return _pctResult((b - a) / a * 100);
+    }
+    function evalPercentDifference(raw) {
+        var s = _plFold(raw).trim();
+        if (!s || !/(%|procent|percent|roznica|difference|change|ile\s+(?:%|procent|percent))/i.test(s)) return null;
+        var P = '([\\d.,]+)', PCT = '(?:%|procent[a-z]*|percent)';
+        var m;
+        if ((m = s.match(new RegExp('^(?:roznica|percent\\s+(?:difference|change))\\s*(?:%|procent[a-z]*)?\\s*(?:miedzy|between|from)\\s+' + P + '\\s+(?:a|and|to)\\s+' + P + '\\s*$')))) {
+            return _pctDiff(m[1], m[2]);
+        }
+        if ((m = s.match(new RegExp('^(?:z|od)\\s+' + P + '\\s+(?:na|do)\\s+' + P + '\\s+(?:to\\s+|o\\s+)?ile\\s+' + PCT + '\\s*$')))) {
+            return _pctDiff(m[1], m[2]);
+        }
+        if ((m = s.match(new RegExp('^' + P + '\\s+(?:to|na|→)\\s+' + P + '\\s+(?:percent\\s+)?(?:difference|change|roznica)\\s*$')))) {
+            return _pctDiff(m[1], m[2]);
+        }
+        if ((m = s.match(new RegExp('^from\\s+' + P + '\\s+to\\s+' + P + '\\s+(?:is\\s+)?what\\s+' + PCT + '\\s*$')))) {
+            return _pctDiff(m[1], m[2]);
+        }
+        return null;
+    }
+    // „Baza procentowa" — znasz ułamek (X% = Y), szukasz innej części całości.
+    function _pctBaseCurrencyUnit(tok, options) {
+        if (!tok) return null;
+        var map = _currencyTokenMap((options && options.fxRates) || {});
+        var code = map[String(tok).toLowerCase()];
+        return code ? _currencyDisplay(code, options) : null;
+    }
+    function _pctBaseResult(pctStr, valStr, targetPctStr, currencyTok, options) {
+        var pct = parseFloat(String(pctStr).replace(',', '.'));
+        var val = parseFloat(String(valStr).replace(',', '.'));
+        var target = targetPctStr != null && targetPctStr !== ''
+            ? parseFloat(String(targetPctStr).replace(',', '.')) : 100;
+        if (!isFinite(pct) || !isFinite(val) || !isFinite(target) || pct === 0) return null;
+        var raw = val * target / pct;
+        if (isFinite(raw) && raw !== 0 && !(Number.isInteger(raw) && Math.abs(raw) <= Number.MAX_SAFE_INTEGER)) {
+            raw = parseFloat(raw.toPrecision(15));
+        }
+        var unit = _pctBaseCurrencyUnit(currencyTok, options);
+        var isMoney = !!unit;
+        var result = isMoney ? _roundMoney(raw) : parseFloat(raw.toPrecision(12));
+        var approx = false, ex = null;
+        if (isMoney && Math.abs(raw - result) > 0.0045) {
+            approx = true; ex = _formatLocaleNumber(raw, 15) + '\u202f' + unit;
+        } else if (!isMoney && isFinite(raw) && !Number.isInteger(raw)) {
+            var d = Number(raw.toFixed(6));
+            if (Math.abs(raw - d) > Math.abs(raw) * 1e-9) { approx = true; ex = _formatLocaleNumber(raw, 15); }
+        }
+        var tgtLabel = _formatLocaleNumber(target, Number.isInteger(target) ? undefined : 6);
+        var valLabel = _formatLocaleNumber(result, isMoney ? 2 : 6);
+        var suffix = unit ? '\u202f' + unit : '';
+        return {
+            value: result, unit: unit, kind: isMoney ? 'money' : 'number', exact: !approx, exactText: ex,
+            text: tgtLabel + '%=' + valLabel + suffix // [EN] tight '=' — wrap splits label/value on 2 lines
+        };
+    }
+    function evalPercentBaseQuery(raw, options) {
+        var opts = options || {};
+        var s = _plFold(raw).trim();
+        if (!s || (s.indexOf('%') === -1 && s.indexOf('procent') === -1 && s.indexOf('percent') === -1)) return null;
+        s = s.replace(/→|->/g, ';').replace(/\s+/g, ' ').trim();
+        var P = '([\\d.,]+)', PC = '([\\d.,]+)\\s*(?:%|procent[a-z]*|percent)';
+        var curTok = _currencyTokenRe(_currencyTokenMap(opts.fxRates || {}));
+        var PV = curTok
+            ? P + '(?:\\s*(' + curTok + ')(?![a-ząćęłńóśźż0-9]))?'
+            : P;
+        var m;
+        if ((m = s.match(new RegExp('^' + PC + '\\s*(?:=|to|jest|is)\\s*' + PV + '(?:\\s*;\\s*([\\d.,]+)\\s*%\\s*(?:=)?\\s*\\??)?\\s*$', 'i')))) {
+            return _pctBaseResult(m[1], m[2], m[4], m[3], opts);
+        }
+        if ((m = s.match(new RegExp('^' + PV + '\\s*=\\s*' + PC + '(?:\\s*;\\s*([\\d.,]+)\\s*%\\s*(?:=)?\\s*\\??)?\\s*$', 'i')))) {
+            return _pctBaseResult(m[3], m[1], m[4], m[2], opts);
+        }
+        if ((m = s.match(new RegExp('^' + PV + '\\s+(?:to|jest|is)\\s+' + PC + '(?:\\s*[,;]\\s*|\\s+)(?:ile\\s+|what\\s+is\\s+)?([\\d.,]+)\\s*%\\s*$', 'i')))) {
+            return _pctBaseResult(m[3], m[1], m[4], m[2], opts);
+        }
+        if ((m = s.match(new RegExp('^' + PV + '\\s+(?:to|jest|is)\\s+' + PC + '\\s*$', 'i')))) {
+            return _pctBaseResult(m[3], m[1], 100, m[2], opts);
+        }
+        if ((m = s.match(new RegExp('^' + PV + '\\s+(?:(?:is|to)\\s+)?' + PC + '\\s+(?:of\\s+what|z\\s+czego)\\s*$', 'i')))) {
+            return _pctBaseResult(m[3], m[1], 100, m[2], opts);
+        }
+        if ((m = s.match(new RegExp('^(?:ile\\s+(?:to|wynosi)\\s+|what\\s+is\\s+)?([\\d.,]+)\\s*%\\s+(?:gdy|jak|if)\\s+' + PC + '\\s+(?:to|jest|is|=)\\s*' + PV + '\\s*$', 'i')))) {
+            return _pctBaseResult(m[2], m[3], m[1], m[4], opts);
+        }
+        if ((m = s.match(new RegExp('^(?:ile\\s+(?:to|wynosi)\\s+|what\\s+is\\s+)?([\\d.,]+)\\s*%\\s+(?:gdy|jak|if)\\s+' + PV + '\\s+(?:to|jest|is)\\s+' + PC + '\\s*$', 'i')))) {
+            return _pctBaseResult(m[4], m[2], m[1], m[3], opts);
+        }
+        if ((m = s.match(new RegExp('^' + PC + '\\s+(?:to|jest|is)\\s*' + PV + '(?:\\s*[,;]\\s*|\\s+)(?:ile\\s+|what\\s+is\\s+)?([\\d.,]+)\\s*%\\s*$', 'i')))) {
+            return _pctBaseResult(m[1], m[2], m[4], m[3], opts);
+        }
+        return null;
+    }
+
     /* ============================================================
        [PL] Podsilnik STREF CZASOWYCH — OFFLINE przez Intl (z DST, bez sieci).
             Raycast-style: „time in Tokyo", „czas w Kioto", „5pm ldn in sf" (zegar).
@@ -1024,6 +1196,10 @@
         evalClockExpression: evalClockExpression,
         evalDateExpression: evalDateExpression,
         evalPeriodPercentage: evalPeriodPercentage,
+        evalPercentQuery: evalPercentQuery,
+        evalPercentOfPercent: evalPercentOfPercent,
+        evalPercentDifference: evalPercentDifference,
+        evalPercentBaseQuery: evalPercentBaseQuery,
         formatDurationSeconds: formatDurationSeconds,
         evalTimezoneExpression: evalTimezoneExpression,
         isDateUnit: _isDateUnit,           // app.js używa go też w rozpoznawaniu tokenów notatnika
