@@ -24,7 +24,8 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:report": "playwright show-report test-results/playwright-report",
-    "test:predeploy": "npm test && npm run test:e2e",
+    "sync-version": "node scripts/sync-sw-fingerprint.mjs",
+    "test:predeploy": "npm run sync-version && npm test && npm run test:e2e",
     "postinstall": "node scripts/vendor-decimal.mjs"
   },
   "devDependencies": {

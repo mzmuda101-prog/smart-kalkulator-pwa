@@ -51,4 +51,17 @@ if (failed) {
     console.error('❌ version-compare: ' + failed + ' błędów');
     process.exit(1);
 }
-console.log('✅ version-compare: ' + cases.length + ' przypadków OK');
+
+const swJs = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
+const swMatch = swJs.match(/SW_FINGERPRINT\s*=\s*['"]([^'"]+)['"]/);
+const appVer = global.APP_VERSION;
+if (!swMatch) {
+    console.error('❌ brak SW_FINGERPRINT w sw.js — uruchom: npm run sync-version');
+    process.exit(1);
+}
+if (swMatch[1] !== appVer) {
+    console.error('❌ SW_FINGERPRINT (' + swMatch[1] + ') ≠ APP_VERSION (' + appVer + ') — npm run sync-version');
+    process.exit(1);
+}
+
+console.log('✅ version-compare: ' + cases.length + ' przypadków OK, SW_FINGERPRINT = ' + appVer);

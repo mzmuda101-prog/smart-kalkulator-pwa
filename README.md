@@ -57,6 +57,8 @@ Parser w `app.js` nadal decyduje, jakie komendy aplikacja realnie obsluguje. Jes
 
 Jedno źródło prawdy: `version.js` → `APP_VERSION` (cache SW, napis w ustawieniach).
 
+Po bumpie wersji uruchom **`npm run sync-version`** — wpisuje `SW_FINGERPRINT` do `sw.js` (przeglądarka instaluje nowy SW tylko gdy plik `sw.js` się zmieni).
+
 Do v99 bumpuj po prostu: `v94` → `v95` → … → `v99`.
 
 **Przy kolejnym wydaniu po v99 nie używaj `v100`** — wpisz `v1.00` (reset numeracji, jak sensowna „1.0”). Szczegóły i notatka na przyszłość są w komentarzu na górze `version.js`.

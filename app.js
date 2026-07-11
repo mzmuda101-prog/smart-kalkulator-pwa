@@ -8258,6 +8258,7 @@
         var swRegistration = null;
         var swRefreshing = false;
         var swWaitingWorker = null;
+        var swSoftUpdateVersion = null; // [EN] nowsza wersja na serwerze bez waiting SW (sam version.js się zmienił)
 
         function fetchRemoteAppVersion() {
             return fetch('./version.js?_v=' + Date.now(), { cache: 'no-store' })
@@ -8286,13 +8287,16 @@
             }
             return best;
         }
-        function showUpdateBanner(worker) {
+        function showUpdateBanner(worker, remoteVer) {
             swWaitingWorker = worker || (swRegistration && swRegistration.waiting) || null;
-            if (!updateBanner || !swWaitingWorker) return;
+            swSoftUpdateVersion = (!swWaitingWorker && remoteVer) ? remoteVer : null;
+            if (!updateBanner || (!swWaitingWorker && !swSoftUpdateVersion)) return;
             updateBanner.classList.add('is-visible');
             updateBanner.setAttribute('aria-hidden', 'false');
-            fetchRemoteAppVersion().then(function(ver) {
-                var label = updateBanner.querySelector('.update-banner-text');
+            var label = updateBanner.querySelector('.update-banner-text');
+            var verLabel = remoteVer || swSoftUpdateVersion;
+            if (label && verLabel) label.textContent = '🔄 Dostępna wersja ' + verLabel;
+            else if (label) fetchRemoteAppVersion().then(function(ver) {
                 if (label && ver) label.textContent = '🔄 Dostępna wersja ' + ver;
             });
         }
@@ -8300,6 +8304,7 @@
             if (!updateBanner) return;
             updateBanner.classList.remove('is-visible');
             updateBanner.setAttribute('aria-hidden', 'true');
+            swSoftUpdateVersion = null;
         }
         function purgeAppCaches() { // [EN] wyczyść Cache Storage przed przeładowaniem po update
             if (!('caches' in window)) return Promise.resolve();
@@ -8317,27 +8322,50 @@
         }
         var swApplyReloadTimer = null;
         function applyUpdate() {
-            if (!swWaitingWorker) { hideUpdateBanner(); return; }
+            if (!swWaitingWorker && !swSoftUpdateVersion) { hideUpdateBanner(); return; }
             hideUpdateBanner();
             showToast('🔄 Aktualizuję…', '');
             swRefreshing = true;
             if (swApplyReloadTimer) { clearTimeout(swApplyReloadTimer); swApplyReloadTimer = null; }
-            if (navigator.serviceWorker.controller) {
-                navigator.serviceWorker.controller.postMessage({ action: 'purge-caches' });
+            if (swWaitingWorker) {
+                if (navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage({ action: 'purge-caches' });
+                }
+                function postSkip() { swWaitingWorker.postMessage({ action: 'skip-waiting' }); }
+                purgeAppCaches().then(postSkip).catch(postSkip);
+                swApplyReloadTimer = setTimeout(function() {
+                    if (!swRefreshing) return;
+                    purgeAppCaches().finally(hardReloadApp);
+                }, 3500);
+                return;
             }
-            function postSkip() { swWaitingWorker.postMessage({ action: 'skip-waiting' }); }
-            purgeAppCaches().then(postSkip).catch(postSkip);
-            // [EN] fallback gdy controllerchange nie odpali (Safari mobile)
-            swApplyReloadTimer = setTimeout(function() {
-                if (!swRefreshing) return;
-                purgeAppCaches().finally(hardReloadApp);
-            }, 3500);
+            // [EN] soft update — serwer ma nowszą wersję, ale SW jeszcze nie przeszedł w waiting
+            purgeAppCaches().then(function() {
+                if (swRegistration) return swRegistration.unregister();
+            }).catch(function() {}).finally(hardReloadApp);
+        }
+        function resolveUpdateNotice(remoteVer, installedVer, showFeedback) {
+            var localVer = window.APP_VERSION || 'v0';
+            var cmp = typeof compareAppVersions === 'function' ? compareAppVersions : null;
+            var serverNewer = remoteVer && cmp && cmp(remoteVer, localVer) > 0;
+            var cacheStale = remoteVer && cmp && cmp(remoteVer, installedVer) > 0;
+            if (!navigator.serviceWorker.controller) return false;
+            if (swRegistration && swRegistration.waiting) {
+                showUpdateBanner(swRegistration.waiting, remoteVer);
+                if (showFeedback) showToast('🔄 Dostępna wersja ' + (remoteVer || installedVer), '');
+                return true;
+            }
+            if (serverNewer || cacheStale) {
+                showUpdateBanner(null, remoteVer);
+                if (showFeedback) showToast('🔄 Dostępna wersja ' + (remoteVer || ''), '');
+                return true;
+            }
+            return false;
         }
         function checkForUpdates(showFeedback) {
             if (!swRegistration) { if (showFeedback) showToast('Brak aktywnej aktualizacji', ''); return; }
             if (showFeedback) showToast('Sprawdzam aktualizacje…', '');
             var localVer = window.APP_VERSION || 'v0';
-            var cmp = typeof compareAppVersions === 'function' ? compareAppVersions : null;
             Promise.all([
                 swRegistration.update(),
                 fetchRemoteAppVersion(),
@@ -8346,29 +8374,14 @@
                 var remoteVer = results[1];
                 var cacheVers = results[2];
                 var installedVer = newestVersionLabel(cacheVers) || localVer;
-                var serverNewer = remoteVer && cmp && cmp(remoteVer, localVer) > 0;
-                var cacheStale = remoteVer && cmp && cmp(remoteVer, installedVer) > 0;
-                if ((swRegistration.waiting || swWaitingWorker) && navigator.serviceWorker.controller) {
-                    if (!swWaitingWorker && swRegistration.waiting) showUpdateBanner(swRegistration.waiting);
-                    if (showFeedback) showToast('🔄 Dostępna wersja ' + (remoteVer || installedVer), '');
-                    return;
+                if (resolveUpdateNotice(remoteVer, installedVer, showFeedback)) return;
+                var attempts = 0;
+                function pollForWaiting() {
+                    if (resolveUpdateNotice(remoteVer, installedVer, showFeedback)) return;
+                    if (attempts++ < 6) { setTimeout(pollForWaiting, 400); return; }
+                    if (showFeedback) showToast('✅ Masz najnowszą wersję (' + localVer + ')', 'success');
                 }
-                if (serverNewer || cacheStale) {
-                    return swRegistration.update().then(function() {
-                        if (showFeedback) setTimeout(function() {
-                            if (swRegistration.waiting) {
-                                showUpdateBanner(swRegistration.waiting);
-                                showToast('🔄 Nowa wersja ' + (remoteVer || '') + ' — odśwież', '');
-                            } else {
-                                showToast('🔄 Wykryto ' + (remoteVer || 'nowszą wersję') + ' — odśwież stronę', '');
-                            }
-                        }, 800);
-                    });
-                }
-                if (showFeedback) setTimeout(function() {
-                    if (!(swRegistration && swRegistration.waiting) && !swWaitingWorker)
-                        showToast('✅ Masz najnowszą wersję (' + localVer + ')', 'success');
-                }, 1200);
+                pollForWaiting();
             }).catch(function() {});
         }
         window.__checkForUpdates = checkForUpdates;
@@ -8404,14 +8417,16 @@
                         swRegistration = reg;
                         console.log('[EN] Service Worker registered:', reg.scope);
                         // Update już czeka (np. zainstalowany w innej karcie).
-                        if (reg.waiting && navigator.serviceWorker.controller) showUpdateBanner(reg.waiting);
+                        if (reg.waiting && navigator.serviceWorker.controller) showUpdateBanner(reg.waiting, null);
                         // Nowy update w trakcie tej sesji.
                         reg.addEventListener('updatefound', function() {
                             var newWorker = reg.installing;
                             if (!newWorker) return;
                             newWorker.addEventListener('statechange', function() {
                                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    showUpdateBanner(newWorker);
+                                    fetchRemoteAppVersion().then(function(ver) {
+                                        showUpdateBanner(newWorker, ver);
+                                    });
                                 }
                             });
                         });
