@@ -8256,13 +8256,18 @@
             inner.appendChild(npGutter);
             npEditor.appendChild(inner);
             npBody.addEventListener('input', function() { _npCommit(); });
-            npBody.addEventListener('select', function() { _npRefreshMirrorFmt(); });
-            npBody.addEventListener('keyup', function() { _npRefreshMirrorFmt(); });
-            npBody.addEventListener('mouseup', function() { _npRefreshMirrorFmt(); });
+            npBody.addEventListener('select', function() { _npRefreshMirrorFmt(); _npScheduleSelectionFmtMenu(); });
+            npBody.addEventListener('keyup', function() { _npRefreshMirrorFmt(); _npScheduleSelectionFmtMenu(); });
+            npBody.addEventListener('mouseup', function() { _npRefreshMirrorFmt(); _npScheduleSelectionFmtMenu(); });
+            npBody.addEventListener('pointerup', _npScheduleSelectionFmtMenu);
+            npBody.addEventListener('touchend', _npScheduleSelectionFmtMenu);
             document.addEventListener('selectionchange', function() {
-                if (document.activeElement === npBody) _npRefreshMirrorFmt();
+                if (document.activeElement === npBody) {
+                    _npRefreshMirrorFmt();
+                    _npScheduleSelectionFmtMenu();
+                }
             });
-            npEditor.addEventListener('scroll', function() { _npSyncEditorScroll(); npHideTip(); });
+            npEditor.addEventListener('scroll', function() { _npSyncEditorScroll(); npHideTip(); _npScheduleSelectionFmtMenu(); });
             npBody.addEventListener('focus', function() {
                 if (npEditor) npEditor.classList.add('np-editing');
                 _npSyncKbBar();
@@ -8284,7 +8289,7 @@
             _npSyncFontSize(true);
             _npBindPanelCtx(npEditor);
             if (npGutter) _npBindPanelCtx(npGutter);
-            _npBindTextCtx(npBody);
+            _npBindSelectionFmtMenu(npBody);
         }
         function _npSyncGutterHidden() {
             var hidden = !!(STATE.settings && STATE.settings.notepadGutterHidden);
@@ -8458,9 +8463,12 @@
             npKbBar.style.left = vv.offsetLeft + 'px';
             npKbBar.style.width = vv.width + 'px';
         }
-        var npCtxMenu = null;
+        var npCtxMenu = null, _npCtxMenuMode = null, _npSelMenuRaf = null, _npSelMenuSig = '';
         function _npHideCtxMenu() {
             if (npCtxMenu) npCtxMenu.hidden = true;
+            _npCtxMenuMode = null;
+            _npSelMenuSig = '';
+            if (npCtxMenu) npCtxMenu.classList.remove('is-selection');
         }
         function _npIsCoarsePointer() { // [EN] touch — long-press + double-tap; natywne menu obok naszego
             return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
@@ -8515,19 +8523,26 @@
                 bottom: Math.max(r0.bottom, r1.bottom)
             };
         }
-        function _npCtxPointForSelection(fallbackX, fallbackY) {
+        function _npCtxPointForSelection() { // [EN] Signal-style — above selection, fallback below/side; nie zasłania uchwytów
             var rect = _npSelectionClientRect(npBody);
-            if (!rect) return { x: fallbackX, y: fallbackY - 48 };
-            var menuW = 160, menuH = 44;
-            if (_npIsCoarsePointer()) {
-                // [EN] iOS/Android callout is OS-owned (usually above selection) — park B/I/U aside
-                var x = rect.right + 12;
-                var y = rect.top + Math.max(0, (rect.bottom - rect.top - menuH) / 2);
-                if (x + menuW > window.innerWidth - 8) x = Math.max(8, rect.left - menuW - 12);
-                if (y + menuH > window.innerHeight - 8) y = Math.max(8, rect.bottom + 12);
-                return { x: x, y: y };
+            if (!rect) return { x: 8, y: 8 };
+            var menuW = (npCtxMenu && !npCtxMenu.hidden) ? npCtxMenu.offsetWidth : 220;
+            var menuH = (npCtxMenu && !npCtxMenu.hidden) ? npCtxMenu.offsetHeight : 44;
+            var vw = window.innerWidth, vh = window.innerHeight, pad = 8, gap = 10;
+            var cx = (rect.left + rect.right) / 2;
+            var x = Math.min(Math.max(pad, cx - menuW / 2), vw - menuW - pad);
+            var yAbove = rect.top - menuH - gap;
+            var yBelow = rect.bottom + gap;
+            if (yAbove >= pad) return { x: x, y: yAbove };
+            if (yBelow + menuH <= vh - pad) return { x: x, y: yBelow };
+            if (_npIsCoarsePointer()) { // [EN] obok zaznaczenia — nie koliduje z natywnym callout Kopiuj/Wytnij
+                var ySide = Math.min(Math.max(pad, rect.top), vh - menuH - pad);
+                var xRight = rect.right + gap;
+                if (xRight + menuW <= vw - pad) return { x: xRight, y: ySide };
+                var xLeft = rect.left - menuW - gap;
+                if (xLeft >= pad) return { x: xLeft, y: ySide };
             }
-            return { x: rect.left, y: rect.top - 48 };
+            return { x: x, y: Math.min(Math.max(pad, yBelow), vh - menuH - pad) };
         }
         function _npCtxPointForPanel(fallbackX, fallbackY) {
             if (_npIsCoarsePointer()) return { x: fallbackX, y: fallbackY + 12 };
@@ -8595,42 +8610,11 @@
                 lastKey = key;
             });
         }
-        function _npEnsureCtxMenu() { // T6-CTX — long-press + double-tap (mobile) / long-press + PPM (desktop)
-            if (npCtxMenu) return;
-            npCtxMenu = document.createElement('div');
-            npCtxMenu.className = 'np-ctx-menu';
-            npCtxMenu.hidden = true;
-            npCtxMenu.setAttribute('role', 'menu');
-            document.body.appendChild(npCtxMenu);
-            document.addEventListener('pointerdown', function(e) {
-                if (!npCtxMenu || npCtxMenu.hidden) return;
-                if (!npCtxMenu.contains(e.target)) _npHideCtxMenu();
-            });
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') _npHideCtxMenu();
-            });
+        function _npSelMenuSignature(acts) {
+            return (acts || []).map(function(a) { return a[0]; }).join('|');
         }
-        function _npShowCtxMenu(x, y, acts) {
-            _npEnsureCtxMenu();
-            if (!npCtxMenu || !acts.length) return;
-            npCtxMenu.replaceChildren();
-            acts.forEach(function(sp) {
-                var btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'np-ctx-btn';
-                btn.setAttribute('role', 'menuitem');
-                btn.setAttribute('data-np-act', sp[0]);
-                btn.textContent = sp[1];
-                btn.title = sp[2] || sp[1];
-                btn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    _npRunEditorAction(sp[0]);
-                    _npHideCtxMenu();
-                });
-                npCtxMenu.appendChild(btn);
-            });
-            npCtxMenu.hidden = false;
+        function _npPositionCtxMenu(x, y) {
+            if (!npCtxMenu || npCtxMenu.hidden) return;
             npCtxMenu.style.left = '0';
             npCtxMenu.style.top = '0';
             var rect = npCtxMenu.getBoundingClientRect();
@@ -8639,6 +8623,74 @@
             var top = Math.min(Math.max(8, y), vh - rect.height - 8);
             npCtxMenu.style.left = left + 'px';
             npCtxMenu.style.top = top + 'px';
+        }
+        function _npEnsureCtxMenu() { // T6-CTX — panel: long-press/PPM; zaznaczenie: Signal-style toolbar
+            if (npCtxMenu) return;
+            npCtxMenu = document.createElement('div');
+            npCtxMenu.className = 'np-ctx-menu';
+            npCtxMenu.hidden = true;
+            npCtxMenu.setAttribute('role', 'menu');
+            document.body.appendChild(npCtxMenu);
+            document.addEventListener('pointerdown', function(e) {
+                if (!npCtxMenu || npCtxMenu.hidden) return;
+                if (npCtxMenu.contains(e.target)) return;
+                if (_npCtxMenuMode === 'selection' && _npHasTextSelection() && document.activeElement === npBody) return; // [EN] trzymaj przy aktywnym zaznaczeniu
+                _npHideCtxMenu();
+            });
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && _npCtxMenuMode === 'panel') _npHideCtxMenu();
+            });
+        }
+        function _npShowCtxMenu(x, y, acts, opts) {
+            _npEnsureCtxMenu();
+            if (!npCtxMenu || !acts.length) return;
+            opts = opts || {};
+            var sig = _npSelMenuSignature(acts);
+            var rebuild = sig !== _npSelMenuSig || npCtxMenu.hidden;
+            if (rebuild) {
+                npCtxMenu.replaceChildren();
+                acts.forEach(function(sp) {
+                    var btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'np-ctx-btn';
+                    btn.setAttribute('role', 'menuitem');
+                    btn.setAttribute('data-np-act', sp[0]);
+                    btn.textContent = sp[1];
+                    btn.title = sp[2] || sp[1];
+                    btn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        _npRunEditorAction(sp[0]);
+                        if (_npCtxMenuMode === 'selection') _npScheduleSelectionFmtMenu();
+                        else _npHideCtxMenu();
+                    });
+                    npCtxMenu.appendChild(btn);
+                });
+                _npSelMenuSig = sig;
+            }
+            _npCtxMenuMode = opts.mode || 'panel';
+            npCtxMenu.classList.toggle('is-selection', _npCtxMenuMode === 'selection');
+            npCtxMenu.hidden = false;
+            _npPositionCtxMenu(x, y);
+        }
+        function _npScheduleSelectionFmtMenu() {
+            if (_npSelMenuRaf) cancelAnimationFrame(_npSelMenuRaf);
+            _npSelMenuRaf = requestAnimationFrame(function() {
+                _npSelMenuRaf = null;
+                _npSyncSelectionFmtMenu();
+            });
+        }
+        function _npSyncSelectionFmtMenu() { // [EN] Signal-style — pokaż/ukryj/przesuń przy zaznaczeniu
+            if (!npBody || document.activeElement !== npBody) {
+                if (_npCtxMenuMode === 'selection') _npHideCtxMenu();
+                return;
+            }
+            if (!_npHasTextSelection()) {
+                if (_npCtxMenuMode === 'selection') _npHideCtxMenu();
+                return;
+            }
+            var pt = _npCtxPointForSelection();
+            _npShowCtxMenu(pt.x, pt.y, _npCtxActsForSelection(), { mode: 'selection' });
         }
         function _npCtxActsForPanel() {
             if (_NP_FMT && typeof _NP_FMT.panelMenuItems === 'function') return _NP_FMT.panelMenuItems();
@@ -8666,29 +8718,13 @@
             var start = npBody.selectionStart, end = npBody.selectionEnd;
             return start != null && end != null && start !== end;
         }
-        function _npBindTextCtx(el) { // T6-CTX — mobile: long-press + double-tap; desktop: long-press / PPM
-            if (!el || el._npTextCtxBound) return;
-            el._npTextCtxBound = true;
-            function showFmtMenu(fx, fy) {
-                if (!_npHasTextSelection()) return;
-                var pt = _npCtxPointForSelection(fx, fy);
-                _npShowCtxMenu(pt.x, pt.y, _npCtxActsForSelection());
-            }
-            _npBindDoubleTap(el, function(e) { showFmtMenu(e.clientX, e.clientY); }, {
-                selectionKey: true,
-                allow: function() { return _npHasTextSelection(); }
+        function _npBindSelectionFmtMenu(el) { // [EN] Signal-style — toolbar przy zaznaczeniu, bez blokady natywnego menu
+            if (!el || el._npSelFmtBound) return;
+            el._npSelFmtBound = true;
+            el.addEventListener('blur', function() {
+                if (_npCtxMenuMode === 'selection') _npHideCtxMenu();
             });
-            _npBindLongPress(el, showFmtMenu, {
-                holdMs: 560,
-                validate: _npHasTextSelection
-            });
-            el.addEventListener('contextmenu', function(e) {
-                if (_npIsCoarsePointer()) return; // [EN] pozycja natywnego menu = OS; nie blokuj na mobile
-                if (!_npHasTextSelection()) return;
-                e.preventDefault();
-                var pt = _npCtxPointForSelection(e.clientX, e.clientY);
-                _npShowCtxMenu(pt.x, pt.y, _npCtxActsForSelection());
-            });
+            el.addEventListener('scroll', _npScheduleSelectionFmtMenu);
         }
         function _npBindPanelCtx(el) { // T6-CTX — long-press + double-tap (mobile) / long-press + PPM (desktop)
             if (!el || el._npPanelCtxBound) return;
@@ -8703,7 +8739,7 @@
             }
             function showPanelMenu(fx, fy) {
                 var pt = _npCtxPointForPanel(fx, fy);
-                _npShowCtxMenu(pt.x, pt.y, _npCtxActsForPanel());
+                _npShowCtxMenu(pt.x, pt.y, _npCtxActsForPanel(), { mode: 'panel' });
             }
             _npBindDoubleTap(el, function(e) {
                 if (!panelAllowed(e)) return;
@@ -8718,7 +8754,7 @@
                 if (isTextTarget(e.target) || e.target.closest('.np-res')) return;
                 e.preventDefault();
                 var pt = _npCtxPointForPanel(e.clientX, e.clientY);
-                _npShowCtxMenu(pt.x, pt.y, _npCtxActsForPanel());
+                _npShowCtxMenu(pt.x, pt.y, _npCtxActsForPanel(), { mode: 'panel' });
             });
         }
         var _npGutterPanelSwipeBound = false;
@@ -9458,6 +9494,7 @@
             notepadModal.style.height = vv.height + 'px';
             notepadModal.style.bottom = 'auto';     // bez tego top+bottom:0 zignorowałyby height
             _npSyncKbBar();
+            _npScheduleSelectionFmtMenu();
         }
         function _npClearViewport() {
             if (!notepadModal) return;

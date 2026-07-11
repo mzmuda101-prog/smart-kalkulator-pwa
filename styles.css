@@ -3248,7 +3248,7 @@
             margin: 6px 4px;
             background: var(--border);
         }
-        /* T6-CTX — menu formatowania (mobile: long-press + double-tap obok natywnego; desktop: PPM) */
+        /* T6-CTX — menu formatowania (Signal-style przy zaznaczeniu; panel: long-press/PPM) */
         .np-ctx-menu {
             position: fixed;
             z-index: 10060;
@@ -3261,6 +3261,17 @@
             border: 1px solid var(--border);
             border-radius: var(--radius);
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        }
+        .np-ctx-menu.is-selection {
+            flex-wrap: nowrap;
+            max-width: min(360px, calc(100vw - 16px));
+            padding: 4px 6px;
+            touch-action: manipulation; /* [EN] szybszy tap bez opóźnienia 300ms */
+        }
+        .np-ctx-menu.is-selection .np-ctx-btn {
+            min-width: 2.5rem;
+            min-height: 2.75rem;
+            padding: 8px 10px;
         }
         .np-ctx-menu[hidden] { display: none !important; }
         /* T1-3 — menu formatów kopiowania wyniku kalkulatora (long-press) */
