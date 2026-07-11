@@ -8,6 +8,7 @@
    Samowystarczalny — zależy WYŁĄCZNIE od window.MATM0_DATA (tabela jednostek).
    Wystawia window.MATM0_PARSER. app.js konsumuje go jako cienkie wiązanie.
    Kolejne podsilniki (daty/waluty/jednostki) dochodzą tu ewolucyjnie.
+   Preprocess (faza 1): expandNumeric/CurrencyShorthands, parseNaturalShortcuts, resolveTrigDegrees.
    ============================================================ */
 (function() {
     'use strict';
@@ -848,6 +849,167 @@
         return null;
     }
 
+    // ── Preprocess (faza 1 ekstrakcji) — skróty PL/EN, VAT, %, trig ──
+    // [EN] plain decimal string — no exponential notation (shorthands + units)
+    function _plainDecimalStr(x) {
+        if (!isFinite(x)) return '0';
+        var s = String(x);
+        if (s.indexOf('e') === -1 && s.indexOf('E') === -1) return s;
+        var neg = x < 0, es = Math.abs(x).toExponential();
+        var m = es.match(/^(\d)(?:\.(\d+))?e([+-]\d+)$/);
+        if (!m) return s;
+        var digits = m[1] + (m[2] || ''), exp = parseInt(m[3], 10), pointPos = 1 + exp, out;
+        if (pointPos <= 0) out = '0.' + '0'.repeat(-pointPos) + digits;
+        else if (pointPos >= digits.length) out = digits + '0'.repeat(pointPos - digits.length);
+        else out = digits.slice(0, pointPos) + '.' + digits.slice(pointPos);
+        return (neg ? '-' : '') + out;
+    }
+    // [EN] tys/mln/k → liczby PRZED resolveCalcCurrency („2,5k zł" musi stać się „2500 zł")
+    function expandNumericShorthands(raw) {
+        raw = raw.replace(/([\d.,]+)\s*(?:tys\.?|tysi[aą]c[a-z]*)\b/gi,
+            function(_, n) { return _plainDecimalStr(parseFloat(n.replace(',', '.')) * 1000); });
+        raw = raw.replace(/([\d.,]+)\s*(?:mln\.?|milion[a-z]*)\b/gi,
+            function(_, n) { return _plainDecimalStr(parseFloat(n.replace(',', '.')) * 1000000); });
+        raw = raw.replace(/([\d.,]+)[kK](?![a-zA-Ząćęłńóśźż0-9])/g,
+            function(_, n) { return _plainDecimalStr(parseFloat(n.replace(',', '.')) * 1000); });
+        return raw;
+    }
+    // [EN] Waluta przed k: „usd 1k" → „usd 1000" (opts.fxRates — token map jak w resolveCurrency)
+    function expandCurrencyShorthands(raw, options) {
+        var opts = options || {};
+        var tokenRe = _currencyTokenRe(_currencyTokenMap(opts.fxRates || {}));
+        if (!tokenRe) return raw;
+        return raw.replace(new RegExp('\\b(' + tokenRe + ')\\s*([\\d.,]+)[kK](?![a-zA-Ząćęłńóśźż0-9])', 'gi'),
+            function(_, tok, n) { return tok + ' ' + _plainDecimalStr(parseFloat(n.replace(',', '.')) * 1000); });
+    }
+    function resolveTrigDegrees(raw) {
+        raw = String(raw);
+        raw = raw.replace(
+            /\b(asind|acosd|atand)\s*\(\s*([^()]+?)\s*\)/gi,
+            function(_, fn, inner) {
+                var core = fn.replace(/d$/i, '');
+                return '(' + core + '(' + inner.trim().replace(/,/g, '.') + ')*180/pi)';
+            });
+        raw = raw.replace(
+            /\b(sind|cosd|tand)\s*\(\s*([^()]+?)\s*\)/gi,
+            function(_, fn, inner) {
+                var core = fn.replace(/d$/i, '');
+                return core + '(' + inner.trim().replace(/,/g, '.') + '*pi/180)';
+            });
+        raw = raw.replace(
+            /\b(sin|cos|tan|asin|acos|atan)\s*\(\s*([^()]+?)\s*\)/gi,
+            function(match, fn, inner) {
+                var dm = inner.trim().match(/^([\d.,]+)\s*(?:deg|°|stopni(?:e|a|ach)?)\s*$/i);
+                if (!dm) return match;
+                var deg = parseFloat(dm[1].replace(',', '.'));
+                if (!isFinite(deg)) return match;
+                var rad = deg + '*pi/180';
+                if (/^a/.test(fn)) return '(' + fn + '(' + rad + ')*180/pi)';
+                return fn + '(' + rad + ')';
+            });
+        return raw;
+    }
+    function parseNaturalShortcuts(raw) {
+        raw = _plFold(raw);
+        raw = raw.replace(/−/g, '-');
+        raw = raw.replace(/([\d.,]+)\s+procent[a-z]*/gi, function(_, n) { return n + '%'; });
+        raw = raw.replace(/\bpo[łl]owa\s+([\d.,]+)/gi,        '($1/2)');
+        raw = raw.replace(/\bpó[łl]\s+([\d.,]+)/gi,           '($1/2)');
+        raw = raw.replace(/\bpol\s+([\d.,]+)/gi,               '($1/2)');
+        raw = raw.replace(/\bjedna\s+trzecia\s+([\d.,]+)/gi,   '($1/3)');
+        raw = raw.replace(/\btrzecia\s+([\d.,]+)/gi,           '($1/3)');
+        raw = raw.replace(/\bjedna\s+czwarta\s+([\d.,]+)/gi,   '($1/4)');
+        raw = raw.replace(/\bczwarta\s+([\d.,]+)/gi,           '($1/4)');
+        raw = raw.replace(/\bhalf\s+of\s+([\d.,]+)/gi,        '($1/2)');
+        raw = raw.replace(/\bone\s+third\s+of\s+([\d.,]+)/gi, '($1/3)');
+        raw = raw.replace(/\ba\s+third\s+of\s+([\d.,]+)/gi,   '($1/3)');
+        raw = raw.replace(/\bone\s+fourth\s+of\s+([\d.,]+)/gi,'($1/4)');
+        raw = raw.replace(/\ba\s+fourth\s+of\s+([\d.,]+)/gi,  '($1/4)');
+        raw = raw.replace(/\b([\d.,]+)\s+(?:po[łl]owa|pó[łl]|pol)\b/gi, '($1/2)');
+        raw = raw.replace(/\b([\d.,]+)\s+half\b/gi, '($1/2)');
+        raw = raw.replace(/\b([\d.,]+)\s+(?:trzecia|third)\b/gi, '($1/3)');
+        raw = raw.replace(/\b([\d.,]+)\s+(?:czwarta|fourth)\b/gi, '($1/4)');
+        raw = raw.replace(/(?:square\s+root\s+of|pierwiastek\s+(?:kwadratowy\s+)?z)\s+([\d.,]+)/gi,
+            function(_, n) { return 'sqrt(' + n.replace(',', '.') + ')'; });
+        raw = raw.replace(/(?:cube\s+root\s+of|pierwiastek\s+sze[sś]cienny\s+z)\s+([\d.,]+)/gi,
+            function(_, n) { return '(' + n.replace(',', '.') + '^(1/3))'; });
+        raw = raw.replace(/([\d.,]+)\s+(?:power|do\s+pot[eę]gi|podniesiony\s+do\s+pot[eę]gi)\s+([\d.,]+)/gi,
+            function(_, b, e) { return '(' + b.replace(',', '.') + '^' + e.replace(',', '.') + ')'; });
+        raw = raw.replace(/pot[eę]gi\s+([\d.,]+)\s+z\s+([\d.,]+)/gi,
+            function(_, e, b) { return '(' + b.replace(',', '.') + '^' + e.replace(',', '.') + ')'; });
+        raw = raw.replace(/([\d.,]+)\s+raised\s+to\s+(?:the\s+)?power\s+([\d.,]+)/gi,
+            function(_, b, e) { return '(' + b.replace(',', '.') + '^' + e.replace(',', '.') + ')'; });
+        raw = raw.replace(/(?:ratio\s+of|proporcja|stosunek)\s+([\d.,]+)\s+(?:to|do)\s+([\d.,]+)/gi,
+            function(_, a, b) { return '(' + a.replace(',', '.') + '/' + b.replace(',', '.') + ')'; });
+        raw = raw.replace(/([\d.,]+)\s+(?:to|do)\s+([\d.,]+)\s+(?:proporcja|stosunek|ratio)/gi,
+            function(_, a, b) { return '(' + a.replace(',', '.') + '/' + b.replace(',', '.') + ')'; });
+        raw = raw.replace(/([\d.,]+)%\s+(?:tip|napiwek)\s+(?:on|na)\s+([\d.,]+)/gi,
+            function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
+        raw = raw.replace(/\b(?:tip|napiwek)\s+([\d.,]+)%\s+(?:on|na)\s+([\d.,]+)/gi,
+            function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
+        raw = raw.replace(/([\d.,]+)%\s+(?:off|rabat[u]?|zni[zż]k[aię]?)\s+(?:na|od|z|on)?\s*([\d.,]+)/gi,
+            function(_, p, b) { return '(' + b.replace(',', '.') + '*(1-' + p.replace(',', '.') + '/100))'; });
+        raw = raw.replace(/\b(?:off|rabat[u]?|zni[zż]k[aię]?)\s+([\d.,]+)%\s+(?:na|od|z|on)?\s*([\d.,]+)/gi,
+            function(_, p, b) { return '(' + b.replace(',', '.') + '*(1-' + p.replace(',', '.') + '/100))'; });
+        raw = raw.replace(/([\d.,]+)%\s+(?:narzut[u]?|mar[zż][ae]?|markup)\s+(?:na|od|do|on)?\s*([\d.,]+)/gi,
+            function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
+        raw = raw.replace(/\b(?:narzut[u]?|mar[zż][ae]?|markup)\s+([\d.,]+)%\s+(?:na|od|do|on)?\s*([\d.,]+)/gi,
+            function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
+        function _vatRate(r) { var v = r != null ? parseFloat(String(r).replace(',', '.')) : 23; return isFinite(v) && v >= 0 ? v : 23; }
+        function _vatBrutto(x, r) { return '(' + x.replace(',', '.') + '*(1+' + _vatRate(r) + '/100))'; }
+        function _vatNetto(x, r) { return '(' + x.replace(',', '.') + '/(1+' + _vatRate(r) + '/100))'; }
+        raw = raw.replace(/\b(?:brutto|gross)\s+([\d.,]+)(?:\s+([\d.,]+)\s*%)?/gi,
+            function(_, x, r) { return _vatBrutto(x, r); });
+        raw = raw.replace(/([\d.,]+)\s+(?:brutto|gross)\b(?:\s+([\d.,]+)\s*%)?/gi,
+            function(_, x, r) { return _vatBrutto(x, r); });
+        raw = raw.replace(/\b(?:netto|net)\s+([\d.,]+)(?:\s+([\d.,]+)\s*%)?/gi,
+            function(_, x, r) { return _vatNetto(x, r); });
+        raw = raw.replace(/([\d.,]+)\s+(?:netto|net)\b(?:\s+([\d.,]+)\s*%)?/gi,
+            function(_, x, r) { return _vatNetto(x, r); });
+        raw = raw.replace(/([\d.,]+)\s*([+\-])\s*(?:vat|tax)(?:\s+([\d.,]+)\s*%)?/gi,
+            function(_, a, op, r) {
+                a = a.replace(',', '.');
+                var f = '(1+' + _vatRate(r) + '/100)';
+                return '(' + a + (op === '-' ? '/' : '*') + f + ')';
+            });
+        raw = raw.replace(/\b(?:vat|tax)(?:\s+([\d.,]+)\s*%)?\s+(?:od|from|of|on)\s+([\d.,]+)/gi,
+            function(_, r, x) { return '(' + x.replace(',', '.') + '*' + _vatRate(r) + '/100)'; });
+        raw = raw.replace(/([\d.,]+)\s+(?:vat|tax)(?:\s+([\d.,]+)\s*%)?\s+(?:od|from|of|on)\b/gi,
+            function(_, x, r) { return '(' + x.replace(',', '.') + '*' + _vatRate(r) + '/100)'; });
+        raw = raw.replace(/dodaj\s+([\d.,]+)%\s+do\s+([\d.,]+)/gi,
+            function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
+        raw = raw.replace(/add\s+([\d.,]+)%\s+to\s+([\d.,]+)/gi,
+            function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
+        raw = raw.replace(/odejmij\s+([\d.,]+)%\s+od\s+([\d.,]+)/gi,
+            function(_, p, b) { return '(' + b.replace(',', '.') + '*(1-' + p.replace(',', '.') + '/100))'; });
+        raw = raw.replace(/subtract\s+([\d.,]+)%\s+from\s+([\d.,]+)/gi,
+            function(_, p, b) { return '(' + b.replace(',', '.') + '*(1-' + p.replace(',', '.') + '/100))'; });
+        raw = raw.replace(/([\d.,]+)\s*\+\s*dodaj\s+([\d.,]+)%/gi,
+            function(_, b, p) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
+        raw = raw.replace(/([\d.,]+)\s*\+\s*add\s+([\d.,]+)%/gi,
+            function(_, b, p) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
+        raw = raw.replace(/([\d.,]+)%\s+(?:z|of)\s+([\d.,]+)%/gi,
+            function(_, p, q) { return '(' + p.replace(',', '.') + '*' + q.replace(',', '.') + '/100)'; });
+        raw = raw.replace(/([\d.,]+)%\s+(?:z|of)\s+([\d.,]+)/gi, '($2*$1/100)');
+        raw = raw.replace(/([\d.,]+)\s+(?:z|of)\s+([\d.,]+)%/gi, '($1*$2/100)');
+        raw = raw.replace(/([\d.,]+)%\s+od\s+([\d.,]+)/gi, '($2*(1-$1/100))');
+        var _pctRe = /^([^%]*[^%\s])\s*([+\-])\s*([\d.,]+)%(?=\s*(?:[+\-]|$))/;
+        for (var _pctGuard = 0; _pctRe.test(raw) && _pctGuard < 40; _pctGuard++) {
+            raw = raw.replace(_pctRe, function(_, base, op, b) {
+                return '(' + base + ')' + op + '((' + base + ')*' + b.replace(',', '.') + '/100)';
+            });
+        }
+        raw = raw.replace(/([\d.,]+)%/g, '($1/100)');
+        return raw;
+    }
+    // [EN] przed walutą: k/tys + „usd 1k"; po walucie: NL + trig (app.js woła w dwóch miejscach pipeline)
+    function preprocessShorthands(raw, options) {
+        return expandCurrencyShorthands(expandNumericShorthands(raw), options);
+    }
+    function preprocessNatural(raw) {
+        return resolveTrigDegrees(parseNaturalShortcuts(raw));
+    }
+
     var API = {
         buildUnitRegistry: buildUnitRegistry,
         resolveCurrencyExpression: resolveCurrencyExpression,
@@ -865,6 +1027,13 @@
         formatDurationSeconds: formatDurationSeconds,
         evalTimezoneExpression: evalTimezoneExpression,
         isDateUnit: _isDateUnit,           // app.js używa go też w rozpoznawaniu tokenów notatnika
+        plainDecimalStr: _plainDecimalStr,
+        expandNumericShorthands: expandNumericShorthands,
+        expandCurrencyShorthands: expandCurrencyShorthands,
+        parseNaturalShortcuts: parseNaturalShortcuts,
+        resolveTrigDegrees: resolveTrigDegrees,
+        preprocessShorthands: preprocessShorthands,
+        preprocessNatural: preprocessNatural,
         setTodayForTests: function(d) { _todayOverride = d ? new Date(d.getTime()) : null; },
         clearTodayForTests: function() { _todayOverride = null; },
         setNowForTests: function(d) { _nowOverride = d ? new Date(d.getTime()) : null; },

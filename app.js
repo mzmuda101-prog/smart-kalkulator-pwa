@@ -871,220 +871,22 @@
             return typeof inflect === 'function' ? inflect(value, unit) : unit;
         }
 
-        // [EN] Plain decimal string — no exponential notation (shared by shorthands + units).
-        function _plainDecimalStr(x) {
-            if (!isFinite(x)) return '0';
-            var s = String(x);
-            if (s.indexOf('e') === -1 && s.indexOf('E') === -1) return s;
-            var neg = x < 0, es = Math.abs(x).toExponential();
-            var m = es.match(/^(\d)(?:\.(\d+))?e([+-]\d+)$/);
-            if (!m) return s;
-            var digits = m[1] + (m[2] || ''), exp = parseInt(m[3], 10), pointPos = 1 + exp, out;
-            if (pointPos <= 0) out = '0.' + '0'.repeat(-pointPos) + digits;
-            else if (pointPos >= digits.length) out = digits + '0'.repeat(pointPos - digits.length);
-            else out = digits.slice(0, pointPos) + '.' + digits.slice(pointPos);
-            return (neg ? '-' : '') + out;
-        }
-
-        // [EN] tys/mln/k → liczby PRZED resolveCalcCurrency („2,5k zł" musi stać się „2500 zł").
-        // k tylko sklejone z liczbą (10k), nie „10 K" (kelwin).
+        // [EN] Preprocess — faza 1 ekstrakcji (logika w js/smart-parser.js)
         function expandNumericShorthands(raw) {
-            raw = raw.replace(/([\d.,]+)\s*(?:tys\.?|tysi[aą]c[a-z]*)\b/gi,
-                function(_, n) { return _plainDecimalStr(parseFloat(n.replace(',', '.')) * 1000); });
-            raw = raw.replace(/([\d.,]+)\s*(?:mln\.?|milion[a-z]*)\b/gi,
-                function(_, n) { return _plainDecimalStr(parseFloat(n.replace(',', '.')) * 1000000); });
-            raw = raw.replace(/([\d.,]+)[kK](?![a-zA-Ząćęłńóśźż0-9])/g,
-                function(_, n) { return _plainDecimalStr(parseFloat(n.replace(',', '.')) * 1000); });
-            return raw;
+            return _PARSER.expandNumericShorthands(raw);
         }
-
-        // [EN] Waluta przed k: „usd 1k" → „usd 1000" (expandNumericShorthands łapie tylko „1k usd").
         function expandCurrencyShorthands(raw) {
-            var tokenRe = _currencyTokenRe();
-            if (!tokenRe) return raw;
-            return raw.replace(new RegExp('\\b(' + tokenRe + ')\\s*([\\d.,]+)[kK](?![a-zA-Ząćęłńóśźż0-9])', 'gi'),
-                function(_, tok, n) { return tok + ' ' + _plainDecimalStr(parseFloat(n.replace(',', '.')) * 1000); });
+            return _PARSER.expandCurrencyShorthands(raw, { fxRates: (STATE.fx && STATE.fx.rates) || {} });
         }
-
-        // [EN] sin(30 deg), sind(30), asind(0.5) — stopnie przed compileGraphExpression.
         function resolveTrigDegrees(raw) {
-            raw = String(raw);
-            // Odwrotne/hiperboliczne w stopniach: asind(x) → asin(x)*180/π
-            raw = raw.replace(
-                /\b(asind|acosd|atand)\s*\(\s*([^()]+?)\s*\)/gi,
-                function(_, fn, inner) {
-                    var core = fn.replace(/d$/i, '');
-                    return '(' + core + '(' + inner.trim().replace(/,/g, '.') + ')*180/pi)';
-                });
-            // Bezpośrednie w stopniach: sind(x) → sin(x*π/180)
-            raw = raw.replace(
-                /\b(sind|cosd|tand)\s*\(\s*([^()]+?)\s*\)/gi,
-                function(_, fn, inner) {
-                    var core = fn.replace(/d$/i, '');
-                    return core + '(' + inner.trim().replace(/,/g, '.') + '*pi/180)';
-                });
-            // sin(30 deg) / cos(45°) — jawna etykieta stopni w nawiasie
-            raw = raw.replace(
-                /\b(sin|cos|tan|asin|acos|atan)\s*\(\s*([^()]+?)\s*\)/gi,
-                function(match, fn, inner) {
-                    var dm = inner.trim().match(/^([\d.,]+)\s*(?:deg|°|stopni(?:e|a|ach)?)\s*$/i);
-                    if (!dm) return match;
-                    var deg = parseFloat(dm[1].replace(',', '.'));
-                    if (!isFinite(deg)) return match;
-                    var rad = deg + '*pi/180';
-                    if (/^a/.test(fn)) return '(' + fn + '(' + rad + ')*180/pi)'; // arc → wynik w stopniach
-                    return fn + '(' + rad + ')';
-                });
-            return raw;
+            return _PARSER.resolveTrigDegrees(raw);
         }
-
         function _plFold(s) { // [EN] PL diacritics → ASCII before NL regex (MATM0_PL_FOLD)
             var F = (typeof window !== 'undefined' && window.MATM0_PL_FOLD) || null;
             return F && F.foldLower ? F.foldLower(s) : String(s || '').toLowerCase();
         }
-
         function parseNaturalShortcuts(raw) {
-            raw = _plFold(raw);
-            // --- Normalizacja klawiaturowego minusa: „−" (U+2212) → „-" ---
-            // Reguły niżej (procenty „100-10%", VAT „1560 - vat") łapią tylko ASCII „-";
-            // bez tej zamiany minus z keypada omijał je i dawał zły wynik (100−10% = 99,9).
-            raw = raw.replace(/−/g, '-');
-            // --- Normalizacja: "10 procent" → "10%" (przed resztą) ---
-            raw = raw.replace(/([\d.,]+)\s+procent[a-z]*/gi, function(_, n) { return n + '%'; });
-
-            // --- Ułamki PL + EN ---
-            raw = raw.replace(/\bpo[łl]owa\s+([\d.,]+)/gi,        '($1/2)');  // połowa / polowa
-            raw = raw.replace(/\bpó[łl]\s+([\d.,]+)/gi,           '($1/2)');  // pół / pol
-            raw = raw.replace(/\bpol\s+([\d.,]+)/gi,               '($1/2)');  // pol
-            raw = raw.replace(/\bjedna\s+trzecia\s+([\d.,]+)/gi,   '($1/3)');
-            raw = raw.replace(/\btrzecia\s+([\d.,]+)/gi,           '($1/3)');
-            raw = raw.replace(/\bjedna\s+czwarta\s+([\d.,]+)/gi,   '($1/4)');
-            raw = raw.replace(/\bczwarta\s+([\d.,]+)/gi,           '($1/4)');
-
-            raw = raw.replace(/\bhalf\s+of\s+([\d.,]+)/gi,        '($1/2)');
-            raw = raw.replace(/\bone\s+third\s+of\s+([\d.,]+)/gi, '($1/3)');
-            raw = raw.replace(/\ba\s+third\s+of\s+([\d.,]+)/gi,   '($1/3)');
-            raw = raw.replace(/\bone\s+fourth\s+of\s+([\d.,]+)/gi,'($1/4)');
-            raw = raw.replace(/\ba\s+fourth\s+of\s+([\d.,]+)/gi,  '($1/4)');
-            // odwrócona kolejność: „300 połowa", „300 half"
-            raw = raw.replace(/\b([\d.,]+)\s+(?:po[łl]owa|pó[łl]|pol)\b/gi, '($1/2)');
-            raw = raw.replace(/\b([\d.,]+)\s+half\b/gi, '($1/2)');
-            raw = raw.replace(/\b([\d.,]+)\s+(?:trzecia|third)\b/gi, '($1/3)');
-            raw = raw.replace(/\b([\d.,]+)\s+(?:czwarta|fourth)\b/gi, '($1/4)');
-
-            // --- Matematyka naturalna PL + EN ---
-            raw = raw.replace(/(?:square\s+root\s+of|pierwiastek\s+(?:kwadratowy\s+)?z)\s+([\d.,]+)/gi,
-                function(_, n) { return 'sqrt(' + n.replace(',', '.') + ')'; });
-            raw = raw.replace(/(?:cube\s+root\s+of|pierwiastek\s+sze[sś]cienny\s+z)\s+([\d.,]+)/gi,
-                function(_, n) { return '(' + n.replace(',', '.') + '^(1/3))'; });
-            raw = raw.replace(/([\d.,]+)\s+(?:power|do\s+pot[eę]gi|podniesiony\s+do\s+pot[eę]gi)\s+([\d.,]+)/gi,
-                function(_, b, e) { return '(' + b.replace(',', '.') + '^' + e.replace(',', '.') + ')'; });
-            raw = raw.replace(/pot[eę]gi\s+([\d.,]+)\s+z\s+([\d.,]+)/gi,
-                function(_, e, b) { return '(' + b.replace(',', '.') + '^' + e.replace(',', '.') + ')'; });
-            raw = raw.replace(/([\d.,]+)\s+raised\s+to\s+(?:the\s+)?power\s+([\d.,]+)/gi,
-                function(_, b, e) { return '(' + b.replace(',', '.') + '^' + e.replace(',', '.') + ')'; });
-
-            // --- Proporcja / ratio ---
-            raw = raw.replace(/(?:ratio\s+of|proporcja|stosunek)\s+([\d.,]+)\s+(?:to|do)\s+([\d.,]+)/gi,
-                function(_, a, b) { return '(' + a.replace(',', '.') + '/' + b.replace(',', '.') + ')'; });
-            raw = raw.replace(/([\d.,]+)\s+(?:to|do)\s+([\d.,]+)\s+(?:proporcja|stosunek|ratio)/gi,
-                function(_, a, b) { return '(' + a.replace(',', '.') + '/' + b.replace(',', '.') + ')'; });
-
-            // --- Procenty (od najbardziej szczegółowych) ---
-            // napiwek / tip — „15% napiwek na 42" lub „napiwek 15% na 42"
-            raw = raw.replace(/([\d.,]+)%\s+(?:tip|napiwek)\s+(?:on|na)\s+([\d.,]+)/gi,
-                function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
-            raw = raw.replace(/\b(?:tip|napiwek)\s+([\d.,]+)%\s+(?:on|na)\s+([\d.,]+)/gi,
-                function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
-            // rabat / zniżka / off
-            raw = raw.replace(/([\d.,]+)%\s+(?:off|rabat[u]?|zni[zż]k[aię]?)\s+(?:na|od|z|on)?\s*([\d.,]+)/gi,
-                function(_, p, b) { return '(' + b.replace(',', '.') + '*(1-' + p.replace(',', '.') + '/100))'; });
-            raw = raw.replace(/\b(?:off|rabat[u]?|zni[zż]k[aię]?)\s+([\d.,]+)%\s+(?:na|od|z|on)?\s*([\d.,]+)/gi,
-                function(_, p, b) { return '(' + b.replace(',', '.') + '*(1-' + p.replace(',', '.') + '/100))'; });
-            // narzut / marża / markup
-            raw = raw.replace(/([\d.,]+)%\s+(?:narzut[u]?|mar[zż][ae]?|markup)\s+(?:na|od|do|on)?\s*([\d.,]+)/gi,
-                function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
-            raw = raw.replace(/\b(?:narzut[u]?|mar[zż][ae]?|markup)\s+([\d.,]+)%\s+(?:na|od|do|on)?\s*([\d.,]+)/gi,
-                function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
-            // --- Finanse PL: brutto / netto / VAT (domyślna stawka 23%, własna ze znakiem „%" na końcu).
-            // „vat" znaczy POPRAWNĄ matematycznie operację, NIE alias 23% (patrz: minus VAT z brutta to
-            // ÷1,23, nie ×0,77). Formy:
-            //   • „brutto K" = K×(1+stawka),   „netto K" = K÷(1+stawka)   [stawka domyślnie 23%]
-            //   • „K - vat"  = usuń VAT (÷),   „K + vat" = dodaj VAT (×)   → „1560 - vat" = 1268,29
-            //   • „vat od K" = sama kwota podatku = K×stawka              → „vat od 1000" = 230
-            // Stawkę własną podajesz „%" na końcu: „brutto 1000 8%", „1560 - vat 8%", „vat 8% od 1000".
-            // Gołe „vat" (alias 23%) USUNIĘTE — eliminuje dwuznaczne „1500 vat". (Użytkownik może i tak
-            // zdefiniować własną stałą o nazwie „vat" — rozwija się wcześniej i ją nadpisze.)
-            function _vatRate(r) { var v = r != null ? parseFloat(String(r).replace(',', '.')) : 23; return isFinite(v) && v >= 0 ? v : 23; }
-            function _vatBrutto(x, r) { return '(' + x.replace(',', '.') + '*(1+' + _vatRate(r) + '/100))'; }
-            function _vatNetto(x, r) { return '(' + x.replace(',', '.') + '/(1+' + _vatRate(r) + '/100))'; }
-            // brutto / gross = netto + VAT (×). „brutto 1000", „gross 1000 8%", „1000 brutto"
-            raw = raw.replace(/\b(?:brutto|gross)\s+([\d.,]+)(?:\s+([\d.,]+)\s*%)?/gi,
-                function(_, x, r) { return _vatBrutto(x, r); });
-            raw = raw.replace(/([\d.,]+)\s+(?:brutto|gross)\b(?:\s+([\d.,]+)\s*%)?/gi,
-                function(_, x, r) { return _vatBrutto(x, r); });
-            // netto / net = brutto − VAT (÷). „netto 1230", „net 1230 8%", „1230 net"
-            raw = raw.replace(/\b(?:netto|net)\s+([\d.,]+)(?:\s+([\d.,]+)\s*%)?/gi,
-                function(_, x, r) { return _vatNetto(x, r); });
-            raw = raw.replace(/([\d.,]+)\s+(?:netto|net)\b(?:\s+([\d.,]+)\s*%)?/gi,
-                function(_, x, r) { return _vatNetto(x, r); });
-            // „K ± vat/tax [r%]" — operator VAT
-            raw = raw.replace(/([\d.,]+)\s*([+\-])\s*(?:vat|tax)(?:\s+([\d.,]+)\s*%)?/gi,
-                function(_, a, op, r) {
-                    a = a.replace(',', '.');
-                    var f = '(1+' + _vatRate(r) + '/100)';
-                    return '(' + a + (op === '-' ? '/' : '*') + f + ')';
-                });
-            // Kwota podatku: „vat od 1000" / „tax on 1000" / „vat from 1000" / „1000 vat"
-            raw = raw.replace(/\b(?:vat|tax)(?:\s+([\d.,]+)\s*%)?\s+(?:od|from|of|on)\s+([\d.,]+)/gi,
-                function(_, r, x) { return '(' + x.replace(',', '.') + '*' + _vatRate(r) + '/100)'; });
-            raw = raw.replace(/([\d.,]+)\s+(?:vat|tax)(?:\s+([\d.,]+)\s*%)?\s+(?:od|from|of|on)\b/gi,
-                function(_, x, r) { return '(' + x.replace(',', '.') + '*' + _vatRate(r) + '/100)'; });
-
-            // "dodaj X% do Y" / "odejmij X% od Y"
-            raw = raw.replace(/dodaj\s+([\d.,]+)%\s+do\s+([\d.,]+)/gi,
-                function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
-            raw = raw.replace(/add\s+([\d.,]+)%\s+to\s+([\d.,]+)/gi,
-                function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
-            raw = raw.replace(/odejmij\s+([\d.,]+)%\s+od\s+([\d.,]+)/gi,
-                function(_, p, b) { return '(' + b.replace(',', '.') + '*(1-' + p.replace(',', '.') + '/100))'; });
-            raw = raw.replace(/subtract\s+([\d.,]+)%\s+from\s+([\d.,]+)/gi,
-                function(_, p, b) { return '(' + b.replace(',', '.') + '*(1-' + p.replace(',', '.') + '/100))'; });
-            // "Y + dodaj X%" — odwrócona kolejność słów
-            raw = raw.replace(/([\d.,]+)\s*\+\s*dodaj\s+([\d.,]+)%/gi,
-                function(_, b, p) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
-            raw = raw.replace(/([\d.,]+)\s*\+\s*add\s+([\d.,]+)%/gi,
-                function(_, b, p) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
-            // "P% z Q%" / "P% of Q%" — procent z procenta (P×Q/100 w punktach procentowych)
-            raw = raw.replace(/([\d.,]+)%\s+(?:z|of)\s+([\d.,]+)%/gi,
-                function(_, p, q) { return '(' + p.replace(',', '.') + '*' + q.replace(',', '.') + '/100)'; });
-            // "X% z Y" / "X% of Y" / "Y z X%" (odwrócona kolejność — to samo)
-            raw = raw.replace(/([\d.,]+)%\s+(?:z|of)\s+([\d.,]+)/gi, '($2*$1/100)');
-            raw = raw.replace(/([\d.,]+)\s+(?:z|of)\s+([\d.,]+)%/gi, '($1*$2/100)');
-            // "X% od Y" (rabat skrótowy)
-            raw = raw.replace(/([\d.,]+)%\s+od\s+([\d.,]+)/gi, '($2*(1-$1/100))');
-            // „<wyrażenie> ± N%" — procent liczony OD CAŁEJ lewej bazy (jak w kalkulatorze telefonu i jak
-            // „± vat"), o ile po procencie jest granica ADYTYWNA (`+`, `−` lub koniec). Dzięki temu:
-            //   • „3*160 + 12%" = 480 + 12%·480 = 537,6 (procent od działania),
-            //   • „537 + 12% + 5" = (537+12%) + 5 = 606,44 — procent NIE „gubi się", gdy coś idzie po nim,
-            //   • „100 + 10% + 5%" = łańcuch (każdy procent od bieżącej bazy) = 115,5.
-            // Iterujemy od LEWEJ (baza bez `%` → zawsze najwcześniejszy procent), aż zniknie. Bazę
-            // podstawiamy dwukrotnie — bezpiecznie, bo waluty są już liczbami (resolveCalcCurrency biegnie
-            // wcześniej), a własne jednostki bezwymiarowe liczą się tak samo w obu kopiach. Po `×`/`÷`
-            // procent ZOSTAJE ułamkiem (`537 + 12%*12` = 537 + 0,12·12) — tam mnożenie przez ułamek jest
-            // jednoznaczne; kto chce „(537+12%)·12" daje nawias. [[project_kalkulator_notepad_planning]]
-            // UWAGA: baza to `[^%]*[^%\s]` (NIE `\S` na końcu — `\S` łapie też „%" i zjadałoby pierwszy
-            // procent w łańcuchu „100+10%+10%", psując wynik). Baza nie może kończyć się na „%" ani spacji.
-            var _pctRe = /^([^%]*[^%\s])\s*([+\-])\s*([\d.,]+)%(?=\s*(?:[+\-]|$))/;
-            for (var _pctGuard = 0; _pctRe.test(raw) && _pctGuard < 40; _pctGuard++) {
-                raw = raw.replace(_pctRe, function(_, base, op, b) {
-                    return '(' + base + ')' + op + '((' + base + ')*' + b.replace(',', '.') + '/100)';
-                });
-            }
-            // Samodzielne / pozostałe "N%" (po ×/÷, na początku wyrażenia itp.) → ułamek N/100
-            raw = raw.replace(/([\d.,]+)%/g, '($1/100)');
-
-            return raw;
+            return _PARSER.parseNaturalShortcuts(raw);
         }
 
         // „ans" / „wynik" / „poprzedni" → ostatni zatwierdzony wynik (STATE.calc.ans).
