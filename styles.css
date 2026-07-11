@@ -2546,7 +2546,7 @@
             top: calc(100% + 4px);
             right: 48px;
             z-index: 30;
-            min-width: 160px;
+            min-width: 200px;
             padding: 4px;
             border-radius: 10px;
             background: var(--surface, #fff);
@@ -2571,6 +2571,7 @@
             background: color-mix(in srgb, var(--primary) 10%, transparent);
             outline: none;
         }
+        .np-export-sep { height: 1px; margin: 4px 8px; background: var(--border, #e2e8f0); }
         .np-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1 1 auto; }
         .np-list-empty {
             padding: 16px 10px;
@@ -3262,6 +3263,17 @@
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
         }
         .np-ctx-menu[hidden] { display: none !important; }
+        /* T1-3 — menu formatów kopiowania wyniku kalkulatora (long-press) */
+        .calc-copy-menu {
+            flex-direction: column;
+            align-items: stretch;
+            min-width: 11rem;
+        }
+        .calc-copy-menu-btn {
+            width: 100%;
+            text-align: left;
+            font-weight: 600;
+        }
         .np-ctx-btn {
             border: none;
             border-radius: var(--radius-sm);

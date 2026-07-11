@@ -1236,18 +1236,130 @@
             if (res.unit) str += '\u202f' + inflectDisplayUnit(res.value, res.unit);
             return str;
         }
-        function buildCopyFormats(res, expr) { // [EN] long-press copy on result row
+        function buildCopyFormats(res, expr) { // [EN] T1-3 — plain / withUnit / expression for copy menu
             if (!res || res.pendingFx) return null;
             if (res.text != null) {
                 var ex0 = String(expr || '').trim();
-                return { withUnit: res.text, expression: ex0 ? (ex0 + ' = ' + res.text) : res.text };
+                var t = String(res.text).replace(/\n/g, ' ').trim();
+                return { plain: t, withUnit: t, expression: ex0 ? (ex0 + ' = ' + t) : t };
+            }
+            if (res.big) {
+                var bt = res.text || res.bigStr || '';
+                var exB = String(expr || '').trim();
+                return {
+                    plain: res.bigStr || bt,
+                    withUnit: bt,
+                    expression: exB ? (exB + ' = ' + bt) : ('= ' + bt),
+                };
             }
             if (res.value === null || res.error === '∞') return null;
             var display = formatCalcResult(res);
+            var plain = formatLocaleNumber(res.value, 6);
             var ex = String(expr || '').trim();
-            return { withUnit: display, expression: ex ? (ex + ' = ' + display) : ('= ' + display) };
+            return {
+                plain: plain,
+                withUnit: display,
+                expression: ex ? (ex + ' = ' + display) : ('= ' + display),
+            };
         }
         var _lastCopyFormats = null;
+        var _calcCopyMenu = null;
+        function _calcCopyFormatsNow() { // [EN] live or cached formats for result row gestures
+            if (_lastCopyFormats) return _lastCopyFormats;
+            if (!calcExpr) return null;
+            return buildCopyFormats(evalCalcExpression(calcExpr.value), calcExpr.value);
+        }
+        function _hideCalcCopyMenu() {
+            if (_calcCopyMenu) _calcCopyMenu.hidden = true;
+        }
+        function _ensureCalcCopyMenu() {
+            if (_calcCopyMenu) return;
+            _calcCopyMenu = document.createElement('div');
+            _calcCopyMenu.className = 'calc-copy-menu np-ctx-menu';
+            _calcCopyMenu.hidden = true;
+            _calcCopyMenu.setAttribute('role', 'menu');
+            _calcCopyMenu.setAttribute('aria-label', 'Format kopiowania');
+            document.body.appendChild(_calcCopyMenu);
+            document.addEventListener('pointerdown', function(e) {
+                if (!_calcCopyMenu || _calcCopyMenu.hidden) return;
+                if (!_calcCopyMenu.contains(e.target)) _hideCalcCopyMenu();
+            });
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') _hideCalcCopyMenu();
+            });
+        }
+        function _showCalcCopyMenu(clientX, clientY, fm) {
+            _ensureCalcCopyMenu();
+            if (!_calcCopyMenu || !fm) return;
+            var items = [];
+            if (fm.plain && fm.withUnit && fm.plain !== fm.withUnit) {
+                items.push({ key: 'plain', label: 'Sama liczba', text: fm.plain });
+            }
+            if (fm.withUnit) items.push({ key: 'withUnit', label: 'Z jednostką', text: fm.withUnit });
+            if (fm.expression && fm.expression !== fm.withUnit && fm.expression !== fm.plain) {
+                items.push({ key: 'expression', label: 'Wyrażenie = wynik', text: fm.expression });
+            }
+            if (!items.length) return;
+            _calcCopyMenu.replaceChildren();
+            items.forEach(function(it) {
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'np-ctx-btn calc-copy-menu-btn';
+                btn.setAttribute('role', 'menuitem');
+                btn.textContent = it.label;
+                btn.title = it.text;
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    _hideCalcCopyMenu();
+                    copyText(it.text).then(function() { showToast('Skopiowano', 'success'); })
+                        .catch(function() { showToast('Nie udało się skopiować', 'error'); });
+                });
+                _calcCopyMenu.appendChild(btn);
+            });
+            _calcCopyMenu.hidden = false;
+            _calcCopyMenu.style.left = '0';
+            _calcCopyMenu.style.top = '0';
+            var rect = _calcCopyMenu.getBoundingClientRect();
+            var vw = window.innerWidth, vh = window.innerHeight;
+            var left = Math.min(Math.max(8, clientX), vw - rect.width - 8);
+            var top = Math.min(Math.max(8, clientY), vh - rect.height - 8);
+            _calcCopyMenu.style.left = left + 'px';
+            _calcCopyMenu.style.top = top + 'px';
+        }
+        function bindCalcResultCopy(el) { // [EN] tap = withUnit; long-press = menu formatów (T1-3)
+            if (!el) return;
+            var timer = null, longFired = false;
+            function clearTimer() { if (timer) clearTimeout(timer); timer = null; }
+            el.addEventListener('pointerdown', function(e) {
+                if (e.button !== 0) return;
+                longFired = false;
+                clearTimer();
+                timer = setTimeout(function() {
+                    var fm = _calcCopyFormatsNow();
+                    if (!fm) return;
+                    longFired = true;
+                    el.dataset.longPressed = 'true';
+                    hapticTap(35);
+                    _showCalcCopyMenu(e.clientX, e.clientY, fm);
+                }, 550);
+            });
+            ['pointerup', 'pointercancel', 'pointerleave'].forEach(function(ev) {
+                el.addEventListener(ev, clearTimer);
+            });
+            el.addEventListener('click', function(e) {
+                if (longFired || el.dataset.longPressed === 'true') {
+                    if (longFired) { e.preventDefault(); e.stopPropagation(); }
+                    setTimeout(function() { delete el.dataset.longPressed; longFired = false; }, 0);
+                    return;
+                }
+                var fm = _calcCopyFormatsNow();
+                if (!fm || !fm.withUnit) return;
+                e.preventDefault();
+                copyText(fm.withUnit).then(function() { showToast('Skopiowano', 'success'); })
+                    .catch(function() { showToast('Nie udało się skopiować', 'error'); });
+            });
+        }
         var _emptySuggestTimer = null;
         var _liveHintBubbleTimer = null;
         var _calcAssistBubbleKind = null; // [EN] 'live' | 'fuzzy' — mobile cursor-hint assist
@@ -2849,15 +2961,7 @@
             }, true);
         }
 
-        bindLongPressCopy(calcResult, function() {
-            if (_lastCopyFormats && _lastCopyFormats.withUnit) return _lastCopyFormats.withUnit;
-            if (STATE.calc.lastResult !== null) return String(STATE.calc.lastResult);
-            var res = evalCalcExpression(calcExpr.value);
-            var fm = buildCopyFormats(res, calcExpr.value);
-            if (fm) return fm.withUnit;
-            if (res.text != null) return res.text;
-            return res.value !== null ? String(res.value) : calcExpr.value;
-        });
+        bindCalcResultCopy(calcResult);
 
         bindLongPressCopy(calcApprox, function() {
             if (calcApprox.dataset.exact) return calcApprox.dataset.exact;
@@ -7767,29 +7871,47 @@
             if (!opts.silent) showToast('📝 Dodano do notatnika', 'success');
             return true;
         }
-        function _npExportBody(format) { // T3-14 — surowy tekst wszystkich notatek
+        function _npExportLineWithResult(rawLine, info, format) { // T3-14 v2 — dopisz wynik obok linii
+            if (!info || !info.text) return rawLine;
+            if (format === 'md') return rawLine + '  **→ ' + info.text + '**';
+            return rawLine + '\t→ ' + info.text;
+        }
+        function _npExportNoteContent(noteText, format, withResults) {
+            var text = String(noteText || '');
+            if (!withResults) return text.trim();
+            var evald = evalNotepadLines(text);
+            var rawLines = text.split('\n');
+            var parts = [];
+            for (var i = 0; i < rawLines.length; i++) parts.push(_npExportLineWithResult(rawLines[i], evald[i], format));
+            return parts.join('\n').trim();
+        }
+        function _npExportBody(format, withResults) { // T3-14 — surowy tekst lub z wyliczonymi wynikami (v2)
             _npStashCurrent();
-            if (format === 'md') {
+            if (withResults) _npRebuildGlobals();
+            var fmt = format === 'md' ? 'md' : 'txt';
+            if (fmt === 'md') {
                 return _npNotes.map(function(n) {
-                    return '## ' + _npTitleFull(n) + '\n\n' + String(n.text || '').trim();
+                    return '## ' + _npTitleFull(n) + '\n\n' + _npExportNoteContent(n.text, fmt, withResults);
                 }).join('\n\n');
             }
             return _npNotes.map(function(n, i) {
                 var head = '--- ' + _npTitleFull(n) + ' ---';
-                return (i ? '\n\n' : '') + head + '\n' + String(n.text || '');
+                return (i ? '\n\n' : '') + head + '\n' + _npExportNoteContent(n.text, fmt, withResults);
             }).join('');
         }
-        function _npExportFilename(format) {
+        function _npExportFilename(format, withResults) {
             var d = new Date();
             var pad = function(n) { return n < 10 ? '0' + n : '' + n; };
             var stamp = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
-            return 'notatnik-' + stamp + (format === 'md' ? '.md' : '.txt');
+            var tag = withResults ? '-wyniki' : '';
+            return 'notatnik-' + stamp + tag + (format === 'md' ? '.md' : '.txt');
         }
-        function npExport(format) { // T3-14 — .txt / .md / share
-            var fmt = format === 'md' ? 'md' : 'txt';
-            var body = _npExportBody(fmt);
+        function npExport(format) { // T3-14 — .txt / .md / share (+ warianty z wynikami)
+            var withResults = String(format || '').indexOf('-computed') >= 0;
+            var fmt = format === 'md' || format === 'md-computed' ? 'md' : 'txt';
+            var body = _npExportBody(fmt, withResults);
             if (!body.trim()) { showToast('⚠️ Notatnik jest pusty', 'error'); return; }
-            var fname = _npExportFilename(fmt);
+            var fname = _npExportFilename(fmt, withResults);
             var mime = fmt === 'md' ? 'text/markdown' : 'text/plain';
             function downloadFallback() {
                 try {
@@ -11663,6 +11785,13 @@
             _npCurrentId = 'e1';
             var mdOut = _npExportBody('md');
             results.push({ expr: 'T3-14 _npExportBody(md)', pass: mdOut.indexOf('## ') === 0 && mdOut.indexOf('Netto') > 0, got: mdOut.slice(0, 48) });
+            _npNotes = [{ id: 'e2', text: 'A: 100\nB: 50\nrazem', updatedAt: Date.now() }];
+            _npCurrentId = 'e2';
+            var mdComp = _npExportBody('md', true);
+            var mdCompOk = mdComp.indexOf('→') > 0 && /\b150\b/.test(mdComp);
+            results.push({ expr: 'T3-14 v2 _npExportBody(md, wyniki)', pass: mdCompOk, got: mdComp.replace(/\n/g, ' | ').slice(0, 72) });
+            var txtComp = _npExportBody('txt', true);
+            results.push({ expr: 'T3-14 v2 _npExportBody(txt, wyniki)', pass: txtComp.indexOf('\t→ ') > 0 && /\b150\b/.test(txtComp), got: txtComp.replace(/\n/g, ' | ').slice(0, 72) });
             _npNotes = savedNotesE; _npCurrentId = savedIdE;
             // T3-13 — szablon faktury ma „Razem" / linie VAT
             var tplVat = _NP_TEMPLATES.filter(function(t) { return t.id === 'faktura'; })[0];
@@ -11840,6 +11969,7 @@
             var cf = buildCopyFormats(evalCalcExpression('20 eur na zł'), '20 eur na zł');
             results.push({ expr: 'buildCopyFormats(20 eur na zł).expression', pass: cf && cf.expression.indexOf('20 eur na zł = ') === 0 && cf.withUnit.indexOf('zł') >= 0, got: cf && cf.expression });
             results.push({ expr: 'buildCopyFormats(20 eur na zł).withUnit', pass: cf && /^\d/.test(cf.withUnit), got: cf && cf.withUnit });
+            results.push({ expr: 'buildCopyFormats(20 eur na zł).plain', pass: cf && cf.plain && cf.plain.indexOf('zł') < 0 && /^\d/.test(cf.plain), got: cf && cf.plain });
             // regresja Raycast-style (07.2026): stopnie w trig, k+waluta, jednostka robocza
             var sDeg = evalCalcExpression('sin(30 deg)');
             results.push({ expr: 'sin(30 deg)', pass: Math.abs(sDeg.value - 0.5) < 1e-9 && !sDeg.unit, got: sDeg.value + ' ' + sDeg.unit });
