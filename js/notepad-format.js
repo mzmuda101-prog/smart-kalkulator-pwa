@@ -1,22 +1,18 @@
 /* ============================================================
-   [EN] Notepad format registry — INLINE (B/I/U/…) + LINE (align) metadata.
-   Markers stay plain-text; mirror + strip live here. app.js wires UI + handlers.
-   Roadmap: docs/NOTEPAD-FORMAT-PLAN.md (Faza B = align w menu zaznaczenia).
+   [EN] Notepad format — toolbar-only (B/I/U/S/◆). Private-use markers; no ** typing.
    ============================================================ */
 (function () {
     'use strict';
 
-    // [EN] Inline = wrap selection; add row → menu + kb + strip + mirror auto via registry
+    // [EN] Jednoznakowe markery — tylko toolbar; użytkownik ich nie wpisuje
     var INLINE = [
-        { id: 'bold', act: 'bold', label: 'B', title: 'Pogrubienie', open: '**', close: '**', cls: 'np-fmt-bold', menu: true, kb: true },
-        { id: 'italic', act: 'italic', label: 'I', title: 'Kursywa', open: '_', close: '_', cls: 'np-fmt-italic', menu: true, kb: true },
-        { id: 'underline', act: 'underline', label: 'U', title: 'Podkreślenie', open: '__', close: '__', cls: 'np-fmt-underline', menu: true, kb: true },
-        { id: 'strike', act: 'strike', label: 'S', title: 'Przekreślenie', open: '~~', close: '~~', cls: 'np-fmt-strike', menu: true, kb: true },
-        { id: 'accent', act: 'accent', label: '◆', title: 'Akcent kolorystyczny', open: '::', close: '::', cls: 'np-fmt-accent', menu: true, kb: true }
+        { id: 'bold', act: 'bold', label: 'B', title: 'Pogrubienie', open: '\uE000', close: '\uE001', cls: 'np-fmt-bold', menu: true, kb: false },
+        { id: 'italic', act: 'italic', label: 'I', title: 'Kursywa', open: '\uE002', close: '\uE003', cls: 'np-fmt-italic', menu: true, kb: false },
+        { id: 'underline', act: 'underline', label: 'U', title: 'Podkreślenie', open: '\uE004', close: '\uE005', cls: 'np-fmt-underline', menu: true, kb: false },
+        { id: 'strike', act: 'strike', label: 'S', title: 'Przekreślenie', open: '\uE006', close: '\uE007', cls: 'np-fmt-strike', menu: true, kb: false },
+        { id: 'accent', act: 'accent', label: '◆', title: 'Akcent kolorystyczny', open: '\uE008', close: '\uE009', cls: 'np-fmt-accent', menu: true, kb: false }
     ];
 
-    // [EN] Line-level formats (prefix before body) — handlers stay in app.js (_npSetLineAlign)
-    // selectionMenu: false until Faza B align-in-selection works reliably (docs/NOTEPAD-FORMAT-PLAN.md)
     var LINE = [
         { id: 'align-left', act: 'align-left', label: '◀', title: 'Do lewej', mode: 'left', panelMenu: true, kb: true, selectionMenu: false },
         { id: 'align-center', act: 'align-center', label: '≡', title: 'Do środka', mode: 'center', panelMenu: true, kb: true, selectionMenu: false },
@@ -35,17 +31,34 @@
     LINE.forEach(function (f) { _byAct[f.act] = f; });
     FONT.forEach(function (f) { _byAct[f.act] = f; });
 
+    function _escRe(ch) { return ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
     function _scanOrder() {
         return INLINE.slice().sort(function (a, b) { return b.open.length - a.open.length; });
     }
 
     function stripMarkers(s) {
         var t = String(s || '');
-        t = t.replace(/\*\*([^*]+)\*\*/g, '$1');
-        t = t.replace(/__([^_]+)__/g, '$1');
-        t = t.replace(/~~([^~]+)~~/g, '$1');
+        INLINE.forEach(function (f) {
+            var re = new RegExp(_escRe(f.open) + '([^' + _escRe(f.close) + '\\n]+)' + _escRe(f.close), 'g');
+            t = t.replace(re, '$1');
+        });
+        t = t.replace(/\*\*([^*\n]+)\*\*/g, '$1');
+        t = t.replace(/__([^_\n]+)__/g, '$1');
+        t = t.replace(/~~([^~\n]+)~~/g, '$1');
         t = t.replace(/::([^:\n]+)::/g, '$1');
-        t = t.replace(/_([^_\n]+)_/g, '$1');
+        t = t.replace(/_([^_\n]{2,})_/g, '$1');
+        return t.replace(/\u200B/g, '');
+    }
+
+    function migrateLegacyMarkers(s) { // [EN] ** → znaki toolbar przy ładowaniu notatki
+        var t = String(s || '');
+        if (t.indexOf('\u200B') >= 0) t = t.split('\u200B').join('*');
+        t = t.replace(/\*\*([^*\n]+)\*\*/g, function (_, inner) { return INLINE[0].open + inner + INLINE[0].close; });
+        t = t.replace(/__([^_\n]+)__/g, function (_, inner) { return INLINE[2].open + inner + INLINE[2].close; });
+        t = t.replace(/~~([^~\n]+)~~/g, function (_, inner) { return INLINE[3].open + inner + INLINE[3].close; });
+        t = t.replace(/::([^:\n]+)::/g, function (_, inner) { return INLINE[4].open + inner + INLINE[4].close; });
+        t = t.replace(/_([^_\n]{2,})_/g, function (_, inner) { return INLINE[1].open + inner + INLINE[1].close; });
         return t;
     }
 
@@ -54,50 +67,32 @@
         return f ? { open: f.open, close: f.close } : null;
     }
 
-    function selectionMenuItems(opts) {
-        opts = opts || {};
-        var items = INLINE.filter(function (f) { return f.menu; }).map(function (f) {
+    function selectionMenuItems() {
+        return INLINE.filter(function (f) { return f.menu; }).map(function (f) {
             return [f.act, f.label, f.title];
         });
-        if (opts.singleLine) {
-            LINE.filter(function (f) { return f.selectionMenu; }).forEach(function (f) {
-                items.push([f.act, f.label, f.title]);
-            });
-        }
-        return items;
     }
 
     function panelMenuItems() {
         var items = [];
-        LINE.filter(function (f) { return f.panelMenu; }).forEach(function (f) {
-            items.push([f.act, f.label, f.title]);
-        });
-        FONT.filter(function (f) { return f.panelMenu; }).forEach(function (f) {
-            items.push([f.act, f.label, f.title]);
-        });
+        LINE.filter(function (f) { return f.panelMenu; }).forEach(function (f) { items.push([f.act, f.label, f.title]); });
+        FONT.filter(function (f) { return f.panelMenu; }).forEach(function (f) { items.push([f.act, f.label, f.title]); });
         return items;
     }
 
     function kbBarSpecs() {
-        var specs = kbInlineItems();
+        var specs = [];
         var lineKb = LINE.filter(function (f) { return f.kb; });
         var fontKb = FONT.filter(function (f) { return f.kb; });
-        if (lineKb.length) {
-            specs.push(['sep']);
-            lineKb.forEach(function (f) { specs.push([f.act, f.label, f.title]); });
-        }
+        if (lineKb.length) lineKb.forEach(function (f) { specs.push([f.act, f.label, f.title]); });
         if (fontKb.length) {
-            specs.push(['sep']);
+            if (specs.length) specs.push(['sep']);
             fontKb.forEach(function (f) { specs.push([f.act, f.label, f.title]); });
         }
         return specs;
     }
 
-    function kbInlineItems() {
-        return INLINE.filter(function (f) { return f.kb; }).map(function (f) {
-            return [f.act, f.label, f.title];
-        });
-    }
+    function kbInlineItems() { return []; }
 
     function _nextPlainEnd(s, i, order) {
         var next = s.length;
@@ -105,10 +100,6 @@
             var p = s.indexOf(f.open, i);
             if (p >= 0 && p < next) next = p;
         });
-        if (s.charAt(i) !== '_' && s.indexOf('_', i) >= 0) {
-            var p = s.indexOf('_', i);
-            if (p >= 0 && p < next && s.charAt(p + 1) !== '_') next = p;
-        }
         return next;
     }
 
@@ -128,7 +119,7 @@
                 var o = fmt.open, c = fmt.close, oLen = o.length, cLen = c.length;
                 if (!s.startsWith(o, i)) continue;
                 var end = s.indexOf(c, i + oLen);
-                if (end > i) { // [EN] zamknięta klamra — tylko treść w mirrorze, markery bez miejsca
+                if (end > i) {
                     pushPlain(i);
                     var innerStart = i + oLen, innerEnd = end;
                     api.pushSpan(container, s.slice(innerStart, innerEnd), fmt.cls, base + innerStart, base + innerEnd, ctx);
@@ -136,8 +127,7 @@
                     matched = true;
                     break;
                 }
-                if (api.lineActive(ctx)) pushPlain(i + oLen); // [EN] otwarta klamra — ** jak zwykłe znaki
-                else i += oLen;
+                i += oLen;
                 matched = true;
                 break;
             }
@@ -147,7 +137,7 @@
         }
     }
 
-    function listRegions(val) { // [EN] sparowane regiony inline — do snap zaznaczenia poza markery
+    function listRegions(val) {
         var regions = [];
         var order = _scanOrder();
         function scan(s, base) {
@@ -177,22 +167,22 @@
         return regions;
     }
 
-    function normalizeSelectionRange(val, start, end) { // [EN] zaznaczenie = treść, nie ** / __ / ~~ / ::
+    function normalizeSelectionRange(val, start, end) {
         if (start == null || end == null || start === end) return { start: start, end: end, changed: false };
         var a = Math.min(start, end), b = Math.max(start, end);
         var regions = listRegions(val);
         if (!regions.length) return { start: a, end: b, changed: false };
         var changed = false;
         var outer = null;
-        regions.forEach(function(r) {
+        regions.forEach(function (r) {
             if (a <= r.uStart && b >= r.uEnd && (!outer || (r.uEnd - r.uStart) > (outer.uEnd - outer.uStart))) outer = r;
         });
         if (outer) { a = outer.innerStart; b = outer.innerEnd; changed = true; }
         else {
-            regions.forEach(function(r) {
+            regions.forEach(function (r) {
                 if (a <= r.uStart && b > r.innerEnd && b <= r.uEnd) { a = r.innerStart; b = r.innerEnd; changed = true; }
             });
-            regions.forEach(function(r) {
+            regions.forEach(function (r) {
                 if (a > r.uStart && a < r.innerStart) { a = r.innerStart; changed = true; }
                 else if (a > r.innerEnd && a < r.uEnd) { a = r.innerEnd; changed = true; }
                 if (b > r.innerEnd && b < r.uEnd) { b = r.innerEnd; changed = true; }
@@ -203,7 +193,7 @@
         return { start: a, end: b, changed: changed };
     }
 
-    function markerEnvelope(val, start, end, open, close) { // [EN] toggle — rozpoznaj otoczkę bez dokładania ****
+    function markerEnvelope(val, start, end, open, close) {
         var oLen = open.length, cLen = close.length;
         var sel = val.slice(start, end);
         if (sel.length >= oLen + cLen && sel.startsWith(open) && sel.endsWith(close)) {
@@ -232,7 +222,7 @@
         return { wrapped: false, uStart: start, uEnd: end, inner: sel };
     }
 
-    function displayPrefix(val, bufEnd) { // [EN] tekst wizualny przed kursorem — zamknięte markery bez szerokości
+    function displayPrefix(val, bufEnd) { // [EN] tekst wizualny przed kursorem — markery toolbar bez szerokości w mirrorze
         val = String(val || '');
         bufEnd = Math.max(0, Math.min(bufEnd, val.length));
         if (!bufEnd) return '';
@@ -246,7 +236,7 @@
                 var closeAt = val.indexOf(c, i + oLen);
                 if (closeAt > i) {
                     var innerStart = i + oLen, innerEnd = closeAt, uEnd = closeAt + cLen;
-                    if (bufEnd <= innerStart) { i = bufEnd; } // [EN] zamknięte — markery bez miejsca (jak mirror)
+                    if (bufEnd <= innerStart) { i = bufEnd; }
                     else if (bufEnd <= innerEnd) { out += val.slice(innerStart, bufEnd); i = bufEnd; }
                     else if (bufEnd <= uEnd) { out += val.slice(innerStart, innerEnd); i = bufEnd; }
                     else { out += val.slice(innerStart, innerEnd); i = uEnd; }
@@ -268,6 +258,7 @@
         line: LINE,
         font: FONT,
         stripMarkers: stripMarkers,
+        migrateLegacyMarkers: migrateLegacyMarkers,
         fillMirror: fillMirror,
         wrapByAct: wrapByAct,
         selectionMenuItems: selectionMenuItems,

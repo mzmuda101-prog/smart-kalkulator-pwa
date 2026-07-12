@@ -8496,24 +8496,42 @@
             if (_NP_FMT && typeof _NP_FMT.displayPrefix === 'function') return _NP_FMT.displayPrefix(val, index);
             return String(val || '').substring(0, index == null ? 0 : index);
         }
-        function _npBufferIndexFromPoint(ta, clientX, clientY) { // [EN] klik/tap → indeks bufora zgodny z mirror (nie z ukrytymi markerami)
+        function _npLogicalLineAtClientY(ta, clientY) { // [EN] soft-wrap — wiele wierszy wizualnych = jedna linia logiczna
+            if (!ta) return 0;
+            var taRect = ta.getBoundingClientRect();
+            var padT = parseFloat(getComputedStyle(ta).paddingTop) || 0;
+            var y = clientY - taRect.top + ta.scrollTop - padT;
+            if (npMirror) {
+                var rows = npMirror.querySelectorAll('.np-mirror-line');
+                if (rows.length) {
+                    var acc = 0;
+                    for (var i = 0; i < rows.length; i++) {
+                        var h = rows[i].offsetHeight || 0;
+                        if (y < acc + h) return i;
+                        acc += h;
+                    }
+                    return rows.length - 1;
+                }
+            }
+            var lh = parseFloat(getComputedStyle(ta).lineHeight) || 20;
+            var n = Math.max(1, ta.value.split('\n').length);
+            return Math.max(0, Math.min(n - 1, Math.floor(y / lh)));
+        }
+        function _npBufferIndexFromPoint(ta, clientX, clientY) { // [EN] klik/tap → indeks bufora (wrap + markery toolbar)
             if (!ta) return 0;
             var val = ta.value, len = val.length;
-            var taRect = ta.getBoundingClientRect();
-            var cs = getComputedStyle(ta);
-            var padT = parseFloat(cs.paddingTop) || 0;
-            var lh = parseFloat(cs.lineHeight) || 20;
-            var relY = clientY - taRect.top + ta.scrollTop - padT;
-            var lineIdx = Math.max(0, Math.floor(relY / lh));
-            var lineCount = val.split('\n').length;
-            if (lineIdx >= lineCount) lineIdx = Math.max(0, lineCount - 1);
+            var lineIdx = _npLogicalLineAtClientY(ta, clientY);
             var bounds = _npLineBounds(lineIdx);
-            var lo = bounds.start, hi = bounds.end, best = lo;
-            for (var i = lo; i <= hi; i++) {
-                var r = _npCaretClientRect(ta, i);
+            var lo = bounds.start, hi = bounds.end;
+            var best = lo, bestD = Infinity;
+            for (var i = lo; i <= hi + 1; i++) {
+                var idx = Math.min(i, len);
+                var r = _npCaretClientRect(ta, idx);
                 if (!r) continue;
-                if (clientX >= r.left - 1) best = i;
-                else break;
+                var cy = (r.top + r.bottom) * 0.5;
+                var cx = r.left;
+                var d = (clientY - cy) * (clientY - cy) + (clientX - cx) * (clientX - cx);
+                if (d < bestD) { bestD = d; best = idx; }
             }
             if (_NP_FMT && typeof _NP_FMT.listRegions === 'function' && npMirror) {
                 var regs = _NP_FMT.listRegions(val);
@@ -8536,15 +8554,23 @@
             var pt = e.touches && e.touches[0] ? e.touches[0] : e;
             _npCaretTap = { x: pt.clientX, y: pt.clientY };
         }
-        function _npOnFmtPointerUp(e) { // [EN] tap — kursor pod kliknięciem; drag — snap zaznaczenia
+        function _npOnFmtPointerUp(e) { // [EN] tap — kursor pod kliknięciem gdy wrap/format; inaczej natywny
             var pt = e.changedTouches && e.changedTouches[0] ? e.changedTouches[0] : e;
             var isTap = _npCaretTap && Math.hypot(pt.clientX - _npCaretTap.x, pt.clientY - _npCaretTap.y) <= 8;
             _npCaretTap = null;
             if (isTap && npBody) {
-                var idx = _npBufferIndexFromPoint(npBody, pt.clientX, pt.clientY);
-                _npSelSnapGuard = true;
-                try { npBody.setSelectionRange(idx, idx); } catch (_) {}
-                _npSelSnapGuard = false;
+                var lineIdx = _npLogicalLineAtClientY(npBody, pt.clientY);
+                var mLine = npMirror && npMirror.querySelectorAll('.np-mirror-line')[lineIdx];
+                var bounds = _npLineBounds(lineIdx);
+                var lineSlice = npBody.value.slice(bounds.start, bounds.end);
+                var hasFmt = _NP_FMT && typeof _NP_FMT.listRegions === 'function' && _NP_FMT.listRegions(lineSlice).length > 0;
+                var isWrapped = !!(mLine && mLine.classList.contains('np-wrapped'));
+                if (hasFmt || isWrapped) {
+                    var idx = _npBufferIndexFromPoint(npBody, pt.clientX, pt.clientY);
+                    _npSelSnapGuard = true;
+                    try { npBody.setSelectionRange(idx, idx); } catch (_) {}
+                    _npSelSnapGuard = false;
+                }
             }
             _npOnFmtSelectionEnd();
         }
@@ -8598,7 +8624,7 @@
             ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing', 'textTransform',
                 'wordSpacing', 'textIndent', 'boxSizing', 'borderLeftWidth', 'borderRightWidth',
                 'borderTopWidth', 'borderBottomWidth', 'paddingLeft', 'paddingRight', 'paddingTop',
-                'paddingBottom', 'lineHeight'].forEach(function(p) { div.style[p] = cs[p]; });
+                'paddingBottom', 'lineHeight', 'whiteSpace', 'overflowWrap', 'wordBreak'].forEach(function(p) { div.style[p] = cs[p]; });
             div.style.width = ta.clientWidth + 'px';
         }
         function _npCaretClientRect(ta, index) {
@@ -9007,30 +9033,64 @@
             if (!isFinite(lh) || lh <= 0) lh = (parseFloat(cs.fontSize) || 16) * 2;
             return lh;
         }
+        var _npWrapProbe = null;
+        function _npEnsureWrapProbe() { // [EN] pomiar zawijania — pełny tekst linii, nie mirror (markery PU)
+            if (_npWrapProbe) return _npWrapProbe;
+            _npWrapProbe = document.createElement('div');
+            _npWrapProbe.className = 'np-wrap-probe';
+            _npWrapProbe.setAttribute('aria-hidden', 'true');
+            _npWrapProbe.style.cssText = 'position:absolute;left:-99999px;top:0;visibility:hidden;pointer-events:none;';
+            if (npEditor) npEditor.appendChild(_npWrapProbe);
+            return _npWrapProbe;
+        }
+        function _npSyncWrapProbeStyles(probe) {
+            if (!npMirror || !npBody || !probe) return;
+            var mcs = getComputedStyle(npMirror);
+            var ml = npMirror.querySelector('.np-mirror-line');
+            var mlcs = ml ? getComputedStyle(ml) : mcs;
+            probe.style.fontFamily = mcs.fontFamily;
+            probe.style.fontSize = mcs.fontSize;
+            probe.style.lineHeight = mlcs.lineHeight || mcs.lineHeight;
+            probe.style.letterSpacing = mcs.letterSpacing;
+            probe.style.width = npBody.clientWidth + 'px';
+            probe.style.padding = '0'; // [EN] mirror-line nie ma paddingu — padding textarea zawyżał każdą linię
+            probe.style.margin = '0';
+            probe.style.boxSizing = 'border-box';
+            probe.style.minHeight = mlcs.minHeight || '2rem';
+            probe.style.whiteSpace = mlcs.whiteSpace || 'pre-wrap';
+            probe.style.overflowWrap = mlcs.overflowWrap || 'anywhere';
+            probe.style.wordBreak = mlcs.wordBreak || 'normal';
+        }
+        function _npMeasureLineBlock(lineText) {
+            var lineH = _npLineHeightPx();
+            if (!npBody) return { h: lineH, wrapped: false };
+            var probe = _npEnsureWrapProbe();
+            _npSyncWrapProbeStyles(probe);
+            var displayText = lineText;
+            if (_NP_FMT && typeof _NP_FMT.stripMarkers === 'function') displayText = _NP_FMT.stripMarkers(lineText); // [EN] jak mirror — bez markerów PU
+            probe.textContent = displayText.length ? displayText : '\u00a0';
+            var h = probe.offsetHeight || lineH;
+            return { h: h, wrapped: h > lineH * 1.35 };
+        }
         // [EN] Soft-wrap only — Enter = new logical line without a wrap bar.
         function _npIsSoftWrapped(el, lineH) {
             return (el && (el.offsetHeight || 0) > lineH * 1.35);
         }
-        function _npRenderEditorChrome(lines, infos) {
+        function _npLayoutLineChrome(lines, infos) { // [EN] gutter + wrap-bar; wysokość z probe (wynik na dole zawinięcia)
             if (!npBody || !npMirror || !npGutter || !npFoldLayer || !npWrapLayer) return;
             var folded = !!(STATE.settings && STATE.settings.notepadFold);
-            npMirror.replaceChildren();
+            var lineH = _npLineHeightPx();
+            var mirrorLines = npMirror.querySelectorAll('.np-mirror-line');
             npWrapLayer.replaceChildren();
             npGutter.replaceChildren();
             npFoldLayer.replaceChildren();
             if (!lines.length) lines = [''];
-            lines.forEach(function(line, i) {
-                var mctx = _npMirrorCtxForLine(i, lines);
-                var md = document.createElement('div');
-                md.className = 'np-mirror-line np-align-' + mctx.align;
-                _npFillMirrorLine(md, line, mctx);
-                npMirror.appendChild(md);
-            });
-            var lineH = _npLineHeightPx();
-            var mirrorLines = npMirror.querySelectorAll('.np-mirror-line');
             mirrorLines.forEach(function(md, i) {
-                var h = md.offsetHeight || 32;
-                var wrapped = _npIsSoftWrapped(md, lineH);
+                var lineText = lines[i] != null ? lines[i] : '';
+                var block = _npMeasureLineBlock(lineText);
+                var h = Math.max(md.offsetHeight || 0, block.h);
+                var wrapped = _npIsSoftWrapped(md, lineH); // [EN] jak 6a7b29f — pasek tylko gdy mirror ma >1 wiersz wizualny
+                md.classList.toggle('np-wrapped', wrapped);
                 var wrapSlot = document.createElement('div');
                 wrapSlot.className = 'np-wrap-line' + (wrapped ? ' np-wrapped' : '');
                 wrapSlot.style.height = h + 'px';
@@ -9071,6 +9131,20 @@
             npBody.style.height = 'auto';
             npBody.style.height = Math.max(npMirror.scrollHeight, 48) + 'px';
             _npSyncEditorScroll();
+        }
+        function _npRenderEditorChrome(lines, infos) {
+            if (!npBody || !npMirror || !npGutter || !npFoldLayer || !npWrapLayer) return;
+            npMirror.replaceChildren();
+            if (!lines.length) lines = [''];
+            lines.forEach(function(line, i) {
+                var mctx = _npMirrorCtxForLine(i, lines);
+                var md = document.createElement('div');
+                md.className = 'np-mirror-line np-align-' + mctx.align;
+                _npFillMirrorLine(md, line, mctx);
+                npMirror.appendChild(md);
+            });
+            _npLayoutLineChrome(lines, infos);
+            requestAnimationFrame(function() { _npLayoutLineChrome(lines, infos); }); // [EN] drugi pomiar po layout — wrap + wynik na dole
         }
         var _npWorker = null;
         var _npWorkerSeq = 0;
@@ -9143,7 +9217,8 @@
         function npBuildRows(text) {
             setupNpEditor();
             if (!npBody) return;
-            npBody.value = String(text == null ? '' : text);
+            var raw = String(text == null ? '' : text);
+            npBody.value = (_NP_FMT && _NP_FMT.migrateLegacyMarkers) ? _NP_FMT.migrateLegacyMarkers(raw) : raw;
             npRecompute();
         }
         function npRenderVarsPanel() {
@@ -9166,7 +9241,7 @@
                     var u = units && units[k] ? (' ' + units[k]) : '';
                     btn.appendChild(document.createTextNode('@' + k + ' '));
                     var sm = document.createElement('small');
-                    sm.textContent = _npFmt(val) + u;
+                    sm.textContent = formatLocaleNumber(val, 10) + u;
                     btn.appendChild(sm);
                     btn.addEventListener('click', function() { _npInsertVarName(k); });
                     container.appendChild(btn);
@@ -11982,52 +12057,57 @@
             // T6-4 — prefix wyrównania nie psuje liczenia
             var t64 = evalNotepadLines('> 100+200');
             results.push({ expr: 'T6-4 align right sum', pass: t64[0] && t64[0].value === 300, got: t64[0] && t64[0].value });
-            // T6-5 — markery formatowania strip przed eval
-            var t65 = evalNotepadLines('**2+2**');
+            // T6-5 — markery toolbar strip przed eval (legacy ** też)
+            var _BO = '\uE000', _BC = '\uE001', _IO = '\uE002', _IC = '\uE003';
+            var _UO = '\uE004', _UC = '\uE005', _SO = '\uE006', _SC = '\uE007';
+            var _AO = '\uE008', _AC = '\uE009';
+            var t65 = evalNotepadLines(_BO + '2+2' + _BC);
             results.push({ expr: 'T6-5 bold eval', pass: t65[0] && t65[0].value === 4, got: t65[0] && t65[0].value });
-            var t65i = evalNotepadLines('_3*3_');
+            var t65i = evalNotepadLines(_IO + '3*3' + _IC);
             results.push({ expr: 'T6-5 italic eval', pass: t65i[0] && t65i[0].value === 9, got: t65i[0] && t65i[0].value });
-            var t65u = evalNotepadLines('__10+5__');
+            var t65u = evalNotepadLines(_UO + '10+5' + _UC);
             results.push({ expr: 'T6-5 underline eval', pass: t65u[0] && t65u[0].value === 15, got: t65u[0] && t65u[0].value });
-            var t65m = evalNotepadLines('> **Nocleg:** 3 * 180');
+            var t65m = evalNotepadLines('> ' + _BO + 'Nocleg:' + _BC + ' 3 * 180');
             results.push({ expr: 'T6-5 align+bold eval', pass: t65m[0] && t65m[0].value === 540, got: t65m[0] && t65m[0].value });
-            var t66s = evalNotepadLines('~~2+2~~');
+            var t66s = evalNotepadLines(_SO + '2+2' + _SC);
             results.push({ expr: 'T6-6 strike eval', pass: t66s[0] && t66s[0].value === 4, got: t66s[0] && t66s[0].value });
-            var t66a = evalNotepadLines('::10+5::');
+            var t66a = evalNotepadLines(_AO + '10+5' + _AC);
             results.push({ expr: 'T6-6 accent eval', pass: t66a[0] && t66a[0].value === 15, got: t66a[0] && t66a[0].value });
-            // T6-5 mirror — niedomknięte markery nie mogą zapętlić renderu (lag przy wpisywaniu *)
+            results.push({ expr: 'T6-5 legacy ** eval', pass: (evalNotepadLines('**2+2**')[0] || {}).value === 4, got: (evalNotepadLines('**2+2**')[0] || {}).value });
             (function() {
-                var cases = ['**', '**otwarte', '__', '_kurs', '~~', '::otw'];
+                var cases = [_BO, _BO + 'otwarte', _UO, _IO + 'kurs', _SO, _AO + 'otw'];
                 for (var ci = 0; ci < cases.length; ci++) {
                     var el = document.createElement('div');
                     var t0 = Date.now();
                     _npFillMirrorFormatted(el, cases[ci], null);
                     var ms = Date.now() - t0;
-                    results.push({ expr: 'T6-5 mirror open "' + cases[ci] + '"', pass: ms < 80, got: ms + 'ms' });
+                    results.push({ expr: 'T6-5 mirror open', pass: ms < 80, got: ms + 'ms' });
                 }
                 var el2 = document.createElement('div');
                 t0 = Date.now();
-                _npFillMirrorFormatted(el2, '**bold**', { selStart: 2, selEnd: 6, caret: 2 }, 0);
+                _npFillMirrorFormatted(el2, _BO + 'bold' + _BC, { selStart: 2, selEnd: 6, caret: 2 }, 0);
                 ms = Date.now() - t0;
-                results.push({ expr: 'T6-5 mirror paired **', pass: ms < 80, got: ms + 'ms' });
+                results.push({ expr: 'T6-5 mirror paired bold', pass: ms < 80, got: ms + 'ms' });
             })();
-            (function() { // T6-5 — toggle B na zaznaczeniu w środku **tekst** → tekst, nie ****tekst****
-                var sample = '**hmm**', a = 2, b = 5, o = '**', c = '**', ol = 2, cl = 2;
-                var unwrapped = sample;
-                if (a >= ol && b + cl <= sample.length && sample.slice(a - ol, a) === o && sample.slice(b, b + cl) === c) {
-                    unwrapped = sample.slice(0, a - ol) + sample.slice(a, b) + sample.slice(b + cl);
+            (function() {
+                if (!_NP_FMT || typeof _NP_FMT.markerEnvelope !== 'function' || !_NP_FMT.wrapByAct) {
+                    results.push({ expr: 'T6-5 unwrap inner bold', pass: false, got: 'no fmt api' });
+                    return;
                 }
-                results.push({ expr: 'T6-5 unwrap inner bold', pass: unwrapped === 'hmm', got: unwrapped });
+                var w = _NP_FMT.wrapByAct('bold');
+                var sample = w.open + 'hmm' + w.close;
+                var env = _NP_FMT.markerEnvelope(sample, 1, 4, w.open, w.close);
+                results.push({ expr: 'T6-5 unwrap inner bold', pass: env.wrapped && env.inner === 'hmm', got: env.inner });
             })();
-            (function() { // T6-5 — snap zaznaczenia pomija markery ** __ ~~ :: _
+            (function() {
                 if (!_NP_FMT || typeof _NP_FMT.normalizeSelectionRange !== 'function') {
                     results.push({ expr: 'T6-5 snap markers', pass: false, got: 'no fmt api' });
                     return;
                 }
                 var snapCases = [
-                    ['**tekst**', 0, 9, 2, 7],
-                    ['**tekst**', 0, 8, 2, 7],
-                    ['::_a_::', 0, 7, 2, 5],
+                    [_BO + 'tekst' + _BC, 0, 7, 1, 6],
+                    [_BO + 'tekst' + _BC, 0, 6, 0, 6],
+                    [_AO + '_a_' + _AC, 0, 5, 1, 4],
                     ['plain', 0, 5, 0, 5]
                 ];
                 var snapOk = true, snapGot = '';
@@ -12038,16 +12118,18 @@
                 }
                 results.push({ expr: 'T6-5 snap markers', pass: snapOk, got: snapGot || 'ok' });
             })();
-            (function() { // T6-5 — displayPrefix: kursor bez szerokości zamkniętych markerów
-                if (!_NP_FMT || typeof _NP_FMT.displayPrefix !== 'function') {
-                    results.push({ expr: 'T6-5 displayPrefix', pass: false, got: 'no fmt api' });
+            (function() {
+                if (!_NP_FMT || typeof _NP_FMT.migrateLegacyMarkers !== 'function' || typeof _NP_FMT.displayPrefix !== 'function') {
+                    results.push({ expr: 'T6-5 migrate toolbar-only', pass: false, got: 'no fmt api' });
                     return;
                 }
-                var dpOk = _NP_FMT.displayPrefix('**tekst**', 9) === 'tekst'
-                    && _NP_FMT.displayPrefix('**tekst**', 7) === 'tekst'
-                    && _NP_FMT.displayPrefix('**tekst**', 2) === ''
-                    && _NP_FMT.displayPrefix('**otw', 2) === '**';
-                results.push({ expr: 'T6-5 displayPrefix', pass: dpOk, got: dpOk ? 'ok' : _NP_FMT.displayPrefix('**tekst**', 9) });
+                var mig = _NP_FMT.migrateLegacyMarkers('**tekst**');
+                var migOk = mig === (_BO + 'tekst' + _BC);
+                var kbEmpty = _NP_FMT.kbInlineItems().length === 0;
+                var sample = _BO + 'tekst' + _BC;
+                var dpOk = _NP_FMT.displayPrefix(sample, 7) === 'tekst' && _NP_FMT.displayPrefix(sample, 4) === 'tek';
+                var ok = migOk && kbEmpty && dpOk;
+                results.push({ expr: 'T6-5 migrate toolbar-only', pass: ok, got: ok ? 'ok' : JSON.stringify({ migOk: migOk, kbEmpty: kbEmpty, dpOk: dpOk }) });
             })();
 
             // Stałe-FUNKCJE f(x) — wywołania w kalkulatorze (test(3)/test 3/3 test), argument-stała,
