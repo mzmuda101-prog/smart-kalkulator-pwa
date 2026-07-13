@@ -3,7 +3,7 @@
    Caching strategy: Stale-While-Revalidate (instant z cache + odświeżenie w tle)
    Wersja: JEDNO źródło prawdy w version.js (APP_VERSION).
    ============================================================ */
-var SW_FINGERPRINT = 'v1.00.9'; // [EN] auto-synced — triggers SW reinstall on bump
+var SW_FINGERPRINT = 'v1.01.14'; // [EN] auto-synced — triggers SW reinstall on bump
 importScripts('version.js'); // ustawia self.APP_VERSION (np. 'v36')
 const CACHE_NAME = 'matm0-calc-' + (self.APP_VERSION || 'v0');
 const ASSETS_TO_CACHE = [
@@ -18,6 +18,7 @@ const ASSETS_TO_CACHE = [
     './assets/img/logo-refresh.png',
     './sw.js',
     './js/theme-init.js',
+    './js/cache-bust.js',
     './js/vendor/decimal.js',
     './js/money-decimal.js',
     './js/numeric-eval.js',
@@ -133,6 +134,8 @@ self.addEventListener('message', function(event) {
                     console.log('[SW] Deleting cache:', name);
                     return caches.delete(name);
                 }));
+            }).then(function() {
+                return self.skipWaiting();
             })
         );
     }

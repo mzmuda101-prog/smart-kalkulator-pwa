@@ -7456,13 +7456,69 @@
                 return Promise.all(keys.map(function(k) { return caches.delete(k); }));
             });
         }
-        function hardReloadApp() { // [EN] pełny reload z cache-bust — SWR nie odda starego app.js
+        function markAssetBustForReload() { // [EN] wymusza świeże URL-e JS/CSS po przeładowaniu
+            try { sessionStorage.setItem('matm0_asset_bust', String(Date.now())); } catch (e) {}
+        }
+        function postMessageToAllSwWorkers(action) {
+            if (!('serviceWorker' in navigator)) return Promise.resolve();
+            if (navigator.serviceWorker.controller) {
+                try { navigator.serviceWorker.controller.postMessage({ action: action }); } catch (e) {}
+            }
+            return navigator.serviceWorker.getRegistrations().then(function(regs) {
+                regs.forEach(function(reg) {
+                    [reg.active, reg.waiting, reg.installing].forEach(function(worker) {
+                        if (!worker) return;
+                        try { worker.postMessage({ action: action }); } catch (e) {}
+                    });
+                });
+            });
+        }
+        function unregisterAllServiceWorkers() {
+            if (!('serviceWorker' in navigator)) return Promise.resolve();
+            return navigator.serviceWorker.getRegistrations().then(function(regs) {
+                return Promise.all(regs.map(function(reg) { return reg.unregister(); }));
+            });
+        }
+        function hardReloadApp(bustKey) { // [EN] pełny reload z cache-bust — SWR/HTTP cache nie odda starego app.js
             var path = window.location.pathname || './';
             var hash = window.location.hash || '';
-            var bust = '_sw=' + Date.now();
+            var stamp = Date.now();
+            var bust = (bustKey || '_sw') + '=' + stamp;
             var search = window.location.search || '';
+            search = search.replace(/[?&](?:_sw|_refresh|dev-cache-clear)=[^&]*/g, '');
+            if (search === '?' || search === '&') search = '';
+            if (search.charAt(0) === '&') search = '?' + search.slice(1);
             var url = path + (search ? search + '&' + bust : '?' + bust) + hash;
             window.location.replace(url);
+        }
+        function forceHardCacheRefresh(opts) { // [EN] przycisk odśwież — pełne czyszczenie SW + cache + reload
+            opts = opts || {};
+            if (forceHardCacheRefresh._busy) return;
+            forceHardCacheRefresh._busy = true;
+            var btn = cacheRefreshBtn;
+            if (btn && !opts.silent) btn.classList.add('spinning');
+            swRefreshing = true;
+            hideUpdateBanner();
+            if (!opts.silent) showToast('🔄 Czyszczenie cache…', '');
+            markAssetBustForReload();
+            var fallbackTimer = setTimeout(function() {
+                console.warn('[EN] forceHardCacheRefresh timeout — reloading anyway');
+                hardReloadApp('refresh');
+            }, 8000);
+            return postMessageToAllSwWorkers('purge-caches')
+                .then(function() { return purgeAppCaches(); })
+                .then(unregisterAllServiceWorkers)
+                .then(function() { return purgeAppCaches(); })
+                .then(function() {
+                    clearTimeout(fallbackTimer);
+                    if (!opts.silent) showToast('🔄 Przeładowuję…', '');
+                    hardReloadApp('refresh');
+                })
+                .catch(function(err) {
+                    clearTimeout(fallbackTimer);
+                    console.warn('[EN] forceHardCacheRefresh failed, reloading anyway:', err);
+                    hardReloadApp('refresh');
+                });
         }
         var swApplyReloadTimer = null;
         function applyUpdate() {
@@ -7470,23 +7526,22 @@
             hideUpdateBanner();
             showToast('🔄 Aktualizuję…', '');
             swRefreshing = true;
+            markAssetBustForReload();
             if (swApplyReloadTimer) { clearTimeout(swApplyReloadTimer); swApplyReloadTimer = null; }
             if (swWaitingWorker) {
-                if (navigator.serviceWorker.controller) {
-                    navigator.serviceWorker.controller.postMessage({ action: 'purge-caches' });
-                }
+                postMessageToAllSwWorkers('purge-caches');
                 function postSkip() { swWaitingWorker.postMessage({ action: 'skip-waiting' }); }
                 purgeAppCaches().then(postSkip).catch(postSkip);
                 swApplyReloadTimer = setTimeout(function() {
                     if (!swRefreshing) return;
-                    purgeAppCaches().finally(hardReloadApp);
+                    purgeAppCaches().then(unregisterAllServiceWorkers).finally(function() { hardReloadApp('refresh'); });
                 }, 3500);
                 return;
             }
             // [EN] soft update — serwer ma nowszą wersję, ale SW jeszcze nie przeszedł w waiting
             purgeAppCaches().then(function() {
                 if (swRegistration) return swRegistration.unregister();
-            }).catch(function() {}).finally(hardReloadApp);
+            }).catch(function() {}).finally(function() { hardReloadApp('refresh'); });
         }
         function resolveUpdateNotice(remoteVer, installedVer, showFeedback) {
             var localVer = window.APP_VERSION || 'v0';
@@ -7587,52 +7642,10 @@
             });
         }
 
-        // [EN] Cache Refresh Button — works regardless of SW presence
-        //     Purges caches, unregisters SW, and hard reloads
+        // [EN] Cache Refresh Button — pełne czyszczenie SW + Cache Storage + bust assetów
         if (cacheRefreshBtn) {
             cacheRefreshBtn.addEventListener('click', function() {
-                cacheRefreshBtn.classList.add('spinning');
-                showToast('🔄 Czyszczenie cache…', '');
-
-                function forceReload() {
-                    setTimeout(function() {
-                        window.location.reload(true);
-                    }, 300);
-                }
-
-                // [EN] Try to purge via SW if available
-                if ('serviceWorker' in navigator) {
-                    if (navigator.serviceWorker.controller) {
-                        navigator.serviceWorker.controller.postMessage({ action: 'purge-caches' });
-                        navigator.serviceWorker.controller.postMessage({ action: 'skip-waiting' });
-                    }
-                    navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                        var unregisterPromises = registrations.map(function(reg) {
-                            return reg.unregister();
-                        });
-                        return Promise.all(unregisterPromises);
-                    }).then(function() {
-                        // [EN] Nuke Cache Storage directly as a backup
-                        if ('caches' in window) {
-                            return caches.keys().then(function(names) {
-                                return Promise.all(names.map(function(name) {
-                                    return caches.delete(name);
-                                }));
-                            });
-                        }
-                    }).then(forceReload);
-                } else {
-                    // [EN] No SW — just clear regular caches and reload
-                    if ('caches' in window) {
-                        caches.keys().then(function(names) {
-                            return Promise.all(names.map(function(name) {
-                                return caches.delete(name);
-                            }));
-                        }).then(forceReload);
-                    } else {
-                        forceReload();
-                    }
-                }
+                forceHardCacheRefresh();
             });
         }
 
@@ -8227,10 +8240,44 @@
             inner.appendChild(npBody);
             inner.appendChild(npGutter);
             npEditor.appendChild(inner);
-            npBody.addEventListener('input', function() { _npCommit(); _npUpdateVisualCaret(); });
+            npBody.addEventListener('copy', function(e) {
+                if (!npBody || npBody.selectionStart === npBody.selectionEnd) return;
+                var slice = npBody.value.slice(npBody.selectionStart, npBody.selectionEnd);
+                var plain = (_NP_FMT && typeof _NP_FMT.exportPlainText === 'function')
+                    ? _NP_FMT.exportPlainText(slice) : slice;
+                if (plain === slice) return;
+                e.preventDefault();
+                if (e.clipboardData) e.clipboardData.setData('text/plain', plain);
+            });
+            npBody.addEventListener('input', function() {
+                if (_NP_FMT && typeof _NP_FMT.collapseEmptyMarkers === 'function' && npBody) {
+                    var raw = npBody.value;
+                    var clean = _NP_FMT.collapseEmptyMarkers(raw);
+                    if (clean !== raw) {
+                        var a = npBody.selectionStart, b = npBody.selectionEnd;
+                        var visA = _npDisplayPrefix(raw, a).length;
+                        var visB = _npDisplayPrefix(raw, b).length;
+                        npBody.value = clean;
+                        function _npBufAtVis(s, vis) {
+                            for (var p = 0; p <= s.length; p++) {
+                                if (_npDisplayPrefix(s, p).length >= vis) return p;
+                            }
+                            return s.length;
+                        }
+                        try { npBody.setSelectionRange(_npBufAtVis(clean, visA), _npBufAtVis(clean, visB)); } catch (_) {}
+                    }
+                }
+                _npCommit();
+                _npUpdateVisualCaret();
+            });
             npBody.addEventListener('select', _npOnFmtSelectionLive);
             npBody.addEventListener('keyup', _npOnFmtSelectionEnd);
-            npBody.addEventListener('keydown', function() { requestAnimationFrame(_npUpdateVisualCaret); });
+            npBody.addEventListener('keydown', function() {
+                requestAnimationFrame(function() {
+                    _npUpdateVisualCaret();
+                    _npRefreshMirrorFmt();
+                });
+            });
             npBody.addEventListener('pointerdown', _npOnCaretPointerDown);
             npBody.addEventListener('mousedown', _npOnCaretPointerDown);
             npBody.addEventListener('mouseup', _npOnFmtPointerUp);
@@ -8367,7 +8414,12 @@
             try { npBody.setSelectionRange(start, end); } catch (_) {}
             var val = npBody.value, oLen = open.length, cLen = close.length;
             var env = _npMarkerEnvelope(val, start, end, open, close);
-            if (env.wrapped) {
+            var partial = _NP_FMT && typeof _NP_FMT.partialUnwrap === 'function'
+                ? _NP_FMT.partialUnwrap(val, start, end, open, close) : null;
+            if (partial) {
+                _npReplaceRange(partial.uStart, partial.uEnd, partial.text);
+                try { npBody.setSelectionRange(start, end); } catch (_) {}
+            } else if (env.wrapped) {
                 _npReplaceRange(env.uStart, env.uEnd, env.inner);
                 try { npBody.setSelectionRange(env.uStart, env.uStart + env.inner.length); } catch (_) {}
             } else {
@@ -9096,8 +9148,8 @@
             mirrorLines.forEach(function(md, i) {
                 var lineText = lines[i] != null ? lines[i] : '';
                 var block = _npMeasureLineBlock(lineText);
-                var h = Math.max(md.offsetHeight || 0, block.h);
-                var wrapped = _npIsSoftWrapped(md, lineH); // [EN] jak 6a7b29f — pasek tylko gdy mirror ma >1 wiersz wizualny
+                var wrapped = block.wrapped || _npIsSoftWrapped(md, lineH); // [EN] probe + mirror — wrap-bar i chip na dole
+                var h = Math.max(block.h, md.offsetHeight || 0);
                 md.classList.toggle('np-wrapped', wrapped);
                 var wrapSlot = document.createElement('div');
                 wrapSlot.className = 'np-wrap-line' + (wrapped ? ' np-wrapped' : '');
@@ -9152,7 +9204,10 @@
                 npMirror.appendChild(md);
             });
             _npLayoutLineChrome(lines, infos);
-            requestAnimationFrame(function() { _npLayoutLineChrome(lines, infos); }); // [EN] drugi pomiar po layout — wrap + wynik na dole
+            requestAnimationFrame(function() { _npLayoutLineChrome(lines, infos); });
+            requestAnimationFrame(function() {
+                requestAnimationFrame(function() { _npLayoutLineChrome(lines, infos); }); // [EN] 3. pass — mobile wrap + chip na ostatniej linii
+            });
         }
         var _npWorker = null;
         var _npWorkerSeq = 0;
@@ -9226,7 +9281,9 @@
             setupNpEditor();
             if (!npBody) return;
             var raw = String(text == null ? '' : text);
-            npBody.value = (_NP_FMT && _NP_FMT.migrateLegacyMarkers) ? _NP_FMT.migrateLegacyMarkers(raw) : raw;
+            if (_NP_FMT && _NP_FMT.migrateLegacyMarkers) raw = _NP_FMT.migrateLegacyMarkers(raw);
+            if (_NP_FMT && typeof _NP_FMT.sanitizeLoadedMarkers === 'function') raw = _NP_FMT.sanitizeLoadedMarkers(raw);
+            npBody.value = raw;
             npRecompute();
         }
         function npRenderVarsPanel() {
@@ -9290,6 +9347,8 @@
                 return ct.length > 38 ? ct.slice(0, 38) + '…' : ct;
             }
             var first = String(note.text || '').split('\n').map(function(s) { return s.trim(); }).filter(Boolean)[0];
+            if (first && _NP_FMT && typeof _NP_FMT.plainDisplayText === 'function') first = _NP_FMT.plainDisplayText(first);
+            else if (first && _NP_FMT && typeof _NP_FMT.stripMarkers === 'function') first = _NP_FMT.stripMarkers(first);
             if (!first) return 'Pusta notatka';
             return first.length > 38 ? first.slice(0, 38) + '…' : first;
         }
@@ -12143,6 +12202,58 @@
                 var dpOk = _NP_FMT.displayPrefix(sample, 7) === 'tekst' && _NP_FMT.displayPrefix(sample, 4) === 'tek';
                 var ok = migOk && kbEmpty && dpOk;
                 results.push({ expr: 'T6-5 migrate toolbar-only', pass: ok, got: ok ? 'ok' : JSON.stringify({ migOk: migOk, kbEmpty: kbEmpty, dpOk: dpOk }) });
+            })();
+            (function() {
+                if (!_NP_FMT || typeof _NP_FMT.partialUnwrap !== 'function') {
+                    results.push({ expr: 'T6-5 partial unwrap bold', pass: false, got: 'no partialUnwrap' });
+                    return;
+                }
+                var line = _BO + 'hello world' + _BC;
+                var wStart = 1 + 'hello '.length;
+                var wEnd = wStart + 'world'.length;
+                var pu = _NP_FMT.partialUnwrap(line, wStart, wEnd, _BO, _BC);
+                var want = _BO + 'hello ' + _BC + 'world';
+                results.push({ expr: 'T6-5 partial unwrap bold', pass: !!(pu && pu.text === want), got: pu && pu.text });
+            })();
+            (function() {
+                if (!_NP_FMT || typeof _NP_FMT.listRegions !== 'function') {
+                    results.push({ expr: 'T6-5 mirror nested formats', pass: false, got: 'no listRegions' });
+                    return;
+                }
+                var nested = _BO + _IO + 'bi' + _IC + _BC;
+                var plain = _NP_FMT.stripMarkers(nested);
+                var regs = _NP_FMT.listRegions(nested);
+                var hasBold = regs.some(function (r) { return r.fmt && r.fmt.act === 'bold'; });
+                var hasItalic = regs.some(function (r) { return r.fmt && r.fmt.act === 'italic'; });
+                var hasPUA = /[\uE000-\uE009]/.test(plain);
+                results.push({
+                    expr: 'T6-5 mirror nested formats',
+                    pass: plain === 'bi' && hasBold && hasItalic && !hasPUA,
+                    got: plain + (hasPUA ? '+PUA' : '')
+                });
+            })();
+            (function() {
+                if (!_NP_FMT || typeof _NP_FMT.plainDisplayText !== 'function') {
+                    results.push({ expr: 'T6-5 title plainDisplayText', pass: false, got: 'no plainDisplayText' });
+                    return;
+                }
+                var t = _NP_FMT.plainDisplayText(_BO + 'Tytuł' + _BC);
+                var noteT = _npTitle({ id: 'fmt', text: _BO + 'Moja notatka' + _BC + '\n2+2' });
+                results.push({ expr: 'T6-5 title plainDisplayText', pass: t === 'Tytuł' && noteT === 'Moja notatka', got: t + '|' + noteT });
+            })();
+            (function() {
+                if (!_NP_FMT || typeof _NP_FMT.collapseEmptyMarkers !== 'function') {
+                    results.push({ expr: 'T6-5 collapse empty markers', pass: false, got: 'no collapse' });
+                    return;
+                }
+                var emptyNest = _BO + _IO + _IC + _BC;
+                var collapsed = _NP_FMT.collapseEmptyMarkers(emptyNest);
+                var dp = _NP_FMT.displayPrefix(_BO + 'ab' + _BC, 3);
+                results.push({
+                    expr: 'T6-5 collapse empty markers',
+                    pass: collapsed === '' && dp === 'ab',
+                    got: collapsed + '|' + dp
+                });
             })();
 
             // Stałe-FUNKCJE f(x) — wywołania w kalkulatorze (test(3)/test 3/3 test), argument-stała,

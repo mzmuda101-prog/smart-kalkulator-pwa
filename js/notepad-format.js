@@ -37,6 +37,29 @@
         return INLINE.slice().sort(function (a, b) { return b.open.length - a.open.length; });
     }
 
+    function _markerCharSet() {
+        var set = {};
+        INLINE.forEach(function (f) { set[f.open] = 1; set[f.close] = 1; });
+        return set;
+    }
+    function _isMarkerChar(ch) { return !!_markerCharSet()[String(ch || '')]; }
+
+    function collapseEmptyMarkers(val) { // [EN] usuń puste pary po Backspace — zapobiega „prostokątom" w mirrorze
+        var s = String(val || '');
+        var order = _scanOrder();
+        var changed = true;
+        while (changed) {
+            changed = false;
+            for (var fi = 0; fi < order.length; fi++) {
+                var o = order[fi].open, c = order[fi].close;
+                var re = new RegExp(_escRe(o) + _escRe(c), 'g');
+                var next = s.replace(re, function () { changed = true; return ''; });
+                if (next !== s) { s = next; changed = true; }
+            }
+        }
+        return s;
+    }
+
     function stripMarkers(s) {
         var t = String(s || '');
         INLINE.forEach(function (f) {
@@ -122,12 +145,18 @@
                 if (end > i) {
                     pushPlain(i);
                     var innerStart = i + oLen, innerEnd = end;
-                    api.pushSpan(container, s.slice(innerStart, innerEnd), fmt.cls, base + innerStart, base + innerEnd, ctx);
+                    var inner = s.slice(innerStart, innerEnd);
+                    if (inner) {
+                        var wrap = document.createElement('span');
+                        if (fmt.cls) wrap.className = fmt.cls;
+                        container.appendChild(wrap);
+                        fillMirror(wrap, inner, ctx, base + innerStart, api); // [EN] nested B+I+U — recurse, not flat inner
+                    }
                     i = innerEnd + cLen;
                     matched = true;
                     break;
                 }
-                i += oLen;
+                i += oLen; // [EN] orphan open — skip, don't leak PUA into mirror
                 matched = true;
                 break;
             }
@@ -193,6 +222,34 @@
         return { start: a, end: b, changed: changed };
     }
 
+    function partialUnwrap(val, start, end, open, close) { // [EN] subset inside one region — split, don't drop whole wrap
+        if (start == null || end == null || start >= end) return null;
+        var regions = listRegions(val).filter(function (r) { return r.open === open && r.close === close; });
+        var target = null;
+        regions.forEach(function (r) {
+            if (start >= r.innerStart && end <= r.innerEnd && (start > r.innerStart || end < r.innerEnd)) {
+                if (!target || (r.uEnd - r.uStart) < (target.uEnd - target.uStart)) target = r;
+            }
+        });
+        if (!target) return null;
+        var before = val.slice(target.innerStart, start);
+        var mid = val.slice(start, end);
+        var after = val.slice(end, target.innerEnd);
+        var parts = [];
+        if (before) parts.push(open + before + close);
+        parts.push(mid);
+        if (after) parts.push(open + after + close);
+        return { uStart: target.uStart, uEnd: target.uEnd, text: parts.join('') };
+    }
+
+    function plainDisplayText(line) { // [EN] tytuł / lista — bez markerów i prefixów wyrównania
+        var s = stripMarkers(String(line || '').trim());
+        if (s.startsWith('> ')) s = s.slice(2);
+        else if (s.startsWith('< ')) s = s.slice(2);
+        else if (s.startsWith('| ')) s = s.slice(2);
+        return s.trim();
+    }
+
     function markerEnvelope(val, start, end, open, close) {
         var oLen = open.length, cLen = close.length;
         var sel = val.slice(start, end);
@@ -242,15 +299,40 @@
                     else { out += val.slice(innerStart, innerEnd); i = uEnd; }
                     matched = true;
                 } else {
-                    var take = Math.min(oLen, bufEnd - i);
-                    out += val.slice(i, i + take);
-                    i += take;
+                    if (bufEnd <= i + oLen) { i = bufEnd; }
+                    else { i += oLen; } // [EN] unclosed open — zero width in caret mirror
                     matched = true;
                 }
             }
-            if (!matched) { out += val[i]; i++; }
+            if (!matched) {
+                if (_isMarkerChar(val[i])) { i++; continue; } // [EN] orphan close — invisible in mirror
+                out += val[i];
+                i++;
+            }
         }
         return out;
+    }
+
+    function sanitizeLoadedMarkers(val) { // [EN] tylko przy wczytaniu notatki — usuń sierocę PUA z zapisanego bufora
+        var s = collapseEmptyMarkers(String(val || ''));
+        var regions = listRegions(s);
+        if (!regions.length) return s;
+        var keep = new Array(s.length);
+        for (var k = 0; k < keep.length; k++) keep[k] = false;
+        regions.forEach(function (r) {
+            for (var i = r.uStart; i < r.uEnd; i++) keep[i] = true;
+        });
+        var out = '';
+        for (var j = 0; j < s.length; j++) {
+            var ch = s[j];
+            if (_isMarkerChar(ch) && !keep[j]) continue;
+            out += ch;
+        }
+        return out;
+    }
+
+    function exportPlainText(val) { // [EN] kopiuj/wklej — bez niewidocznych markerów toolbar
+        return stripMarkers(String(val || ''));
     }
 
     var API = {
@@ -258,6 +340,9 @@
         line: LINE,
         font: FONT,
         stripMarkers: stripMarkers,
+        collapseEmptyMarkers: collapseEmptyMarkers,
+        sanitizeLoadedMarkers: sanitizeLoadedMarkers,
+        exportPlainText: exportPlainText,
         migrateLegacyMarkers: migrateLegacyMarkers,
         fillMirror: fillMirror,
         wrapByAct: wrapByAct,
@@ -267,6 +352,8 @@
         kbBarSpecs: kbBarSpecs,
         listRegions: listRegions,
         normalizeSelectionRange: normalizeSelectionRange,
+        partialUnwrap: partialUnwrap,
+        plainDisplayText: plainDisplayText,
         markerEnvelope: markerEnvelope,
         displayPrefix: displayPrefix
     };

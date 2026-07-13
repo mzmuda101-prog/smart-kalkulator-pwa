@@ -2884,6 +2884,9 @@
             position: relative;
             overflow: hidden;
             touch-action: pan-y;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end; /* [EN] chip wyniku przy ostatniej linii zawinięcia */
         }
         .np-row-delete {
             position: absolute;
@@ -2944,7 +2947,8 @@
             gap: 8px;
             padding: 0 8px 0 4px;
             min-height: calc(2 * var(--np-font-size));
-            height: 100%;
+            width: 100%;
+            flex: 0 0 auto;
             box-sizing: border-box;
         }
         .np-gutter-row.np-total .np-res { background: var(--primary); color: var(--text-on-accent); }

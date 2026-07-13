@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* [EN] Sync SW_FINGERPRINT in sw.js with APP_VERSION from version.js — browser only reinstalls SW when sw.js bytes change. */
+/* [EN] Sync SW_FINGERPRINT + index.html asset ?v= with APP_VERSION from version.js. */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,4 +24,11 @@ if (/var SW_FINGERPRINT = ['"][^'"]+['"];/.test(sw)) {
     );
 }
 fs.writeFileSync(swPath, sw);
-console.log('✅ sync-sw-fingerprint: SW_FINGERPRINT → ' + version);
+
+const indexPath = path.join(root, 'index.html');
+let html = fs.readFileSync(indexPath, 'utf8');
+const assetRe = /(href|src)="((?:styles\.css|version\.js|app\.js|command-definitions\.js|js\/[^"?]+))(?:\?(?:v=[^"&]+|[^"]*_bust=[^"]*))*"/g;
+html = html.replace(assetRe, '$1="$2?v=' + version + '"');
+fs.writeFileSync(indexPath, html);
+
+console.log('✅ sync-sw-fingerprint: SW_FINGERPRINT + index.html assets → ' + version);
