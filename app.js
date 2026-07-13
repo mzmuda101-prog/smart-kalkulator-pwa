@@ -8297,7 +8297,15 @@
             if (npEditor) npEditor.style.setProperty('--np-font-size', fs + 'rem');
             if (settingNotepadFontSize) settingNotepadFontSize.value = String(fs);
             if (settingNotepadFontVal) settingNotepadFontVal.textContent = Math.round(fs * 100) + '%';
-            if (!skipRecompute && npBody && document.body.classList.contains('notepad-open')) npRecompute();
+            if (!npBody || !document.body.classList.contains('notepad-open')) return;
+            if (!skipRecompute) npRecompute();
+            else {
+                _npRefreshMirrorFmt();
+                requestAnimationFrame(function() {
+                    _npUpdateVisualCaret();
+                    _npScheduleSelectionFmtMenu();
+                });
+            }
         }
         function _npLineIndexAt(pos) {
             if (!npBody) return 0;
@@ -9056,7 +9064,7 @@
             probe.style.padding = '0'; // [EN] mirror-line nie ma paddingu — padding textarea zawyżał każdą linię
             probe.style.margin = '0';
             probe.style.boxSizing = 'border-box';
-            probe.style.minHeight = mlcs.minHeight || '2rem';
+            probe.style.minHeight = mlcs.minHeight || 'calc(2 * var(--np-font-size))';
             probe.style.whiteSpace = mlcs.whiteSpace || 'pre-wrap';
             probe.style.overflowWrap = mlcs.overflowWrap || 'anywhere';
             probe.style.wordBreak = mlcs.wordBreak || 'normal';

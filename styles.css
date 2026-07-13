@@ -2740,7 +2740,7 @@
         }
         .np-wrap-line {
             position: relative;
-            min-height: 2rem;
+            min-height: calc(2 * var(--np-font-size));
             line-height: 2;
         }
         /* [EN] Soft-wrap marker — one logical line spanning multiple visual rows (not Enter). */
@@ -2792,7 +2792,7 @@
             color: var(--text); /* [EN] formatted preview layer — textarea text is transparent on top */
         }
         .np-mirror-line {
-            min-height: 2rem;
+            min-height: calc(2 * var(--np-font-size));
             line-height: 2;
             white-space: pre-wrap;
             overflow-wrap: anywhere;
@@ -2943,7 +2943,7 @@
             align-items: flex-end;
             gap: 8px;
             padding: 0 8px 0 4px;
-            min-height: 2rem;
+            min-height: calc(2 * var(--np-font-size));
             height: 100%;
             box-sizing: border-box;
         }
