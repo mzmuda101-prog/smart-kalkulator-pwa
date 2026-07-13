@@ -793,7 +793,7 @@
         if ((m = s.match(new RegExp('^' + P + '\\s+of\\s+' + P + '\\s+is\\s+what\\s+' + PCT + '\\s*$')))) {
             return _pctFrac(m[1], m[2]);
         }
-        if ((m = s.match(new RegExp('^' + P + '\\s+z\\s+' + P + '\\s+(?:stanowi\\s+)?(?:to\\s+)?ile\\s+' + PCT + '\\s*$')))) {
+        if ((m = s.match(new RegExp('^' + P + '\\s+z\\s+' + P + '\\s+(?:stanowi\\s+)?(?:to\\s+)?ile\\s+(?:to\\s+)?' + PCT + '\\s*$')))) {
             return _pctFrac(m[1], m[2]);
         }
         if ((m = s.match(new RegExp('^jaki\\s+(?:procent[a-z]*|' + PCT + ')\\s+(?:stanowi\\s+|to\\s+)?' + P + '\\s+z\\s+' + P + '\\s*$')))) {
@@ -1004,6 +1004,24 @@
             if (result === before) break;
         }
         return result;
+    }
+    // Średnia arytmetyczna listy liczb: „średnia z 10 15 20", „average of 10, 15, 20".
+    function evalAverage(raw) {
+        var s = _plFold(raw).trim();
+        if (!s || !/(?:srednia|average|mean|avg)\b/.test(s)) return null;
+        var m = s.match(/^(?:srednia|average|mean|avg)\s+(?:z|of)\s+(.+)$/i);
+        if (!m) return null;
+        var tokens = m[1].trim().replace(/[,:;]+$/g, '').split(/[\s,;:]+/).filter(Boolean);
+        if (!tokens.length) return null;
+        var sum = 0;
+        for (var i = 0; i < tokens.length; i++) {
+            var n = parseFloat(String(tokens[i]).replace(',', '.'));
+            if (!isFinite(n)) return null;
+            sum += n;
+        }
+        var avg = sum / tokens.length;
+        var label = Number.isInteger(avg) ? undefined : 6;
+        return { value: avg, unit: null, kind: 'number', text: _formatLocaleNumber(avg, label) };
     }
     function evalRouteCost(raw) {
         var s = _plFold(raw).replace(',', ',');
@@ -1331,6 +1349,8 @@
         if (pctDiffQ) return pctDiffQ;
         var periodPctQ = evalPeriodPercentage(original);
         if (periodPctQ) return periodPctQ;
+        var avgQ = evalAverage(original);
+        if (avgQ) return avgQ;
         var routeQ = evalRouteCost(original);
         if (routeQ) return routeQ;
         try {
@@ -1465,6 +1485,7 @@
         evalClockExpression: evalClockExpression,
         evalDateExpression: evalDateExpression,
         evalPeriodPercentage: evalPeriodPercentage,
+        evalAverage: evalAverage,
         evalPercentQuery: evalPercentQuery,
         evalPercentOfPercent: evalPercentOfPercent,
         evalPercentDifference: evalPercentDifference,

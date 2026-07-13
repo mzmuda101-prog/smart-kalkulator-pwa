@@ -48,6 +48,8 @@ const PAIRS = [
   { pl: '90 min na h', en: '90 min to h', sameValue: true },
   { pl: 'połowa 300', en: 'half of 300', sameValue: true },
   { pl: 'proporcja 3 do 5', en: 'ratio of 3 to 5', sameValue: true },
+  { pl: 'średnia z 10 15 20 35 40', en: 'average of 10 15 20 35 40', sameValue: true },
+  { pl: '5,99 z 9,99 ile to procent', en: '5.99 of 9.99 is what percent', kind: 'percent', sameValue: true },
   { pl: 'pierwiastek z 144', en: 'square root of 144', sameValue: true },
   { pl: '8,5% to 20, ile 100%', en: '20 is 8.5% of what', sameValue: true },
   { pl: '8,5% to 20, ile 50%', en: 'what is 50% if 8.5% is 20', sameValue: true },

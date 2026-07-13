@@ -108,6 +108,7 @@
                     { syntax: 'P% napiwek na B', syntaxAlt: 'P% tip on B', command: '{pctTip}% napiwek na {tipBase}', yields: 'B + (P% × B)', description: 'rachunek z napiwkiem' },
                     { syntax: 'ile % stanowi A z B', syntaxAlt: 'what percent is A of B', command: 'ile % stanowi {partA} z {partB}', yields: 'A ÷ B × 100%', description: 'jaki procent A stanowi z B' },
                     { syntax: 'A z B to ile %', syntaxAlt: 'A of B is what percent', command: '{partA} z {partB} to ile %', yields: 'A ÷ B × 100%', description: 'to samo, inna kolejność słów' },
+                    { syntax: 'A z B ile to %', syntaxAlt: 'A of B is what percent', command: '5,99 z 9,99 ile to procent', yields: 'A ÷ B × 100%', description: 'alias: „ile to procent" zamiast „ile procent"' },
                     { syntax: 'różnica % między A a B', syntaxAlt: 'percent difference between A and B', command: 'różnica % między {diffA} a {diffB}', yields: '|B−A| ÷ min(A,B) × 100%', description: 'wzrost lub spadek w %' },
                     { syntax: 'z A na B to ile %', syntaxAlt: 'from A to B is what percent', command: 'z 8 na 5 to ile %', yields: '(B−A) ÷ A × 100%', description: 'zmiana względem punktu startowego' },
                     { syntax: 'ile % dnia', syntaxAlt: 'day percentage', command: 'ile % dnia', yields: '% doby, która już minęła', description: 'zależy od aktualnej godziny' },
@@ -185,6 +186,7 @@
                     { syntax: 'połowa B', syntaxAlt: 'half of B', command: 'połowa 300', yields: 'B ÷ 2', description: 'połowa bazy' },
                     { syntax: 'trzecia B', syntaxAlt: 'a third of B', command: 'trzecia 120', yields: 'B ÷ 3', description: 'jedna trzecia' },
                     { syntax: 'proporcja a do b', syntaxAlt: 'ratio of a to b', command: 'proporcja 3 do 5', yields: 'a ÷ b', description: 'stosunek a:b' },
+                    { syntax: 'średnia z a b c', syntaxAlt: 'average of a b c', command: 'średnia z 10 15 20 35 40', yields: '(a+b+c+…) ÷ n', description: 'średnia arytmetyczna listy liczb' },
                 ],
             },
             {

@@ -11533,6 +11533,11 @@
                 { expr: '3 do 5 proporcja', value: 0.6, tol: 1e-6 },
                 { expr: 'ile procent to 25 z 200', value: 12.5, tol: 1e-6, unit: '%' },
                 { expr: '25 z 200 to ile %', value: 12.5, tol: 1e-6, unit: '%' },
+                { expr: '5,99 z 9,99 ile procent', value: 5.99 / 9.99 * 100, tol: 1e-6, unit: '%' },
+                { expr: '5,99 z 9,99 ile to procent', value: 5.99 / 9.99 * 100, tol: 1e-6, unit: '%' },
+                { expr: 'średnia z 10 15 20 35 40', value: 24, tol: 1e-6 },
+                { expr: 'average of 10 15 20 35 40', value: 24, tol: 1e-6 },
+                { expr: 'mean of 10, 15, 20', value: 15, tol: 1e-6 },
                 { expr: '25 to ile % z 200', value: 12.5, tol: 1e-6, unit: '%' },
                 { expr: 'ile % stanowi 50 z 50', value: 100, tol: 1e-6, unit: '%' },
                 // baza procentowa — znasz X% = Y, szukasz Z% (domyślnie 100%)
