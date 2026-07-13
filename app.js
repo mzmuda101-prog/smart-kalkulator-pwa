@@ -7479,17 +7479,15 @@
                 return Promise.all(regs.map(function(reg) { return reg.unregister(); }));
             });
         }
-        function hardReloadApp(bustKey) { // [EN] pełny reload z cache-bust — SWR/HTTP cache nie odda starego app.js
+        function hardReloadApp(bustKey) { // [EN] pełny reload z cache-bust — jeden param, bez stosu refresh= w URL
             var path = window.location.pathname || './';
             var hash = window.location.hash || '';
-            var stamp = Date.now();
-            var bust = (bustKey || '_sw') + '=' + stamp;
-            var search = window.location.search || '';
-            search = search.replace(/[?&](?:_sw|_refresh|dev-cache-clear)=[^&]*/g, '');
-            if (search === '?' || search === '&') search = '';
-            if (search.charAt(0) === '&') search = '?' + search.slice(1);
-            var url = path + (search ? search + '&' + bust : '?' + bust) + hash;
-            window.location.replace(url);
+            var key = bustKey || '_sw';
+            var params = new URLSearchParams(window.location.search || '');
+            ['_sw', '_refresh', 'refresh', 'dev-cache-clear'].forEach(function (k) { params.delete(k); });
+            params.set(key, String(Date.now()));
+            var qs = params.toString();
+            window.location.replace(path + (qs ? '?' + qs : '') + hash);
         }
         function forceHardCacheRefresh(opts) { // [EN] przycisk odśwież — pełne czyszczenie SW + cache + reload
             opts = opts || {};
@@ -8306,6 +8304,7 @@
             });
             _npBindGutterPanelSwipe();
             _npSyncGutterHidden();
+            _npEnsureMirrorResizeObserver();
             _npSyncFontSize(true);
             _npBindPanelCtx(npEditor);
             if (npGutter) _npBindPanelCtx(npGutter);
@@ -9063,6 +9062,33 @@
             if (npFoldLayer) npFoldLayer.scrollTop = st;
             if (npGutter) npGutter.scrollTop = st;
         }
+        function _npEditorTextWidth() { // [EN] szerokość kolumny tekstu — mirror > textarea > inner−gutter
+            if (npMirror && npMirror.clientWidth > 0) return npMirror.clientWidth;
+            if (npBody && npBody.clientWidth > 0) return npBody.clientWidth;
+            if (npEditorInner) {
+                var innerW = npEditorInner.clientWidth || 0;
+                var gutterW = (STATE.settings && STATE.settings.notepadGutterHidden) ? 0 : _npMeasureGutterWidth();
+                return Math.max(0, innerW - gutterW);
+            }
+            return 0;
+        }
+        function _npResetEditorScroll(pixels) {
+            if (!npEditor) return;
+            npEditor.scrollTop = Math.max(0, Number(pixels) || 0);
+            _npSyncEditorScroll();
+        }
+        function _npScheduleEditorRelayout() { // [EN] po zmianie notatki / mobile reflow — ponów pomiar wrap
+            if (!npBody || !document.body.classList.contains('notepad-open')) return;
+            var snap = npBody.value;
+            requestAnimationFrame(function() {
+                if (!npBody || npBody.value !== snap) return;
+                npRecompute();
+                requestAnimationFrame(function() {
+                    if (!npBody || npBody.value !== snap) return;
+                    npRecompute();
+                });
+            });
+        }
         function _npMakeResChip(info, kind) {
             var res = document.createElement('button');
             res.type = 'button';
@@ -9112,7 +9138,7 @@
             probe.style.fontSize = mcs.fontSize;
             probe.style.lineHeight = mlcs.lineHeight || mcs.lineHeight;
             probe.style.letterSpacing = mcs.letterSpacing;
-            probe.style.width = npBody.clientWidth + 'px';
+            probe.style.width = (_npEditorTextWidth() || npBody.clientWidth) + 'px';
             probe.style.padding = '0'; // [EN] mirror-line nie ma paddingu — padding textarea zawyżał każdą linię
             probe.style.margin = '0';
             probe.style.boxSizing = 'border-box';
@@ -9120,6 +9146,66 @@
             probe.style.whiteSpace = mlcs.whiteSpace || 'pre-wrap';
             probe.style.overflowWrap = mlcs.overflowWrap || 'anywhere';
             probe.style.wordBreak = mlcs.wordBreak || 'normal';
+        }
+        var _npLastChrome = { lines: [''], infos: [] };
+        var _npMirrorRO = null;
+        var _npMirrorLayoutRaf = 0;
+        function _npMirrorBlockH(el) { // [EN] wysokość bloku mirror po reflow — źródło prawdy dla gutter/wrap-bar
+            if (!el) return 0;
+            void el.offsetHeight;
+            return Math.max(Math.ceil(el.getBoundingClientRect().height || 0), el.offsetHeight || 0, el.scrollHeight || 0);
+        }
+        function _npEnsureMirrorResizeObserver() {
+            if (_npMirrorRO || !npMirror || typeof ResizeObserver !== 'function') return;
+            _npMirrorRO = new ResizeObserver(function(entries) {
+                if (!npBody || !document.body.classList.contains('notepad-open')) return;
+                var needs = false;
+                for (var i = 0; i < entries.length; i++) {
+                    if (entries[i].target.classList && entries[i].target.classList.contains('np-mirror-line')) { needs = true; break; }
+                }
+                if (!needs && entries.length === 1 && entries[0].target === npMirror) needs = true;
+                if (!needs) return;
+                if (_npMirrorLayoutRaf) cancelAnimationFrame(_npMirrorLayoutRaf);
+                _npMirrorLayoutRaf = requestAnimationFrame(function() {
+                    _npMirrorLayoutRaf = 0;
+                    var snap = _npLastChrome;
+                    if (!snap.lines || !snap.lines.length) return;
+                    _npLayoutLineChrome(snap.lines, snap.infos);
+                });
+            });
+            _npMirrorRO.observe(npMirror);
+            if (npBody) _npMirrorRO.observe(npBody);
+        }
+        function _npObserveMirrorLines() { // [EN] RO per linia — parent mirror czasem nie łapie wzrostu dziecka
+            if (!_npMirrorRO || !npMirror) return;
+            npMirror.querySelectorAll('.np-mirror-line').forEach(function(line) {
+                try { _npMirrorRO.observe(line); } catch (e) {}
+            });
+        }
+        function _npScheduleLayoutSettle() { // [EN] mobile — mirror wrap kończy się po pierwszym layout pass
+            var snap = { lines: _npLastChrome.lines.slice(), infos: _npLastChrome.infos };
+            [50, 150, 300].forEach(function(ms) {
+                setTimeout(function() {
+                    if (!npBody || !document.body.classList.contains('notepad-open')) return;
+                    if (npBody.value.split('\n').length !== snap.lines.length) return;
+                    _npLayoutLineChrome(snap.lines, snap.infos);
+                }, ms);
+            });
+        }
+        function _npPrimeEditorHeight() { // [EN] textarea przed pomiarem caret — inaczej wrap liczy złą wysokość
+            if (!npBody || !npMirror) return;
+            npBody.style.height = 'auto';
+            npBody.style.height = Math.max(npMirror.scrollHeight, 48) + 'px';
+        }
+        function _npMeasureTaLineBlock(lineIdx) { // [EN] źródło prawdy: caret start/end linii logicznej w textarea
+            var lineH = _npLineHeightPx();
+            if (!npBody) return { h: lineH, wrapped: false };
+            var bounds = _npLineBounds(lineIdx);
+            var r0 = _npCaretClientRect(npBody, bounds.start);
+            var r1 = _npCaretClientRect(npBody, bounds.end > bounds.start ? bounds.end : bounds.start);
+            if (!r0 || !r1) return { h: lineH, wrapped: false };
+            var h = Math.max(lineH, Math.ceil(r1.bottom - r0.top));
+            return { h: h, wrapped: h > lineH * 1.35 };
         }
         function _npMeasureLineBlock(lineText) {
             var lineH = _npLineHeightPx();
@@ -9129,27 +9215,36 @@
             var displayText = lineText;
             if (_NP_FMT && typeof _NP_FMT.stripMarkers === 'function') displayText = _NP_FMT.stripMarkers(lineText); // [EN] jak mirror — bez markerów PU
             probe.textContent = displayText.length ? displayText : '\u00a0';
-            var h = probe.offsetHeight || lineH;
+            var h = Math.max(probe.offsetHeight || 0, probe.scrollHeight || 0) || lineH;
             return { h: h, wrapped: h > lineH * 1.35 };
         }
         // [EN] Soft-wrap only — Enter = new logical line without a wrap bar.
         function _npIsSoftWrapped(el, lineH) {
-            return (el && (el.offsetHeight || 0) > lineH * 1.35);
+            return _npMirrorBlockH(el) > lineH * 1.35;
         }
-        function _npLayoutLineChrome(lines, infos) { // [EN] gutter + wrap-bar; wysokość z probe (wynik na dole zawinięcia)
+        function _npLayoutLineChrome(lines, infos) { // [EN] gutter + wrap-bar; wysokość z probe + mirror (batch przed chrome)
             if (!npBody || !npMirror || !npGutter || !npFoldLayer || !npWrapLayer) return;
+            _npPrimeEditorHeight();
             var folded = !!(STATE.settings && STATE.settings.notepadFold);
             var lineH = _npLineHeightPx();
             var mirrorLines = npMirror.querySelectorAll('.np-mirror-line');
+            if (!lines.length) lines = [''];
+            if (!mirrorLines.length) return; // [EN] RO/settle między replaceChildren a append — nie czyść guttera
+            void npMirror.offsetHeight; // [EN] wymuś wrap reflow — inaczej linia 0 mierzyła 1 wiersz w pętli
+            var blockHs = [];
+            for (var bi = 0; bi < mirrorLines.length; bi++) {
+                var bText = lines[bi] != null ? lines[bi] : '';
+                var probeH = _npMeasureLineBlock(bText).h;
+                var mirrorH0 = _npMirrorBlockH(mirrorLines[bi]);
+                blockHs[bi] = Math.max(lineH, probeH, mirrorH0, _npMeasureTaLineBlock(bi).h);
+            }
             npWrapLayer.replaceChildren();
             npGutter.replaceChildren();
             npFoldLayer.replaceChildren();
-            if (!lines.length) lines = [''];
             mirrorLines.forEach(function(md, i) {
                 var lineText = lines[i] != null ? lines[i] : '';
-                var block = _npMeasureLineBlock(lineText);
-                var wrapped = block.wrapped || _npIsSoftWrapped(md, lineH); // [EN] probe + mirror — wrap-bar i chip na dole
-                var h = Math.max(block.h, md.offsetHeight || 0);
+                var h = blockHs[i] || Math.max(lineH, _npMeasureLineBlock(lineText).h, _npMirrorBlockH(md));
+                var wrapped = h > lineH * 1.35;
                 md.classList.toggle('np-wrapped', wrapped);
                 var wrapSlot = document.createElement('div');
                 wrapSlot.className = 'np-wrap-line' + (wrapped ? ' np-wrapped' : '');
@@ -9191,9 +9286,20 @@
             npBody.style.height = 'auto';
             npBody.style.height = Math.max(npMirror.scrollHeight, 48) + 'px';
             _npSyncEditorScroll();
+            var snap = _npLastChrome;
+            var retry = false;
+            for (var ri = 0; ri < mirrorLines.length; ri++) {
+                var gwEl = npGutter.children[ri];
+                if (!gwEl) continue;
+                if (_npMirrorBlockH(mirrorLines[ri]) > (gwEl.offsetHeight || 0) + 2) { retry = true; break; }
+            }
+            if (retry && snap.lines && snap.lines.length) {
+                requestAnimationFrame(function() { _npLayoutLineChrome(snap.lines, snap.infos); });
+            }
         }
         function _npRenderEditorChrome(lines, infos) {
             if (!npBody || !npMirror || !npGutter || !npFoldLayer || !npWrapLayer) return;
+            _npLastChrome = { lines: lines.slice(), infos: infos.slice() };
             npMirror.replaceChildren();
             if (!lines.length) lines = [''];
             lines.forEach(function(line, i) {
@@ -9203,10 +9309,13 @@
                 _npFillMirrorLine(md, line, mctx);
                 npMirror.appendChild(md);
             });
-            _npLayoutLineChrome(lines, infos);
-            requestAnimationFrame(function() { _npLayoutLineChrome(lines, infos); });
+            function relayout() { _npLayoutLineChrome(lines, infos); _npObserveMirrorLines(); }
             requestAnimationFrame(function() {
-                requestAnimationFrame(function() { _npLayoutLineChrome(lines, infos); }); // [EN] 3. pass — mobile wrap + chip na ostatniej linii
+                relayout();
+                requestAnimationFrame(function() {
+                    relayout();
+                    _npScheduleLayoutSettle();
+                });
             });
         }
         var _npWorker = null;
@@ -9284,7 +9393,9 @@
             if (_NP_FMT && _NP_FMT.migrateLegacyMarkers) raw = _NP_FMT.migrateLegacyMarkers(raw);
             if (_NP_FMT && typeof _NP_FMT.sanitizeLoadedMarkers === 'function') raw = _NP_FMT.sanitizeLoadedMarkers(raw);
             npBody.value = raw;
+            _npResetEditorScroll(0);
             npRecompute();
+            _npScheduleEditorRelayout();
         }
         function npRenderVarsPanel() {
             if (!npVarsPanel) return;
@@ -9459,7 +9570,16 @@
             npRenderList();
             npCloseList();
             var f = npBody;
-            if (f) { f.focus(); var L = f.value.length; try { f.setSelectionRange(L, L); } catch (_) {} }
+            if (f) {
+                f.focus();
+                var L = f.value.length;
+                try { f.setSelectionRange(L, L); } catch (_) {}
+                requestAnimationFrame(function() {
+                    if (!npEditor || !npBody || _npCurrentId !== id) return;
+                    npEditor.scrollTop = npEditor.scrollHeight;
+                    _npSyncEditorScroll();
+                });
+            }
         }
         function npNewNote() {
             var prevId = _npCurrentId;
