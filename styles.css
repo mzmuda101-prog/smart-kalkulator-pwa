@@ -3322,12 +3322,12 @@
         }
         .np-heading-slot-window {
             display: block;
-            height: 36px;
+            height: 44px;
             overflow: hidden;
-            line-height: 28px;
+            line-height: 16px;
             pointer-events: none;
-            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 30%, #000 70%, transparent 100%);
-            mask-image: linear-gradient(to bottom, transparent 0%, #000 30%, #000 70%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 18%, #000 82%, transparent 100%);
+            mask-image: linear-gradient(to bottom, transparent 0%, #000 18%, #000 82%, transparent 100%);
         }
         .np-heading-slot-reel {
             display: flex;
@@ -3335,25 +3335,25 @@
             will-change: transform;
         }
         .np-heading-slot-item {
-            height: 28px;
-            line-height: 28px;
+            height: 16px;
+            line-height: 16px;
             font-weight: 800;
-            font-size: 0.72rem;
+            font-size: 0.64rem;
             text-align: center;
-            color: color-mix(in srgb, var(--primary, #2563eb) 55%, var(--text-muted, #94a3b8));
-            opacity: 0.5;
-            transform: scale(0.86);
+            color: color-mix(in srgb, var(--primary, #2563eb) 45%, var(--text-muted, #94a3b8));
+            opacity: 0.42;
+            transform: scale(0.84);
             transition: opacity 140ms ease, transform 140ms ease, font-size 140ms ease, color 140ms ease;
         }
         .np-heading-slot-item.is-near {
-            opacity: 0.72;
-            font-size: 0.78rem;
-            transform: scale(0.92);
-            color: color-mix(in srgb, var(--primary, #2563eb) 78%, var(--text-muted, #94a3b8));
+            opacity: 0.82;
+            font-size: 0.72rem;
+            transform: scale(0.9);
+            color: color-mix(in srgb, var(--primary, #2563eb) 82%, var(--text-muted, #94a3b8));
         }
         .np-heading-slot-item.is-active {
             opacity: 1;
-            font-size: 0.9rem;
+            font-size: 0.84rem;
             transform: scale(1);
             color: var(--primary, #2563eb);
         }

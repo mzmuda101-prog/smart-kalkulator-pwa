@@ -8295,7 +8295,7 @@
             npBody.addEventListener('focus', function() {
                 if (npEditor) npEditor.classList.add('np-editing');
                 _npSyncKbBar();
-                requestAnimationFrame(function() { try { npBody.scrollIntoView({ block: 'nearest' }); } catch (_) {} _npUpdateVisualCaret(); });
+                requestAnimationFrame(function() { try { npBody.scrollIntoView({ block: 'nearest' }); } catch (_) {} _npRefreshMirrorFmt(); _npUpdateVisualCaret(); });
             });
             npBody.addEventListener('blur', function() {
                 if (npEditor) npEditor.classList.remove('np-editing');
@@ -8308,6 +8308,10 @@
             });
             window.addEventListener('resize', function() {
                 if (npBody && document.body.classList.contains('notepad-open')) npRecompute();
+            });
+            document.addEventListener('visibilitychange', function() { // [EN] powrót z innej apki — odśwież mirror + caret (jednorazowy drift)
+                if (document.hidden || !npBody || !document.body.classList.contains('notepad-open')) return;
+                requestAnimationFrame(function() { _npRefreshMirrorFmt(); _npUpdateVisualCaret(); });
             });
             _npBindGutterPanelSwipe();
             _npSyncGutterHidden();
@@ -8880,11 +8884,12 @@
                 return a[0] === 'heading-slot' ? (a[0] + ':' + a[1]) : a[0];
             }).join('|');
         }
-        function _npAppendHeadingSlotBtn() { // [EN] slot H — drag pionowy (touch); wheel z progiem (trackpad)
-            var SLOT_ITEM = 28;
-            var SLOT_WIN = 36;
+        function _npAppendHeadingSlotBtn() { // [EN] slot H — drag pionowy; wheel wyłączony (TODO przyszłość)
+            var SLOT_ITEM = 16;
+            var SLOT_WIN = 44;
             var SLOT_PEEK = (SLOT_WIN - SLOT_ITEM) * 0.5;
-            var WHEEL_THRESH = 110;
+            var SNAP_FRAC = 0.38;
+            var DRAG_SENS = 0.62; // [EN] <1 = wolniej — więcej precyzji przy T/H1/H2/H3
             var btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'np-ctx-btn np-ctx-heading-slot';
@@ -8902,10 +8907,12 @@
             });
             win.appendChild(reel);
             btn.appendChild(win);
-            var st = { level: _npSelectionHeadingLevel(), dragPx: 0, wheelAccum: 0, active: false, moved: false, pid: null, lastY: 0 };
+            var st = { level: _npSelectionHeadingLevel(), dragPx: 0, active: false, moved: false, pid: null, lastY: 0 };
+            function clampLv(lv) { return Math.max(0, Math.min(3, lv)); }
             function paint(anim) {
-                var lv = st.level - (st.dragPx / SLOT_ITEM);
-                var snap = Math.max(0, Math.min(3, Math.round(lv)));
+                var rawLv = st.level - (st.dragPx / SLOT_ITEM);
+                var lv = clampLv(rawLv);
+                var snap = Math.round(lv);
                 reel.style.transition = anim ? 'transform 180ms cubic-bezier(.22,.9,.28,1)' : 'none';
                 reel.style.transform = 'translateY(' + (-lv * SLOT_ITEM + SLOT_PEEK) + 'px)';
                 reel.querySelectorAll('.np-heading-slot-item').forEach(function(it, idx) {
@@ -8923,10 +8930,13 @@
                 btn.setAttribute('aria-label', btn.title);
             }
             function commitLevel(lv) {
-                st.level = ((lv % 4) + 4) % 4;
+                var next = clampLv(lv | 0); // [EN] bez modulo — T/H1/H2/H3 to skończona lista
+                var prev = st.level;
+                st.level = next;
                 st.dragPx = 0;
                 paint(true);
                 syncMeta();
+                if (next === prev) return;
                 if (_npCtxMenuMode === 'selection' && npBody && npBody.selectionStart === npBody.selectionEnd) _npRestoreFmtSelection();
                 _npApplyHeadingToSelection(st.level);
                 if (_npCtxMenuMode === 'selection') {
@@ -8935,8 +8945,14 @@
                 }
             }
             function snapFromDrag() {
-                var lv = Math.round(st.level - st.dragPx / SLOT_ITEM);
-                commitLevel(lv);
+                var rawLv = st.level - st.dragPx / SLOT_ITEM;
+                var target = clampLv(Math.round(rawLv));
+                if (target === st.level && Math.abs(st.dragPx) < SLOT_ITEM * SNAP_FRAC) {
+                    st.dragPx = 0;
+                    paint(true);
+                    return;
+                }
+                commitLevel(target);
             }
             paint(false);
             syncMeta();
@@ -8955,7 +8971,7 @@
                 var dy = e.clientY - st.lastY;
                 st.lastY = e.clientY;
                 if (Math.abs(dy) > 1) st.moved = true;
-                st.dragPx += dy;
+                st.dragPx += dy * DRAG_SENS;
                 paint(false);
                 e.preventDefault();
             });
@@ -8969,15 +8985,8 @@
             btn.addEventListener('pointerup', endPointer);
             btn.addEventListener('pointercancel', endPointer);
             btn.addEventListener('lostpointercapture', function() { st.active = false; });
-            btn.addEventListener('wheel', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                st.wheelAccum += e.deltaY;
-                if (Math.abs(st.wheelAccum) < WHEEL_THRESH) return;
-                var step = st.wheelAccum > 0 ? 1 : -1;
-                st.wheelAccum = 0;
-                commitLevel(st.level + step);
-            }, { passive: false });
+            // TODO: wheel/trackpad reel — wyłączone tymczasowo (Mac trackpad irytuje); drag palcem/myszą OK
+            btn.addEventListener('wheel', function(e) { e.preventDefault(); e.stopPropagation(); }, { passive: false });
             npCtxMenu.appendChild(btn);
         }
         function _npPositionCtxMenu(x, y) {
@@ -12453,6 +12462,13 @@
                 var dirty = h1open + 'bold' + h1close + h1close + 'tail';
                 var clean = _NP_FMT.sanitizeLoadedMarkers(dirty);
                 results.push({ expr: 'T6-7 orphan close sanitize', pass: clean === h1open + 'bold' + h1close + 'tail', got: clean });
+                var wrapped = h1open + 'word' + h1close;
+                var toPlain = _NP_FMT.applyHeadingToRange(wrapped, 1, 5, 0);
+                results.push({
+                    expr: 'T6-7 T strips heading wrap',
+                    pass: toPlain.text === 'word' && toPlain.start === 0 && toPlain.end === wrapped.length,
+                    got: toPlain.text + '@' + toPlain.start + '-' + toPlain.end
+                });
             }
             results.push({ expr: 'T6-5 legacy ** eval', pass: (evalNotepadLines('**2+2**')[0] || {}).value === 4, got: (evalNotepadLines('**2+2**')[0] || {}).value });
             (function() {

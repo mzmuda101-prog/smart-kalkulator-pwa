@@ -112,6 +112,17 @@
         val = String(val || '');
         start = Math.max(0, Math.min(start == null ? 0 : start, val.length));
         end = Math.max(start, Math.min(end == null ? start : end, val.length));
+        if (end > start) { // [EN] rozszerz na cały wrap H — inaczej T zostawia sieroty PUA
+            var box = { start: start, end: end };
+            listRegions(val).forEach(function (r) {
+                if (!r.fmt || !r.fmt.heading) return;
+                if (r.innerEnd <= box.start || r.innerStart >= box.end) return;
+                box.start = Math.min(box.start, r.uStart);
+                box.end = Math.max(box.end, r.uEnd);
+            });
+            start = box.start;
+            end = box.end;
+        }
         var slice = val.slice(start, end);
         var inner = stripHeadingsFromText(slice);
         var lv = Math.max(0, Math.min(3, level == null ? 0 : (level | 0)));
