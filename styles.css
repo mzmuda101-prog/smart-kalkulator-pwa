@@ -2797,7 +2797,9 @@
             white-space: pre-wrap;
             overflow-wrap: anywhere;
         }
-        .np-mirror-line.np-align-left { text-align: left; }
+        .np-mirror-line.np-h1 { font-size: calc(var(--np-font-size) * 1.34); font-weight: 700; line-height: 1.45; letter-spacing: -0.01em; }
+        .np-mirror-line.np-h2 { font-size: calc(var(--np-font-size) * 1.18); font-weight: 600; line-height: 1.5; }
+        .np-mirror-line.np-h3 { font-size: calc(var(--np-font-size) * 1.08); font-weight: 600; line-height: 1.55; }
         .np-mirror-line.np-align-center { text-align: center; }
         .np-mirror-line.np-align-right { text-align: right; }
         .np-mirror-line.np-align-justify { text-align: justify; }
@@ -3303,6 +3305,18 @@
             -webkit-tap-highlight-color: transparent;
         }
         .np-ctx-btn:active { background: var(--primary-light); }
+        .np-ctx-heading-slot {
+            min-width: 2.65rem;
+            font-variant-numeric: tabular-nums;
+            position: relative;
+            overflow: hidden;
+        }
+        .np-ctx-menu.is-selection .np-ctx-heading-slot {
+            min-width: 2.75rem;
+            padding-inline: 10px;
+            background: color-mix(in srgb, var(--primary) 8%, var(--bg, #fff));
+            border: 1px dashed color-mix(in srgb, var(--primary) 35%, var(--border));
+        }
         .np-learn-bar {
             flex: 0 0 auto;
             margin: 6px 2px 0;

@@ -26,6 +26,16 @@
         { id: 'font-reset', act: 'font-reset', label: '↺', title: 'Domyślna czcionka', panelMenu: true, kb: true }
     ];
 
+    var HEADING = [ // [EN] line-level PUA — jeden znak na początku body (po prefixie wyrównania)
+        { level: 1, marker: '\uE010', cls: 'np-h1', label: 'H1', title: 'Nagłówek 1' },
+        { level: 2, marker: '\uE011', cls: 'np-h2', label: 'H2', title: 'Nagłówek 2' },
+        { level: 3, marker: '\uE012', cls: 'np-h3', label: 'H3', title: 'Nagłówek 3' }
+    ];
+    var _HEADING_BY_MARKER = {};
+    HEADING.forEach(function (h) { _HEADING_BY_MARKER[h.marker] = h; });
+
+    var _ALIGN_PREFIX = { left: '', center: '< ', right: '> ', justify: '| ' };
+
     var _byAct = {};
     INLINE.forEach(function (f) { _byAct[f.act] = f; });
     LINE.forEach(function (f) { _byAct[f.act] = f; });
@@ -40,9 +50,46 @@
     function _markerCharSet() {
         var set = {};
         INLINE.forEach(function (f) { set[f.open] = 1; set[f.close] = 1; });
+        HEADING.forEach(function (h) { set[h.marker] = 1; });
         return set;
     }
     function _isMarkerChar(ch) { return !!_markerCharSet()[String(ch || '')]; }
+
+    function _parseAlignRaw(s) { // [EN] prefix wyrównania — jak w notepad-engine
+        if (s.startsWith('> ')) return { align: 'right', rest: s.slice(2) };
+        if (s.startsWith('< ')) return { align: 'center', rest: s.slice(2) };
+        if (s.startsWith('| ')) return { align: 'justify', rest: s.slice(2) };
+        return { align: 'left', rest: s };
+    }
+
+    function parseLineHeading(rawLine) { // [EN] align + H1/H2/H3 + czyste body do mirror/eval
+        var a = _parseAlignRaw(String(rawLine || ''));
+        var level = 0, body = a.rest;
+        var head = _HEADING_BY_MARKER[body.charAt(0)];
+        if (head) { level = head.level; body = body.slice(1); }
+        return { align: a.align, level: level, body: body, prefixLen: a.rest.length - body.length };
+    }
+
+    function applyLineHeading(rawLine, level) {
+        var p = parseLineHeading(rawLine);
+        var lv = Math.max(0, Math.min(3, level == null ? 0 : (level | 0)));
+        var marker = lv === 1 ? HEADING[0].marker : lv === 2 ? HEADING[1].marker : lv === 3 ? HEADING[2].marker : '';
+        return (_ALIGN_PREFIX[p.align] || '') + marker + p.body;
+    }
+
+    function headingLevelLabel(level) {
+        if (level === 1) return 'H1';
+        if (level === 2) return 'H2';
+        if (level === 3) return 'H3';
+        return 'T';
+    }
+
+    function headingClass(level) {
+        if (level === 1) return 'np-h1';
+        if (level === 2) return 'np-h2';
+        if (level === 3) return 'np-h3';
+        return '';
+    }
 
     function collapseEmptyMarkers(val) { // [EN] usuń puste pary po Backspace — zapobiega „prostokątom" w mirrorze
         var s = String(val || '');
@@ -62,6 +109,7 @@
 
     function stripMarkers(s) {
         var t = String(s || '');
+        t = t.replace(/^[\uE010\uE011\uE012]/, ''); // [EN] nagłówek linii — niewidoczny w eksporcie
         INLINE.forEach(function (f) {
             var re = new RegExp(_escRe(f.open) + '([^' + _escRe(f.close) + '\\n]+)' + _escRe(f.close), 'g');
             t = t.replace(re, '$1');
@@ -90,10 +138,13 @@
         return f ? { open: f.open, close: f.close } : null;
     }
 
-    function selectionMenuItems() {
-        return INLINE.filter(function (f) { return f.menu; }).map(function (f) {
+    function selectionMenuItems(ctx) {
+        var items = INLINE.filter(function (f) { return f.menu; }).map(function (f) {
             return [f.act, f.label, f.title];
         });
+        var lvl = ctx && ctx.headingLevel != null ? ctx.headingLevel : 0;
+        items.push(['heading-slot', headingLevelLabel(lvl), 'Nagłówek — dotknij lub przewiń']);
+        return items;
     }
 
     function panelMenuItems() {
@@ -243,7 +294,8 @@
     }
 
     function plainDisplayText(line) { // [EN] tytuł / lista — bez markerów i prefixów wyrównania
-        var s = stripMarkers(String(line || '').trim());
+        var p = parseLineHeading(line);
+        var s = stripMarkers(p.body.trim());
         if (s.startsWith('> ')) s = s.slice(2);
         else if (s.startsWith('< ')) s = s.slice(2);
         else if (s.startsWith('| ')) s = s.slice(2);
@@ -339,6 +391,11 @@
         inline: INLINE,
         line: LINE,
         font: FONT,
+        heading: HEADING,
+        parseLineHeading: parseLineHeading,
+        applyLineHeading: applyLineHeading,
+        headingLevelLabel: headingLevelLabel,
+        headingClass: headingClass,
         stripMarkers: stripMarkers,
         collapseEmptyMarkers: collapseEmptyMarkers,
         sanitizeLoadedMarkers: sanitizeLoadedMarkers,
