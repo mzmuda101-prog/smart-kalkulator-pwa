@@ -8139,23 +8139,19 @@
                 if (i === prev) { i++; }
             }
         }
-        function _npParseAlign(line) { // [EN] align + body bez markera nagłówka
-            if (_NP_FMT && typeof _NP_FMT.parseLineHeading === 'function') {
-                var p = _NP_FMT.parseLineHeading(line);
-                return { align: p.align, body: p.body, level: p.level, prefixLen: p.prefixLen };
-            }
+        function _npParseAlign(line) {
             var s = String(line || '');
-            if (s.startsWith('> ')) return { align: 'right', body: s.slice(2), level: 0, prefixLen: 2 };
-            if (s.startsWith('< ')) return { align: 'center', body: s.slice(2), level: 0, prefixLen: 2 };
-            if (s.startsWith('| ')) return { align: 'justify', body: s.slice(2), level: 0, prefixLen: 2 };
-            return { align: 'left', body: s, level: 0, prefixLen: 0 };
+            if (s.startsWith('> ')) return { align: 'right', body: s.slice(2) };
+            if (s.startsWith('< ')) return { align: 'center', body: s.slice(2) };
+            if (s.startsWith('| ')) return { align: 'justify', body: s.slice(2) };
+            return { align: 'left', body: s };
         }
         function _npMirrorCtxForLine(lineIdx, lines) {
             var lineStart = 0, li = 0;
             for (; li < lineIdx && li < lines.length; li++) lineStart += lines[li].length + 1;
             var lineText = lines[lineIdx] != null ? lines[lineIdx] : '';
-            var parsed = _npParseAlign(lineText);
-            var bodyStart = parsed.prefixLen >= 0 ? parsed.prefixLen : lineText.indexOf(parsed.body);
+            var prep = _npPrepareLine(lineText);
+            var bodyStart = lineText.indexOf(prep.body);
             if (bodyStart < 0) bodyStart = 0;
             var selStart = npBody && npBody.selectionStart != null ? npBody.selectionStart : 0;
             var selEnd = npBody && npBody.selectionEnd != null ? npBody.selectionEnd : selStart;
@@ -8166,10 +8162,9 @@
                 lineStart: lineStart,
                 lineEnd: lineStart + lineText.length,
                 bodyStart: lineStart + bodyStart,
-                bodyText: parsed.body,
+                bodyText: prep.body,
                 prefixText: lineText.slice(0, bodyStart),
-                align: parsed.align,
-                headingLevel: parsed.level || 0
+                align: prep.align
             };
         }
         function _npFillMirrorLine(container, lineText, ctx) {
@@ -8190,8 +8185,7 @@
                 var md = mirrorLines[i];
                 if (!md) return;
                 var mctx = _npMirrorCtxForLine(i, lines);
-                var hCls = (_NP_FMT && typeof _NP_FMT.headingClass === 'function') ? _NP_FMT.headingClass(mctx.headingLevel) : '';
-                md.className = 'np-mirror-line np-align-' + mctx.align + (hCls ? (' ' + hCls) : '');
+                md.className = 'np-mirror-line np-align-' + mctx.align;
                 _npFillMirrorLine(md, line, mctx);
             });
         }
@@ -8261,9 +8255,9 @@
                 if (e.clipboardData) e.clipboardData.setData('text/plain', plain);
             });
             npBody.addEventListener('input', function() {
-                if (_NP_FMT && typeof _NP_FMT.collapseEmptyMarkers === 'function' && npBody) {
+                if (_NP_FMT && typeof _NP_FMT.sanitizeLoadedMarkers === 'function' && npBody) {
                     var raw = npBody.value;
-                    var clean = _NP_FMT.collapseEmptyMarkers(raw);
+                    var clean = _NP_FMT.sanitizeLoadedMarkers(raw);
                     if (clean !== raw) {
                         var a = npBody.selectionStart, b = npBody.selectionEnd;
                         var visA = _npDisplayPrefix(raw, a).length;
@@ -8383,7 +8377,9 @@
         function _npReplaceRange(start, end, insert) {
             if (!npBody) return;
             var val = npBody.value;
-            npBody.value = val.slice(0, start) + insert + val.slice(end);
+            var next = val.slice(0, start) + insert + val.slice(end);
+            if (_NP_FMT && typeof _NP_FMT.sanitizeLoadedMarkers === 'function') next = _NP_FMT.sanitizeLoadedMarkers(next);
+            npBody.value = next;
             _npCommit();
         }
         function _npMarkerEnvelope(val, start, end, open, close) {
@@ -8446,40 +8442,32 @@
             if (!npBody) return;
             var lineIdx = _npLineIndexAt(npBody.selectionStart);
             var b = _npLineBounds(lineIdx);
-            var parsed = _npParseAlign(b.text);
-            var newAlign = (parsed.align === mode) ? 'left' : mode;
-            var marker = parsed.level === 1 ? '\uE010' : parsed.level === 2 ? '\uE011' : parsed.level === 3 ? '\uE012' : '';
-            var newLine = (_NP_ALIGN_MAP[newAlign] || '') + marker + parsed.body;
+            var prep = _npParseAlign(b.text);
+            var body = prep.body;
+            var newLine = (prep.align === mode) ? body : ((_NP_ALIGN_MAP[mode] || '') + body);
             _npReplaceRange(b.start, b.end, newLine);
             var caret = b.start + newLine.length;
             try { npBody.setSelectionRange(caret, caret); } catch (_) {}
             npBody.focus();
         }
-        function _npSelectionHeadingLevel() { // [EN] poziom H pierwszej linii zaznaczenia — slot toolbar
-            if (!npBody || !_NP_FMT || typeof _NP_FMT.parseLineHeading !== 'function') return 0;
-            var start = npBody.selectionStart;
-            if (start == null) return 0;
-            return _NP_FMT.parseLineHeading(_npLineBounds(_npLineIndexAt(start)).text).level || 0;
+        function _npSelectionHeadingLevel() {
+            if (!npBody || !_NP_FMT || typeof _NP_FMT.selectionHeadingLevel !== 'function') return 0;
+            var start = npBody.selectionStart, end = npBody.selectionEnd;
+            if (start === end && _npFmtSel) { start = _npFmtSel.start; end = _npFmtSel.end; }
+            if (start == null || end == null || start === end) return 0;
+            return _NP_FMT.selectionHeadingLevel(npBody.value, start, end) || 0;
         }
         function _npApplyHeadingToSelection(level) {
-            if (!npBody || !_NP_FMT || typeof _NP_FMT.applyLineHeading !== 'function') return;
+            if (!npBody || !_NP_FMT || typeof _NP_FMT.applyHeadingToRange !== 'function') return;
             var start = npBody.selectionStart, end = npBody.selectionEnd;
-            if (start == null || end == null) return;
-            var lineA = _npLineIndexAt(start), lineB = _npLineIndexAt(Math.max(start, end - 1));
-            var val = npBody.value, delta = 0;
-            for (var li = lineA; li <= lineB; li++) {
-                var b = _npLineBounds(li);
-                var adjStart = b.start + delta, adjEnd = b.end + delta;
-                var slice = val.slice(adjStart, adjEnd);
-                var newLine = _NP_FMT.applyLineHeading(slice, level);
-                val = val.slice(0, adjStart) + newLine + val.slice(adjEnd);
-                delta += newLine.length - (adjEnd - adjStart);
-            }
-            npBody.value = val;
-            _npCommit();
-            try { npBody.setSelectionRange(start, end); } catch (_) {}
+            if (start === end && _npFmtSel) { start = _npFmtSel.start; end = _npFmtSel.end; }
+            if (start == null || end == null || start === end) return;
+            var patched = _NP_FMT.applyHeadingToRange(npBody.value, start, end, level);
+            _npReplaceRange(patched.start, patched.end, patched.text);
+            try { npBody.setSelectionRange(patched.selStart, patched.selEnd); } catch (_) {}
             npBody.focus();
             _npSaveFmtSelection();
+            _npUpdateVisualCaret();
         }
         function _npCycleHeadingSelection(step) {
             var cur = _npSelectionHeadingLevel();
@@ -8681,9 +8669,13 @@
             }
             _npOnFmtSelectionEnd();
         }
-        function _npNeedsVisualCaret(val, index) { // [EN] tylko gdy zamknięte markery przed kursorem zabierają szerokość
-            if (index == null || index <= 0) return false;
-            return _npDisplayPrefix(val, index).length !== index;
+        function _npNeedsVisualCaret(val, index) { // [EN] markery PUA + H zmienia szerokość glyfów vs bufor
+            if (index == null || index < 0) return false;
+            if (_npDisplayPrefix(val, index).length !== index) return true;
+            if (!_NP_FMT || typeof _NP_FMT.listRegions !== 'function') return false;
+            var li = _npLineIndexAt(index);
+            var b = _npLineBounds(li);
+            return _NP_FMT.listRegions(val.slice(b.start, b.end)).some(function (r) { return r.fmt && r.fmt.heading; });
         }
         function _npEnsureVisualCaret() {
             if (_npVisualCaret) return _npVisualCaret;
@@ -8734,8 +8726,36 @@
                 'paddingBottom', 'lineHeight', 'whiteSpace', 'overflowWrap', 'wordBreak'].forEach(function(p) { div.style[p] = cs[p]; });
             div.style.width = ta.clientWidth + 'px';
         }
+        function _npCaretRectFromMirror(ta, index) { // [EN] pozycja kursora z mirror — H1/H2/H3 mają inną szerokość niż plain
+            if (!ta || !npMirror || !document.body.classList.contains('notepad-open')) return null;
+            var lineIdx = _npLineIndexAt(index);
+            var mLine = npMirror.querySelectorAll('.np-mirror-line')[lineIdx];
+            if (!mLine) return null;
+            var val = String(ta.value || '');
+            var bounds = _npLineBounds(lineIdx);
+            var visLine = _npDisplayPrefix(val, index).length - _npDisplayPrefix(val, bounds.start).length;
+            var acc = 0, targetNode = null, targetOff = 0;
+            var walker = document.createTreeWalker(mLine, NodeFilter.SHOW_TEXT);
+            var node;
+            while ((node = walker.nextNode())) {
+                var len = (node.textContent || '').length;
+                if (acc + len >= visLine) { targetNode = node; targetOff = visLine - acc; break; }
+                acc += len;
+            }
+            try {
+                var range = document.createRange();
+                if (targetNode) range.setStart(targetNode, Math.max(0, Math.min(targetOff, targetNode.length)));
+                else { range.selectNodeContents(mLine); range.collapse(false); }
+                range.collapse(true);
+                var r = range.getBoundingClientRect();
+                if (!r.height && !r.width) return null;
+                return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+            } catch (_) { return null; }
+        }
         function _npCaretClientRect(ta, index) {
             if (!ta) return null;
+            var mirrorR = _npCaretRectFromMirror(ta, index);
+            if (mirrorR) return mirrorR;
             var div = _npEnsureCaretMirror();
             _npSyncCaretMirrorStyle(ta, div);
             var val = String(ta.value || '');
@@ -8860,38 +8880,103 @@
                 return a[0] === 'heading-slot' ? (a[0] + ':' + a[1]) : a[0];
             }).join('|');
         }
-        function _npAppendHeadingSlotBtn() { // [EN] jeden slot H — tap/kółko jak poziomy tekstu
+        function _npAppendHeadingSlotBtn() { // [EN] slot H — drag pionowy (touch); wheel z progiem (trackpad)
+            var SLOT_ITEM = 28;
+            var SLOT_WIN = 36;
+            var SLOT_PEEK = (SLOT_WIN - SLOT_ITEM) * 0.5;
+            var WHEEL_THRESH = 110;
             var btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'np-ctx-btn np-ctx-heading-slot';
             btn.setAttribute('role', 'menuitem');
-            btn.setAttribute('data-np-act', 'heading-cycle');
-            var label = _NP_FMT && typeof _NP_FMT.headingLevelLabel === 'function'
-                ? _NP_FMT.headingLevelLabel(_npSelectionHeadingLevel()) : 'T';
-            btn.textContent = label;
-            btn.title = 'Nagłówek — dotknij lub przewiń';
-            btn.setAttribute('aria-label', 'Nagłówek: ' + label);
-            btn.addEventListener('pointerdown', function(e) { e.preventDefault(); });
-            btn.addEventListener('mousedown', function(e) { e.preventDefault(); });
-            btn.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                if (_npCtxMenuMode === 'selection' && npBody.selectionStart === npBody.selectionEnd) _npRestoreFmtSelection();
-                _npCycleHeadingSelection(1);
+            btn.setAttribute('data-np-act', 'heading-slot');
+            var win = document.createElement('span');
+            win.className = 'np-heading-slot-window';
+            var reel = document.createElement('span');
+            reel.className = 'np-heading-slot-reel';
+            ['T', 'H1', 'H2', 'H3'].forEach(function(lbl) {
+                var it = document.createElement('span');
+                it.className = 'np-heading-slot-item';
+                it.textContent = lbl;
+                reel.appendChild(it);
+            });
+            win.appendChild(reel);
+            btn.appendChild(win);
+            var st = { level: _npSelectionHeadingLevel(), dragPx: 0, wheelAccum: 0, active: false, moved: false, pid: null, lastY: 0 };
+            function paint(anim) {
+                var lv = st.level - (st.dragPx / SLOT_ITEM);
+                var snap = Math.max(0, Math.min(3, Math.round(lv)));
+                reel.style.transition = anim ? 'transform 180ms cubic-bezier(.22,.9,.28,1)' : 'none';
+                reel.style.transform = 'translateY(' + (-lv * SLOT_ITEM + SLOT_PEEK) + 'px)';
+                reel.querySelectorAll('.np-heading-slot-item').forEach(function(it, idx) {
+                    it.classList.toggle('is-active', idx === snap);
+                    it.classList.toggle('is-near', Math.abs(idx - snap) === 1);
+                });
+            }
+            function labelFor(lv) {
+                return (_NP_FMT && typeof _NP_FMT.headingLevelLabel === 'function')
+                    ? _NP_FMT.headingLevelLabel(lv) : (lv ? 'H' + lv : 'T');
+            }
+            function syncMeta() {
+                var lbl = labelFor(st.level);
+                btn.title = 'Nagłówek: ' + lbl + ' — przesuń w pionie';
+                btn.setAttribute('aria-label', btn.title);
+            }
+            function commitLevel(lv) {
+                st.level = ((lv % 4) + 4) % 4;
+                st.dragPx = 0;
+                paint(true);
+                syncMeta();
+                if (_npCtxMenuMode === 'selection' && npBody && npBody.selectionStart === npBody.selectionEnd) _npRestoreFmtSelection();
+                _npApplyHeadingToSelection(st.level);
                 if (_npCtxMenuMode === 'selection') {
                     _npSaveFmtSelection();
                     _npScheduleSelectionFmtMenu();
                 }
+            }
+            function snapFromDrag() {
+                var lv = Math.round(st.level - st.dragPx / SLOT_ITEM);
+                commitLevel(lv);
+            }
+            paint(false);
+            syncMeta();
+            btn.addEventListener('pointerdown', function(e) {
+                if (e.button != null && e.button !== 0) return;
+                st.active = true;
+                st.moved = false;
+                st.dragPx = 0;
+                st.lastY = e.clientY;
+                st.pid = e.pointerId;
+                try { btn.setPointerCapture(e.pointerId); } catch (_) {}
+                e.preventDefault();
             });
+            btn.addEventListener('pointermove', function(e) {
+                if (!st.active || st.pid !== e.pointerId) return;
+                var dy = e.clientY - st.lastY;
+                st.lastY = e.clientY;
+                if (Math.abs(dy) > 1) st.moved = true;
+                st.dragPx += dy;
+                paint(false);
+                e.preventDefault();
+            });
+            function endPointer(e) {
+                if (!st.active || (e && st.pid !== e.pointerId)) return;
+                st.active = false;
+                if (st.moved) snapFromDrag();
+                st.pid = null;
+                if (e) { try { btn.releasePointerCapture(e.pointerId); } catch (_) {} }
+            }
+            btn.addEventListener('pointerup', endPointer);
+            btn.addEventListener('pointercancel', endPointer);
+            btn.addEventListener('lostpointercapture', function() { st.active = false; });
             btn.addEventListener('wheel', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                if (_npCtxMenuMode === 'selection' && npBody.selectionStart === npBody.selectionEnd) _npRestoreFmtSelection();
-                _npCycleHeadingSelection(e.deltaY > 0 ? 1 : -1);
-                if (_npCtxMenuMode === 'selection') {
-                    _npSaveFmtSelection();
-                    _npScheduleSelectionFmtMenu();
-                }
+                st.wheelAccum += e.deltaY;
+                if (Math.abs(st.wheelAccum) < WHEEL_THRESH) return;
+                var step = st.wheelAccum > 0 ? 1 : -1;
+                st.wheelAccum = 0;
+                commitLevel(st.level + step);
             }, { passive: false });
             npCtxMenu.appendChild(btn);
         }
@@ -9394,8 +9479,7 @@
             lines.forEach(function(line, i) {
                 var mctx = _npMirrorCtxForLine(i, lines);
                 var md = document.createElement('div');
-                var hCls = (_NP_FMT && typeof _NP_FMT.headingClass === 'function') ? _NP_FMT.headingClass(mctx.headingLevel) : '';
-                md.className = 'np-mirror-line np-align-' + mctx.align + (hCls ? (' ' + hCls) : '');
+                md.className = 'np-mirror-line np-align-' + mctx.align;
                 _npFillMirrorLine(md, line, mctx);
                 npMirror.appendChild(md);
             });
@@ -12356,12 +12440,19 @@
             results.push({ expr: 'T6-6 strike eval', pass: t66s[0] && t66s[0].value === 4, got: t66s[0] && t66s[0].value });
             var t66a = evalNotepadLines(_AO + '10+5' + _AC);
             results.push({ expr: 'T6-6 accent eval', pass: t66a[0] && t66a[0].value === 15, got: t66a[0] && t66a[0].value });
-            if (_NP_FMT && typeof _NP_FMT.applyLineHeading === 'function') {
-                var h1line = _NP_FMT.applyLineHeading('Budżet', 1);
+            if (_NP_FMT && typeof _NP_FMT.applyHeadingToRange === 'function') {
+                var h1open = _NP_FMT.headingByLevel(1).open, h1close = _NP_FMT.headingByLevel(1).close;
+                var h1line = h1open + 'Budżet' + h1close;
                 var t67 = evalNotepadLines(h1line + '\n100+200');
                 results.push({ expr: 'T6-7 h1 prose no eval', pass: t67[0] && !t67[0].value && t67[1] && t67[1].value === 300, got: (t67[0] && t67[0].value) + '|' + (t67[1] && t67[1].value) });
-                var t67b = evalNotepadLines(_NP_FMT.applyLineHeading('2+2', 2));
+                var h2open = _NP_FMT.headingByLevel(2).open, h2close = _NP_FMT.headingByLevel(2).close;
+                var t67b = evalNotepadLines(h2open + '2+2' + h2close);
                 results.push({ expr: 'T6-7 h2 calc eval', pass: t67b[0] && t67b[0].value === 4, got: t67b[0] && t67b[0].value });
+                var mig = _NP_FMT.migrateLineHeadingMarkers('\uE010Budżet');
+                results.push({ expr: 'T6-7 legacy line h1 migrate', pass: mig.indexOf(h1open) >= 0 && mig.indexOf('\uE010') < 0, got: mig });
+                var dirty = h1open + 'bold' + h1close + h1close + 'tail';
+                var clean = _NP_FMT.sanitizeLoadedMarkers(dirty);
+                results.push({ expr: 'T6-7 orphan close sanitize', pass: clean === h1open + 'bold' + h1close + 'tail', got: clean });
             }
             results.push({ expr: 'T6-5 legacy ** eval', pass: (evalNotepadLines('**2+2**')[0] || {}).value === 4, got: (evalNotepadLines('**2+2**')[0] || {}).value });
             (function() {

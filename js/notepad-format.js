@@ -26,55 +26,57 @@
         { id: 'font-reset', act: 'font-reset', label: '↺', title: 'Domyślna czcionka', panelMenu: true, kb: true }
     ];
 
-    var HEADING = [ // [EN] line-level PUA — jeden znak na początku body (po prefixie wyrównania)
-        { level: 1, marker: '\uE010', cls: 'np-h1', label: 'H1', title: 'Nagłówek 1' },
-        { level: 2, marker: '\uE011', cls: 'np-h2', label: 'H2', title: 'Nagłówek 2' },
-        { level: 3, marker: '\uE012', cls: 'np-h3', label: 'H3', title: 'Nagłówek 3' }
+    var HEADING = [ // [EN] wrap zaznaczenia — pary PUA jak B/I (bez glifu na początku linii)
+        { id: 'h1', act: 'heading-1', level: 1, label: 'H1', title: 'Nagłówek 1', open: '\uE013', close: '\uE014', cls: 'np-h1', menu: false, heading: true },
+        { id: 'h2', act: 'heading-2', level: 2, label: 'H2', title: 'Nagłówek 2', open: '\uE015', close: '\uE016', cls: 'np-h2', menu: false, heading: true },
+        { id: 'h3', act: 'heading-3', level: 3, label: 'H3', title: 'Nagłówek 3', open: '\uE017', close: '\uE018', cls: 'np-h3', menu: false, heading: true }
     ];
-    var _HEADING_BY_MARKER = {};
-    HEADING.forEach(function (h) { _HEADING_BY_MARKER[h.marker] = h; });
+    var _LEGACY_LINE_HEADING = { '\uE010': 1, '\uE011': 2, '\uE012': 3 }; // [EN] stary model linii → migracja przy load
 
     var _ALIGN_PREFIX = { left: '', center: '< ', right: '> ', justify: '| ' };
 
     var _byAct = {};
     INLINE.forEach(function (f) { _byAct[f.act] = f; });
+    HEADING.forEach(function (f) { _byAct[f.act] = f; });
     LINE.forEach(function (f) { _byAct[f.act] = f; });
     FONT.forEach(function (f) { _byAct[f.act] = f; });
 
     function _escRe(ch) { return ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
     function _scanOrder() {
-        return INLINE.slice().sort(function (a, b) { return b.open.length - a.open.length; });
+        return INLINE.concat(HEADING).slice().sort(function (a, b) { return b.open.length - a.open.length; });
     }
 
     function _markerCharSet() {
         var set = {};
-        INLINE.forEach(function (f) { set[f.open] = 1; set[f.close] = 1; });
-        HEADING.forEach(function (h) { set[h.marker] = 1; });
+        _scanOrder().forEach(function (f) { set[f.open] = 1; set[f.close] = 1; });
+        Object.keys(_LEGACY_LINE_HEADING).forEach(function (k) { set[k] = 1; });
         return set;
     }
     function _isMarkerChar(ch) { return !!_markerCharSet()[String(ch || '')]; }
 
-    function _parseAlignRaw(s) { // [EN] prefix wyrównania — jak w notepad-engine
+    function _parseAlignRaw(s) {
         if (s.startsWith('> ')) return { align: 'right', rest: s.slice(2) };
         if (s.startsWith('< ')) return { align: 'center', rest: s.slice(2) };
         if (s.startsWith('| ')) return { align: 'justify', rest: s.slice(2) };
         return { align: 'left', rest: s };
     }
 
-    function parseLineHeading(rawLine) { // [EN] align + H1/H2/H3 + czyste body do mirror/eval
-        var a = _parseAlignRaw(String(rawLine || ''));
-        var level = 0, body = a.rest;
-        var head = _HEADING_BY_MARKER[body.charAt(0)];
-        if (head) { level = head.level; body = body.slice(1); }
-        return { align: a.align, level: level, body: body, prefixLen: a.rest.length - body.length };
+    function migrateLineHeadingMarkers(t) { // [EN] stary jednoznakowy H na początku linii → wrap całego body
+        return String(t || '').split('\n').map(function (line) {
+            var a = _parseAlignRaw(line);
+            var lv = _LEGACY_LINE_HEADING[a.rest.charAt(0)];
+            if (!lv) return line;
+            var fmt = HEADING[lv - 1];
+            var body = a.rest.slice(1);
+            return (_ALIGN_PREFIX[a.align] || '') + fmt.open + body + fmt.close;
+        }).join('\n');
     }
 
-    function applyLineHeading(rawLine, level) {
-        var p = parseLineHeading(rawLine);
-        var lv = Math.max(0, Math.min(3, level == null ? 0 : (level | 0)));
-        var marker = lv === 1 ? HEADING[0].marker : lv === 2 ? HEADING[1].marker : lv === 3 ? HEADING[2].marker : '';
-        return (_ALIGN_PREFIX[p.align] || '') + marker + p.body;
+    function headingByLevel(level) {
+        var lv = level | 0;
+        if (lv < 1 || lv > 3) return null;
+        return HEADING[lv - 1];
     }
 
     function headingLevelLabel(level) {
@@ -84,11 +86,45 @@
         return 'T';
     }
 
-    function headingClass(level) {
-        if (level === 1) return 'np-h1';
-        if (level === 2) return 'np-h2';
-        if (level === 3) return 'np-h3';
-        return '';
+    function stripHeadingsFromText(s) {
+        var t = String(s || '');
+        HEADING.forEach(function (h) {
+            var re = new RegExp(_escRe(h.open) + '([^' + _escRe(h.close) + '\\n]*)' + _escRe(h.close), 'g');
+            t = t.replace(re, '$1');
+        });
+        return t;
+    }
+
+    function selectionHeadingLevel(val, start, end) {
+        if (start == null || end == null || start >= end) return 0;
+        var regions = listRegions(String(val || ''));
+        var hit = null;
+        regions.forEach(function (r) {
+            if (!r.fmt || !r.fmt.heading) return;
+            if (r.uStart <= start && r.uEnd >= end) {
+                if (!hit || (r.uEnd - r.uStart) < (hit.uEnd - hit.uStart)) hit = r;
+            }
+        });
+        return hit ? hit.fmt.level : 0;
+    }
+
+    function applyHeadingToRange(val, start, end, level) {
+        val = String(val || '');
+        start = Math.max(0, Math.min(start == null ? 0 : start, val.length));
+        end = Math.max(start, Math.min(end == null ? start : end, val.length));
+        var slice = val.slice(start, end);
+        var inner = stripHeadingsFromText(slice);
+        var lv = Math.max(0, Math.min(3, level == null ? 0 : (level | 0)));
+        var text = inner;
+        var selStart = start;
+        var selEnd = start + inner.length;
+        if (lv > 0) {
+            var h = HEADING[lv - 1];
+            text = h.open + inner + h.close;
+            selStart = start + h.open.length;
+            selEnd = selStart + inner.length;
+        }
+        return { start: start, end: end, text: text, selStart: selStart, selEnd: selEnd };
     }
 
     function collapseEmptyMarkers(val) { // [EN] usuń puste pary po Backspace — zapobiega „prostokątom" w mirrorze
@@ -109,7 +145,10 @@
 
     function stripMarkers(s) {
         var t = String(s || '');
-        t = t.replace(/^[\uE010\uE011\uE012]/, ''); // [EN] nagłówek linii — niewidoczny w eksporcie
+        HEADING.forEach(function (h) {
+            var re = new RegExp(_escRe(h.open) + '([^' + _escRe(h.close) + '\\n]*)' + _escRe(h.close), 'g');
+            t = t.replace(re, '$1');
+        });
         INLINE.forEach(function (f) {
             var re = new RegExp(_escRe(f.open) + '([^' + _escRe(f.close) + '\\n]+)' + _escRe(f.close), 'g');
             t = t.replace(re, '$1');
@@ -130,7 +169,7 @@
         t = t.replace(/~~([^~\n]+)~~/g, function (_, inner) { return INLINE[3].open + inner + INLINE[3].close; });
         t = t.replace(/::([^:\n]+)::/g, function (_, inner) { return INLINE[4].open + inner + INLINE[4].close; });
         t = t.replace(/_([^_\n]{2,})_/g, function (_, inner) { return INLINE[1].open + inner + INLINE[1].close; });
-        return t;
+        return migrateLineHeadingMarkers(t);
     }
 
     function wrapByAct(act) {
@@ -143,7 +182,7 @@
             return [f.act, f.label, f.title];
         });
         var lvl = ctx && ctx.headingLevel != null ? ctx.headingLevel : 0;
-        items.push(['heading-slot', headingLevelLabel(lvl), 'Nagłówek — dotknij lub przewiń']);
+        items.push(['heading-slot', headingLevelLabel(lvl), 'Nagłówek — przesuń w pionie']);
         return items;
     }
 
@@ -173,6 +212,8 @@
         order.forEach(function (f) {
             var p = s.indexOf(f.open, i);
             if (p >= 0 && p < next) next = p;
+            var pc = s.indexOf(f.close, i);
+            if (pc >= 0 && pc < next) next = pc;
         });
         return next;
     }
@@ -212,6 +253,7 @@
                 break;
             }
             if (matched) continue;
+            if (_isMarkerChar(s[i])) { i++; continue; } // [EN] orphan close/PUA — zero width, no tofu in mirror
             pushPlain(_nextPlainEnd(s, i, order));
             if (i === prev) i++;
         }
@@ -294,8 +336,7 @@
     }
 
     function plainDisplayText(line) { // [EN] tytuł / lista — bez markerów i prefixów wyrównania
-        var p = parseLineHeading(line);
-        var s = stripMarkers(p.body.trim());
+        var s = stripMarkers(String(line || '').trim());
         if (s.startsWith('> ')) s = s.slice(2);
         else if (s.startsWith('< ')) s = s.slice(2);
         else if (s.startsWith('| ')) s = s.slice(2);
@@ -366,7 +407,7 @@
     }
 
     function sanitizeLoadedMarkers(val) { // [EN] tylko przy wczytaniu notatki — usuń sierocę PUA z zapisanego bufora
-        var s = collapseEmptyMarkers(String(val || ''));
+        var s = migrateLineHeadingMarkers(collapseEmptyMarkers(String(val || '')));
         var regions = listRegions(s);
         if (!regions.length) return s;
         var keep = new Array(s.length);
@@ -392,10 +433,11 @@
         line: LINE,
         font: FONT,
         heading: HEADING,
-        parseLineHeading: parseLineHeading,
-        applyLineHeading: applyLineHeading,
+        headingByLevel: headingByLevel,
         headingLevelLabel: headingLevelLabel,
-        headingClass: headingClass,
+        selectionHeadingLevel: selectionHeadingLevel,
+        applyHeadingToRange: applyHeadingToRange,
+        migrateLineHeadingMarkers: migrateLineHeadingMarkers,
         stripMarkers: stripMarkers,
         collapseEmptyMarkers: collapseEmptyMarkers,
         sanitizeLoadedMarkers: sanitizeLoadedMarkers,

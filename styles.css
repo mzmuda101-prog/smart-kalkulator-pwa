@@ -2800,6 +2800,9 @@
         .np-mirror-line.np-h1 { font-size: calc(var(--np-font-size) * 1.34); font-weight: 700; line-height: 1.45; letter-spacing: -0.01em; }
         .np-mirror-line.np-h2 { font-size: calc(var(--np-font-size) * 1.18); font-weight: 600; line-height: 1.5; }
         .np-mirror-line.np-h3 { font-size: calc(var(--np-font-size) * 1.08); font-weight: 600; line-height: 1.55; }
+        .np-mirror-line .np-h1 { font-size: calc(var(--np-font-size) * 1.34); font-weight: 700; line-height: 1.45; letter-spacing: -0.01em; }
+        .np-mirror-line .np-h2 { font-size: calc(var(--np-font-size) * 1.18); font-weight: 600; line-height: 1.5; }
+        .np-mirror-line .np-h3 { font-size: calc(var(--np-font-size) * 1.08); font-weight: 600; line-height: 1.55; }
         .np-mirror-line.np-align-center { text-align: center; }
         .np-mirror-line.np-align-right { text-align: right; }
         .np-mirror-line.np-align-justify { text-align: justify; }
@@ -3307,15 +3310,52 @@
         .np-ctx-btn:active { background: var(--primary-light); }
         .np-ctx-heading-slot {
             min-width: 2.65rem;
+            padding: 2px 6px !important;
             font-variant-numeric: tabular-nums;
-            position: relative;
             overflow: hidden;
+            touch-action: none; /* [EN] pionowy drag slotu — bez scrollu strony */
         }
         .np-ctx-menu.is-selection .np-ctx-heading-slot {
             min-width: 2.75rem;
-            padding-inline: 10px;
             background: color-mix(in srgb, var(--primary) 8%, var(--bg, #fff));
             border: 1px dashed color-mix(in srgb, var(--primary) 35%, var(--border));
+        }
+        .np-heading-slot-window {
+            display: block;
+            height: 36px;
+            overflow: hidden;
+            line-height: 28px;
+            pointer-events: none;
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 30%, #000 70%, transparent 100%);
+            mask-image: linear-gradient(to bottom, transparent 0%, #000 30%, #000 70%, transparent 100%);
+        }
+        .np-heading-slot-reel {
+            display: flex;
+            flex-direction: column;
+            will-change: transform;
+        }
+        .np-heading-slot-item {
+            height: 28px;
+            line-height: 28px;
+            font-weight: 800;
+            font-size: 0.72rem;
+            text-align: center;
+            color: color-mix(in srgb, var(--primary, #2563eb) 55%, var(--text-muted, #94a3b8));
+            opacity: 0.5;
+            transform: scale(0.86);
+            transition: opacity 140ms ease, transform 140ms ease, font-size 140ms ease, color 140ms ease;
+        }
+        .np-heading-slot-item.is-near {
+            opacity: 0.72;
+            font-size: 0.78rem;
+            transform: scale(0.92);
+            color: color-mix(in srgb, var(--primary, #2563eb) 78%, var(--text-muted, #94a3b8));
+        }
+        .np-heading-slot-item.is-active {
+            opacity: 1;
+            font-size: 0.9rem;
+            transform: scale(1);
+            color: var(--primary, #2563eb);
         }
         .np-learn-bar {
             flex: 0 0 auto;
