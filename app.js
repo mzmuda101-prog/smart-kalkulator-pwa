@@ -457,11 +457,31 @@
             return String(text || '').replace(/\s/g, '').replace(',', '.');
         }
 
-        function formatLocaleNumber(num, maxDigits) {
+        function formatLocaleNumber(num, maxDigits, minDigits) {
             var F = (typeof window !== 'undefined' && window.MATM0_FMT) || {};
-            if (F.formatLocaleNumber) return F.formatLocaleNumber(num, maxDigits);
+            if (F.formatLocaleNumber) return F.formatLocaleNumber(num, maxDigits, minDigits);
             if (!isFinite(num)) return String(num);
             return String(num);
+        }
+        function formatMoneyNumber(num) { // [EN] waluty zawsze XX,XX (grosze)
+            var F = (typeof window !== 'undefined' && window.MATM0_FMT) || {};
+            if (F.formatMoneyNumber) return F.formatMoneyNumber(num);
+            return formatLocaleNumber(num, 2, 2);
+        }
+        function _isCurrencyDisplayUnit(unit) { // [EN] zł / EUR / $ — panel zmiennych i notatnik
+            if (!unit) return false;
+            var s = String(unit).trim();
+            if (!s) return false;
+            var map = _currencyTokenMap();
+            if (map[s.toLowerCase()]) return true;
+            var upper = s.toUpperCase();
+            var codes = {};
+            Object.keys(map).forEach(function (tok) { codes[map[tok]] = true; });
+            if (codes[upper]) return true;
+            for (var code in codes) {
+                if (_currencyDisplay(code) === s) return true;
+            }
+            return false;
         }
         function _roundMoney(n) { // [EN] grosze — decimal.js when loaded, else float fallback
             var M = (typeof window !== 'undefined' && window.MATM0_MONEY) || null;
@@ -1200,7 +1220,8 @@
             if (res.text != null) return res.text; // wynik daty/czasu
             if (res.value === null) return '';
             if (res.error === '∞') return '∞';
-            var str = formatLocaleNumber(res.value, 6);
+            var money = res.kind === 'money' || _isCurrencyDisplayUnit(res.unit);
+            var str = money ? formatMoneyNumber(res.value) : formatLocaleNumber(res.value, 6);
             if (res.unit) str += ' ' + inflectDisplayUnit(res.value, res.unit);
             return str;
         }
@@ -1211,7 +1232,8 @@
                 if (res.text == null) return null;
                 return String(res.text).replace(/\n/g, ' ').trim();
             }
-            var str = formatLocaleNumber(res.value, 6);
+            var money = res.kind === 'money' || _isCurrencyDisplayUnit(res.unit);
+            var str = money ? formatMoneyNumber(res.value) : formatLocaleNumber(res.value, 6);
             if (res.unit) str += '\u202f' + inflectDisplayUnit(res.value, res.unit);
             return str.replace(/\n/g, ' ').trim();
         }
@@ -1254,7 +1276,8 @@
             }
             if (res.value === null || res.error === '∞') return null;
             var display = formatCalcResult(res);
-            var plain = formatLocaleNumber(res.value, 6);
+            var money = res.kind === 'money' || _isCurrencyDisplayUnit(res.unit);
+            var plain = money ? formatMoneyNumber(res.value) : formatLocaleNumber(res.value, 6);
             var ex = String(expr || '').trim();
             return {
                 plain: plain,
@@ -9597,10 +9620,11 @@
                     btn.className = 'np-var-chip';
                     btn.setAttribute('data-var', k);
                     var val = map[k];
-                    var u = units && units[k] ? (' ' + units[k]) : '';
+                    var uRaw = units && units[k] ? units[k] : '';
+                    var u = uRaw ? (' ' + uRaw) : '';
                     btn.appendChild(document.createTextNode('@' + k + ' '));
                     var sm = document.createElement('small');
-                    sm.textContent = formatLocaleNumber(val, 10) + u;
+                    sm.textContent = (_isCurrencyDisplayUnit(uRaw) ? formatMoneyNumber(val) : formatLocaleNumber(val, 10)) + u;
                     btn.appendChild(sm);
                     btn.addEventListener('click', function() { _npInsertVarName(k); });
                     container.appendChild(btn);
@@ -11172,7 +11196,7 @@
 
                 var price = num('#wsCovPrice', 0);
                 if (price > 0 && packs != null) {
-                    lines.push('Koszt: ' + formatNum(packs * price) + ' zł');
+                    lines.push('Koszt: ' + formatMoneyNumber(packs * price) + ' zł');
                 } else if (price > 0) {
                     lines.push('Koszt: podaj „na opakowanie", by policzyć liczbę paczek');
                 }
@@ -11393,7 +11417,7 @@
                 var kwh = power / 1000 * hours * days;
                 var lines = ['Zużycie: ' + formatNum(kwh) + ' kWh'];
                 var price = num('#wsEnPrice', 0);
-                if (price > 0) lines.push('Koszt: ' + formatNum(kwh * price) + ' zł');
+                if (price > 0) lines.push('Koszt: ' + formatMoneyNumber(kwh * price) + ' zł');
                 el.textContent = lines.join('\n');
             }
 

@@ -112,9 +112,36 @@
             return null;
         }
 
+        function _npIsCurrencyUnit(unit) { // [EN] zł / EUR / $ — zawsze format XX,XX
+            if (!unit) return false;
+            var s = String(unit).trim();
+            if (!s) return false;
+            var map = currencyTokenMap();
+            if (map[s.toLowerCase()]) return true;
+            var upper = s.toUpperCase();
+            var codes = {};
+            Object.keys(map).forEach(function (tok) { codes[map[tok]] = true; });
+            if (codes[upper]) return true;
+            for (var code in codes) {
+                if (currencyDisplay(code) === s) return true;
+            }
+            return false;
+        }
+
+        function _npFormatMoneyOrNum(value, unit) {
+            var F = (typeof self !== 'undefined' && self.MATM0_FMT) ||
+                (typeof window !== 'undefined' && window.MATM0_FMT) || {};
+            if (_npIsCurrencyUnit(unit)) {
+                if (F.formatMoneyNumber) return F.formatMoneyNumber(value);
+                return formatLocaleNumber(value, 2, 2);
+            }
+            return formatLocaleNumber(value, 6);
+        }
+
         function _npFormatWithUnit(value, unit) {
-            if (!unit) return formatLocaleNumber(value, 6);
-            return formatLocaleNumber(value, 6) + '\u202f' + inflectDisplayUnit(value, unit);
+            var numStr = _npFormatMoneyOrNum(value, unit);
+            if (!unit) return numStr;
+            return numStr + '\u202f' + inflectDisplayUnit(value, unit);
         }
 
         function _npVarUnitLabel(u) { // [EN] known or auto/custom token for @substitution

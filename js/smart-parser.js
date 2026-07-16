@@ -74,11 +74,16 @@
         return (typeof window !== 'undefined' && window.MATM0_FMT) ||
             (typeof self !== 'undefined' && self.MATM0_FMT) || {};
     }
-    function _formatLocaleNumber(num, maxDigits) {
+    function _formatLocaleNumber(num, maxDigits, minDigits) {
         var F = _fmt();
-        if (F.formatLocaleNumber) return F.formatLocaleNumber(num, maxDigits);
+        if (F.formatLocaleNumber) return F.formatLocaleNumber(num, maxDigits, minDigits);
         if (!isFinite(num)) return String(num);
         return String(num);
+    }
+    function _formatMoneyNumber(num) { // [EN] waluty zawsze XX,XX
+        var F = _fmt();
+        if (F.formatMoneyNumber) return F.formatMoneyNumber(num);
+        return _formatLocaleNumber(num, 2, 2);
     }
     function _roundMoney(n) { // [EN] grosze — decimal.js when loaded, else float fallback
         var M = (typeof window !== 'undefined' && window.MATM0_MONEY) ||
@@ -866,7 +871,7 @@
             if (Math.abs(raw - d) > Math.abs(raw) * 1e-9) { approx = true; ex = _formatLocaleNumber(raw, 15); }
         }
         var tgtLabel = _formatLocaleNumber(target, Number.isInteger(target) ? undefined : 6);
-        var valLabel = _formatLocaleNumber(result, isMoney ? 2 : 6);
+        var valLabel = isMoney ? _formatMoneyNumber(result) : _formatLocaleNumber(result, 6);
         var suffix = unit ? '\u202f' + unit : '';
         return {
             value: result, unit: unit, kind: isMoney ? 'money' : 'number', exact: !approx, exactText: ex,
@@ -1038,7 +1043,7 @@
         var cost = liters * P;
         return {
             value: cost, unit: 'zł', kind: 'money',
-            text: _formatLocaleNumber(cost, 2) + ' zł (paliwo: ' + _formatLocaleNumber(liters, 2) + ' l)'
+            text: _formatMoneyNumber(cost) + ' zł (paliwo: ' + _formatLocaleNumber(liters, 2) + ' l)'
         };
     }
 

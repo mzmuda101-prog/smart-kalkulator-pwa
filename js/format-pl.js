@@ -10,15 +10,21 @@
             (typeof self !== 'undefined' && self.MATM0_DATA) || {};
     }
 
-    function formatLocaleNumber(num, maxDigits) {
+    function formatLocaleNumber(num, maxDigits, minDigits) {
         if (!isFinite(num)) return String(num);
         var rounded = (Number.isInteger(num) && Math.abs(num) <= Number.MAX_SAFE_INTEGER)
             ? num
             : (Math.abs(num) < 1e308 ? parseFloat(num.toPrecision(15)) : num);
-        return rounded.toLocaleString('pl-PL', {
+        var opts = {
             maximumFractionDigits: maxDigits == null ? 6 : maxDigits,
             useGrouping: true,
-        });
+        };
+        if (minDigits != null && minDigits >= 0) opts.minimumFractionDigits = minDigits; // [EN] waluty: zawsze 00,00
+        return rounded.toLocaleString('pl-PL', opts);
+    }
+
+    function formatMoneyNumber(num) { // [EN] grosze — zawsze 2 miejsca (90,40 nie 90,4; 300,00 nie 300)
+        return formatLocaleNumber(num, 2, 2);
     }
 
     function inflectDisplayUnit(value, unit) {
@@ -30,6 +36,7 @@
 
     var API = {
         formatLocaleNumber: formatLocaleNumber,
+        formatMoneyNumber: formatMoneyNumber,
         inflectDisplayUnit: inflectDisplayUnit,
     };
 

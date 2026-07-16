@@ -3,7 +3,7 @@
    Caching strategy: Stale-While-Revalidate (instant z cache + odświeżenie w tle)
    Wersja: JEDNO źródło prawdy w version.js (APP_VERSION).
    ============================================================ */
-var SW_FINGERPRINT = 'v1.01.28'; // [EN] auto-synced — triggers SW reinstall on bump
+var SW_FINGERPRINT = 'v1.01.29'; // [EN] auto-synced — triggers SW reinstall on bump
 importScripts('version.js'); // ustawia self.APP_VERSION (np. 'v36')
 const CACHE_NAME = 'matm0-calc-' + (self.APP_VERSION || 'v0');
 const ASSETS_TO_CACHE = [

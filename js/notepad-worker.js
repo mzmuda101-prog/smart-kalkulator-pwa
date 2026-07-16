@@ -79,12 +79,32 @@ function createDeps(ctx) {
         return makeVal(r || {});
     }
 
+    function _isCurrencyUnit(unit) {
+        if (!unit || !_PARSER) return false;
+        var s = String(unit).trim();
+        if (!s) return false;
+        var map = _PARSER.currencyTokenMap(ctx.fxRates || {});
+        if (map[s.toLowerCase()]) return true;
+        var upper = s.toUpperCase();
+        var codes = {};
+        Object.keys(map).forEach(function (tok) { codes[map[tok]] = true; });
+        if (codes[upper]) return true;
+        var dispOpts = { currencyCompactSymbols: ctx.currencyCompactSymbols !== false };
+        for (var code in codes) {
+            if (_PARSER.currencyDisplay(code, dispOpts) === s) return true;
+        }
+        return false;
+    }
+
     function formatCalcResult(res) {
         if (!res) return '';
         if (res.text != null) return res.text;
         if (res.value === null) return '';
         if (res.error === '∞') return '∞';
-        var str = _FMT.formatLocaleNumber(res.value, 6);
+        var money = res.kind === 'money' || _isCurrencyUnit(res.unit);
+        var str = money
+            ? (_FMT.formatMoneyNumber ? _FMT.formatMoneyNumber(res.value) : _FMT.formatLocaleNumber(res.value, 2, 2))
+            : _FMT.formatLocaleNumber(res.value, 6);
         if (res.unit) str += '\u202f' + _FMT.inflectDisplayUnit(res.value, res.unit);
         return str;
     }
