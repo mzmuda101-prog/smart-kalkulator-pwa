@@ -154,6 +154,19 @@
         return s;
     }
 
+    // [EN] Legacy MD italic _x_ — only at word boundaries so p_Michal_Aga / @p_robert stay intact
+    function _legacyItalicRe() {
+        return /(^|[^\p{L}\p{N}_])_([^_\n]{2,})_(?=[^\p{L}\p{N}_]|$)/gu;
+    }
+    function _stripLegacyItalic(t) {
+        return String(t || '').replace(_legacyItalicRe(), '$1$2');
+    }
+    function _migrateLegacyItalic(t) {
+        return String(t || '').replace(_legacyItalicRe(), function (_, pre, inner) {
+            return pre + INLINE[1].open + inner + INLINE[1].close;
+        });
+    }
+
     function stripMarkers(s) {
         var t = String(s || '');
         HEADING.forEach(function (h) {
@@ -168,7 +181,7 @@
         t = t.replace(/__([^_\n]+)__/g, '$1');
         t = t.replace(/~~([^~\n]+)~~/g, '$1');
         t = t.replace(/::([^:\n]+)::/g, '$1');
-        t = t.replace(/_([^_\n]{2,})_/g, '$1');
+        t = _stripLegacyItalic(t);
         return t.replace(/\u200B/g, '');
     }
 
@@ -179,7 +192,7 @@
         t = t.replace(/__([^_\n]+)__/g, function (_, inner) { return INLINE[2].open + inner + INLINE[2].close; });
         t = t.replace(/~~([^~\n]+)~~/g, function (_, inner) { return INLINE[3].open + inner + INLINE[3].close; });
         t = t.replace(/::([^:\n]+)::/g, function (_, inner) { return INLINE[4].open + inner + INLINE[4].close; });
-        t = t.replace(/_([^_\n]{2,})_/g, function (_, inner) { return INLINE[1].open + inner + INLINE[1].close; });
+        t = _migrateLegacyItalic(t);
         return migrateLineHeadingMarkers(t);
     }
 

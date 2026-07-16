@@ -52,7 +52,8 @@
             t = t.replace(/__([^_]+)__/g, '$1');
             t = t.replace(/~~([^~]+)~~/g, '$1');
             t = t.replace(/::([^:\n]+)::/g, '$1');
-            t = t.replace(/_([^_\n]+)_/g, '$1');
+            // [EN] word-boundary italic — nie zjadaj p_foo_bar / @p_name
+            t = t.replace(/(^|[^\p{L}\p{N}_])_([^_\n]{2,})_(?=[^\p{L}\p{N}_]|$)/gu, '$1$2');
             return t;
         }
 

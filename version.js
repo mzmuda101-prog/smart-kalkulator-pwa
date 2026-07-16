@@ -6,7 +6,7 @@
    Legacy 'v95' (no dot) maps to 0.95 for comparison.
    ============================================================ */
 
-var APP_VERSION = 'v1.01.29';
+var APP_VERSION = 'v1.02.00';
 
 /* [EN] Parse version label → comparable tuple [major, minor, patch]. */
 function parseAppVersion(label) {
