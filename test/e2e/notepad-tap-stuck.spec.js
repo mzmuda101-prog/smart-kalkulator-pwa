@@ -13,8 +13,9 @@ test.afterEach(async ({ page }) => {
   await NP.closeNotepad(page).catch(() => {});
 });
 
-test('bold softwrap @kasia tap moves caret', async ({ page }) => {
+test('bold softwrap @Robert tap stays on wrapped line (not nadwyżka)', async ({ page }) => {
   const { bold } = NP.MARK;
+  // jak na telefonie: soft-wrap w środku @michal_aga, potem osobna linia nadwyżka
   const line1 = bold.o + 'paragony_razem:' + bold.c + '@michal_aga+@Robert+@mateusz+@kasia';
   const body = line1 + '\n' + bold.o + 'nadwyżka:' + bold.c + '800pln-\n@paragony_razem';
   await NP.forceWrapSpace(page, 'narrow');
@@ -28,14 +29,11 @@ test('bold softwrap @kasia tap moves caret', async ({ page }) => {
     const cs = getComputedStyle(ta);
     const lh = parseFloat(cs.lineHeight) || 24;
     return {
-      height: r.height,
-      lh,
       visualRows: Math.max(1, Math.round(r.height / lh)),
-      valLen: ta.value.length,
+      plain: window.MATM0_NP_FMT.stripMarkers(ta.value),
     };
   });
-  console.log('meta', meta);
-  expect(meta.visualRows, 'should soft-wrap').toBeGreaterThanOrEqual(2);
+  expect(meta.visualRows, 'first line should soft-wrap').toBeGreaterThanOrEqual(2);
 
   await page.evaluate(() => {
     const ta = document.querySelector('textarea.np-text');
@@ -43,14 +41,18 @@ test('bold softwrap @kasia tap moves caret', async ({ page }) => {
     ta.setSelectionRange(ta.value.length, ta.value.length);
   });
 
-  await NP.tapMirrorVisualRow(page, 0, 1, 0.85);
+  // Tap 2. wiersz wizualny — okolice @Robert (nie koniec linii)
+  await NP.tapMirrorVisualRow(page, 0, 1, 0.35);
   await NP.settleLayout(page);
   let st = await NP.readCaretState(page);
-  console.log('after clean tap', { sel: st.selectionStart, lineIdx: st.lineIdx, end: st.value.length });
-  expect(st.selectionStart, 'caret should leave document end').toBeLessThan(st.value.length);
-  expect(st.lineIdx, 'should be on first logical line').toBe(0);
+  const around = st.value.slice(Math.max(0, st.selectionStart - 10), st.selectionStart + 10);
+  expect(st.lineIdx, 'must stay on logical line 0, not nadwyżka').toBe(0);
+  expect(around.toLowerCase(), 'caret near Robert/mateusz wrap').toMatch(/robert|mateusz|michal|kasia|\+/i);
+  expect(st.selectionStart).toBeLessThan(st.value.indexOf('nadwyżka') === -1
+    ? st.value.length
+    : st.value.indexOf('\n'));
 
-  // finger jitter > 8px
+  // jitter touch > 8px (telefon)
   await page.evaluate(() => {
     const ta = document.querySelector('textarea.np-text');
     ta.setSelectionRange(ta.value.length, ta.value.length);
@@ -61,7 +63,7 @@ test('bold softwrap @kasia tap moves caret', async ({ page }) => {
     const cs = getComputedStyle(ta);
     const lh = parseFloat(cs.lineHeight) || 24;
     const r = mLine.getBoundingClientRect();
-    return { x: r.left + r.width * 0.7, y: r.top + lh * 1.5 };
+    return { x: r.left + r.width * 0.4, y: r.top + lh * 1.5 };
   });
   await page.evaluate(({ x, y }) => {
     const ta = document.querySelector('textarea.np-text');
@@ -74,6 +76,5 @@ test('bold softwrap @kasia tap moves caret', async ({ page }) => {
   }, pt);
   await NP.settleLayout(page);
   st = await NP.readCaretState(page);
-  console.log('after jitter tap', { sel: st.selectionStart, lineIdx: st.lineIdx, end: st.value.length });
-  expect(st.selectionStart, 'jitter>8 should still place caret').toBeLessThan(st.value.length);
+  expect(st.lineIdx, 'jitter tap still on wrapped line').toBe(0);
 });
