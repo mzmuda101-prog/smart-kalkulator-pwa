@@ -8674,11 +8674,26 @@
         function _npOnCaretPointerDown(e) {
             if (e.button != null && e.button !== 0) return;
             var pt = e.touches && e.touches[0] ? e.touches[0] : e;
-            _npCaretTap = { x: pt.clientX, y: pt.clientY };
+            _npCaretTap = {
+                x: pt.clientX,
+                y: pt.clientY,
+                pointerType: e.pointerType || (e.touches ? 'touch' : 'mouse')
+            };
+        }
+        function _npCaretTapSlop(tap) { // [EN] telefon: palec zwykle >8px drift; desktop zostaje ciasny
+            if (!tap) return 8;
+            if (tap.pointerType === 'touch' || _npIsCoarsePointer()) return 28;
+            return 8;
         }
         function _npOnFmtPointerUp(e) { // [EN] tap — kursor z metryk mirror (H/B/I); textarea kłamie przy innym font-size
             var pt = e.changedTouches && e.changedTouches[0] ? e.changedTouches[0] : e;
-            var isTap = _npCaretTap && Math.hypot(pt.clientX - _npCaretTap.x, pt.clientY - _npCaretTap.y) <= 8;
+            // [EN] pointerup + mouseup/touchend na tym samym geście — konsumuj down tylko raz
+            if (!_npCaretTap) {
+                _npOnFmtSelectionEnd();
+                return;
+            }
+            var dist = Math.hypot(pt.clientX - _npCaretTap.x, pt.clientY - _npCaretTap.y);
+            var isTap = dist <= _npCaretTapSlop(_npCaretTap);
             _npCaretTap = null;
             if (isTap && npBody) {
                 var idx = _npBufferIndexFromPoint(npBody, pt.clientX, pt.clientY);
