@@ -12819,6 +12819,8 @@
                 evalNotepadLines: evalNotepadLines,
                 npRecompute: npRecompute,
                 npBuildRows: npBuildRows,
+                npSyncFontSize: _npSyncFontSize,
+                npRunEditorAction: _npRunEditorAction,
                 loadFxRates: loadFxRates,
                 resolveCalcCurrency: resolveCalcCurrency,
                 formatFxMeta: formatFxMeta,
