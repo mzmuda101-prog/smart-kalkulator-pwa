@@ -83,17 +83,33 @@ function check(tag, ok, detail) {
   check('migrate keeps id underscores', migId === 'p_Michal_Aga');
 })();
 
+// ── displayPrefix: zagnieżdżone H+B/I nie influją długości wizualnej ───────
+(function () {
+  const h1b = H1.o + B.o + 'kasia' + B.c + H1.c;
+  // po pierwszej „a" = buf index 4 (H + B + k + a)
+  check('prefix H1>bold after a', FMT.displayPrefix(h1b, 4) === 'ka');
+  check('prefix H1>bold after a len', FMT.displayPrefix(h1b, 4).length === 2);
+  check('prefix H1>bold after k', FMT.displayPrefix(h1b, 3) === 'k');
+  check('prefix H1>bold at bold-open', FMT.displayPrefix(h1b, 2) === '');
+  check('prefix H1>bold full', FMT.displayPrefix(h1b, h1b.length) === 'kasia');
+
+  const nested = H1.o + B.o + I.o + 'xy' + I.c + B.c + H1.c;
+  check('prefix H1>B>I mid', FMT.displayPrefix(nested, 4) === 'x'); // H B I x
+  check('prefix H1>B>I full', FMT.displayPrefix(nested, nested.length) === 'xy');
+})();
+
 // ── visual-caret heuristic (jak _npNeedsVisualCaret) ───────────────────────
 (function () {
   function needsVisual(val, index) {
     return FMT.displayPrefix(val, index).length !== index;
   }
   const h1 = H1.o + 'Abc' + H1.c;
-  // index w środku inner = 1(open)+1 = 2 → prefix 'A' len 1 ≠ 2
   check('needsVisual inside H1', needsVisual(h1, 2) === true);
   check('needsVisual plain', needsVisual('Abc', 2) === false);
   const bold = 'x' + B.o + 'y' + B.c;
   check('needsVisual after bold open', needsVisual(bold, 2) === true);
+  const h1b = H1.o + B.o + 'kasia' + B.c + H1.c;
+  check('needsVisual H1>bold', needsVisual(h1b, 4) === true);
 })();
 
 console.log('\n=== NOTEPAD CARET: ' + (pass + fail) + ' checks, ' + fail + ' FAIL ===');

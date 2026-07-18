@@ -396,7 +396,7 @@
         return { wrapped: false, uStart: start, uEnd: end, inner: sel };
     }
 
-    function displayPrefix(val, bufEnd) { // [EN] tekst wizualny przed kursorem — markery toolbar bez szerokości w mirrorze
+    function displayPrefix(val, bufEnd) { // [EN] tekst wizualny przed kursorem — markery (także zagnieżdżone H+B/I) = 0 szerokości
         val = String(val || '');
         bufEnd = Math.max(0, Math.min(bufEnd, val.length));
         if (!bufEnd) return '';
@@ -411,9 +411,17 @@
                 if (closeAt > i) {
                     var innerStart = i + oLen, innerEnd = closeAt, uEnd = closeAt + cLen;
                     if (bufEnd <= innerStart) { i = bufEnd; }
-                    else if (bufEnd <= innerEnd) { out += val.slice(innerStart, bufEnd); i = bufEnd; }
-                    else if (bufEnd <= uEnd) { out += val.slice(innerStart, innerEnd); i = bufEnd; }
-                    else { out += val.slice(innerStart, innerEnd); i = uEnd; }
+                    else if (bufEnd <= innerEnd) {
+                        // [EN] caret w środku wrapa — rekurencja, nie raw slice (inaczej Bo/H w out)
+                        out += displayPrefix(val.slice(innerStart, bufEnd), bufEnd - innerStart);
+                        i = bufEnd;
+                    } else if (bufEnd <= uEnd) {
+                        out += displayPrefix(val.slice(innerStart, innerEnd), innerEnd - innerStart);
+                        i = bufEnd;
+                    } else {
+                        out += displayPrefix(val.slice(innerStart, innerEnd), innerEnd - innerStart);
+                        i = uEnd;
+                    }
                     matched = true;
                 } else {
                     if (bufEnd <= i + oLen) { i = bufEnd; }

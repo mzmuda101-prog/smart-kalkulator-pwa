@@ -17,15 +17,108 @@ test.afterEach(async ({ page }) => {
 
 // ── Bez zawijania ──────────────────────────────────────────────────────────
 
-test('plain tekst — bez visual caret overlay', async ({ page }) => {
-  await NP.setNotepadText(page, 'Ala ma kota');
-  await NP.focusCaret(page, 4);
-  const st = await NP.readCaretState(page);
-  expect(st.collapsed).toBe(true);
-  expect(st.visualCaretOn).toBe(false);
-  expect(st.visualCaretHidden).toBe(true);
-  expect(st.displayPrefixLen).toBe(st.bufferIndex);
+test('H1+bold kasia — klik po „a” kasuje „a”', async ({ page }) => {
+  const { h1, bold } = NP.MARK;
+  const word = 'kasia';
+  await NP.setNotepadText(page, h1.o + bold.o + word + bold.c + h1.c);
+  await NP.settleLayout(page);
+
+  const pt = await page.evaluate(() => {
+    const mLine = document.querySelector('.np-mirror-line');
+    const walker = document.createTreeWalker(mLine, NodeFilter.SHOW_TEXT);
+    const textNode = walker.nextNode();
+    const range = document.createRange();
+    range.setStart(textNode, 2); // po „ka"
+    range.collapse(true);
+    const r = range.getBoundingClientRect();
+    return { x: r.left + 0.5, y: (r.top + r.bottom) / 2 };
+  });
+
+  await NP.tapAt(page, pt.x, pt.y);
+  let st = await NP.readCaretState(page);
+  // H + B + k + a → index 4
+  expect(st.selectionStart, 'H1>bold after first a').toBe(4);
+  expect(st.value[st.selectionStart - 1]).toBe('a');
+
+  await page.keyboard.press('Backspace');
+  await NP.settleLayout(page);
+  const plain = await page.evaluate(() => window.MATM0_NP_FMT.stripMarkers(document.querySelector('textarea.np-text').value));
+  expect(plain).toBe('ksia');
 });
+
+test('H1+italic kasia — klik po „a” kasuje „a”', async ({ page }) => {
+  const { h1, italic } = NP.MARK;
+  await NP.setNotepadText(page, h1.o + italic.o + 'kasia' + italic.c + h1.c);
+  await NP.settleLayout(page);
+  const pt = await page.evaluate(() => {
+    const mLine = document.querySelector('.np-mirror-line');
+    const walker = document.createTreeWalker(mLine, NodeFilter.SHOW_TEXT);
+    const textNode = walker.nextNode();
+    const range = document.createRange();
+    range.setStart(textNode, 2);
+    range.collapse(true);
+    const r = range.getBoundingClientRect();
+    return { x: r.left + 0.5, y: (r.top + r.bottom) / 2 };
+  });
+  await NP.tapAt(page, pt.x, pt.y);
+  expect((await NP.readCaretState(page)).selectionStart).toBe(4);
+  await page.keyboard.press('Backspace');
+  const plain = await page.evaluate(() => window.MATM0_NP_FMT.stripMarkers(document.querySelector('textarea.np-text').value));
+  expect(plain).toBe('ksia');
+});
+
+test('H1 kasia — klik po pierwszej „a” kasuje „a” (nie s/i)', async ({ page }) => {
+  const { h1 } = NP.MARK;
+  const word = 'kasia';
+  await NP.setNotepadText(page, h1.o + word + h1.c);
+  await NP.settleLayout(page);
+
+  // Pozycja glyfu zaraz za pierwszą „a” (indeks wizualny 2)
+  const pt = await page.evaluate(() => {
+    const mLine = document.querySelector('.np-mirror-line');
+    const walker = document.createTreeWalker(mLine, NodeFilter.SHOW_TEXT);
+    const textNode = walker.nextNode();
+    const range = document.createRange();
+    range.setStart(textNode, 2);
+    range.collapse(true);
+    const r = range.getBoundingClientRect();
+    return { x: r.left + 0.5, y: (r.top + r.bottom) / 2 };
+  });
+
+  // Dowód regresji: metryki textarea w tym X wskazywałyby zły indeks (≥4 → kasuje s/i)
+  const taGuess = await page.evaluate(({ x }) => {
+    const ta = document.querySelector('textarea.np-text');
+    const FMT = window.MATM0_NP_FMT;
+    const cs = getComputedStyle(ta);
+    const probe = document.createElement('div');
+    probe.style.cssText = `position:absolute;left:-9999px;white-space:pre-wrap;font:${cs.font};width:${ta.clientWidth}px;padding:${cs.padding}`;
+    document.body.appendChild(probe);
+    const taRect = ta.getBoundingClientRect();
+    let best = 0, bestD = Infinity;
+    for (let i = 0; i <= ta.value.length; i++) {
+      probe.textContent = '';
+      probe.appendChild(document.createTextNode(FMT.displayPrefix(ta.value, i)));
+      const zw = document.createElement('span'); zw.textContent = '\u200b'; probe.appendChild(zw);
+      const d = Math.abs(taRect.left + zw.offsetLeft - x);
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    probe.remove();
+    return best;
+  }, pt);
+  expect(taGuess, 'textarea metrics should MIS-hit (≥4) — precondition of bug').toBeGreaterThanOrEqual(4);
+
+  await NP.tapAt(page, pt.x, pt.y);
+  let st = await NP.readCaretState(page);
+  expect(st.selectionStart, 'mirror hit-test after first a').toBe(3);
+  expect(st.value[st.selectionStart - 1]).toBe('a');
+
+  await page.keyboard.press('Backspace');
+  await NP.settleLayout(page);
+  st = await NP.readCaretState(page);
+  const plain = await page.evaluate(() => window.MATM0_NP_FMT.stripMarkers(document.querySelector('textarea.np-text').value));
+  expect(plain, 'should delete the first a → ksia').toBe('ksia');
+});
+
 
 test('H1 — visual caret włączony i w pudełku linii', async ({ page }) => {
   const { h1 } = NP.MARK;

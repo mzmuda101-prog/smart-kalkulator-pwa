@@ -8676,23 +8676,16 @@
             var pt = e.touches && e.touches[0] ? e.touches[0] : e;
             _npCaretTap = { x: pt.clientX, y: pt.clientY };
         }
-        function _npOnFmtPointerUp(e) { // [EN] tap — kursor pod kliknięciem gdy wrap/format; inaczej natywny
+        function _npOnFmtPointerUp(e) { // [EN] tap — kursor z metryk mirror (H/B/I); textarea kłamie przy innym font-size
             var pt = e.changedTouches && e.changedTouches[0] ? e.changedTouches[0] : e;
             var isTap = _npCaretTap && Math.hypot(pt.clientX - _npCaretTap.x, pt.clientY - _npCaretTap.y) <= 8;
             _npCaretTap = null;
             if (isTap && npBody) {
-                var lineIdx = _npLogicalLineAtClientY(npBody, pt.clientY);
-                var mLine = npMirror && npMirror.querySelectorAll('.np-mirror-line')[lineIdx];
-                var bounds = _npLineBounds(lineIdx);
-                var lineSlice = npBody.value.slice(bounds.start, bounds.end);
-                var hasFmt = _NP_FMT && typeof _NP_FMT.listRegions === 'function' && _NP_FMT.listRegions(lineSlice).length > 0;
-                var isWrapped = !!(mLine && mLine.classList.contains('np-wrapped'));
-                if (hasFmt || isWrapped) {
-                    var idx = _npBufferIndexFromPoint(npBody, pt.clientX, pt.clientY);
-                    _npSelSnapGuard = true;
-                    try { npBody.setSelectionRange(idx, idx); } catch (_) {}
-                    _npSelSnapGuard = false;
-                }
+                var idx = _npBufferIndexFromPoint(npBody, pt.clientX, pt.clientY);
+                _npSelSnapGuard = true;
+                try { npBody.setSelectionRange(idx, idx); } catch (_) {}
+                _npSelSnapGuard = false;
+                _npUpdateVisualCaret();
             }
             _npOnFmtSelectionEnd();
         }
@@ -8775,17 +8768,84 @@
                 else { range.selectNodeContents(mLine); range.collapse(false); }
                 range.collapse(true);
                 var r = range.getBoundingClientRect();
+                if ((!r.height && !r.width) || (r.top === 0 && r.bottom === 0 && r.left === 0 && r.right === 0)) {
+                    var rects = range.getClientRects();
+                    if (rects && rects.length) r = rects[0];
+                }
+                // [EN] collapsed range w H bywa 0×0 — weź prawą krawędź poprzedniego glyfu
+                if ((!r.height && !r.width) && targetNode && targetOff > 0) {
+                    range.setStart(targetNode, targetOff - 1);
+                    range.setEnd(targetNode, targetOff);
+                    var br = range.getBoundingClientRect();
+                    if (br.height || br.width) {
+                        r = { left: br.right, top: br.top, right: br.right, bottom: br.bottom, height: br.height, width: 0 };
+                    }
+                }
                 if (!r.height && !r.width) return null;
                 return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
             } catch (_) { return null; }
+        }
+        function _npLineHasFmtMetrics(val, index) { // [EN] H/B/I/U… — mirror ≠ textarea metrics
+            if (!_NP_FMT || typeof _NP_FMT.listRegions !== 'function') return false;
+            var b = _npLineBounds(_npLineIndexAt(index));
+            return _NP_FMT.listRegions(String(val || '').slice(b.start, b.end)).length > 0;
+        }
+        function _npCaretRectFmtProbe(ta, index) { // [EN] probe z computed style glyfu w mirrorze (H+B/I nested)
+            if (!ta || !npMirror) return null;
+            var lineIdx = _npLineIndexAt(index);
+            var mLine = npMirror.querySelectorAll('.np-mirror-line')[lineIdx];
+            if (!mLine) return null;
+            var val = String(ta.value || '');
+            var bounds = _npLineBounds(lineIdx);
+            var vis = _npDisplayPrefix(val, index).length - _npDisplayPrefix(val, bounds.start).length;
+            var walker = document.createTreeWalker(mLine, NodeFilter.SHOW_TEXT);
+            var acc = 0, targetNode = null, targetOff = 0, node;
+            while ((node = walker.nextNode())) {
+                var len = (node.textContent || '').length;
+                if (acc + len >= vis) { targetNode = node; targetOff = vis - acc; break; }
+                acc += len;
+            }
+            var host = (targetNode && targetNode.parentElement) || mLine.querySelector('.np-h1, .np-h2, .np-h3, .np-fmt-bold, .np-fmt-italic') || mLine;
+            var cs = getComputedStyle(host);
+            var div = _npEnsureCaretMirror();
+            ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing', 'textTransform',
+                'wordSpacing', 'textIndent', 'lineHeight', 'whiteSpace', 'overflowWrap', 'wordBreak'].forEach(function (p) {
+                div.style[p] = cs[p];
+            });
+            var taCs = getComputedStyle(ta);
+            div.style.boxSizing = taCs.boxSizing;
+            div.style.paddingLeft = taCs.paddingLeft;
+            div.style.paddingRight = taCs.paddingRight;
+            div.style.paddingTop = taCs.paddingTop;
+            div.style.paddingBottom = taCs.paddingBottom;
+            div.style.width = ta.clientWidth + 'px';
+            var lineVis = _npDisplayPrefix(val, bounds.end).length - _npDisplayPrefix(val, bounds.start).length;
+            var full = _npDisplayPrefix(val, bounds.end).slice(_npDisplayPrefix(val, bounds.start).length);
+            div.replaceChildren();
+            div.appendChild(document.createTextNode(full.slice(0, Math.max(0, vis))));
+            var span = document.createElement('span');
+            span.textContent = '\u200b';
+            div.appendChild(span);
+            if (vis < lineVis) div.appendChild(document.createTextNode(full.slice(vis)));
+            var taRect = ta.getBoundingClientRect();
+            return {
+                left: taRect.left + span.offsetLeft - ta.scrollLeft,
+                top: taRect.top + span.offsetTop - ta.scrollTop,
+                right: taRect.left + span.offsetLeft + span.offsetWidth - ta.scrollLeft,
+                bottom: taRect.top + span.offsetTop + span.offsetHeight - ta.scrollTop
+            };
         }
         function _npCaretClientRect(ta, index) {
             if (!ta) return null;
             var mirrorR = _npCaretRectFromMirror(ta, index);
             if (mirrorR) return mirrorR;
+            var val = String(ta.value || '');
+            if (_npLineHasFmtMetrics(val, index)) {
+                var hp = _npCaretRectFmtProbe(ta, index);
+                if (hp) return hp;
+            }
             var div = _npEnsureCaretMirror();
             _npSyncCaretMirrorStyle(ta, div);
-            var val = String(ta.value || '');
             var i = Math.max(0, Math.min(index == null ? 0 : index, val.length));
             div.replaceChildren();
             div.appendChild(document.createTextNode(_npDisplayPrefix(val, i)));
