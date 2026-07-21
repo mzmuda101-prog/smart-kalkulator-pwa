@@ -8659,17 +8659,6 @@
                 var d = (clientY - cy) * (clientY - cy) + (clientX - cx) * (clientX - cx);
                 if (d < bestD) { bestD = d; best = idx; }
             }
-            // #region agent log
-            try {
-                if (typeof fetch === 'function') {
-                    var _m0 = npMirror && npMirror.querySelectorAll('.np-mirror-line')[0];
-                    var _m1 = npMirror && npMirror.querySelectorAll('.np-mirror-line')[1];
-                    var _r0 = _m0 && _m0.getBoundingClientRect();
-                    var _r1 = _m1 && _m1.getBoundingClientRect();
-                    fetch('http://127.0.0.1:7365/ingest/f2cba85a-17aa-4bb5-aea1-cc9fe846e286',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1b1b61'},body:JSON.stringify({sessionId:'1b1b61',runId:'softwrap-line',hypothesisId:'H-line-y-space',location:'app.js:_npBufferIndexFromPoint',message:'hit-test',data:{clientX:clientX,clientY:clientY,lineIdx:lineIdx,best:best,lo:lo,hi:hi,ch:val[best]||'',around:(val.slice(Math.max(0,best-8),best+8)),m0:{t:_r0&&_r0.top,b:_r0&&_r0.bottom,h:_r0&&_r0.height},m1:{t:_r1&&_r1.top,b:_r1&&_r1.bottom,h:_r1&&_r1.height},vv:window.visualViewport?{ot:visualViewport.offsetTop,oh:visualViewport.height}:null},timestamp:Date.now()})}).catch(function(){});
-                }
-            } catch (_eHit) {}
-            // #endregion
             if (_NP_FMT && typeof _NP_FMT.listRegions === 'function' && npMirror) {
                 var regs = _NP_FMT.listRegions(val);
                 for (var ri = 0; ri < regs.length; ri++) {
@@ -8694,13 +8683,6 @@
                 y: pt.clientY,
                 pointerType: e.pointerType || (e.touches ? 'touch' : 'mouse')
             };
-            // #region agent log
-            try {
-                if (typeof fetch === 'function') {
-                    fetch('http://127.0.0.1:7365/ingest/f2cba85a-17aa-4bb5-aea1-cc9fe846e286',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1b1b61'},body:JSON.stringify({sessionId:'1b1b61',runId:'softwrap-line',hypothesisId:'H-touchstart',location:'app.js:_npOnCaretPointerDown',message:'down',data:{type:e.type,ptr:_npCaretTap.pointerType,x:_npCaretTap.x,y:_npCaretTap.y},timestamp:Date.now()})}).catch(function(){});
-                }
-            } catch (_e0) {}
-            // #endregion
         }
         function _npCaretTapSlop(tap) { // [EN] telefon: palec zwykle >8px drift; desktop zostaje ciasny
             if (!tap) return 8;
@@ -8730,15 +8712,7 @@
             var dist = Math.hypot(pt.clientX - _npCaretTap.x, pt.clientY - _npCaretTap.y);
             var isTap = dist <= _npCaretTapSlop(_npCaretTap);
             _npCaretTap = null;
-            var placed = null;
-            if (isTap) placed = _npPlaceCaretFromClientPoint(pt.clientX, pt.clientY);
-            // #region agent log
-            try {
-                if (typeof fetch === 'function') {
-                    fetch('http://127.0.0.1:7365/ingest/f2cba85a-17aa-4bb5-aea1-cc9fe846e286',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1b1b61'},body:JSON.stringify({sessionId:'1b1b61',runId:'softwrap-line',hypothesisId:'H-tap-apply',location:'app.js:_npOnFmtPointerUp',message:isTap?'tap applied':'tap SKIPPED',data:{type:e.type,isTap:!!isTap,dist:dist,placed:placed,sel:npBody&&npBody.selectionStart},timestamp:Date.now()})}).catch(function(){});
-                }
-            } catch (_e1) {}
-            // #endregion
+            if (isTap) _npPlaceCaretFromClientPoint(pt.clientX, pt.clientY);
             _npOnFmtSelectionEnd();
         }
         function _npNeedsVisualCaret(val, index) { // [EN] markery PUA + H zmienia szerokość glyfów vs bufor
