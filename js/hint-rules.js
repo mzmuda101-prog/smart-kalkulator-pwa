@@ -107,22 +107,113 @@
         return row[b.length];
     }
 
-    function fuzzySuggest(expr) {
-        var q = norm(expr).replace(/\s+/g, ' ').trim();
-        if (q.length < 3) return null;
-        var best = null, bestD = Infinity;
-        KNOWN_COMMANDS.forEach(function (cmd) {
-            var cn = norm(cmd);
-            var d = levenshtein(q, cn);
-            var limit = Math.max(2, Math.floor(cn.length * 0.4));
-            if (d <= limit && d < bestD) { bestD = d; best = cmd; }
+    // [EN] Numeric literal = integer/decimal (comma or dot). Time "17:00" yields two
+    // literals ("17","00") around the ':', which is exactly what we want for skeletons.
+    var NUM_RE = /\d+(?:[.,]\d+)?/g;
+
+    function extractNumbers(s) {
+        var m = String(s == null ? '' : s).match(NUM_RE);
+        return m ? m.slice() : [];
+    }
+
+    // [EN] Numeric-agnostic SHAPE of an expression: every number → '#'. This is the fix
+    // for the "dumb" fuzzy: matching on raw characters made "100 + 23" (# + #) look close
+    // to "17:00 + 3h" (#:# + #h). On skeletons those shapes are clearly different, so
+    // only genuine near-misses (typos of a known command) survive.
+    function skeleton(s) {
+        return norm(s).replace(NUM_RE, '#').replace(/\s+/g, ' ').trim();
+    }
+
+    // [EN] Rebuild a template using the USER's typed numbers (in order), so a suggestion
+    // never shows foreign operands. "2 kg + 300" against template "2 kg + 300 g" keeps the
+    // user's 2 and 300 and only adds the useful " g".
+    function fillNumbers(template, nums) {
+        var i = 0;
+        return template.replace(NUM_RE, function (orig) {
+            return i < nums.length ? nums[i++] : orig;
         });
-        return best;
+    }
+
+    // [EN] SEED FOR "Warstwa B" (local intent layer). Today: skeleton match against
+    // KNOWN_COMMANDS with number-preserving substitution + a confidence score. B extends
+    // this by (a) growing KNOWN_COMMANDS into an intent table with synonyms/aliases and
+    // flexible token order, (b) reordering via tokens, (c) mapping the matched intent onto
+    // an existing parser command. Keep the { command, confidence, numbers, kind } shape.
+    function matchIntent(expr) {
+        var raw = String(expr == null ? '' : expr);
+        var qSkel = skeleton(raw);
+        var q = norm(raw).replace(/\s+/g, ' ').trim();
+        if (q.length < 3 || !qSkel) return null;
+        var qNums = extractNumbers(raw);
+        var best = null, bestD = Infinity, bestLimit = 0;
+        KNOWN_COMMANDS.forEach(function (cmd) {
+            var cSkel = skeleton(cmd);
+            var d = levenshtein(qSkel, cSkel);
+            // [EN] Tolerance scales with skeleton length (typo-level), capped so long
+            // templates can't quietly over-match a short query.
+            var limit = Math.min(4, Math.max(1, Math.floor(cSkel.length * 0.25)));
+            if (d <= limit && d < bestD) { bestD = d; best = cmd; bestLimit = limit; }
+        });
+        if (!best) return null;
+        var cNums = extractNumbers(best);
+        var out;
+        if (cNums.length === 0) {
+            out = best; // pure typo/word correction, e.g. "czas w tokjo" → "czas w Tokio"
+        } else if (cNums.length === qNums.length) {
+            out = fillNumbers(best, qNums); // keep the user's numbers, never the template's
+        } else {
+            return null; // different count of numbers → would show foreign operands → refuse
+        }
+        // [EN] Never suggest the exact string the user already typed.
+        if (norm(out).replace(/\s+/g, ' ').trim() === q) return null;
+        var confidence = 1 - bestD / (bestLimit + 1);
+        return { command: out, confidence: confidence, numbers: qNums, kind: cNums.length ? 'template' : 'typo' };
+    }
+
+    function fuzzySuggest(expr) {
+        var m = matchIntent(expr);
+        return m ? m.command : null;
+    }
+
+    // [EN] ── Warstwa B / przyrost B3: normalizacja swobodnego zdania → kandydat wyrażenia.
+    // Filler-frazy, które OPAKOWUJĄ prawdziwe wyrażenie ("ile to 5 plus 5", "how much is 5+5").
+    var LEAD_FILLER = /^[\s:,.]*(?:ile\s+to\s+jest|ile\s+to|ile\s+wynosi|ile\s+jest|ile\s+b[eę]dzie|ile\s+bedzie|oblicz|policz|wylicz|how\s+much\s+is|what(?:'?s|\s+is)|whats|calculate|compute)\b[\s:,.]*/i;
+    var TAIL_FILLER = /[\s:,.]*(?:=|\?|r[oó]wna\s+si[eę]|rowna\s+sie)\s*$/i;
+
+    // [EN] Operatory-słowa → symbole. Wielowyrazowe najpierw. Stosowane WYŁĄCZNIE do kandydata
+    // fallbacku (nigdy do głównej ścieżki liczenia), a kandydat jest pokazywany jako PODGLĄD
+    // przed użyciem — więc nawet agresywne mapowanie nie da cichej złej odpowiedzi.
+    // [EN] Uwaga: JS `\b` jest ASCII-only → granica PO polskiej literze (np. „ć" w „dodać")
+    // nie zadziała. Dlatego koniec słowa gwarantujemy lookaheadem obejmującym pl-litery
+    // (bez lookbehind — starsze Safari na iPadzie go nie ma).
+    var _END = '(?![a-z0-9ąćęłńóśźż])';
+    var WORD_OPS = [
+        { re: new RegExp('\\b(?:podzielone\\s+przez|podzieli[cć]\\s+przez|divided\\s+by)' + _END, 'gi'), op: ' / ' },
+        { re: new RegExp('\\b(?:pomno[zż]y[cć]\\s+przez|pomno[zż]one\\s+przez|multiplied\\s+by)' + _END, 'gi'), op: ' * ' },
+        { re: new RegExp('\\b(?:razy|times)' + _END, 'gi'), op: ' * ' },
+        { re: new RegExp('\\bprzez' + _END, 'gi'), op: ' / ' },
+        { re: new RegExp('\\b(?:plus|doda[cć])' + _END, 'gi'), op: ' + ' },
+        { re: new RegExp('\\b(?:minus|odj[aą][cć])' + _END, 'gi'), op: ' - ' }
+    ];
+
+    function normalizeIntent(raw) {
+        var s = String(raw == null ? '' : raw);
+        var before = s.trim();
+        s = s.replace(LEAD_FILLER, '').replace(TAIL_FILLER, '');
+        for (var i = 0; i < WORD_OPS.length; i++) s = s.replace(WORD_OPS[i].re, WORD_OPS[i].op);
+        // [EN] Uspójnij odstępy wokół operatorów, żeby żywy ewaluator dostał czyste wyrażenie.
+        s = s.replace(/\s*([+\-*/])\s*/g, ' $1 ').replace(/\s+/g, ' ').trim();
+        if (!s || s === before) return null; // nic nie zmieniliśmy → nie ma czego podpowiadać
+        return s;
     }
 
     var API = {
         getLiveHints: getLiveHints,
         fuzzySuggest: fuzzySuggest,
+        matchIntent: matchIntent,
+        normalizeIntent: normalizeIntent,
+        skeleton: skeleton,
+        extractNumbers: extractNumbers,
         KNOWN_COMMANDS: KNOWN_COMMANDS,
         norm: norm,
         lastToken: lastToken

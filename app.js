@@ -1229,7 +1229,9 @@
             var original = String(raw || '').trim();
             var r = _PARSER.evaluate(original, _parserEvaluateOpts(opts));
             if (!r) return makeVal({});
-            _syncCalcStateFromResult(r);
+            // [EN] opts.preview — ewaluacja tylko na PODGLĄD (B3): nie dotykaj STATE.calc
+            // (ans/lastResult), bo user jeszcze nie zaakceptował interpretacji.
+            if (!opts.preview) _syncCalcStateFromResult(r);
             return makeVal(r);
         }
 
@@ -1520,13 +1522,13 @@
             clearTimeout(_emptySuggestTimer);
             if (!(STATE.settings && STATE.settings.suggestOnEmpty) || !calcExpr || !calcExpr.value.trim()) {
                 calcEmptySuggest.hidden = true;
-                if (_calcAssistBubbleKind === 'fuzzy') _hideCalcAssistBubble();
+                if (_calcAssistBubbleKind === 'fuzzy' || _calcAssistBubbleKind === 'intent') _hideCalcAssistBubble();
                 _scheduleAssistLayout();
                 return;
             }
             if (!res || res.value !== null || res.text != null || res.pendingFx) {
                 calcEmptySuggest.hidden = true;
-                if (_calcAssistBubbleKind === 'fuzzy') _hideCalcAssistBubble();
+                if (_calcAssistBubbleKind === 'fuzzy' || _calcAssistBubbleKind === 'intent') _hideCalcAssistBubble();
                 _scheduleAssistLayout();
                 return;
             }
@@ -1534,54 +1536,71 @@
             _emptySuggestTimer = setTimeout(function () {
                 if (!calcExpr || calcExpr.value !== exprSnap) return;
                 var HINT = window.MATM0_HINT;
-                var sug = HINT && typeof HINT.fuzzySuggest === 'function' ? HINT.fuzzySuggest(exprSnap) : null;
 
-                if (!_calcAssistWide()) { // T4-19 mobile — kotwiczony dymek zamiast wiersza w gridzie
+                // [EN] Warstwa B / B3 — najpierw spróbuj ZROZUMIEĆ swobodne zdanie: znormalizuj
+                // („ile to 5 plus 5" → „5 + 5") i POLICZ na podgląd. Pokaż tylko, gdy realnie
+                // się liczy — zła interpretacja = brak podglądu, nigdy cichy błąd.
+                var label = null, applyValue = null, kind = null;
+                if (HINT && typeof HINT.normalizeIntent === 'function') {
+                    var cand = HINT.normalizeIntent(exprSnap);
+                    if (cand && cand !== String(exprSnap).trim()) {
+                        var pr = evalCalcExpression(cand, { preview: true });
+                        if (pr && !pr.pendingFx && (pr.value !== null || pr.text != null)) {
+                            var out = formatCalcResult(pr);
+                            if (out) { label = 'Rozumiem to jako: ' + cand + ' = ' + out; applyValue = cand; kind = 'intent'; }
+                        }
+                    }
+                }
+                // [EN] Fallback — korekta literówki znanej komendy (Warstwa A).
+                if (!label && HINT && typeof HINT.fuzzySuggest === 'function') {
+                    var sug = HINT.fuzzySuggest(exprSnap);
+                    if (sug) { label = 'Czy chodziło o: ' + sug + '?'; applyValue = sug; kind = 'fuzzy'; }
+                }
+                if (!label) {
+                    calcEmptySuggest.hidden = true;
+                    if (_calcAssistBubbleKind === 'fuzzy' || _calcAssistBubbleKind === 'intent') _hideCalcAssistBubble();
+                    _scheduleAssistLayout();
+                    return;
+                }
+
+                var apply = function () {
+                    calcExpr.value = applyValue;
+                    _calcAssistBubbleKind = null;
+                    liveEval();
+                };
+
+                if (!_calcAssistWide()) { // mobile — kotwiczony dymek zamiast wiersza w gridzie
                     calcEmptySuggest.hidden = true;
                     _scheduleAssistLayout();
-                    if (!sug) {
-                        if (_calcAssistBubbleKind === 'fuzzy') _hideCalcAssistBubble();
-                        return;
-                    }
-                    _cancelLiveHintBubble(); // [EN] fuzzy wins — cancel pending live-hint debounce
+                    _cancelLiveHintBubble(); // [EN] suggestion wins — cancel pending live-hint debounce
                     var anchor = _calcAssistAnchor();
                     if (typeof _npHintCtl === 'undefined' || !_npHintCtl || !_npHintCtl.showProgrammatic || !anchor) return;
                     if (_calcAssistBubbleKind === 'live') _hideCalcAssistBubble();
-                    _calcAssistBubbleKind = 'fuzzy';
+                    _calcAssistBubbleKind = kind;
                     _npHintCtl.showProgrammatic({
                         anchorEl: anchor,
-                        text: 'Czy chodziło o: ' + sug + '?',
-                        hintClass: 'calc-assist-hint is-fuzzy',
+                        text: label,
+                        hintClass: 'calc-assist-hint is-' + kind,
                         durationMs: 6000,
                         autoHide: true,
                         fade: true,
-                        onTap: function () {
-                            calcExpr.value = sug;
-                            _calcAssistBubbleKind = null;
-                            liveEval();
-                        }
+                        onTap: apply
                     });
                     return;
                 }
 
-                if (!sug) { calcEmptySuggest.hidden = true; _scheduleAssistLayout(); return; }
-                _cancelLiveHintBubble(); // [EN] fuzzy wins on desktop too
+                // desktop — wiersz w gridzie; cały tekst klikalny
+                _cancelLiveHintBubble();
                 if (_calcAssistBubbleKind === 'live') _hideCalcAssistBubble();
                 calcEmptySuggest.replaceChildren();
-                var txt = document.createTextNode('Czy chodziło o: ');
                 var btn = document.createElement('button');
                 btn.type = 'button';
-                btn.className = 'calc-suggest-btn';
+                btn.className = 'calc-suggest-btn is-' + kind;
                 var code = document.createElement('code');
-                code.textContent = sug;
+                code.textContent = label;
                 btn.appendChild(code);
-                btn.addEventListener('click', function () {
-                    calcExpr.value = sug;
-                    liveEval();
-                });
-                calcEmptySuggest.appendChild(txt);
+                btn.addEventListener('click', apply);
                 calcEmptySuggest.appendChild(btn);
-                calcEmptySuggest.appendChild(document.createTextNode('?'));
                 calcEmptySuggest.hidden = false;
                 _scheduleAssistLayout();
             }, 300);
