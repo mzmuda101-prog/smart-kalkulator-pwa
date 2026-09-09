@@ -68,7 +68,8 @@
                         unitProfile: 'default', // T2-10: preset domyślnych jednostek
                         standardLiveHint: false, // T4-17: chipy pod polem Standard
                         standardAutocomplete: false, // T4-16: lista podpowiedzi Standard
-                        suggestOnEmpty: false, // T4-19: fuzzy gdy brak wyniku
+                        suggestOnEmpty: true, // T4-19: fuzzy gdy brak wyniku — domyślnie ON od v1.02.81
+                        suggestOnEmptyDefaultV2: true, // znacznik jednorazowej migracji domyślnej (patrz loadState)
                         currencyCompactSymbols: true }, // T4-20: $ € zamiast kodów ISO
             // Komenda tab (merged Engineering + Graph)
             eng: { unit: 'cm', axis: 'X', mode: 'between' }, // used by drawEngineeringCanvas
@@ -241,6 +242,10 @@
             notepadGlobals: 'matm0_notepad_globals', // zmienne DZIELONE między notatkami (@nazwa)
         };
 
+        // [EN] Ustawiane przez loadFromStorage, gdy jednorazowa migracja domyślnych podniosła opcję.
+        //      Musi zostać ZAPISANE, inaczej migracja odpali się znowu i cofnie świadome wyłączenie.
+        var _settingsNeedMigrationSave = false;
+
         function loadFromStorage() {
             try {
                 const h = localStorage.getItem(STORAGE_KEYS.history);
@@ -311,6 +316,13 @@
                         if (typeof stObj.standardLiveHint === 'boolean') STATE.settings.standardLiveHint = stObj.standardLiveHint;
                         if (typeof stObj.standardAutocomplete === 'boolean') STATE.settings.standardAutocomplete = stObj.standardAutocomplete;
                         if (typeof stObj.suggestOnEmpty === 'boolean') STATE.settings.suggestOnEmpty = stObj.suggestOnEmpty;
+                        // [EN] Migracja T4-19 (v1.02.81): do v1.02.80 opcja była domyślnie OFF i zapisywała się
+                        //      jako false u KAŻDEGO, kto ruszył cokolwiek w ⚙️ — sama zmiana domyślnej by ich ominęła.
+                        //      Podnosimy ją raz; świadome wyłączenie PO migracji zostaje (znacznik już zapisany).
+                        if (stObj.suggestOnEmptyDefaultV2 !== true) {
+                            STATE.settings.suggestOnEmpty = true;
+                            _settingsNeedMigrationSave = true;
+                        }
                         if (typeof stObj.currencyCompactSymbols === 'boolean') STATE.settings.currencyCompactSymbols = stObj.currencyCompactSymbols;
                     }
                 }
@@ -318,6 +330,12 @@
                 STATE.history = [];
                 STATE.constants = [];
                 STATE.recentCommands = { graph: [] };
+            }
+            // [EN] Utrwal znacznik migracji od razu — poza try/catch parsowania, żeby błąd
+            //      w JSON-ie innego klucza nie zostawił migracji „wiszącej" na kolejny start.
+            if (_settingsNeedMigrationSave) {
+                _settingsNeedMigrationSave = false;
+                saveSettings();
             }
         }
 
@@ -11988,6 +12006,15 @@
                 { expr: 'net 1230', value: 1000 },
                 { expr: 'tax on 1000', value: 230 },
                 { expr: '1560 - tax', value: 1560 / 1.23, tol: 1e-6 },
+                // odwrócona kolejność stawki: "B ± P% vat" ≡ "B ± vat P%"
+                { expr: '100 + 23% vat', value: 123, tol: 1e-6 },
+                { expr: '100 - 23% vat', value: 100 / 1.23, tol: 1e-6 }, // usuń VAT, NIE 77
+                { expr: '50 + 20% vat', value: 60, tol: 1e-6 },
+                { expr: '1000 + 8% tax', value: 1080, tol: 1e-6 },
+                { expr: '100+23%vat', value: 123, tol: 1e-6 },           // bez spacji
+                { expr: '100 + 23 % vat', value: 123, tol: 1e-6 },       // spacja przed %
+                { expr: '100 + 23%', value: 123, tol: 1e-6 },            // regresja: goły % bez „vat" nietknięty
+                { expr: '100 - 23%', value: 77, tol: 1e-6 },             // regresja: goły − % to NIE usunięcie VAT
                 // procent OD bazy + operatory (regresja: procent nie może „gubić się", gdy coś idzie po nim)
                 { expr: '537 + 12%', value: 601.44, tol: 1e-6 },        // procent od liczby
                 { expr: '3*160 + 12%', value: 537.6, tol: 1e-6 },       // procent od DZIAŁANIA
@@ -12878,6 +12905,8 @@
         if (typeof window !== 'undefined') {
             window.__matm0 = {
                 state: STATE,
+                loadFromStorage: loadFromStorage, // [EN] test migracji domyślnych ustawień
+                saveSettings: saveSettings,
                 fitCalcLayout: fitCalcLayout,
                 fitCalcDisplay: fitCalcDisplay,
                 calcLayoutTune: function() { return window.CALC_LAYOUT_TUNE; },

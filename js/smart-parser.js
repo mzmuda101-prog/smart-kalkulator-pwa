@@ -1218,6 +1218,14 @@
             function(_, x, r) { return _vatNetto(x, r); });
         raw = raw.replace(/([\d.,]+)\s+(?:netto|net)\b(?:\s+([\d.,]+)\s*%)?/gi,
             function(_, x, r) { return _vatNetto(x, r); });
+        // [EN] Odwrócona kolejność stawki: "100 + 23% vat" ≡ "100 + vat 23%".
+        //      MUSI iść przed regułą "B ± vat P%", bo tamta nie widzi stawki przed słowem.
+        raw = raw.replace(/([\d.,]+)\s*([+\-])\s*([\d.,]+)\s*%\s*(?:vat|tax)\b/gi,
+            function(_, a, op, r) {
+                a = a.replace(',', '.');
+                var f = '(1+' + _vatRate(r) + '/100)';
+                return '(' + a + (op === '-' ? '/' : '*') + f + ')';
+            });
         raw = raw.replace(/([\d.,]+)\s*([+\-])\s*(?:vat|tax)(?:\s+([\d.,]+)\s*%)?/gi,
             function(_, a, op, r) {
                 a = a.replace(',', '.');

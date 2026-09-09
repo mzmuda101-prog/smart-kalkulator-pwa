@@ -135,6 +135,7 @@
                     { syntax: 'B - vat P%', syntaxAlt: 'B - tax P%', command: '{grossRm} - vat {vatCustom}%', yields: 'B ÷ (1 + P/100)', description: 'usuń VAT o stawce P' },
                     { syntax: 'vat od B', syntaxAlt: 'tax on B', command: 'vat od {net}', yields: 'B × 0,23 (sama kwota VAT)', description: 'tylko podatek, nie brutto' },
                     { syntax: 'vat P% od B', syntaxAlt: 'tax P% on B', command: 'vat {vatCustom}% od {net}', yields: 'B × P/100', description: 'kwota VAT przy stawce P' },
+                    { prose: '<strong>Kolejność stawki dowolna:</strong> <code>B + vat P%</code> i <code>B + P% vat</code> liczą to samo (tak samo z <code>−</code> i z <code>tax</code>).' },
                     { prose: '„minus VAT" to <strong>÷1,23</strong> (nie −23%) — bo VAT liczy się od netta. Samo słowo <code>vat</code> (bez <code>+</code>/<code>−</code> albo „od") nic nie policzy.' },
                 ],
             },

@@ -323,6 +323,12 @@ window.MateuszCursorHint = (() => {
 
     // Czy element kotwiczy dymek do siebie (zamiast podążania za kursorem).
     function isAnchored(el) {
+      // Dymek programmatic ZAWSZE kotwiczy do przekazanego anchorEl — wołający podał
+      // element wprost, więc nie wymagamy od niego atrybutu data-hint-anchor. Bez tego
+      // moveCursorHint(0,0) lądował w lewym górnym rogu viewportu (zasłaniał nagłówek).
+      // Trzymamy REFERENCJĘ, nie flagę: hover ustawia activeHintEl bez czyszczenia stanu
+      // programmatic, więc sama flaga kazałaby kotwiczyć też zwykłym hintom pod kursorem.
+      if (el && el === programmaticAnchorEl) return true;
       return !!(el && el.dataset && el.dataset.hintAnchor === "element");
     }
 
@@ -506,6 +512,7 @@ window.MateuszCursorHint = (() => {
       programmaticMode = false;
       programmaticOnTap = null;
       programmaticFade = false;
+      programmaticAnchorEl = null;
       if (!cursorHint) return;
 
       const slowFade = (useProgFade || (fadingEl && fadingEl.dataset.hintFade !== undefined))
@@ -651,6 +658,7 @@ window.MateuszCursorHint = (() => {
     let programmaticMode = false;
     let programmaticOnTap = null;
     let programmaticFade = false;
+    let programmaticAnchorEl = null; // element, do którego kotwiczy dymek programmatic (patrz isAnchored)
 
     function showProgrammatic({ anchorEl, text, hintClass = "", durationMs = 0, autoHide = true, fade = false, onTap = null }) {
       if (!cursorHint || !anchorEl || !text) return;
@@ -661,6 +669,7 @@ window.MateuszCursorHint = (() => {
       programmaticMode = true;
       programmaticOnTap = onTap || null;
       programmaticFade = !!fade;
+      programmaticAnchorEl = anchorEl;
       activeHintEl = anchorEl;
       activePointerType = "mouse";
 

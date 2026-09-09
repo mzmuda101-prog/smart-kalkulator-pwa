@@ -64,4 +64,32 @@ if (swMatch[1] !== appVer) {
     process.exit(1);
 }
 
-console.log('✅ version-compare: ' + cases.length + ' przypadków OK, SW_FINGERPRINT = ' + appVer);
+// [EN] Cache-bust sub-zasobów: index.html musi wołać assety z ?v=APP_VERSION.
+//      Bez tego SWR oddaje stary app.js/styles.css spod TEGO SAMEGO URL-a — a bumpnięty
+//      SW_FINGERPRINT sam z siebie tego nie naprawia. Zestaw assetów = ten sam, co
+//      w scripts/sync-sw-fingerprint.mjs (gdy tam dojdzie plik, dopisz go i tutaj).
+const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const assetRe = /(?:href|src)="((?:styles\.css|version\.js|app\.js|command-definitions\.js|js\/[^"?]+))(\?[^"]*)?"/g;
+const stale = [];
+let assetCount = 0;
+let m;
+while ((m = assetRe.exec(indexHtml)) !== null) {
+    assetCount++;
+    const query = m[2] || '';
+    const vMatch = query.match(/[?&]v=([^"&]+)/);
+    if (!vMatch) stale.push(m[1] + ' (brak ?v=)');
+    else if (vMatch[1] !== appVer) stale.push(m[1] + ' → ?v=' + vMatch[1]);
+}
+if (!assetCount) {
+    console.error('❌ version-compare: nie znaleziono żadnego assetu w index.html — sprawdź regex');
+    process.exit(1);
+}
+if (stale.length) {
+    console.error('❌ index.html: ' + stale.length + '/' + assetCount +
+        ' assetów nie ma ?v=' + appVer + ' — uruchom: npm run sync-version');
+    stale.forEach(function (s) { console.error('     ' + s); });
+    process.exit(1);
+}
+
+console.log('✅ version-compare: ' + cases.length + ' przypadków OK, SW_FINGERPRINT = ' + appVer +
+    ', index.html ?v= na ' + assetCount + ' assetach');
