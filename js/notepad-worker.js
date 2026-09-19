@@ -13,6 +13,7 @@ importScripts(
     'pl-fold.js',
     'smart-parser.js',
     'smart-quantity.js',
+    'quantity-algebra.js',
     'notepad-format.js',
     'notepad-engine.js'
 );

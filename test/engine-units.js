@@ -26,9 +26,9 @@ function expect(expr, value, unit) {
 
 // ── Tryb domyślny (Raycast): wynik w jednostce roboczej (pierwsza wpisana) ──
 setLen(''); setMass('');
-expect('10 km / 2 km', 5, 'km');
-expect('5 km * 2 km', 10, 'km');
-expect('10 m / 5 m', 2, 'm');
+expect('10 km / 2 km', 5, null);     // iloraz tej samej jednostki = bezwymiarowy
+expect('5 km * 2 km', 10, 'km²');   // km·km = km², nie km
+expect('10 m / 5 m', 2, null);       // j.w. — 2, nie „2 m”
 expect('6 km / 2', 3, 'km');
 expect('5 km + 300 m', 5.3, 'km');
 expect('12 km - 12 km', 0, 'km');
@@ -37,16 +37,16 @@ expect('2 cm + 5 mm', 2.5, 'cm');
 
 // ── Tryb KONKRETNEJ jednostki (km) ──
 setLen('km');
-expect('10 km / 2 km', 5, 'km');         // ← kluczowy: „5 km", nie „5 mm"
-expect('5 km * 2 km', 10, 'km');
+expect('10 km / 2 km', 5, null);     // iloraz tej samej jednostki = bezwymiarowy
+expect('5 km * 2 km', 10, 'km²');   // km·km = km², nie km
 expect('6 km / 2', 3, 'km');
 expect('5 km + 300 m', 5.3, 'km');
 
 // ── Tryb AUTODOBÓR ──
 setLen('__auto__');
-expect('10 km / 2 km', 5, 'km');         // autodobór wybiera czytelne km
-expect('5 km * 2 km', 10, 'km');
-expect('10 m / 5 m', 2, 'm');            // 2 m (a nie 2 mm)
+expect('10 km / 2 km', 5, null);     // j.w. — tryb autodoboru nie zmienia bezwymiarowości
+expect('5 km * 2 km', 10, 'km²');   // km·km = km², nie km
+expect('10 m / 5 m', 2, null);       // 2, nie „2 m”
 expect('6 km / 2', 3, 'km');
 expect('5 km + 300 m', 5.3, 'km');
 expect('1500 mm', 1.5, 'm');
@@ -65,11 +65,12 @@ expect('2.54 cm na px przy 96 ppi', 96, 'px');
 api.state.fx.rates = { PLN: 1, EUR: 4.30, USD: 3.95 };
 api.state.fx.ts = Date.now();
 api.state.settings.defaultCurrency = 'PLN';
-expect('100 zł / 4 zł', 25, 'zł');         // PLN: 25 zł
+expect('100 zł / 4 zł', 25, null);         // kwoty się skracają → 25, nie „25 zł”
 expect('5 zł * 2 zł', 10, 'zł');           // 10 zł
 expect('100 usd * 4 usd', 1580, 'zł');     // ← był nonsens „6241 zł"; 400 usd = 1580 zł
-expect('100 usd / 4 usd', 98.75, 'zł');    // 25 usd = 98,75 zł
+expect('100 usd / 4 usd', 25, null);        // j.w. — 25, nie „98,75 zł” (kurs nie ma tu czego mnożyć)
 expect('12 zł + 20 eur', 98, 'zł');        // miks (suma) — bez zmian
+expect('100 usd / 20 eur', 4.593023255813954, null); // skrócenie KRZYŻOWE: 395 zł / 86 zł
 expect('20 usd - 5 usd', 59.25, 'zł');     // 15 usd — bez zmian
 expect('1000 zł + vat', 1230, 'zł');       // vat nietknięty
 expect('brutto 12 zł', 14.76, 'zł');       // vat nietknięty

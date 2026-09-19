@@ -20,6 +20,8 @@ const SUITES = [
     'test/property.js',
     'test/quantity.js',
     'test/engine-units.js',
+    'test/quantity-algebra.js',
+    'test/raycast-parity.js',
     'test/units-oracle.js',
     'test/money-oracle.js',
     'test/engine-debug.js',

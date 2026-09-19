@@ -106,7 +106,7 @@ isKV('od 9:30 do 17:00 (range) = 27000 s', Q.range(Q.clock(570), Q.clock(1020)),
     ok('autodobór: 2500 g → 2,5 kg', a4 && near(a4.value, 2.5) && a4.unit === 'kg', a4 && (a4.value + ' ' + a4.unit));
     var a5 = ad(Q.duration(5400)); // 90 min
     ok('autodobór: 5400 s → 1,5 h', a5 && near(a5.value, 1.5) && a5.unit === 'h', a5 && (a5.value + ' ' + a5.unit));
-    var a6 = ad(Q.physical(2 * 1073741824, 'B')); // 2 GB w bajtach
+    var a6 = ad(Q.physical(2e9, 'B')); // 2 GB w bajtach (SI: 1 GB = 1e9 B)
     ok('autodobór: 2 GB (bajty) → 2 GB', a6 && near(a6.value, 2) && a6.unit === 'GB', a6 && (a6.value + ' ' + a6.unit));
     ok('chooseUnit: 0 → pierwsza w drabince (mm)', Q.chooseUnit('length', 0) === 'mm');
 })();

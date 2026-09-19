@@ -451,7 +451,7 @@
   },
   {
     "expr": "2 GB na MB",
-    "value": 2048,
+    "value": 2000,
     "unit": "MB",
     "text": null,
     "kind": "physical",
@@ -472,9 +472,9 @@
   {
     "expr": "10 km / 2 km",
     "value": 5,
-    "unit": "km",
+    "unit": null,
     "text": null,
-    "kind": "physical",
+    "kind": "number",
     "exact": true,
     "big": false,
     "bigStr": null
@@ -482,7 +482,7 @@
   {
     "expr": "5 km * 2 km",
     "value": 10,
-    "unit": "km",
+    "unit": "km²",
     "text": null,
     "kind": "physical",
     "exact": true,
@@ -492,9 +492,9 @@
   {
     "expr": "10 m / 5 m",
     "value": 2,
-    "unit": "m",
+    "unit": null,
     "text": null,
-    "kind": "physical",
+    "kind": "number",
     "exact": true,
     "big": false,
     "bigStr": null

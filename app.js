@@ -1517,6 +1517,74 @@
             _scheduleAssistLayout();
         }
 
+        /* [EN] „Nie rozumiem” — ostatnia deska ratunku, gdy ani normalizeIntent (B3),
+           ani fuzzySuggest (A) nic nie podpowiedzą. Wcześniej użytkownik dostawał
+           w takiej sytuacji CISZĘ i mylące „0” w polu wyniku, więc nie miał jak się
+           domyślić, które słowo rozwaliło wyrażenie. Tu wskazujemy pierwszy wyraz
+           spoza słownika silnika; gdy takiego nie ma — mówimy to wprost. */
+        var _calcKnownWordsCache = null;
+        var _CALC_FUNC_WORDS = ['sin','cos','tan','asin','acos','atan','sinh','cosh','tanh',
+            'cot','csc','sqrt','abs','log','ln','exp','floor','ceil','round','pi','e','x',
+            'sind','cosd','tand','asind','acosd','atand'];
+        var _CALC_KEYWORDS = [
+            // łączniki i przyimki, na których stoi składnia PL/EN
+            'na','do','w','we','z','ze','od','za','i','oraz','a','to','in','of','at','on','off','per',
+            // pytania i wypełniacze
+            'ile','co','ktora','ktory','jaka','jaki','jest','sa','to','ans','czy','jak',
+            // domeny: procenty, vat, czas, daty
+            'procent','proc','vat','brutto','netto','podatek','stawka','tip','napiwek',
+            'znizki','znizka','rabat','rabatu','taniej','drozej','roznica','stosunek','ratio',
+            'srednia','average','mean','suma','sum','power','root','pierwiastek','kwadrat',
+            'teraz','dzis','dzisiaj','jutro','wczoraj','pojutrze','przedwczoraj',
+            'now','today','tomorrow','yesterday','time','date','godzina','godzinie','minelo','minal',
+            'przy','ppi','dpi','px','tys','tysiac','tysiace','mln','mio','mld','bln',
+            // odmiana jednostek czasu — bez niej wina spadała na „dniach” zamiast na
+            // faktycznie nieznane słowo w zdaniu
+            'dni','dnia','dniach','dniami','doby','dob','dobie',
+            'godzin','godzinach','godzinami','minut','minutach','sekund','sekundach',
+            'tygodni','tygodniach','miesiac','miesiace','miesiecy','miesiacach',
+            'lat','lata','latach','roku','rocznie','roczny',
+            'spalanie','paliwo','trasa','koszt','cena','km'
+        ];
+        function _calcKnownWords() {
+            if (_calcKnownWordsCache) return _calcKnownWordsCache;
+            var set = Object.create(null);
+            var fold = (window.MATM0_PL_FOLD && window.MATM0_PL_FOLD.foldLower) ||
+                function (s) { return String(s || '').toLowerCase(); };
+            function add(w) { if (w) set[fold(w)] = true; }
+            var D = window.MATM0_DATA || {};
+            Object.keys(CALC_UNITS || {}).forEach(add);
+            Object.keys(D.CUR_ALIAS || {}).forEach(add);
+            Object.keys(D.PL_MONTHS || {}).forEach(add);
+            (D.PL_WEEKDAYS || []).forEach(add);
+            Object.keys(D.TZ_CITY || {}).forEach(add);
+            _CALC_FUNC_WORDS.forEach(add);
+            _CALC_KEYWORDS.forEach(add);
+            _calcKnownWordsCache = set;
+            return set;
+        }
+        function _explainNoResult(expr) {
+            var raw = String(expr == null ? '' : expr).trim();
+            if (!raw) return null;
+            var fold = (window.MATM0_PL_FOLD && window.MATM0_PL_FOLD.foldLower) ||
+                function (s) { return String(s || '').toLowerCase(); };
+            var known = _calcKnownWords();
+            // słownik żywy (kursy + stałe użytkownika) — poza cache, bo się zmienia
+            var live = Object.create(null);
+            Object.keys((STATE.fx && STATE.fx.rates) || {}).forEach(function (c) { live[fold(c)] = true; });
+            (STATE.constants || []).forEach(function (c) {
+                if (c && c.name) live[fold(c.name)] = true;
+                if (c && c.unit) live[fold(c.unit)] = true;
+            });
+            var words = raw.match(/[A-Za-zÀ-ſ][A-Za-zÀ-ſ]*/g) || [];
+            for (var i = 0; i < words.length; i++) {
+                var w = fold(words[i]);
+                if (w.length < 2) continue;                       // „w”, „z”, „x” — za krótkie, by winić
+                if (known[w] || live[w]) continue;
+                return 'Nie rozumiem słowa „' + words[i] + '”. Zobacz ściągę ⓘ';
+            }
+            return 'Nie rozumiem tego zapisu. Zobacz ściągę ⓘ';
+        }
         function updateCalcEmptySuggest(res) {
             if (!calcEmptySuggest) return;
             clearTimeout(_emptySuggestTimer);
@@ -1556,6 +1624,11 @@
                     var sug = HINT.fuzzySuggest(exprSnap);
                     if (sug) { label = 'Czy chodziło o: ' + sug + '?'; applyValue = sug; kind = 'fuzzy'; }
                 }
+                // [EN] Ostatnia deska: powiedz WPROST, że nie rozumiemy (i czego).
+                if (!label) {
+                    label = _explainNoResult(exprSnap);
+                    if (label) kind = 'unknown';
+                }
                 if (!label) {
                     calcEmptySuggest.hidden = true;
                     if (_calcAssistBubbleKind === 'fuzzy' || _calcAssistBubbleKind === 'intent') _hideCalcAssistBubble();
@@ -1564,6 +1637,12 @@
                 }
 
                 var apply = function () {
+                    if (kind === 'unknown') {   // nie ma czego podstawić — otwórz ściągę
+                        ensureHelpSystem();
+                        activeCommandTarget = 'calculator';
+                        openCommandHelp();
+                        return;
+                    }
                     calcExpr.value = applyValue;
                     _calcAssistBubbleKind = null;
                     liveEval();
@@ -2318,6 +2397,10 @@
             var s = String(flat || '').replace(/\n/g, ' ').trim();
             if (!s || /[ \t\u00a0\u202f]/.test(s)) return s;
             if (/[,.]\d/.test(s)) return s; // [EN] ułamek dziesiętny — nie zdejmuj przecinka (0,0486 ≠ 00486)
+            // [EN] Godzina to NIE liczba: „20:00" po zdjęciu dwukropka wygląda jak 2000,
+            // więc grupowanie tysięcy robiło z niej „2 000" (a z 23:00+2h — „0 100").
+            // Dotyczyło każdego wyniku zegarowego bez spacji w tekście.
+            if (s.indexOf(':') !== -1) return s;
             var core = s.replace(/[^\d-]/g, '');
             if (/^-?\d+$/.test(core) && core.replace('-', '').length >= 4) return groupBigIntStr(core);
             return s;
@@ -2784,7 +2867,11 @@
             // Mamy kursy, ale warto odświeżyć w tle, gdy stare (wynik z cache pokazujemy od razu).
             if (calcExpr.value && _fxReady() && !_fxFresh() && _inputHasCurrency(calcExpr.value)) ensureFxRates();
             var hasResult = res.value !== null || res.text != null;
-            var display = hasResult ? formatCalcResult(res) : (calcExpr.value === '' ? '0' : '');
+            // [EN] Puste pole → „0”. Pole NIEPUSTE bez wyniku → „—”, nigdy „0”:
+            // zero wygląda jak policzony wynik i użytkownik nie wie, że silnik nie zrozumiał.
+            var noParse = !hasResult && calcExpr.value.trim() !== '';
+            var display = hasResult ? formatCalcResult(res) : (noParse ? '—' : '0');
+            if (calcResult) calcResult.classList.toggle('is-noparse', noParse);
             _calcResultTargetDisplay = display;
             var fxMeta = _fxMetaForResult(res, calcExpr.value);
             _lastCopyFormats = buildCopyFormats(res, calcExpr.value);
@@ -11983,7 +12070,7 @@
                 { expr: '100 C na K', value: 373.15, unit: 'K' },
                 { expr: '32 F na C', value: 0, unit: '°C' },
                 // dane (binarnie)
-                { expr: '2 GB na MB', value: 2048, unit: 'MB' },
+                { expr: '2 GB na MB', value: 2000, unit: 'MB' }, // SI: 1 GB = 1000 MB (binarnie: GiB/MiB)
                 // objętość
                 { expr: '1.5 l na ml', value: 1500, unit: 'ml' },
                 // pole
@@ -12160,7 +12247,7 @@
                 results.push({ expr: 'T2-10 build 1000m stays m', pass: rBuildKm.unit === 'm' && Math.abs(rBuildKm.value - 1000) < 1e-9, got: rBuildKm.value + ' ' + rBuildKm.unit });
                 applyUnitProfile('it', { silent: true });
                 var rIt = evalCalcExpression('2GB+512MB');
-                results.push({ expr: 'T2-10 it 2GB+512MB', pass: rIt.unit === 'GB' && Math.abs(rIt.value - 2.5) < 1e-6, got: rIt.value + ' ' + rIt.unit });
+                results.push({ expr: 'T2-10 it 2GB+512MB', pass: rIt.unit === 'GB' && Math.abs(rIt.value - 2.512) < 1e-6, got: rIt.value + ' ' + rIt.unit });
                 STATE.settings.unitProfile = savedProf;
                 STATE.settings.defaultUnits = savedDU3;
             })();

@@ -123,6 +123,7 @@ try {
   load('js/pl-fold.js');
   load('js/smart-parser.js'); // podsilniki czasu+dat (MATM0_PARSER) — app.js wiąże się z nimi
   load('js/smart-quantity.js'); // fundament typowanej wielkości (MATM0_QTY) — parytet z index.html
+  load('js/quantity-algebra.js'); // algebra wymiarowa (MATM0_QALG) — parytet z index.html
   load('js/hint-rules.js');
   load('js/notepad-format.js');
   load('js/notepad-engine.js');

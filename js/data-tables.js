@@ -11,6 +11,10 @@
     var UNIT_CATEGORIES = {
         length: { base: 'mm', units: {
             mm: 1, cm: 10, dm: 100, m: 1000, km: 1000000,
+            metr: 1000, metry: 1000, metrach: 1000, metrow: 1000,
+            kilometr: 1000000, kilometry: 1000000, kilometrach: 1000000,
+            centymetr: 10, centymetry: 10, centymetrach: 10,
+            milimetr: 1, milimetry: 1, milimetrach: 1,
             'in': 25.4, inch: 25.4, inches: 25.4, cal: 25.4, cale: 25.4, cali: 25.4,
             ft: 304.8, feet: 304.8, foot: 304.8, stopa: 304.8, stopy: 304.8,
             yd: 914.4, yard: 914.4, yards: 914.4, jard: 914.4, jardy: 914.4,
@@ -18,6 +22,8 @@
         } },
         mass: { base: 'g', units: {
             mg: 0.001, g: 1, dag: 10, dkg: 10, deko: 10, kg: 1000,
+            gram: 1, gramy: 1, gramach: 1, kilogram: 1000, kilogramy: 1000, kilogramach: 1000,
+            tonach: 1000000,
             t: 1000000, tona: 1000000, tony: 1000000, ton: 1000000,
             lb: 453.59237, lbs: 453.59237, funt: 453.59237, funty: 453.59237, funtow: 453.59237,
             oz: 28.349523, uncja: 28.349523, uncje: 28.349523,
@@ -29,6 +35,18 @@
             doba: 86400, dzien: 86400, dni: 86400,
             tydzien: 604800, tyg: 604800, week: 604800,
             rok: 31557600, lata: 31557600, lat: 31557600, year: 31557600,
+            // Angielskie nazwy czasu — parser reklamuje się jako dwujęzyczny, a „2 hours
+            // in minutes" nie działało. Trzymamy je TU, a nie w EN_UNIT_GRAMMAR, żeby
+            // odmieniacz nie brał polskiego „min" za angielskie „minutes".
+            sec: 1, secs: 1, second: 1, seconds: 1,
+            mins: 60, minute: 60, minutes: 60,
+            hr: 3600, hrs: 3600, hour: 3600, hours: 3600,
+            day: 86400, days: 86400,
+            weeks: 604800, years: 31557600,
+            // Miejscownik PL — „2 godziny w minutach". Też tutaj, a nie w gramatyce,
+            // z tego samego powodu co wyżej (odmieniacz nie może ich brać za etykiety).
+            sekundach: 1, minutach: 60, godzinach: 3600,
+            dniach: 86400, dobach: 86400, tygodniach: 604800, latach: 31557600,
         } },
         volume: { base: 'ml', units: {
             ml: 1, cl: 10, dl: 100, l: 1000, litr: 1000, litry: 1000, litrow: 1000,
@@ -36,9 +54,12 @@
             gal: 3785.411784, galon: 3785.411784, gallon: 3785.411784,
         } },
         data: { base: 'B', units: {
-            // KB/MB/… traktowane binarnie (1024). Bity pominięte celowo —
-            // flaga „i" w regexie nie odróżnia b od B.
-            B: 1, KB: 1024, MB: 1048576, GB: 1073741824, TB: 1099511627776, PB: 1125899906842624,
+            // KB/MB/… = SI (1000), KiB/MiB/… = IEC (1024). Wcześniej KB znaczyło 1024,
+            // przez co „1 TB w GB" dawało 1024 — niezgodnie z tym, co pokazuje macOS/iOS,
+            // producenci dysków i Raycast. Kto chce potęg dwójki, pisze GiB/TiB.
+            // Bity pominięte celowo — flaga „i" w regexie nie odróżnia b od B.
+            B: 1, KB: 1e3, MB: 1e6, GB: 1e9, TB: 1e12, PB: 1e15,
+            KiB: 1024, MiB: 1048576, GiB: 1073741824, TiB: 1099511627776, PiB: 1125899906842624,
         } },
         area: { base: 'm2', units: {
             mm2: 0.000001, cm2: 0.0001, dm2: 0.01, m2: 1, ar: 100, ha: 10000, km2: 1000000,
@@ -66,6 +87,24 @@
         } },
     };
 
+    /* Rozwlekłe aliasy wejściowe (odmiana PL, nazwy EN) → symbol pokazywany w wyniku.
+       Bez tego „2 godziny w minutach" kończyło się etykietą „120 minutach”, a
+       „2 hours in minutes” — „120 minutes”. Wejście może być dowolnie odmienione,
+       wyjście ma być zawsze krótkie i jednakowe. */
+    var UNIT_DISPLAY_ALIAS = {
+        sekundach: 's', sec: 's', secs: 's', second: 's', seconds: 's',
+        minutach: 'min', mins: 'min', minute: 'min', minutes: 'min',
+        godzinach: 'h', hr: 'h', hrs: 'h', hour: 'h', hours: 'h',
+        dniach: 'dni', dobach: 'doba', day: 'dni', days: 'dni',
+        tygodniach: 'tyg', weeks: 'tyg', latach: 'lat', years: 'lat',
+        metr: 'm', metry: 'm', metrach: 'm', metrow: 'm',
+        kilometr: 'km', kilometry: 'km', kilometrach: 'km',
+        centymetr: 'cm', centymetry: 'cm', centymetrach: 'cm',
+        milimetr: 'mm', milimetry: 'mm', milimetrach: 'mm',
+        gram: 'g', gramy: 'g', gramach: 'g',
+        kilogram: 'kg', kilogramy: 'kg', kilogramach: 'kg', tonach: 't',
+    };
+
     // Polskie nazwy miesięcy (mianownik + dopełniacz, z/bez diakrytyków) → numer.
     var PL_MONTHS = {
         stycznia:1, styczen:1, 'styczeń':1, lutego:2, luty:2, marca:3, marzec:3,
@@ -74,6 +113,15 @@
         wrzesnia:9, 'września':9, wrzesien:9, 'wrzesień':9,
         pazdziernika:10, 'października':10, pazdziernik:10, 'październik':10,
         listopada:11, listopad:11, grudnia:12, grudzien:12, 'grudzień':12,
+    };
+
+    // Angielskie nazwy miesięcy (pełne + skróty) → numer. Parser jest dwujęzyczny,
+    // ale dotąd rozumiał tylko polskie miesiące — „days until 25 Dec" nie działało.
+    var EN_MONTHS = {
+        january:1, jan:1, february:2, feb:2, march:3, mar:3, april:4, apr:4,
+        may:5, june:6, jun:6, july:7, jul:7, august:8, aug:8,
+        september:9, sep:9, sept:9, october:10, oct:10, november:11, nov:11,
+        december:12, dec:12,
     };
 
     // Dni tygodnia wg Date.getDay() (0 = niedziela).
@@ -204,6 +252,9 @@
         gallon: { forms: ['gallon', 'gallons'], parse: ['gal'] },
         ton:    { forms: ['ton', 'tons'] },
         // przyszłość: stone, fluid ounce, … — ten sam wzorzec
+        // UWAGA: jednostki CZASU po angielsku są w UNIT_CATEGORIES.time, NIE tutaj.
+        // Wpis gramatyczny z parse:['min'] sprawiał, że odmieniacz brał „min" za
+        // angielskie „minute" i „145 min" wyświetlało się jako „145 minutes".
     };
 
     // [EN] PL cardinal rule: 1 / 2–4 (bez 12–14) / reszta.
@@ -293,6 +344,8 @@
     var DATA = {
         UNIT_CATEGORIES: UNIT_CATEGORIES,
         PL_MONTHS: PL_MONTHS,
+        EN_MONTHS: EN_MONTHS,
+        UNIT_DISPLAY_ALIAS: UNIT_DISPLAY_ALIAS,
         PL_WEEKDAYS: PL_WEEKDAYS,
         CUR_ALIAS: CUR_ALIAS,
         CUR_DISPLAY_SYM: CUR_DISPLAY_SYM,

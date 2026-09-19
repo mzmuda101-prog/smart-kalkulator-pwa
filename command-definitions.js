@@ -95,6 +95,15 @@
                 ],
             },
             {
+                title: 'Wygodne pisanie',
+                items: [
+                    { prose: 'Kalkulator wybacza zapis „jak na kartce”: końcowe <code>=</code>, urwany operator w trakcie pisania i niedomknięty nawias.' },
+                    { syntax: 'a + b =', command: '2 + 2 =', yields: 'wynik (końcowe = jest pomijane)', description: 'jak na kartce' },
+                    { syntax: '((a+b', command: '((2+3', yields: 'wynik (nawiasy domykają się same)', description: 'niedomknięty nawias' },
+                    { prose: 'Gdy wyrażenia nie da się policzyć, w polu wyniku jest <code>—</code> (nie <code>0</code>), a pod spodem podpowiedź, <strong>czego</strong> kalkulator nie zrozumiał.' },
+                ],
+            },
+            {
                 title: 'Procenty',
                 intro: 'Cztery kierunki: <strong>% z kwoty</strong> (<code>P% z B</code>), <strong>% z %</strong> (<code>P% z Q%</code>), <strong>jaki % to A z B</strong> (<code>ile % stanowi…</code>), <strong>znasz ułamek → szukasz reszty</strong> (<code>P% to A, ile 100%</code>). Szukaj linii <code>→</code> — tam widać typ wyniku.',
                 items: [
@@ -173,8 +182,33 @@
                     { syntax: 'T min na s', syntaxAlt: 'T min to s', command: '800min na s', yields: 'T × 60 sekund', description: 'surowa konwersja, nie format czytelny' },
                     { syntax: 'a h + b min', command: '2 h + 30 min', yields: 'suma w formacie czytelnym', description: 'np. 2 h 30 min' },
                     { syntax: 'T C na F', syntaxAlt: 'T C to F', command: '{tempC} C na F', yields: 'T°F = T°C × 9/5 + 32', description: 'temperatura' },
-                    { syntax: 'a GB na MB', syntaxAlt: 'a GB to MB', command: '2 GB na MB', yields: 'a × 1024 MB', description: 'dane binarnie' },
+                    { syntax: 'a GB na MB', syntaxAlt: 'a GB to MB', command: '2 GB na MB', yields: 'a × 1000 MB', description: 'dane w SI (jak macOS/dyski)' },
+                    { syntax: 'a GiB na MiB', syntaxAlt: 'a GiB to MiB', command: '1 GiB na MiB', yields: 'a × 1024 MiB', description: 'potęgi dwójki (IEC) — gdy chcesz 1024' },
                     { syntax: 'V km/h na m/s', syntaxAlt: 'V km/h to m/s', command: '100 km/h na m/s', yields: 'V ÷ 3,6 m/s', description: 'prędkość' },
+                ],
+            },
+            {
+                title: 'Jednostki — mnożenie i dzielenie (wymiar wyniku)',
+                items: [
+                    { prose: 'Przy <code>×</code> i <code>÷</code> jednostka wyniku <strong>wynika z działania</strong>, a nie z pierwszej wpisanej: metr razy metr to metr kwadratowy, a metr na sekundę to prędkość.' },
+                    { syntax: 'a m × b m', syntaxAlt: 'a m * b m', command: '5 km * 5 km', yields: 'a × b w jednostce kwadratowej', description: 'powierzchnia — wynik w km²' },
+                    { syntax: 'L m ÷ T s', syntaxAlt: 'L m / T s', command: '10 m / 2 s', yields: 'L ÷ T jako prędkość', description: 'wynik w m/s' },
+                    { syntax: 'V km/h × T h', command: '60 km/h * 2 h', yields: 'V × T jako droga', description: 'wynik w km' },
+                    { syntax: 'D km ÷ T h', command: '100 km / 2 h', yields: 'D ÷ T jako prędkość', description: 'wynik w km/h' },
+                    { syntax: 'm ÷ m', command: '10 km / 2 km', yields: 'goła liczba (jednostki się skracają)', description: 'iloraz tej samej jednostki nie ma jednostki' },
+                    { syntax: 'zł ÷ zł', command: '100 zł / 20 zł', yields: 'goła liczba — ile razy więcej', description: 'działa też między walutami' },
+                    { syntax: 'a kg ÷ b m^3', command: '6 kg / 2 m^3', yields: 'gęstość', description: 'wynik w kg/m³' },
+                    { syntax: 'wynik na jedn.', command: '10 m / 2 s na km/h', yields: 'wynik złożony w wybranej jednostce', description: 'konwersja po działaniu' },
+                ],
+            },
+            {
+                title: 'Czas roboczy',
+                items: [
+                    { prose: 'Model: tydzień <strong>pn–pt</strong>, dzień roboczy <strong>8 h</strong>, <strong>bez świąt</strong> — założenie jest dopisane do wyniku.' },
+                    { syntax: 'T h w dniach roboczych', syntaxAlt: 'T h in workdays', command: '55h w dniach roboczych', yields: 'T ÷ 8 dni roboczych', description: 'ile dni pracy zajmie' },
+                    { syntax: 'N dni robocze w godzinach', syntaxAlt: 'N workdays in hours', command: '3 dni robocze w godzinach', yields: 'N × 8 h', description: 'w drugą stronę' },
+                    { syntax: 'dni robocze w RRRR', syntaxAlt: 'workdays in YYYY', command: 'dni robocze w 2026', yields: 'liczba dni pn–pt w roku', description: 'bez świąt' },
+                    { syntax: 'godziny robocze w RRRR', syntaxAlt: 'workhours in YYYY', command: 'godziny robocze w 2026', yields: 'dni robocze × 8 h', description: 'bez świąt' },
                 ],
             },
             {
@@ -196,6 +230,7 @@
                     { prose: 'Dodawanie, odejmowanie i mnożenie liczb całkowitych liczy się <strong>dokładnie</strong>, bez zaokrąglania — nawet bardzo długie.' },
                     { syntax: '99999999999999999 + 1', command: '99999999999999999+1', yields: 'dokładna suma (bez zaokrągleń)', description: 'precyzja całkowita' },
                     { syntax: '123456789012345678 × 1000', command: '123456789012345678*1000', yields: 'dokładny iloczyn', description: 'precyzja całkowita' },
+                    { syntax: 'a^n', command: '2^64', yields: 'dokładna potęga (bez zaokrągleń)', description: '2^64 = 18 446 744 073 709 551 616' },
                 ],
             },
             {
@@ -226,6 +261,14 @@
                     { syntax: 'czas w MIEŚCIE', syntaxAlt: ['time in CITY', 'teraz NYC', 'teraz w Tokio'], command: 'time in Kyoto', yields: 'aktualna godzina w strefie miasta', description: 'Raycast-style' },
                     { syntax: 'GG:MM w A na B', syntaxAlt: 'HH:MM in A to B', command: '17:00 w Londynie na Tokio', yields: 'ta sama chwila w innej strefie', description: 'konwersja stref czasowych' },
                     { syntax: 'która godzina w MIEŚCIE', syntaxAlt: 'what time in CITY', command: 'która godzina w Tokio', yields: 'aktualna godzina w strefie miasta', description: 'synonim czas w… / time in…' },
+                    { syntax: 'Gpm', syntaxAlt: ['5pm', '3:45pm', '12am'], command: '5pm', yields: 'ta sama godzina w zapisie 24 h', description: 'zegar 12-godzinny' },
+                    { syntax: 'Gpm + N', syntaxAlt: 'HH:MM + N', command: '3:45pm + 5', yields: 'godzina + N GODZIN', description: 'goła liczba przy godzinie = godziny' },
+                    { syntax: 'Gpm A w B', syntaxAlt: '5pm ldn in sf', command: '5pm ldn in sf', yields: 'ta chwila w drugim mieście', description: 'działa też ze skrótami lotnisk' },
+                    { syntax: 'za N godzin', syntaxAlt: ['time in N hours', 'in N hours'], command: 'za 4 godziny', yields: 'godzina za N godzin od teraz', description: 'dopisuje (jutro) po północy' },
+                    { syntax: 'N godzin temu', syntaxAlt: 'N hours ago', command: '3 godziny temu', yields: 'godzina sprzed N godzin', description: 'wstecz od teraz' },
+                    { syntax: 'data + N', syntaxAlt: 'August 5 + 5', command: 'August 5 + 5', yields: 'data + N DNI', description: 'goła liczba przy dacie = dni' },
+                    { syntax: 'miesiąc po angielsku', syntaxAlt: ['25 Dec', 'days until 25 Dec'], command: 'days until 25 Dec', yields: 'data / odliczanie', description: 'nazwy miesięcy PL i EN' },
+                    { syntax: 'T min czytelnie', syntaxAlt: 'T mins to timespan', command: '145 mins to timespan', yields: 'czas w formacie czytelnym', description: 'np. 2 h 25 min' },
                     { prose: 'Tokeny względne: <code>jutro</code>/<code>tomorrow</code>, <code>wczoraj</code>/<code>yesterday</code>' },
                 ],
             },

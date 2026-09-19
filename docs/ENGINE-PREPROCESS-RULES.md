@@ -27,6 +27,12 @@ Kolejność ma znaczenie — pierwsze dopasowanie wygrywa.
 | 7 | `evalPercentDifference` | `różnica % między A a B` |
 | 8 | `evalPeriodPercentage` | procent okresowy (VAT/rok) |
 | 9 | `evalRouteCost` | `500 km, 7 l/100, 6 zł/l` |
+| 10 | `evalTimespanExpression` | `145 mins to timespan`, `145 min czytelnie` |
+| 11 | `evalWorkTime` | `55h in workdays`, `workhours in 2026` |
+
+Kolejność świadoma: `evalClockExpression` przed `evalDateExpression`, bo „za 4 godziny" to
+GODZINA, a „za 3 tygodnie" to DATA — router zegara przepuszcza dalej wszystko, co ma
+jednostkę datową (`_isDateUnit`).
 
 ## Pipeline wyrażenia numerycznego
 
@@ -43,9 +49,33 @@ Kolejność ma znaczenie — pierwsze dopasowanie wygrywa.
 | 9 | Trygonometria | `resolveTrigDegrees` | `sin(30 deg)` → radiany |
 | 10 | BigInt | `MATM0_NUMERIC.tryBigIntCalc` | tylko gdy >15 cyfr |
 | 11 | Jednostki | `resolveUnitsExpression` | konwersje, miks, `__auto__` |
+| 11b | **Algebra wymiarowa** | `_tryQuantityAlgebra` → `MATM0_QALG` | `5 km * 5 km` → km²; wchodzi TYLKO gdy stara ścieżka nie dała jednostki albo jej kategoria ma inny wymiar |
 | 12 | Normalizacja | `,`→`.`, `×÷−`→`* / -`, whitespace | przed eval |
 | 13 | Eval | `MATM0_NUMERIC.compileGraphExpression` | AST + eval |
 | 14 | Post-process | skala waluty, `_roundMoney`, `displayFactor`, `MATM0_QTY.chooseUnit`, `formatDurationSeconds`, sygnał `≈` | |
+
+## Wejście tolerowane (`_tolerateInput`)
+
+Przed routerami normalizujemy to, co człowiek pisze na kartce i w trakcie pisania:
+końcowe `=`, urwany operator na końcu, niedomknięty nawias. Wcześniej każde z nich
+kończyło się pustym wynikiem, czyli mylącym „0" na ekranie.
+
+## Algebra wymiarowa (`js/quantity-algebra.js`)
+
+Stary pipeline przepisuje STRING: wycina jednostkę, liczy gołe liczby, jednostkę dokleja
+na końcu. Działa przy `+`/`−`, ale przy `×`/`÷` wymiar wyparowuje. `MATM0_QALG` liczy to
+samo wyrażenie na wartości z wektorem wymiaru i dobiera jednostkę z wyniku.
+
+**Reguła pierwszeństwa:** stara ścieżka wygrywa, gdy zwróciła jednostkę, a jej kategoria
+ma TEN SAM wymiar co algebra. Dzięki temu wszystkie dotąd poprawne wyniki idą ogranaą
+ścieżką (baseline bez dryfu), a algebra wchodzi tylko tam, gdzie tamta milczała lub się myliła.
+
+**Bail-outy** (→ stara ścieżka): sąsiedztwo bez operatora (`3 h 20 min` = suma, nie iloczyn),
+sam wymiar odwrotny (`100 / 4 km` = 25 km, nie 25 m⁻¹), temperatura (skala z offsetem),
+jednostki `custom:`, nazwy funkcji i stałych.
+
+Waluty mają w algebrze osobną oś `C` z kursem jako przelicznikiem — służy WYŁĄCZNIE do
+wykrycia skrócenia (`100 usd / 20 eur` = 4,59). Kwoty liczy dalej `resolveCurrencyExpression`.
 
 ## Blokady / edge case
 
@@ -58,7 +88,8 @@ Kolejność ma znaczenie — pierwsze dopasowanie wygrywa.
 
 | Moduł | Odpowiedzialność |
 |-------|------------------|
-| `js/smart-parser.js` | pipeline, czas, daty, %, waluty, jednostki |
+| `js/smart-parser.js` | pipeline, czas, daty, %, waluty, jednostki, czas roboczy |
+| `js/quantity-algebra.js` | algebra wymiarowa (× ÷ składają wymiar) |
 | `js/numeric-eval.js` | BigInt, `compileGraphExpression` |
 | `js/money-decimal.js` | grosze (używane przez parser `_roundMoney`) |
 | `app.js` | `STATE`, FX fetch, `makeVal`, formatowanie UI, notatnik |

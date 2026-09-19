@@ -12,7 +12,7 @@ module.exports = {
         { expr: '2 cm + 5 mm', value: 2.5 },
         { expr: '90 min na h', value: 1.5 },
         { expr: '20 C na F', value: 68 },
-        { expr: '2 GB na MB', value: 2048 },
+        { expr: '2 GB na MB', value: 2000 }, // SI: 1 GB = 1000 MB (binarnie: GiB/MiB)
         { expr: '9999999999999×9', value: 89999999999991 },
     ],
     weird: [

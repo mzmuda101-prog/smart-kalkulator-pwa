@@ -17,6 +17,14 @@
 (function() {
     'use strict';
     var DATA = (typeof window !== 'undefined' && window.MATM0_DATA) || {};
+    function _qalg() { // [EN] lazy — quantity-algebra loads after smart-parser in index.html
+        return (typeof window !== 'undefined' && window.MATM0_QALG) ||
+            (typeof self !== 'undefined' && self.MATM0_QALG) || null;
+    }
+    function _qty() { // [EN] lazy — smart-quantity loads after smart-parser in index.html
+        return (typeof window !== 'undefined' && window.MATM0_QTY) ||
+            (typeof self !== 'undefined' && self.MATM0_QTY) || null;
+    }
     function _numeric() { // [EN] lazy — numeric-eval loads before smart-parser in index.html
         return (typeof window !== 'undefined' && window.MATM0_NUMERIC) ||
             (typeof self !== 'undefined' && self.MATM0_NUMERIC) || {};
@@ -34,13 +42,14 @@
         var cats = unitCategories || {};
         var units = {};
         var display = {};
+        var alias = DATA.UNIT_DISPLAY_ALIAS || {}; // odmiana/EN → symbol w wyniku
         Object.keys(cats).forEach(function(cat) {
             var def = cats[cat];
             if (!def || !def.units) return;
             Object.keys(def.units).forEach(function(u) {
                 var key = String(u).toLowerCase();
                 units[key] = { cat: cat, factor: def.units[u], base: def.base };
-                if (!display[key]) display[key] = u;
+                if (!display[key]) display[key] = alias[key] || u;
             });
         });
         return { categories: cats, units: units, display: display };
@@ -225,7 +234,7 @@
             }
         }
 
-        var ppiMatch = String(raw || '').match(/^(.+?)\s+(?:na|do|in|to|w)\s+px\s+(?:przy|@)\s+([\d.,]+)\s*(?:ppi|dpi)\s*$/i);
+        var ppiMatch = String(raw || '').match(/^(.+?)\s+(?:na|do|in|to|w)\s+px\s+(?:przy|at|@)\s+([\d.,]+)\s*(?:ppi|dpi)\s*$/i);
         if (ppiMatch) {
             var innerPpi = resolveUnitsExpression(ppiMatch[1].trim(), opts);
             var ppiVal = parseFloat(ppiMatch[2].replace(',', '.'));
@@ -258,7 +267,15 @@
             cat = catName; baseUnit = base; hasUnits = true;
             var n = parseFloat(String(numStr).replace(',', '.'));
             totalBase += n * factor;
-            return _plainNum(n * factor / workFactor);
+            // [EN] … = znacznik „to wyszło z jednostki”. Dwie wielkości obok
+            // siebie („3 h 20 min”) to SUMA, a bez znaczników sklejały się w jedną liczbę
+            // (3 + 0.333 → „30.333”). Łączenie i sprzątanie: _joinAdjacent poniżej.
+            return '' + _plainNum(n * factor / workFactor) + '';
+        }
+        function _joinAdjacent(s) {
+            return String(s)
+                .replace(/(\s*)/g, '+')
+                .replace(/[]/g, '');
         }
         expr = expr.replace(/([\d.,]+)\s*'/g, function(_, n) {
             if (cat && cat !== 'length') { mixed = true; return _; }
@@ -281,6 +298,7 @@
             }
             return _emitUnit(numStr, def.factor, def.cat, def.base, unit);
         });
+        expr = _joinAdjacent(expr);
         if (mixed && !firstUnitWins) return { expr: raw, unit: null, cat: null, valueInBase: 0, workFactor: 1 };
         if (!hasUnits) return { expr: expr, unit: null, cat: null, valueInBase: 0, workFactor: 1 };
         var pref = _prefDisplay(cat);
@@ -327,9 +345,20 @@
 
     function _nowMinutes() { var d = _now(); return d.getHours() * 60 + d.getMinutes(); }
     // Token zegara → minuty doby (0..1439) lub null. Akceptuje HH:MM (nie „teraz" — to datetime w evalDateExpression).
+    // [EN] Zegar 12-godzinny (5pm, 3:45pm, 12am) obok 24-godzinnego. Bez tego
+    // „5pm ldn in sf" i „3:45pm + 5" z Raycasta nie miały szans się sparsować.
+    var _CLOCK_TOKEN_RE = '\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)|\\d{1,2}:\\d{2}';
     function _parseClockToken(str) {
-        var s = String(str).trim().toLowerCase();
-        var m = s.match(/^(\d{1,2}):(\d{2})$/);
+        var s = String(str).trim().toLowerCase().replace(/\s+/g, '');
+        var m = s.match(/^(\d{1,2})(?::(\d{2}))?(am|pm)$/);
+        if (m) {
+            var h12 = +m[1], mi12 = m[2] ? +m[2] : 0;
+            if (h12 < 1 || h12 > 12 || mi12 > 59) return null;
+            if (m[3] === 'am') { if (h12 === 12) h12 = 0; }
+            else if (h12 !== 12) h12 += 12;
+            return h12 * 60 + mi12;
+        }
+        m = s.match(/^(\d{1,2}):(\d{2})$/);
         if (!m) return null;
         var h = +m[1], mi = +m[2];
         if (h > 23 || mi > 59) return null;
@@ -381,6 +410,15 @@
     function _parseDuration(str) {
         var sec = _TIME.parseSeconds(str);
         return sec == null ? null : sec / 60;
+    }
+    /* [EN] Sama godzina gubi informację o przekroczeniu północy — „za 6 h" o 23:00
+       to 05:00 JUTRO, nie dziś. Dopisek tylko przy przesunięciu o ±dobę. */
+    function _dayShift(mins) {
+        var day = Math.floor(mins / 1440);
+        if (day === 0) return '';
+        if (day === 1) return ' (jutro)';
+        if (day === -1) return ' (wczoraj)';
+        return ' (' + (day > 0 ? '+' : '') + day + ' dni)';
     }
     function _fmtClock(mins) {
         mins = ((Math.round(mins) % 1440) + 1440) % 1440; // zawijanie przez północ
@@ -485,10 +523,31 @@
             }
             return null;
         }
-        // „HH:MM + <trwanie>" / „HH:MM - <trwanie>" → nowy czas zegarowy
-        if ((m = low.match(/^(\d{1,2}:\d{2})\s*([+\-])\s*(.+)$/))) {
+        // „za N godzin" / „time in 4 hours" / „N godzin temu" → godzina względem TERAZ.
+        // Tylko jednostki ZEGAROWE — „za 3 tygodnie" musi zostać dla podsilnika DAT.
+        if ((m = low.match(/^(?:czas|time|ktora\s+godzina|what\s+time)?\s*(?:za|in)\s+([\d.,]+)\s*([a-z]+)\s*(?:od\s+teraz|from\s+now)?\s*$/)) ||
+            (m = low.match(/^([\d.,]+)\s*([a-z]+)\s+(?:temu|ago)\s*$/))) {
+            var relBack = /temu|ago/.test(low);
+            var relUnit = _plFold(m[2]);
+            if (!_isDateUnit(relUnit)) {
+                var relSec = _TIME.parseSeconds('1' + relUnit);
+                if (relSec != null) {
+                    var relMin = parseFloat(m[1].replace(',', '.')) * (relSec / 60);
+                    if (isFinite(relMin)) {
+                        var relTotal = _nowMinutes() + (relBack ? -relMin : relMin);
+                        return { text: _fmtClock(relTotal) + _dayShift(relTotal), value: null, kind: 'clock', exact: true };
+                    }
+                }
+            }
+        }
+        // „HH:MM + <trwanie>" / „5pm - 90 min" → nowy czas zegarowy
+        if ((m = low.match(new RegExp('^(' + _CLOCK_TOKEN_RE + ')\\s*([+\\-])\\s*(.+)$')))) {
             var base = _parseClockToken(m[1]);
             var dur = _parseDuration(m[3]);
+            // [EN] Goła liczba przy godzinie to GODZINY („3:45pm + 5" = 20:45) — jak Raycast.
+            if (base != null && dur == null && /^\d+(?:[.,]\d+)?$/.test(m[3].trim())) {
+                dur = parseFloat(m[3].trim().replace(',', '.')) * 60;
+            }
             if (base != null && dur != null) {
                 var res = base + (m[2] === '-' ? -dur : dur);
                 // exact=false, gdy sekundy dały ułamek minuty → wyświetlany HH:MM jest zaokrąglony.
@@ -507,7 +566,15 @@
             zależy WYŁĄCZNIE od MATM0_DATA (PL_MONTHS, PL_WEEKDAYS).
             „za 3 tygodnie", „ile dni do 1.09", „dziś + 90 dni", „1.09 + 2 tyg".
        ============================================================ */
-    var _PL_MONTHS = DATA.PL_MONTHS || {};
+    // [EN] PL + EN w jednym słowniku — parser dat ma być dwujęzyczny tak samo jak
+    // dni tygodnia (_WD od zawsze rozumiało „monday"), a miesiące były tylko polskie.
+    var _MONTHS = (function () {
+        var out = {}, k;
+        var pl = DATA.PL_MONTHS || {}, en = DATA.EN_MONTHS || {};
+        for (k in pl) out[k] = pl[k];
+        for (k in en) if (out[k] == null) out[k] = en[k];
+        return out;
+    })();
     var _PL_WEEKDAYS = DATA.PL_WEEKDAYS || [];
 
     var _todayOverride = null; // [EN] test hook — pin „today" for deterministic date tests
@@ -624,11 +691,17 @@
             if (_validDMY(d1, m1, y1)) return { d: new Date(y1, m1 - 1, d1), hasYear: !!m[3] };
             return null;
         }
-        m = s.match(/^(\d{1,2})\s+([a-z]+)(?:\s+(\d{2,4}))?$/); // DD miesiąc [RRRR]
-        if (m && _PL_MONTHS[m[2]]) {
-            var d2 = +m[1], m2 = _PL_MONTHS[m[2]], y2 = m[3] ? +m[3] : _today().getFullYear();
+        m = s.match(/^(\d{1,2})\s+([a-z]+)\.?(?:\s+(\d{2,4}))?$/); // DD miesiąc [RRRR] — „25 grudnia", „25 Dec"
+        if (m && _MONTHS[m[2]]) {
+            var d2 = +m[1], m2 = _MONTHS[m[2]], y2 = m[3] ? +m[3] : _today().getFullYear();
             if (m[3] && m[3].length === 2) y2 += 2000;
-            if (_validDMY(d2, m2, y2)) return { d: new Date(y2, m2 - 1, d2), hasYear: !!m[3] };
+            if (_validDMY(d2, m2, y2)) return { d: new Date(y2, m2 - 1, d2), hasYear: !!m[3], namedMonth: true };
+        }
+        m = s.match(/^([a-z]+)\.?\s+(\d{1,2})(?:\s*,)?(?:\s+(\d{2,4}))?$/); // miesiąc DD [RRRR] — „August 5"
+        if (m && _MONTHS[m[1]]) {
+            var m3 = _MONTHS[m[1]], d3 = +m[2], y3 = m[3] ? +m[3] : _today().getFullYear();
+            if (m[3] && m[3].length === 2) y3 += 2000;
+            if (_validDMY(d3, m3, y3)) return { d: new Date(y3, m3 - 1, d3), hasYear: !!m[3], namedMonth: true };
         }
         return null;
     }
@@ -694,7 +767,7 @@
             return null;
         }
         // „ile dni do B" / „how many days until B" / „ile dni od dziś do B"
-        if ((m = low.match(/^(?:ile\s+dni|how\s+many\s+days)\s+(?:(?:od|from)\s+(?:dzis|dzisiaj|today|teraz|now|czas|time)\s+)?(?:(?:do|zostalo\s+do|pozostalo\s+do)|(?:until|to|left\s+to))\s+(.+)$/))) {
+        if ((m = low.match(/^(?:ile\s+dni|how\s+many\s+days|days|dni)\s+(?:(?:od|from)\s+(?:dzis|dzisiaj|today|teraz|now|czas|time)\s+)?(?:(?:do|zostalo\s+do|pozostalo\s+do)|(?:until|till|to|left\s+to))\s+(.+)$/))) {
             var b2 = _parseDateToken(m[1]);
             if (b2) {
                 if (!b2.hasYear && b2.d < _today()) b2.d.setFullYear(b2.d.getFullYear() + 1);
@@ -730,6 +803,12 @@
         if ((m = low.match(/^(.+?)\s*([+\-])\s*(.+)$/))) {
             var left = _parseDateToken(m[1].trim());
             var offset = _parseDateOffsetOperand(m[3].trim());
+            // [EN] „August 5 + 5" = +5 DNI (jak w Raycaście). Tylko przy dacie
+            // jednoznacznej — inaczej „2.5 + 5" (liczba!) zrobiłoby się datą.
+            if (left && !offset && (left.namedMonth || left.hasYear || left.relDay || left.moment) &&
+                /^\d+(?:[.,]\d+)?$/.test(m[3].trim())) {
+                offset = { amount: parseFloat(m[3].trim().replace(',', '.')), dateUnit: 'dni' };
+            }
             if (left && offset) {
                 return { text: _resolveDateOffsetResult(left, offset, m[2] === '-' ? -1 : 1), value: null };
             }
@@ -737,6 +816,73 @@
         // Samodzielny token daty/czasu (ISO Zulu, DD.MM.YYYY, …)
         var dAlone = _parseDateToken(s);
         if (dAlone) return { text: _fmtDateResult(dAlone.d, !!dAlone.moment), value: null };
+        return null;
+    }
+
+    /* ============================================================
+       [PL] CZAS ROBOCZY — parytet z Raycastem („55h in workdays", „workhours in 2026").
+            Model jawny i prosty: tydzień pn–pt, dzień roboczy = 8 h, BEZ świąt.
+            Kalendarz świąt jest krajowy i ruchomy, więc zamiast po cichu zgadywać,
+            dopisujemy założenie do wyniku — użytkownik widzi, co dostał.
+       ============================================================ */
+    var WORK_HOURS_PER_DAY = 8;
+    function _workdaysInYear(y) {
+        var n = 0, d = new Date(y, 0, 1);
+        while (d.getFullYear() === y) {
+            var wd = d.getDay();
+            if (wd !== 0 && wd !== 6) n++;
+            d.setDate(d.getDate() + 1);
+        }
+        return n;
+    }
+    /* [EN] Jawne „czytelnie" / „to timespan" (Raycast) — bez tego działała tylko
+       automatyka przy gołej wartości („145 min”), a prośba wprost dawała pustkę. */
+    function evalTimespanExpression(raw) {
+        var s = _plFold(raw).trim().replace(/\s+/g, ' ');
+        var m = s.match(/^(.+?)(?: (?:na|do|w|to|as|jako))? (?:timespan|czytelnie|czytelny czas|readable)$/);
+        if (!m) return null;
+        var sec = _TIME.parseSeconds(m[1]);
+        if (sec == null || !isFinite(sec)) return null;
+        return { value: sec / 60, unit: null, kind: 'duration', exact: true,
+                 text: formatDurationSeconds(sec) };
+    }
+    function evalWorkTime(raw) {
+        var s = _plFold(raw).trim().replace(/\s+/g, ' ');
+        if (!s || !/robocz|work/.test(s)) return null;
+        var m;
+        var WD = '(?:dni(?:ach|ami)? roboczych|dni robocze|workdays?|working days?)';
+        var WH = '(?:godzin(?:ach|y)? roboczych|godziny robocze|workhours?|working hours?)';
+        // „55h w dniach roboczych" / „55h in workdays"
+        if ((m = s.match(new RegExp('^(.+?) (?:w|we|in|na|do|to) ' + WD + '$')))) {
+            var secD = _TIME.parseSeconds(m[1]);
+            if (secD != null) {
+                var days = secD / 3600 / WORK_HOURS_PER_DAY;
+                return { value: days, unit: null, kind: 'number',
+                         text: _formatLocaleNumber(days, 2) + ' dni roboczych (po ' + WORK_HOURS_PER_DAY + ' h)' };
+            }
+        }
+        // „3 dni robocze w godzinach" / „2 workdays in hours"
+        if ((m = s.match(new RegExp('^([\\d.,]+) ' + WD + ' (?:w|we|in|na|do|to) (?:godzin[a-z]*|hours?|h)$')))) {
+            var nd = parseFloat(m[1].replace(',', '.'));
+            if (isFinite(nd)) {
+                var hrs = nd * WORK_HOURS_PER_DAY;
+                return { value: hrs, unit: null, kind: 'number',
+                         text: _formatLocaleNumber(hrs, 2) + ' h (po ' + WORK_HOURS_PER_DAY + ' h)' };
+            }
+        }
+        // „workhours in 2026" / „godziny robocze w 2026"
+        if ((m = s.match(new RegExp('^' + WH + ' (?:w|we|in) (\\d{4})$')))) {
+            var wdH = _workdaysInYear(+m[2] || +m[1]);
+            var total = wdH * WORK_HOURS_PER_DAY;
+            return { value: total, unit: null, kind: 'number',
+                     text: _formatLocaleNumber(total, 0) + ' h (' + wdH + ' dni × ' + WORK_HOURS_PER_DAY + ' h, pn–pt, bez świąt)' };
+        }
+        // „workdays in 2026" / „dni robocze w 2026"
+        if ((m = s.match(new RegExp('^' + WD + ' (?:w|we|in) (\\d{4})$')))) {
+            var wdD = _workdaysInYear(+m[2] || +m[1]);
+            return { value: wdD, unit: null, kind: 'number',
+                     text: wdD + ' dni roboczych (pn–pt, bez świąt)' };
+        }
         return null;
     }
 
@@ -1056,7 +1202,11 @@
     var _TZ_CITY = DATA.TZ_CITY || {}; // [EN] alias → IANA tz; tablica w js/data-tables.js
     function _tzLookup(name) { return _TZ_CITY[String(name).trim().toLowerCase()] || null; }
     function _tzLabel(name) {
-        return String(name).trim().split(/\s+/).map(function (w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' ');
+        // [EN] Kody miast/lotnisk piszemy wersalikami — „sf" ma wyjść jako „SF", nie „Sf".
+        return String(name).trim().split(/\s+/).map(function (w) {
+            if (w.length <= 3) return w.toUpperCase();
+            return w.charAt(0).toUpperCase() + w.slice(1);
+        }).join(' ');
     }
     // Offset strefy (minuty względem UTC) dla danego momentu — uwzględnia DST.
     function _tzOffsetMin(tz, date) {
@@ -1080,7 +1230,7 @@
         var s = String(raw || '').trim(); if (!s) return null;
         var low = s.toLowerCase(); var m;
         // „HH:MM w <A> na/do <B>" / „HH:MM in <A> to <B>"
-        if ((m = low.match(new RegExp('^(\\d{1,2}:\\d{2})\\s+' + _TZ_PREP + '\\s+(.+?)\\s+(?:na|do|to)\\s+(.+?)\\s*$')))) {
+        if ((m = low.match(new RegExp('^(' + _CLOCK_TOKEN_RE + ')\\s+(?:' + _TZ_PREP + '\\s+)?(.+?)\\s+(?:na|do|to|in|w)\\s+(.+?)\\s*$')))) {
             var tzA = _tzLookup(m[2]), tzB = _tzLookup(m[3]);
             var baseMin = _parseClockToken(m[1]);
             if (tzA == null || tzB == null || baseMin == null) return null;
@@ -1089,6 +1239,12 @@
             if (offA == null || offB == null) return null;
             var resMin = baseMin + (offB - offA);
             return { text: _fmtClock(resMin) + ' (' + _tzLabel(m[3]) + ')', value: null, kind: 'clock', exact: true };
+        }
+        // Sama godzina 12h → 24h („5pm" = 17:00). Dla polskiego użytkownika to realna
+        // konwersja, a dotąd nie zwracała nic.
+        if (/^\d{1,2}(?::\d{2})?\s*(?:am|pm)$/.test(low)) {
+            var solo = _parseClockToken(low);
+            if (solo != null) return { text: _fmtClock(solo), value: null, kind: 'clock', exact: true };
         }
         // „teraz NYC" / „teraz w Tokio" / „now in Kyoto" — skrót bez „czas w"/„time in"
         if ((m = low.match(new RegExp('^(?:teraz|now|czas|time)\\s+(?:' + _TZ_PREP + '\\s+)?(.+?)\\s*$')))) {
@@ -1311,14 +1467,84 @@
     /** @param {string} raw wyrażenie użytkownika
      *  @param {Object} [options] fxRates, fxReady, constants, lastAnswer, unitDefs, …, debug
      *  @returns {EvaluateResult} plain object — app opakowuje makeVal() */
+    /* [EN] ALGEBRA WYMIAROWA — wchodzi tylko tam, gdzie stringowa ścieżka nie umie
+       albo gubi wymiar (5 km * 5 km → „25 km”). Jeśli stara ścieżka trafiła w ten sam
+       wymiar, oddajemy jej pierwszeństwo — ma za sobą baseline + oracle. */
+    function _tryQuantityAlgebra(expr, unitResult, unitOpts) {
+        var QALG = _qalg();
+        if (!QALG || !QALG.tryEvaluate) return null;
+        var res;
+        try {
+            res = QALG.tryEvaluate(expr, {
+                unitDefs: unitOpts.unitDefs,
+                unitDisplay: unitOpts.unitDisplay,
+                defaultUnits: unitOpts.defaultUnits,
+                qty: _qty(),
+            });
+        } catch (e) { return null; }
+        if (!res || !isFinite(res.value)) return null;
+        var oldDim = unitResult && unitResult.unit !== null && unitResult.cat
+            ? QALG.catDimKey(unitResult.cat) : null;
+        if (oldDim && oldDim === res.dimKey) return null;   // stara ścieżka jest zgodna → jej wynik
+        var value = res.value;
+        if (Math.abs(value) < 1e308 && value !== 0 &&
+            !(Number.isInteger(value) && Math.abs(value) <= Number.MAX_SAFE_INTEGER)) {
+            value = parseFloat(value.toPrecision(15));
+        }
+        var unit = res.unit ? _inflectDisplayUnit(value, res.unit) : null;
+        var approxNum = false, exactNumText = null;
+        if (isFinite(value) && !Number.isInteger(value)) {
+            var disp6 = Number(value.toFixed(6));
+            if (Math.abs(value - disp6) > Math.abs(value) * 1e-12) {
+                approxNum = true;
+                exactNumText = _formatLocaleNumber(value, 15) + (unit ? ' ' + unit : '');
+            }
+        }
+        return {
+            value: value, unit: unit, text: null,
+            kind: res.dimensionless ? 'number' : (res.cat === 'time' ? 'duration' : 'physical'),
+            exact: !approxNum, exactText: exactNumText, _qalg: true,
+        };
+    }
+    /* [EN] Czy kwoty się SKRACAJĄ? „100 zł / 20 zł" = 5 (nie „5 zł”), a krzyżowo
+       „100 usd / 20 eur" = 4,59 (nie „18,14 zł”). Zwraca policzony stosunek albo null. */
+    function _qalgCurrencyRatio(expr, unitOpts, fxRates) {
+        var QALG = _qalg();
+        if (!QALG || !QALG.tryEvaluate) return null;
+        var rates = fxRates || {};
+        try {
+            var r = QALG.tryEvaluate(expr, {
+                unitDefs: unitOpts.unitDefs,
+                unitDisplay: unitOpts.unitDisplay,
+                defaultUnits: unitOpts.defaultUnits,
+                currencyTokens: _currencyTokenMap(rates),
+                currencyRate: function (code) { return _currencyRate(code, rates); },
+                qty: _qty(),
+            });
+            return (r && r.dimensionless && isFinite(r.value)) ? r.value : null;
+        } catch (e) { return null; }
+    }
     function _dbgFail(opts, code, detail) { // [EN] opts.debug → diagnostyka zamiast cichego {}
         if (!opts || !opts.debug) return {};
         return { _debugCode: code, _debugDetail: detail != null ? String(detail) : null };
     }
+    /* [EN] TOLERANCJA WEJŚCIA — to, co człowiek pisze na kartce i w trakcie pisania:
+       końcowe „=" („2 + 2 ="), urwany operator („12 * ") i niedomknięty nawias.
+       Wcześniej każde z nich dawało pusty wynik, czyli na ekranie mylące „0". */
+    function _tolerateInput(s) {
+        var out = String(s == null ? '' : s).trim();
+        if (!out) return out;
+        out = out.replace(/\s*=\s*$/, '').trim();
+        while (/[+\-*/×÷−^]\s*$/.test(out)) out = out.replace(/[+\-*/×÷−^]\s*$/, '').trim();
+        var opens = (out.match(/\(/g) || []).length;
+        var closes = (out.match(/\)/g) || []).length;
+        if (opens > closes) out += new Array(opens - closes + 1).join(')');
+        return out;
+    }
     function evaluate(raw, options) {
         var opts = options || {};
         var firstUnitWins = !!opts.firstUnitWins;
-        var original = String(raw || '').trim();
+        var original = _tolerateInput(raw);
         if (!original) return _dbgFail(opts, 'empty_input');
         var fxRates = opts.fxRates || {};
         var currencyOpts = {
@@ -1348,6 +1574,10 @@
         if (tzRes) {
             return { value: tzRes.value, text: tzRes.text, kind: tzRes.kind || 'clock', exact: tzRes.exact !== false, _stateClear: true };
         }
+        var spanRes = evalTimespanExpression(original);
+        if (spanRes) return spanRes;
+        var workRes = evalWorkTime(original);
+        if (workRes) return workRes;
         var dateRes = evalDateExpression(original);
         if (dateRes) {
             return { value: dateRes.value, text: dateRes.text, kind: 'date' };
@@ -1382,8 +1612,15 @@
             if (useFirstWins && firstHit && firstHit.kind === 'physical' && !firstHit.dimensionless) {
                 expr = _stripCurrencyAmounts(expr, fxRates);
             }
+            var exprBeforeCurrency = expr;
             var curRes = resolveCurrencyExpression(expr, currencyOpts);
             if (curRes.pending) return { pendingFx: true };
+            /* Kwoty w tej samej walucie się SKRACAJĄ → wynik jest gołą liczbą.
+               Stara ścieżka zdejmowała symbol waluty, liczyła „100/20" i dopiero na
+               końcu mnożyła przez kurs — stąd „100 usd / 20 usd" = 19,75 zamiast 5. */
+            var curRatio = curRes.hasCurrency
+                ? _qalgCurrencyRatio(exprBeforeCurrency, unitOpts, fxRates) : null;
+            var curCancels = curRatio !== null;
             expr = curRes.expr;
             if (useFirstWins && firstHit && firstHit.kind === 'currency') {
                 expr = _stripPhysicalUnits(expr, unitOpts.unitNamesRe);
@@ -1404,7 +1641,12 @@
                     };
                 }
             }
+            var exprBeforeUnits = expr;
             var unitResult = resolveUnitsExpression(expr, unitOpts);
+            if (!curRes.hasCurrency && !firstUnitWins) {
+                var qalgOut = _tryQuantityAlgebra(exprBeforeUnits, unitResult, unitOpts);
+                if (qalgOut) return qalgOut;
+            }
             expr = unitResult.expr;
             var unitDefs = unitOpts.unitDefs;
             var unitIsCustom = unitResult.cat && String(unitResult.cat).indexOf('custom:') === 0;
@@ -1425,12 +1667,13 @@
             if (!fn) return _dbgFail(opts, 'no_numeric', 'MATM0_NUMERIC.compileGraphExpression missing');
             var value = fn(0);
             if (!curRes.hasCurrency && unitResult.workFactor) value = value * unitResult.workFactor;
-            if (curRes.hasCurrency && curRes.curMul && isFinite(value) && !opts.keepWorkCurrency) value = value * curRes.curMul;
+            if (curRes.hasCurrency && curRes.curMul && isFinite(value) && !opts.keepWorkCurrency && !curCancels) value = value * curRes.curMul;
             var preciseValue = null;
-            if (curRes.hasCurrency && isFinite(value)) {
+            if (curRes.hasCurrency && isFinite(value) && !curCancels) {
                 preciseValue = value;
                 value = _roundMoney(value);
             }
+            if (curCancels) value = curRatio;              // stosunek kwot — bez kursu i bez groszy
             var valueBase = value;
             if (!curRes.hasCurrency && unitResult.displayFactor) value = value / unitResult.displayFactor;
             var _QTY = (typeof window !== 'undefined' && window.MATM0_QTY) ||
@@ -1446,6 +1689,11 @@
                     unit = (opts.unitDisplay || {})[_autoU] || _autoU;
                 }
             }
+            // [EN] NaN ≠ ∞. „(-8)^(1/3)" = Math.pow(-8, 0.333…) = NaN, a wcześniej
+            // wpadało w tę samą gałąź co dzielenie przez zero i pokazywało „∞”.
+            if (typeof value === 'number' && isNaN(value)) {
+                return { value: null, unit: null, error: 'NaN', text: 'nieokreślone', kind: 'number' };
+            }
             if (!isFinite(value)) return { value: Infinity, unit: unit, error: '∞', kind: 'number' };
             if (Math.abs(value) < 1e308 && value !== 0 &&
                 !(Number.isInteger(value) && Math.abs(value) <= Number.MAX_SAFE_INTEGER)) {
@@ -1453,12 +1701,15 @@
             }
             if (unit) unit = _inflectDisplayUnit(value, unit);
             var valKind = curRes.hasCurrency ? 'money' : (unitResult.cat ? (unitResult.cat === 'time' ? 'duration' : 'physical') : 'number');
+            if (curCancels) { unit = null; valKind = 'number'; }   // kwoty się skróciły → goła liczba
             var _timeDu = (opts.defaultUnits || {}).time;
             var readableTime = null;
             if (!curRes.hasCurrency && unitResult.cat === 'time' && !unitResult.explicitConvert &&
                 (_timeDu === '' || _timeDu === '__auto__') && !_preferredDisplayUnit('time', opts) &&
-                isFinite(unitResult.valueInBase) && typeof formatDurationSeconds === 'function') {
-                readableTime = formatDurationSeconds(unitResult.valueInBase);
+                isFinite(valueBase) && typeof formatDurationSeconds === 'function') {
+                // [EN] valueBase = POLICZONA wartość w bazie (s). `unitResult.valueInBase`
+                // to tylko suma literałów z wejścia — przy „2 h * 3” dawało 2 h zamiast 6 h.
+                readableTime = formatDurationSeconds(valueBase);
             }
             var approxNum = false, exactNumText = null;
             if (isFinite(value) && !Number.isInteger(value)) {

@@ -13,7 +13,7 @@
             .replace(/−/g, '-')
             .replace(/\s+/g, '');
         if (!s) return null;
-        if (!/^[0-9+\-*()]+$/.test(s)) return null; // brak kropki/przecinka, „/”, liter
+        if (!/^[0-9+\-*^()]+$/.test(s)) return null; // brak kropki/przecinka, „/”, liter
         if (!/[0-9]/.test(s)) return null;
         var i = 0;
         function peek() { return s.charAt(i); }
@@ -27,9 +27,21 @@
             return v;
         }
         function parseTerm() {
-            var v = parseFactor();
-            while (peek() === '*') { i++; v = v * parseFactor(); }
+            var v = parsePow();
+            while (peek() === '*') { i++; v = v * parsePow(); }
             return v;
+        }
+        // [EN] Potęga w BigInt — bez tego „2^64" szło floatem i dawało
+        // 18446744073709600000 zamiast 18446744073709551616 (a „2^64 + 1" to samo).
+        // Prawostronnie łączna, jak w compileGraphExpression.
+        function parsePow() {
+            var base = parseFactor();
+            if (peek() !== '^') return base;
+            i++;
+            var exp = parsePow();
+            if (exp < 0n) throw new Error('neg-exp');       // ułamek → nie nasza działka
+            if (exp > 8192n) throw new Error('exp-too-big'); // zapora przed zawieszeniem
+            return base ** exp;
         }
         function parseFactor() {
             var c = peek();

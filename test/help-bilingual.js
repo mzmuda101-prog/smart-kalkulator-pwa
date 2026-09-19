@@ -66,6 +66,20 @@ const PAIRS = [
   { pl: 'z 8 na 5 to ile %', en: 'from 8 to 5 is what percent', kind: 'percent', sameValue: true },
   { pl: 'poniedziałek za 3 tygodnie', en: 'monday in 3 weeks', kind: 'date' },
   { pl: '145 min', en: '145 min', kind: 'duration' },
+  // Dwujęzyczność dociągnięta do parytetu z Raycastem (wrzesień 2026)
+  { pl: '2 godziny w minutach', en: '2 hours in minutes', sameValue: true },
+  { pl: '2 dni w godzinach', en: '2 days in hours', sameValue: true },
+  { pl: '1 tydzien w dniach', en: '1 week in days', sameValue: true },
+  { pl: '145 min czytelnie', en: '145 mins to timespan', sameText: true, kind: 'duration' },
+  { pl: '55h w dniach roboczych', en: '55h in workdays', sameText: true, sameValue: true },
+  { pl: 'dni robocze w 2026', en: 'workdays in 2026', sameText: true, sameValue: true },
+  { pl: 'godziny robocze w 2026', en: 'workhours in 2026', sameText: true, sameValue: true },
+  { pl: 'za 4 godziny', en: 'in 4 hours', kind: 'clock', sameText: true },
+  { pl: '3 godziny temu', en: '3 hours ago', kind: 'clock', sameText: true },
+  { pl: '2 cale na px przy 72 ppi', en: '2 inches in px at 72 ppi', sameValue: true },
+  { pl: 'ile dni do 25 grudnia', en: 'days until 25 Dec', sameValue: true },
+  { pl: '5 km * 5 km', en: '5 km * 5 km', kind: 'physical', sameValue: true },
+  { pl: '10 m / 2 s', en: '10 m / 2 s', kind: 'physical', sameValue: true },
 ];
 
 let pass = 0, fail = 0;
