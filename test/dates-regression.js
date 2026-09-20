@@ -172,9 +172,35 @@ MUST_NOT_DATE.forEach(function (expr) {
 });
 console.log('  ' + (guardFail ? '✗' : '✓') + ' dates guard (nie-matma): ' + guardPass + '/' + (guardPass + guardFail) + ' PASS');
 
+// ── 5. Czytelny czas: ZNAK i SEKUNDY ──
+// Auto-dobór jednostki („nie napisałeś w czym — wybiorę czytelną") gubił dwie rzeczy:
+// `Math.abs` zjadał minus, więc „1 h - 90 min" pokazywało „30 min" zamiast „-30 min"
+// (wynik odwrotny do prawdy), a sekundy poniżej minuty były zaokrąglane w górę,
+// więc „90 s" robiło się „2 min". Sama drabinka dni/tyg/lat była i jest poprawna.
+const SPAN_CASES = [
+  ['90 s', '1 min 30 s'],
+  ['61 s', '1 min 1 s'],
+  ['3599 s', '59 min 59 s'],
+  ['-90 min', '-1 h 30 min'],
+  ['1 h - 90 min', '-30 min'],
+  ['30 min - 2 h', '-1 h 30 min'],
+  ['2 h - 30 min', '1 h 30 min'],
+  ['5 min - 5 min', '0 s'],
+  ['1000h', '5 tyg 6 dni 16 h'],     // drabinka długich okresów — bez zmian
+  ['365 dni', '52 tyg 1 doba'],
+  ['145 min', '2 h 25 min'],
+];
+let spanPass = 0, spanFail = 0;
+SPAN_CASES.forEach(function (pair) {
+  const got = evalText(pair[0]);
+  if (got === pair[1]) spanPass++;
+  else { spanFail++; console.log('  ✗ czytelny czas:', pair[0], '| chcę:', pair[1], '| mam:', String(got)); }
+});
+console.log('  ' + (spanFail ? '✗' : '✓') + ' czytelny czas (znak + sekundy): ' + spanPass + '/' + (spanPass + spanFail) + ' PASS');
+
 parser.clearTodayForTests();
 parser.clearNowForTests();
 
-const totalFail = fail + spFail + (propFail ? 1 : 0) + guardFail;
+const totalFail = fail + spFail + (propFail ? 1 : 0) + guardFail + spanFail;
 console.log('\n=== dates-regression: ' + (totalFail ? 'FAIL' : 'OK') + ' ===');
 process.exit(totalFail ? 1 : 0);

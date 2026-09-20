@@ -463,10 +463,20 @@
     }
     // [EN] Seconds → czytelny timespan; krótkie → h+min, długie → dni/tyg/lata.
     function formatDurationSeconds(sec) {
+        // [EN] ZNAK: `Math.abs` zjadał minus — „-90 min" pokazywało się jako
+        // „1 h 30 min", czyli dokładnie odwrotnie niż jest.
+        var neg = sec < 0;
         sec = Math.round(Math.abs(sec));
-        if (sec < 60) return sec + ' s';
+        var sign = neg && sec ? '-' : '';
+        if (sec < 60) return sign + sec + ' s';
+        // [EN] SEKUNDY: poniżej godziny pokazujemy je zamiast zaokrąglać w górę —
+        // „90 s" to 1 min 30 s, a nie „2 min" (gubiło się pół minuty).
+        if (sec < 3600) {
+            var m = Math.floor(sec / 60), rs = sec % 60;
+            return sign + m + ' min' + (rs ? ' ' + rs + ' s' : '');
+        }
         var mins = sec / 60;
-        return mins >= 1440 ? _fmtDurationLong(mins) : _fmtDuration(mins);
+        return sign + (mins >= 1440 ? _fmtDurationLong(mins) : _fmtDuration(mins));
     }
     // Dokładny czas zegarowy z SEKUNDAMI (HH:MM:SS) — do pokazania, „z czego" zaokrąglono.
     function _fmtClockSec(mins) {
