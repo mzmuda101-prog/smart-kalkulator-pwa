@@ -1404,6 +1404,21 @@
             });
         }
         var _emptySuggestTimer = null;
+        var _emptySuggestSlowTimer = null;
+        /* [EN] DWA PROGI zamiast jednego.
+           Stare 300 ms dla wszystkiego oznaczało, że przy normalnym tempie pisania
+           (~220 ms/znak) timer resetował się przy każdym znaku i podpowiedź nie
+           pojawiała się NIGDY — widać ją było tylko przy przypadkowej pauzie.
+           - podpowiedź DO KLIKNIĘCIA („czy chodziło o…", „rozumiem to jako…") jest
+             warta pokazania szybko: mieści się między znakami,
+           - „Nie rozumiem…" niczego nie poprawia jednym tapnięciem, więc czeka
+             dłużej — ma się pojawić, gdy ktoś UTKNĄŁ, a nie przerywać pisanie. */
+        var EMPTY_SUGGEST_MS_ACTION = 140;
+        var EMPTY_SUGGEST_MS_UNKNOWN = 450;
+        function _clearEmptySuggestTimers() {
+            clearTimeout(_emptySuggestTimer);
+            clearTimeout(_emptySuggestSlowTimer);
+        }
         var _liveHintBubbleTimer = null;
         var _calcAssistBubbleKind = null; // [EN] 'live' | 'fuzzy' | 'intent' | 'unknown' — mobile cursor-hint assist
         // [EN] Dymki „podpowiedzi przy pustym wyniku". MUSZĄ zniknąć w chwili, gdy
@@ -1595,102 +1610,113 @@
         }
         function updateCalcEmptySuggest(res) {
             if (!calcEmptySuggest) return;
-            clearTimeout(_emptySuggestTimer);
+            _clearEmptySuggestTimers();
             if (!(STATE.settings && STATE.settings.suggestOnEmpty) || !calcExpr || !calcExpr.value.trim()) {
-                calcEmptySuggest.hidden = true;
-                if (_isEmptySuggestBubble(_calcAssistBubbleKind)) _hideCalcAssistBubble();
-                _scheduleAssistLayout();
+                _hideEmptySuggest();
                 return;
             }
             if (!res || res.value !== null || res.text != null || res.pendingFx) {
-                calcEmptySuggest.hidden = true;
-                if (_isEmptySuggestBubble(_calcAssistBubbleKind)) _hideCalcAssistBubble();
-                _scheduleAssistLayout();
+                _hideEmptySuggest();
                 return;
             }
             var exprSnap = calcExpr.value;
+            // Etap 1 (szybki): czy mamy podpowiedź, którą da się KLIKNĄĆ? Jeśli tak —
+            // pokazujemy od razu. Jeśli wyszło tylko „Nie rozumiem…", trzymamy ją
+            // w ręku i czekamy, aż człowiek naprawdę przestanie pisać (etap 2).
             _emptySuggestTimer = setTimeout(function () {
                 if (!calcExpr || calcExpr.value !== exprSnap) return;
-                var HINT = window.MATM0_HINT;
+                var sug = _buildEmptySuggest(exprSnap);
+                if (!sug) { _hideEmptySuggest(); return; }
+                if (sug.kind !== 'unknown') { _renderEmptySuggest(sug, exprSnap); return; }
+                _emptySuggestSlowTimer = setTimeout(function () {
+                    if (!calcExpr || calcExpr.value !== exprSnap) return;
+                    _renderEmptySuggest(sug, exprSnap);
+                }, EMPTY_SUGGEST_MS_UNKNOWN - EMPTY_SUGGEST_MS_ACTION);
+            }, EMPTY_SUGGEST_MS_ACTION);
+        }
 
-                // [EN] Warstwa B / B3 — najpierw spróbuj ZROZUMIEĆ swobodne zdanie: znormalizuj
-                // („ile to 5 plus 5" → „5 + 5") i POLICZ na podgląd. Pokaż tylko, gdy realnie
-                // się liczy — zła interpretacja = brak podglądu, nigdy cichy błąd.
-                var label = null, applyValue = null, kind = null;
-                if (HINT && typeof HINT.normalizeIntent === 'function') {
-                    var cand = HINT.normalizeIntent(exprSnap);
-                    if (cand && cand !== String(exprSnap).trim()) {
-                        var pr = evalCalcExpression(cand, { preview: true });
-                        if (pr && !pr.pendingFx && (pr.value !== null || pr.text != null)) {
-                            var out = formatCalcResult(pr);
-                            if (out) { label = 'Rozumiem to jako: ' + cand + ' = ' + out; applyValue = cand; kind = 'intent'; }
-                        }
+        function _hideEmptySuggest() {
+            if (calcEmptySuggest) calcEmptySuggest.hidden = true;
+            if (_isEmptySuggestBubble(_calcAssistBubbleKind)) _hideCalcAssistBubble();
+            _scheduleAssistLayout();
+        }
+
+        // Treść podpowiedzi → { label, applyValue, kind } albo null. Bez DOM-u, żeby
+        // dało się ją policzyć wcześnie i pokazać później (dwa progi czasowe).
+        function _buildEmptySuggest(exprSnap) {
+            var HINT = window.MATM0_HINT;
+
+            // [EN] Warstwa B / B3 — najpierw spróbuj ZROZUMIEĆ swobodne zdanie: znormalizuj
+            // („ile to 5 plus 5" → „5 + 5") i POLICZ na podgląd. Pokaż tylko, gdy realnie
+            // się liczy — zła interpretacja = brak podglądu, nigdy cichy błąd.
+            if (HINT && typeof HINT.normalizeIntent === 'function') {
+                var cand = HINT.normalizeIntent(exprSnap);
+                if (cand && cand !== String(exprSnap).trim()) {
+                    var pr = evalCalcExpression(cand, { preview: true });
+                    if (pr && !pr.pendingFx && (pr.value !== null || pr.text != null)) {
+                        var out = formatCalcResult(pr);
+                        if (out) return { label: 'Rozumiem to jako: ' + cand + ' = ' + out, applyValue: cand, kind: 'intent' };
                     }
                 }
-                // [EN] Fallback — korekta literówki znanej komendy (Warstwa A).
-                if (!label && HINT && typeof HINT.fuzzySuggest === 'function') {
-                    var sug = HINT.fuzzySuggest(exprSnap);
-                    if (sug) { label = 'Czy chodziło o: ' + sug + '?'; applyValue = sug; kind = 'fuzzy'; }
-                }
-                // [EN] Ostatnia deska: powiedz WPROST, że nie rozumiemy (i czego).
-                if (!label) {
-                    label = _explainNoResult(exprSnap);
-                    if (label) kind = 'unknown';
-                }
-                if (!label) {
-                    calcEmptySuggest.hidden = true;
-                    if (_isEmptySuggestBubble(_calcAssistBubbleKind)) _hideCalcAssistBubble();
-                    _scheduleAssistLayout();
+            }
+            // [EN] Fallback — korekta literówki znanej komendy (Warstwa A).
+            if (HINT && typeof HINT.fuzzySuggest === 'function') {
+                var sug = HINT.fuzzySuggest(exprSnap);
+                if (sug) return { label: 'Czy chodziło o: ' + sug + '?', applyValue: sug, kind: 'fuzzy' };
+            }
+            // [EN] Ostatnia deska: powiedz WPROST, że nie rozumiemy (i czego).
+            var expl = _explainNoResult(exprSnap);
+            return expl ? { label: expl, applyValue: null, kind: 'unknown' } : null;
+        }
+
+        function _renderEmptySuggest(sug, exprSnap) {
+            var label = sug.label, applyValue = sug.applyValue, kind = sug.kind;
+            var apply = function () {
+                if (kind === 'unknown') {   // nie ma czego podstawić — otwórz ściągę
+                    ensureHelpSystem();
+                    activeCommandTarget = 'calculator';
+                    openCommandHelp();
                     return;
                 }
+                calcExpr.value = applyValue;
+                _calcAssistBubbleKind = null;
+                liveEval();
+            };
 
-                var apply = function () {
-                    if (kind === 'unknown') {   // nie ma czego podstawić — otwórz ściągę
-                        ensureHelpSystem();
-                        activeCommandTarget = 'calculator';
-                        openCommandHelp();
-                        return;
-                    }
-                    calcExpr.value = applyValue;
-                    _calcAssistBubbleKind = null;
-                    liveEval();
-                };
-
-                if (!_calcAssistWide()) { // mobile — kotwiczony dymek zamiast wiersza w gridzie
-                    calcEmptySuggest.hidden = true;
-                    _scheduleAssistLayout();
-                    _cancelLiveHintBubble(); // [EN] suggestion wins — cancel pending live-hint debounce
-                    var anchor = _calcAssistAnchor();
-                    if (typeof _npHintCtl === 'undefined' || !_npHintCtl || !_npHintCtl.showProgrammatic || !anchor) return;
-                    if (_calcAssistBubbleKind === 'live') _hideCalcAssistBubble();
-                    _calcAssistBubbleKind = kind;
-                    _npHintCtl.showProgrammatic({
-                        anchorEl: anchor,
-                        text: label,
-                        hintClass: 'calc-assist-hint is-' + kind,
-                        durationMs: 6000,
-                        autoHide: true,
-                        fade: true,
-                        onTap: apply
-                    });
-                    return;
-                }
-
-                // desktop — wiersz w gridzie; cały tekst klikalny
-                _cancelLiveHintBubble();
-                if (_calcAssistBubbleKind === 'live') _hideCalcAssistBubble();
-                calcEmptySuggest.replaceChildren();
-                var btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'calc-suggest-btn is-' + kind;
-                var code = document.createElement('code');
-                code.textContent = label;
-                btn.appendChild(code);
-                btn.addEventListener('click', apply);
-                calcEmptySuggest.appendChild(btn);
-                calcEmptySuggest.hidden = false;
+            if (!_calcAssistWide()) { // mobile — kotwiczony dymek zamiast wiersza w gridzie
+                calcEmptySuggest.hidden = true;
                 _scheduleAssistLayout();
-            }, 300);
+                _cancelLiveHintBubble(); // [EN] suggestion wins — cancel pending live-hint debounce
+                var anchor = _calcAssistAnchor();
+                if (typeof _npHintCtl === 'undefined' || !_npHintCtl || !_npHintCtl.showProgrammatic || !anchor) return;
+                if (_calcAssistBubbleKind === 'live') _hideCalcAssistBubble();
+                _calcAssistBubbleKind = kind;
+                _npHintCtl.showProgrammatic({
+                    anchorEl: anchor,
+                    text: label,
+                    hintClass: 'calc-assist-hint is-' + kind,
+                    durationMs: 6000,
+                    autoHide: true,
+                    fade: true,
+                    onTap: apply
+                });
+                return;
+            }
+
+            // desktop — wiersz w gridzie; cały tekst klikalny
+            _cancelLiveHintBubble();
+            if (_calcAssistBubbleKind === 'live') _hideCalcAssistBubble();
+            calcEmptySuggest.replaceChildren();
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'calc-suggest-btn is-' + kind;
+            var code = document.createElement('code');
+            code.textContent = label;
+            btn.appendChild(code);
+            btn.addEventListener('click', apply);
+            calcEmptySuggest.appendChild(btn);
+            calcEmptySuggest.hidden = false;
+            _scheduleAssistLayout();
         }
 
         function insertAtCursor(input, text) {

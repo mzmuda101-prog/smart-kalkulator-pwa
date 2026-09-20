@@ -95,6 +95,16 @@ expect('2+2', 4, null);
 // ── Czytelny czas liczy się z WYNIKU, nie z sumy literałów wejścia ──
 expectText('2 h * 3', '6 h');
 
+// ── BAIL-OUT: kwadrat czasu/masy/danych nie ma sensu użytkowego ──
+// „8h * 22 dni" to „8 h dziennie przez 22 dni", a nie 5,47e10 s². Pole i objętość
+// (L², L³) sens mają, więc długość jest wyjątkiem — patrz `absurd` w quantity-algebra.
+expect('8h * 22 dni', undefined, 'h');        // wraca do starego silnika, nie do s²
+expect('2 h * 3 h', undefined, 'h');
+expect('3 kg * 2 kg', 6, 'kg');
+expect('2 m * 2 m * 2 m * 2 m', 16, 'm');     // L⁴ — poza sensownym zakresem
+expect('5 m2 * 2 m', 10, 'm³');               // L³ ZOSTAJE w algebrze
+expect('1 m / 1 s / 1 s', 1, 'm/s²');         // ujemny wykładnik ZOSTAJE
+
 console.log('');
 if (fail) {
     console.error('=== QUANTITY-ALGEBRA: ' + pass + '/' + (pass + fail) + ' PASS ===');

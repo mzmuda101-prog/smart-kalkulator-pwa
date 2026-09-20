@@ -339,6 +339,16 @@
         var pos = Object.keys(res.dim).some(function (k) { return res.dim[k] > 0; });
         if (!pos) return null;
 
+        /* Kwadrat czasu/masy/danych nie ma sensu użytkowego: „8h * 22 dni” to
+           „8 h dziennie przez 22 dni” (176 h), a nie 5,47e10 s². Pole i objętość
+           (L², L³) mają sens, więc długość jest wyjątkiem — reszta z dodatnim
+           wykładnikiem ≥ 2 wraca do starego silnika. */
+        var absurd = Object.keys(res.dim).some(function (k) {
+            var e = res.dim[k];
+            return k === 'L' ? e > 3 : e >= 2;
+        });
+        if (absurd) return null;
+
         if (target) {
             if (!dimEq(target.dim, res.dim)) return null;
             return {

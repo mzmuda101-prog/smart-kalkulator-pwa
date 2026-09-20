@@ -67,11 +67,36 @@ Wygoda pisania:
 - [x] Tolerancja wejścia: końcowe `=`, urwany operator, niedomknięty nawias.
 - [x] Brak wyniku pokazuje `—` zamiast mylącego `0` + podpowiedź „Nie rozumiem słowa «…»".
 
+### Audyt luk (2026-09-20, v1.03.3) — sprawdzone na żywym silniku
+
+**Wzorzec systemowy:** silnik rozumie JEDNO sformułowanie, bliski wariant już nie.
+Największa dźwignia jakościowa to warstwa synonimów, nie kolejne regexy.
+
+| działa | nie działa (to samo znaczenie) |
+|---|---|
+| `od 8:00 do 16:30` | `ile godzin od 8:00 do 16:30` |
+| `średnia z 2 4 6` | `średnia 2 4 6` |
+| `ile dni do 25.12` | `ile tygodni do 25.12`, `ile godzin do 25.12` |
+| `19m + 47%` | `20% z 5 km`, `60% z 2 godzin` |
+| `250 zł / 4` | `podziel 250 zł na 4`, `250 zł na 4 osoby` |
+
+**Braki zapisu liczb:** `1e3`, `0x1f`, `0b1010`, `5!`, `sqrt` jako znak, `5^2` jako indeks górny, wartość bezwzględna, `1.000,5`.
+
+**Braki agregacji** (`evalAverage` to gotowy szkielet): suma, min, max, mediana, odchylenie.
+
+**Braki dat:** wiek (`ile mam lat ur. 15.03.1990`), `ostatni dzień miesiąca`, kwartał, tydzień roku, `pierwszy poniedziałek marca`.
+
+**Braki finansowe** (Soulver to ma, my mamy już VAT): rata kredytu, procent składany, brutto→netto UoP, odsetki za okres.
+
+**Braki życiowe:** dzielenie rachunku na osoby (+ napiwek), miary kuchenne (łyżka/szklanka → ml), geometria z tekstu (`pole koła r=5`, `pole 3m x 4m`), materiał na powierzchnię.
+
 ### Do rozważenia później
 
 - [x] Piksele przy ppi: `2 in na px przy 96 ppi` (T2-7 · 2026-07-07).
 - [ ] Krypto (BTC/ETH) — wymaga innego API kursów (NBP/Frankfurter nie mają).
-- [ ] `5 zł * 2 zł` wciąż daje „10 zł" (zł² nie ma sensu) — do decyzji: błąd czy zostawić.
+- [ ] Jednostka × TA SAMA jednostka daje bzdurę z etykietą: `5 zł * 2 zł`, `2 h * 3 h`, `8h * 22 dni`.
+      Algebra wymiarowa celowo ich NIE przejmuje (s²/zł² byłyby gorsze). Do decyzji:
+      pokazywać pusty wynik + „nie rozumiem”, czy zostawić jak jest.
 - [ ] Algebra wymiarowa jest wyłączona w notatniku (tryb „pierwsza jednostka wygrywa").
 - [ ] Czas roboczy nie zna świąt — założenie jest dopisane do wyniku, ale kalendarz PL by się przydał.
 - [ ] Brak: `1e3`, `0x1f`, `5!`, `1.000,5` (kropka jako separator tysięcy).

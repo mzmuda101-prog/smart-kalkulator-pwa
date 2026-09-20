@@ -208,3 +208,48 @@ test('mobile: „Nie rozumiem…" znika, gdy wyrażenie zaczyna się liczyć', a
     await page.waitForTimeout(1200);
     expect(await visibleHint(), 'stara podpowiedź wisi nad policzonym wynikiem').toBeNull();
 });
+
+// [EN] Regresja czasów podpowiedzi. Jeden debounce 300 ms dla wszystkiego oznaczał,
+// że przy normalnym tempie pisania (~220 ms/znak) timer resetował się przy każdym
+// znaku i podpowiedź „czy chodziło o…" nie pojawiała się NIGDY — tylko przy
+// przypadkowej pauzie. Podpowiedź DO KLIKNIĘCIA ma się mieścić między znakami,
+// a nieklikalne „Nie rozumiem…" ma NIE przerywać pisania.
+test('podpowiedzi: klikalna zdąża w trakcie pisania, „Nie rozumiem" czeka na pauzę', async ({ page }) => {
+    await H.clearCalc(page);
+
+    const readHint = () => page.evaluate(() => {
+        const bubble = [...document.querySelectorAll('.cursor-hint')]
+            .find((x) => Number(getComputedStyle(x).opacity) > 0.5 && x.textContent.trim());
+        if (bubble) return bubble.textContent.trim();
+        const row = document.getElementById('calcEmptySuggest');
+        return row && !row.hidden ? row.textContent.trim() : null;
+    });
+    const setExpr = (v) => page.evaluate((val) => {
+        const el = document.getElementById('calcExpr');
+        el.value = val;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+    }, v);
+
+    // 1) pisanie „100 usd" znak po znaku w normalnym tempie — klikalna podpowiedź MUSI zdążyć
+    const seen = [];
+    for (const step of ['1', '10', '100', '100 ', '100 u', '100 us']) {
+        await setExpr(step);
+        await page.waitForTimeout(220);
+        const h = await readHint();
+        if (h) seen.push(h);
+    }
+    expect(seen.join(' | '), 'klikalna podpowiedź nie zdążyła przy 220 ms/znak').toContain('Czy chodziło o');
+    expect(seen.join(' | '), '„Nie rozumiem" przerwało pisanie').not.toContain('Nie rozumiem');
+
+    // 2) gdy człowiek UTKNIE (przestaje pisać) — „Nie rozumiem…" ma się jednak pokazać
+    await H.clearCalc(page);
+    await setExpr('abcdef');
+    await page.waitForFunction(() => {
+        const all = [...document.querySelectorAll('.cursor-hint')]
+            .filter((x) => Number(getComputedStyle(x).opacity) > 0.5)
+            .map((x) => x.textContent || '');
+        const row = document.getElementById('calcEmptySuggest');
+        if (row && !row.hidden) all.push(row.textContent || '');
+        return all.some((t) => /Nie rozumiem/.test(t));
+    }, { timeout: 3000 });
+});
