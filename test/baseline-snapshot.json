@@ -432,7 +432,7 @@
   {
     "expr": "2 ha na m2",
     "value": 20000,
-    "unit": "m2",
+    "unit": "m²",
     "text": null,
     "kind": "physical",
     "exact": true,

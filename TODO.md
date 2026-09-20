@@ -67,6 +67,31 @@ Wygoda pisania:
 - [x] Tolerancja wejścia: końcowe `=`, urwany operator, niedomknięty nawias.
 - [x] Brak wyniku pokazuje `—` zamiast mylącego `0` + podpowiedź „Nie rozumiem słowa «…»".
 
+### Naprawione (v1.03.5–v1.03.8) — round-trip wyniku
+
+Silnik nie umiał odczytać tego, co sam wypisał, więc po `=` i po kliknięciu w historię
+w polu lądował martwy tekst. Zepsute było 6 z 15 rodzajów wyniku:
+
+- [x] `30.1` → `30.1.2026 (piątek)` → ∅ (opisowy nawias z dniem tygodnia)
+- [x] `jutro`, `teraz` (data z godziną nie była obsługiwana jako wejście)
+- [x] `17:00 + 3h` → `20:00` → ∅ (gołe HH:MM nie liczyło się wcale)
+- [x] `czas w Tokio` → `07:05 (Tokio)` → ∅
+- [x] `5 km * 5 km` → `25 km²` → ∅ (indeks górny nie jest nazwą jednostki)
+- [x] `6 kg / 2 m^3` → `3 kg/m³` → ∅ (jednostka ze slashem spoza tabeli + wąska spacja U+202F)
+- [x] `2 in na px przy 96 ppi` → `192 px` → ∅ (px dostał własną oś, NIE długość)
+- [x] Historia: klik wstawiał wynik nawet wtedy, gdy się nie da — teraz lewa połowa
+      wiersza wraca do DZIAŁANIA, prawa wstawia WYNIK.
+- [x] `test/units-oracle.js` sięgał po nieistniejące `MATM0_DATA.CALC_UNIT_DISPLAY`,
+      więc mapowanie etykiety na jednostkę cicho nie działało.
+
+Bramka: `test/readback.js` (53 przypadki) + testy e2e historii i podpowiedzi.
+
+### Znane flaky (NIE od zmian silnika)
+
+- [ ] `test/e2e/notepad-caret.spec.js` pada przy PEŁNYM przebiegu e2e — za każdym razem
+      inny test i inne urządzenie, z timeoutem 1,5–3 min. W izolacji 18/18 w 33 s.
+      Te czasy mogą znaczyć realne zawieszenie pod obciążeniem, nie tylko kapryśny test.
+
 ### Audyt luk (2026-09-20, v1.03.3) — sprawdzone na żywym silniku
 
 **Wzorzec systemowy:** silnik rozumie JEDNO sformułowanie, bliski wariant już nie.

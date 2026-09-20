@@ -253,3 +253,46 @@ test('podpowiedzi: klikalna zdąża w trakcie pisania, „Nie rozumiem" czeka na
         return all.some((t) => /Nie rozumiem/.test(t));
     }, { timeout: 3000 });
 });
+
+// [EN] Historia: wiersz ma DWIE połowy i każda robi co innego.
+// Wcześniej cały wiersz wstawiał tylko wynik — i dla daty był to martwy tekst
+// („30.1 = 30.1.2026 (piątek)" → w polu „30.1.2026(piątek)" i wynik „—").
+test('historia: lewa połowa wraca do działania, prawa użyje wyniku', async ({ page }) => {
+    await H.clearCalc(page);
+
+    const calc = (expr) => page.evaluate((v) => {
+        const el = document.getElementById('calcExpr');
+        el.value = v;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        const eq = document.querySelector('.calc-btn[data-action="="]');
+        eq.dispatchEvent(new PointerEvent('pointerdown', { button: 0, bubbles: true }));
+    }, expr);
+    const clickHalf = (sel) => page.evaluate((s) => {
+        const open = document.getElementById('openHistory');
+        if (open) open.click();
+        const row = document.querySelector('.history-item .history-item-content');
+        const half = row && row.querySelector(s);
+        if (half) half.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        return !!half;
+    }, sel);
+    const state = () => page.evaluate(() => ({
+        field: document.getElementById('calcExpr').value,
+        result: document.getElementById('calcResult').textContent.trim().replace(/\n/g, ' '),
+    }));
+
+    // data — najbardziej newralgiczny rodzaj wyniku (opisowy nawias z dniem tygodnia)
+    await calc('30.1');
+    await page.waitForTimeout(400);
+
+    expect(await clickHalf('.expr'), 'brak lewej połowy wiersza historii').toBeTruthy();
+    await page.waitForTimeout(400);
+    let st = await state();
+    expect(st.field, 'lewa połowa ma wrócić do WPISANEGO działania').toBe('30.1');
+    expect(st.result, 'przywrócone działanie musi się liczyć').not.toBe('—');
+
+    expect(await clickHalf('.result')).toBeTruthy();
+    await page.waitForTimeout(400);
+    st = await state();
+    expect(st.field, 'prawa połowa ma wstawić WYNIK').toContain('30.1.2026');
+    expect(st.result, 'wstawiony wynik musi dać się policzyć').not.toBe('—');
+});

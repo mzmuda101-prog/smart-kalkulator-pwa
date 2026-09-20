@@ -89,7 +89,19 @@ const SAFE_UNITS = {
     data: ['B', 'KB', 'MB'],
 };
 function factorOf(cat, u) { return DATA[cat].units[u]; }
-const DISP = (global.window.MATM0_DATA || {}).CALC_UNIT_DISPLAY || {};
+// [EN] Mapa klucz→etykieta MUSI iść z tego samego źródła co aplikacja.
+// Wcześniej sięgała po MATM0_DATA.CALC_UNIT_DISPLAY, którego tam NIE MA (jest
+// lokalne w app.js) — więc DISP było puste i test tego nie zauważał, dopóki
+// etykieta była równa kluczowi. Gdy „dm2" zaczęło się wyświetlać jako „dm²",
+// mapowanie przestało działać i oracle porównywał wartość w złej jednostce.
+const REG = (global.window.MATM0_PARSER && global.window.MATM0_PARSER.buildUnitRegistry)
+    ? global.window.MATM0_PARSER.buildUnitRegistry(global.window.MATM0_DATA.UNIT_CATEGORIES)
+    : null;
+const DISP = (REG && REG.display) || {};
+if (!Object.keys(DISP).length) {
+    console.error('❌ units-oracle: pusta mapa etykiet jednostek — test nie ma czego porównywać');
+    process.exit(2);
+}
 function unitKeyFromLabel(cat, label) {
     if (!label || !DATA[cat]) return label;
     const units = DATA[cat].units;

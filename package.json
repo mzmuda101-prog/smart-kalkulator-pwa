@@ -11,6 +11,7 @@
     "test:units": "node test/engine-units.js",
     "test:qalg": "node test/quantity-algebra.js",
     "test:parity": "node test/raycast-parity.js",
+    "test:readback": "node test/readback.js",
     "test:oracle": "node test/units-oracle.js",
     "test:money": "node test/money-oracle.js",
     "test:notepad": "node test/notepad-oracle.js",

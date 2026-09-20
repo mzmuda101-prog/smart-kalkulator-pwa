@@ -60,6 +60,27 @@ Przed routerami normalizujemy to, co człowiek pisze na kartce i w trakcie pisan
 końcowe `=`, urwany operator na końcu, niedomknięty nawias. Wcześniej każde z nich
 kończyło się pustym wynikiem, czyli mylącym „0" na ekranie.
 
+## Silnik czyta własny wynik (`_readBackOwnOutput`)
+
+Po `=` wynik wraca do pola wyrażenia, a z historii można go kliknąć — więc **to, co
+wypisujemy, musimy umieć odczytać z powrotem**. Bez tego użytkownik dostawał w polu
+martwy tekst i wynik `—`.
+
+`_tolerateInput` woła `_readBackOwnOutput`, które:
+- zamienia indeks górny: przy jednostce na cyfrę (`km²` → `km2`), przy liczbie na
+  potęgę (`5²` → `5^2`),
+- zdejmuje KOŃCOWY nawias opisowy, ale **tylko** gdy w środku jest dzień tygodnia
+  (`(piątek)`) albo znane miasto (`(Tokio)`, `(SF)`). `(2+3)` i `(x)` zostają nietknięte.
+
+Uzupełniająco czytelne stały się też: gołe `HH:MM` (`20:00`), data z godziną
+(`21.9.26 00:10`), jednostka złożona ze slashem spoza tabeli (`kg/m³`), `px`
+(własna oś `pixel` — NIE długość, bo zależy od PPI) oraz wąska spacja
+nierozdzielająca w liczbach (U+202F) w tokenizerze algebry.
+
+Bramka: `test/readback.js` — dla każdego rodzaju wyniku bierze DOKŁADNIE ten tekst,
+który po `=` ląduje w polu (`__matm0.calcEqualsExprText`), i wymaga, by dało się go
+policzyć ponownie.
+
 ## Algebra wymiarowa (`js/quantity-algebra.js`)
 
 Stary pipeline przepisuje STRING: wycina jednostkę, liczy gołe liczby, jednostkę dokleja

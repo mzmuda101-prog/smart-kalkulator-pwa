@@ -128,7 +128,9 @@
         var WORD = /^[A-Za-zÀ-ſ°µ€$£¥₺₹₽₴][A-Za-zÀ-ſ0-9°µ€$£¥₺₹₽₴]*(?:\/[A-Za-zÀ-ſ][A-Za-zÀ-ſ0-9]*)?/;
         while (i < s.length) {
             var ch = s.charAt(i);
-            if (ch === ' ' || ch === '\t') { i++; continue; }
+            // [EN] Apka wypisuje liczby z waska spacja nierozdzielajaca (U+202F)
+            // i U+00A0 - bez tego silnik nie umial odczytac wlasnego wyniku.
+            if (/\s/.test(ch)) { i++; continue; }
             if ('+-*/^()'.indexOf(ch) >= 0) { toks.push({ t: ch }); i++; continue; }
             var rest = s.slice(i);
             var mNum = rest.match(NUM);
@@ -150,10 +152,26 @@
                     var cand = word.slice(0, len);
                     if (unitLookup(cand) && len === word.length) { hit = cand; break; }
                 }
-                if (!hit) return null;                    // sin, pi, x, nieznana jednostka → bail
-                toks.push({ t: 'unit', v: hit });
-                i += word.length;
-                continue;
+                if (hit) {
+                    toks.push({ t: 'unit', v: hit });
+                    i += word.length;
+                    continue;
+                }
+                /* Jednostka złożona zapisana ze slashem, której nie ma w tabeli jako
+                   jeden token („kg/m3" — w odróżnieniu od „km/h", które jest).
+                   Bez tego silnik nie umiał odczytać własnego wyniku „3 kg/m³". */
+                var slash = word.indexOf('/');
+                if (slash > 0) {
+                    var left = word.slice(0, slash), right = word.slice(slash + 1);
+                    if (left && right && unitLookup(left) && unitLookup(right)) {
+                        toks.push({ t: 'unit', v: left });
+                        toks.push({ t: '/' });
+                        toks.push({ t: 'unit', v: right });
+                        i += word.length;
+                        continue;
+                    }
+                }
+                return null;                              // sin, pi, x, nieznana jednostka → bail
             }
             return null;                                  // %, =, przecinek listy itp. → bail
         }

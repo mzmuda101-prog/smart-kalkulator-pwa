@@ -3176,6 +3176,32 @@
                 return kept <= 50;
             });
         }
+        /* [EN] Klik w historię = „użyj tego dalej". Wstawiany tekst MUSI być czymś,
+           co silnik umie policzyć — inaczej w polu lądował śmieć. Realny przypadek:
+           „30.1 = 30.1.2026 (piątek)" → klik wstawiał „30.1.2026(piątek)" i wynik „—",
+           bo opisowy nawias z nazwą dnia nie jest częścią wyrażenia.
+           Kolejność prób: wynik → wynik bez opisu w nawiasie → samo działanie. */
+        function _historyReusableText(resultPart, exprPart) {
+            var cands = [];
+            function add(t) {
+                t = String(t == null ? '' : t).trim();
+                if (t && cands.indexOf(t) === -1) cands.push(t);
+            }
+            // Najpierw SUROWY tekst wyniku - silnik umie go odczytac, a w polu
+            // wyglada tak, jak w historii („30.1.2026 (piatek)", nie „30.1.2026(piatek)").
+            add(resultPart);
+            add(String(resultPart || '').replace(/\s*\([^)]*\)\s*$/, '')); // bez opisu w nawiasie
+            add(normalizeNumberText(resultPart).replace(/\u00b2/g, '2').replace(/\u00b3/g, '3'));
+            for (var i = 0; i < cands.length; i++) {
+                try {
+                    var r = evalCalcExpression(cands[i], { preview: true });
+                    if (r && !r.pendingFx && (r.value !== null || r.text != null || r.big)) {
+                        return { text: cands[i], isResult: true };
+                    }
+                } catch (e) { /* próbuj następnego kandydata */ }
+            }
+            return exprPart ? { text: exprPart, isResult: false } : null;
+        }
         function addHistory(entry) {
             STATE.history.unshift({ text: entry, pinned: false });
             _histEnforceCap();
@@ -3232,6 +3258,22 @@
                 var spanResult = document.createElement('span');
                 spanResult.className = 'result';
                 spanResult.textContent = resultPart;
+                // [EN] Wiersz historii ma DWIE polowy i kazda robi co innego:
+                // dotkniesz dzialania - wraca to, co bylo WPISANE (mozna poprawic i policzyc
+                // jeszcze raz); dotkniesz wyniku - wraca WYNIK (liczysz dalej).
+                // Wczesniej caly wiersz dawal tylko wynik i nie dalo sie odzyskac wejscia.
+                if (exprPart) {
+                    spanExpr.setAttribute('data-hint', 'Wroc do tego dzialania');
+                    spanExpr.setAttribute('role', 'button');
+                    spanExpr.setAttribute('tabindex', '0');
+                    spanExpr.setAttribute('aria-label', 'Przywroc dzialanie: ' + exprPart);
+                }
+                if (resultPart) {
+                    spanResult.setAttribute('data-hint', 'Licz dalej na tym wyniku');
+                    spanResult.setAttribute('role', 'button');
+                    spanResult.setAttribute('tabindex', '0');
+                    spanResult.setAttribute('aria-label', 'Uzyj wyniku: ' + resultPart);
+                }
 
                 // Akcje pozycji: przypnij + kopiuj. stopPropagation, by nie odpalić reuse na klik wiersza.
                 var actions = document.createElement('div');
@@ -3313,7 +3355,7 @@
                 li.appendChild(confirm);
 
                 bindLongPressCopy(content, function() { return item.text; });
-                content.addEventListener('click', function() {
+                content.addEventListener('click', function(e) {
                     if (content.dataset.longPressed === 'true') {
                         delete content.dataset.longPressed;
                         return;
@@ -3324,22 +3366,28 @@
                         _histSwipeClose(li, content);                  // odsłonięte → klik chowa, nie przywraca
                         return;
                     }
-                    // [EN] Reuse history result as current input
-                    if (resultPart) {
-                        var reusedNorm = normalizeNumberText(resultPart);
+                    // [EN] Klik w lewa polowe = wroc do DZIALANIA, w prawa = uzyj WYNIKU.
+                    var onExpr = !!(e && e.target && e.target.closest && e.target.closest('.expr'));
+                    var reuse = (onExpr && exprPart)
+                        ? { text: exprPart, isResult: false }
+                        : _historyReusableText(resultPart, exprPart);
+                    if (reuse) {
+                        var reusedNorm = reuse.text;
                         calcExpr.value = reusedNorm;
-                        var reusedNum = parseFloat(reusedNorm);
-                        // Duża liczba całkowita: trzymaj dokładny string (nie float, by nie zgubić cyfr).
-                        if (/^-?\d+$/.test(reusedNorm) && reusedNorm.replace('-', '').length > 15) {
-                            STATE.calc.ans = reusedNorm;
-                        } else if (isFinite(reusedNum)) {
-                            STATE.calc.ans = reusedNum;
+                        if (reuse.isResult) {
+                            var reusedNum = parseFloat(reusedNorm);
+                            // Duża liczba całkowita: trzymaj dokładny string (nie float, by nie zgubić cyfr).
+                            if (/^-?\d+$/.test(reusedNorm) && reusedNorm.replace('-', '').length > 15) {
+                                STATE.calc.ans = reusedNorm;
+                            } else if (isFinite(reusedNum)) {
+                                STATE.calc.ans = reusedNum;
+                            }
                         }
                         calcExpr.setSelectionRange(calcExpr.value.length, calcExpr.value.length);
                         liveEval();
                         switchTab('calculator');
                         closeHistoryDrawer();
-                        showToast('📋 Przywrócono wynik', 'success');
+                        showToast(reuse.isResult ? '📋 Przywrócono wynik' : '📋 Przywrócono działanie', 'success');
                     }
                 });
                 delBtn.addEventListener('pointerdown', function(e) {
@@ -12108,7 +12156,7 @@
                 // objętość
                 { expr: '1.5 l na ml', value: 1500, unit: 'ml' },
                 // pole
-                { expr: '2 ha na m2', value: 20000, unit: 'm2' },
+                { expr: '2 ha na m2', value: 20000, unit: 'm²' },
                 // kąt
                 { expr: '180 deg na rad', value: Math.PI, unit: 'rad', tol: 1e-6 },
                 // prędkość (oś m/s) — tokeny ze slashem łapane jako jeden token
@@ -13071,6 +13119,7 @@
                 runProjectionSmokeTests: runProjectionSmokeTests,
                 runCalcSmokeTests: runCalcSmokeTests,
                 evalCalcExpression: evalCalcExpression,
+            calcEqualsExprText: _calcEqualsExprText, // tekst wracajacy do pola po = (test readback)
                 evalNotepadLines: evalNotepadLines,
                 npRecompute: npRecompute,
                 npBuildRows: npBuildRows,

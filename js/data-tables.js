@@ -64,6 +64,12 @@
         area: { base: 'm2', units: {
             mm2: 0.000001, cm2: 0.0001, dm2: 0.01, m2: 1, ar: 100, ha: 10000, km2: 1000000,
         } },
+        // Piksele: wlasna os, NIE dlugosc - px zalezy od PPI, wiec nie wolno go
+        // przeliczac na cm. Potrzebne, by wynik '2 in na px przy 96 ppi' = '192 px'
+        // dal sie odczytac z powrotem (po = i z historii).
+        pixel: { base: 'px', units: {
+            px: 1, piksel: 1, piksele: 1, pikseli: 1,
+        } },
         angle: { base: 'deg', units: {
             deg: 1, '°': 1, stopnie: 1, stopni: 1,
             rad: 180 / Math.PI, radian: 180 / Math.PI, radiany: 180 / Math.PI,
@@ -103,6 +109,9 @@
         milimetr: 'mm', milimetry: 'mm', milimetrach: 'mm',
         gram: 'g', gramy: 'g', gramach: 'g',
         kilogram: 'kg', kilogramy: 'kg', kilogramach: 'kg', tonach: 't',
+        // Indeks górny także na starej ścieżce — żeby „5 km2" i „5 km * 5 km"
+        // pokazywały tę samą jednostkę (wcześniej: „km2" kontra „km²").
+        mm2: 'mm\u00b2', cm2: 'cm\u00b2', dm2: 'dm\u00b2', m2: 'm\u00b2', km2: 'km\u00b2', m3: 'm\u00b3',
     };
 
     // Polskie nazwy miesięcy (mianownik + dopełniacz, z/bez diakrytyków) → numer.

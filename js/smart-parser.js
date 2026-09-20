@@ -568,6 +568,13 @@
             }
             return null;
         }
+        // Sama godzina („20:00") — wynik zegarowy wraca do pola po „=" i z historii,
+        // więc musi dać się odczytać. Wcześniej gołe HH:MM nie liczyło się wcale.
+        // „16:9" (proporcja) tu NIE wpada — minuty muszą mieć dwie cyfry.
+        if (/^\d{1,2}:\d{2}$/.test(low)) {
+            var solo24 = _parseClockToken(low);
+            if (solo24 != null) return { text: _fmtClock(solo24), value: null, kind: 'clock', exact: true };
+        }
         return null;
     }
 
@@ -691,6 +698,18 @@
             var yZ = +m[1], moZ = +m[2], daZ = +m[3], hZ = +m[4], miZ = +m[5], sZ = +(m[6] || 0);
             if (_validDMY(daZ, moZ, yZ) && hZ <= 23 && miZ <= 59 && sZ <= 59) {
                 return { d: new Date(Date.UTC(yZ, moZ - 1, daZ, hZ, miZ, sZ)), hasYear: true, moment: true };
+            }
+            return null;
+        }
+        // DD.MM(.RRRR) GG:MM - data Z GODZINA. Tak wyglada nasz wlasny wynik „teraz"
+        // („21.9.26 00:10"), wiec bez tego silnik nie umial go odczytac po „=".
+        m = s.match(/^(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?\s+(\d{1,2}):(\d{2})$/);
+        if (m) {
+            var dT = +m[1], mT = +m[2], yT = m[3] ? +m[3] : _today().getFullYear();
+            var hT = +m[4], miT = +m[5];
+            if (m[3] && m[3].length === 2) yT += 2000;
+            if (_validDMY(dT, mT, yT) && hT <= 23 && miT <= 59) {
+                return { d: new Date(yT, mT - 1, dT, hT, miT, 0), hasYear: !!m[3], moment: true };
             }
             return null;
         }
@@ -1541,9 +1560,34 @@
     /* [EN] TOLERANCJA WEJŚCIA — to, co człowiek pisze na kartce i w trakcie pisania:
        końcowe „=" („2 + 2 ="), urwany operator („12 * ") i niedomknięty nawias.
        Wcześniej każde z nich dawało pusty wynik, czyli na ekranie mylące „0". */
+    /* [EN] SILNIK CZYTA WŁASNY WYNIK.
+       Po „=" wynik wraca do pola, a z historii można go kliknąć — więc to, co
+       wypisujemy, musimy umieć odczytać z powrotem. Nie umieliśmy:
+         „30.1"        → „30.1.2026 (piątek)" → ∅   (opisowy nawias z dniem tygodnia)
+         „czas w Tokio"→ „07:05 (Tokio)"      → ∅   (opisowy nawias z miastem)
+         „5 km * 5 km" → „25 km²"             → ∅   (indeks górny nie jest nazwą jednostki)
+       Nawias zdejmujemy TYLKO gdy w środku jest dzień tygodnia albo znane miasto —
+       „(2+3)" czy „(x)" muszą zostać nietknięte. */
+    function _readBackOwnOutput(str) {
+        var out = String(str);
+        // indeks górny: przy jednostce to cyfra (km² → km2), przy liczbie to potęga (5² → 5^2)
+        out = out.replace(/([A-Za-zÀ-ſ])\u00b2/g, '$12').replace(/([A-Za-zÀ-ſ])\u00b3/g, '$13');
+        out = out.replace(/(\d)\s*\u00b2/g, '$1^2').replace(/(\d)\s*\u00b3/g, '$1^3');
+        var m = out.match(/^(.*\S)\s*\(([^()]*)\)\s*$/);
+        if (m) {
+            var inner = String(m[2]).trim();
+            if (inner && !/[\d+\-*/^]/.test(inner)) {
+                var isWeekday = _parseWeekday(inner) >= 0;
+                var isCity = !!_tzLookup(inner);
+                if (isWeekday || isCity) out = m[1];
+            }
+        }
+        return out.trim();
+    }
     function _tolerateInput(s) {
         var out = String(s == null ? '' : s).trim();
         if (!out) return out;
+        out = _readBackOwnOutput(out);
         out = out.replace(/\s*=\s*$/, '').trim();
         while (/[+\-*/×÷−^]\s*$/.test(out)) out = out.replace(/[+\-*/×÷−^]\s*$/, '').trim();
         var opens = (out.match(/\(/g) || []).length;
