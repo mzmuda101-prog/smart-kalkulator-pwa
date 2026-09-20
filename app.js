@@ -1405,7 +1405,15 @@
         }
         var _emptySuggestTimer = null;
         var _liveHintBubbleTimer = null;
-        var _calcAssistBubbleKind = null; // [EN] 'live' | 'fuzzy' — mobile cursor-hint assist
+        var _calcAssistBubbleKind = null; // [EN] 'live' | 'fuzzy' | 'intent' | 'unknown' — mobile cursor-hint assist
+        // [EN] Dymki „podpowiedzi przy pustym wyniku". MUSZĄ zniknąć w chwili, gdy
+        // wyrażenie zaczyna się liczyć — inaczej „Nie rozumiem…" wisi nad poprawnym
+        // wynikiem aż do własnego autoHide (6 s) i myli użytkownika.
+        // Wyliczanie rodzajów było powtórzone w 3 miejscach i przy dodaniu 'unknown'
+        // jedno z nich zostało nieuzupełnione — stąd ten helper.
+        function _isEmptySuggestBubble(k) {
+            return k === 'fuzzy' || k === 'intent' || k === 'unknown';
+        }
         var _assistLayoutRaf = 0;
 
         function _calcAssistWide() { // [EN] desktop assist UI (chips + AC dropdown) ≥600px
@@ -1590,13 +1598,13 @@
             clearTimeout(_emptySuggestTimer);
             if (!(STATE.settings && STATE.settings.suggestOnEmpty) || !calcExpr || !calcExpr.value.trim()) {
                 calcEmptySuggest.hidden = true;
-                if (_calcAssistBubbleKind === 'fuzzy' || _calcAssistBubbleKind === 'intent') _hideCalcAssistBubble();
+                if (_isEmptySuggestBubble(_calcAssistBubbleKind)) _hideCalcAssistBubble();
                 _scheduleAssistLayout();
                 return;
             }
             if (!res || res.value !== null || res.text != null || res.pendingFx) {
                 calcEmptySuggest.hidden = true;
-                if (_calcAssistBubbleKind === 'fuzzy' || _calcAssistBubbleKind === 'intent') _hideCalcAssistBubble();
+                if (_isEmptySuggestBubble(_calcAssistBubbleKind)) _hideCalcAssistBubble();
                 _scheduleAssistLayout();
                 return;
             }
@@ -1631,7 +1639,7 @@
                 }
                 if (!label) {
                     calcEmptySuggest.hidden = true;
-                    if (_calcAssistBubbleKind === 'fuzzy' || _calcAssistBubbleKind === 'intent') _hideCalcAssistBubble();
+                    if (_isEmptySuggestBubble(_calcAssistBubbleKind)) _hideCalcAssistBubble();
                     _scheduleAssistLayout();
                     return;
                 }

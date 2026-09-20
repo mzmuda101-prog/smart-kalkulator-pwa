@@ -176,3 +176,35 @@ test.describe('desktop-only', () => {
         expect(minExpr, 'expr zbyt niski przy wąskiej karcie').toBeGreaterThanOrEqual(20);
     });
 });
+
+// [EN] Regresja: podpowiedź „Nie rozumiem…" MUSI zniknąć, gdy wyrażenie zaczyna się
+// liczyć. Na mobile jest to dymek cursor-hint z własnym autoHide 6 s — gdy rodzaj
+// 'unknown' wypadnie z listy chowanych, komunikat wisi nad POPRAWNYM wynikiem.
+test('mobile: „Nie rozumiem…" znika, gdy wyrażenie zaczyna się liczyć', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'mobile', 'dymek assist tylko przy <600px');
+    await H.clearCalc(page);
+
+    const visibleHint = () => page.evaluate(() => {
+        const n = [...document.querySelectorAll('.cursor-hint')].find((x) => {
+            const cs = getComputedStyle(x);
+            return cs.display !== 'none' && cs.visibility !== 'hidden'
+                && Number(cs.opacity) > 0.5 && x.textContent.trim();
+        });
+        return n ? n.textContent.trim() : null;
+    });
+    const setExpr = (v) => page.evaluate((val) => {
+        const el = document.getElementById('calcExpr');
+        el.value = val;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+    }, v);
+
+    await setExpr('100 u');
+    await page.waitForFunction(() => [...document.querySelectorAll('.cursor-hint')]
+        .some((x) => /Nie rozumiem/.test(x.textContent || '') && Number(getComputedStyle(x).opacity) > 0.5),
+    { timeout: 4000 });
+
+    await setExpr('100 usd');
+    // 1,2 s z zapasem na fade (0,14 s) — ale ZNACZNIE poniżej autoHide dymka (6 s)
+    await page.waitForTimeout(1200);
+    expect(await visibleHint(), 'stara podpowiedź wisi nad policzonym wynikiem').toBeNull();
+});
