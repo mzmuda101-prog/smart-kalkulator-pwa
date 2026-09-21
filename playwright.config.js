@@ -9,6 +9,11 @@ module.exports = defineConfig({
     testDir: path.join(__dirname, 'test/e2e'),
     timeout: 90_000,
     expect: { timeout: 10_000 },
+    // [EN] Bez tych dwóch limitów pojedyncza akcja (np. click w zasłoniętym przycisku)
+    // czeka BEZ KOŃCA i zjada cały timeout testu, a potem drugie tyle w afterEach —
+    // stąd przebiegi kończące się po 1.5 min / 3 min bez żadnej diagnozy.
+    actionTimeout: 20_000,
+    navigationTimeout: 45_000,
     fullyParallel: false,
     forbidOnly: !!process.env.CI,
     retries: process.env.CI ? 1 : 0,

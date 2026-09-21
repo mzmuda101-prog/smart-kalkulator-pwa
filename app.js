@@ -9646,6 +9646,14 @@
             probe.style.wordBreak = mlcs.wordBreak || 'normal';
         }
         var _npLastChrome = { lines: [''], infos: [] };
+        // [EN] Stan układania chrome notatnika. _npLayoutPending liczy zaplanowane, jeszcze
+        // niewykonane dopasowania (podwójny rAF po renderze + settle 50/150/300 ms + retry
+        // pomiarowy + reakcja ResizeObservera). Zero = layout stoi. Testy e2e czekają na ten
+        // warunek zamiast na sztywny timeout; NP_LAYOUT_RETRY_BUDGET jest twardym limitem
+        // dopasowań, żeby niezbieżny pomiar nie kręcił rAF-a w nieskończoność.
+        var _npLayoutSeq = 0;
+        var _npLayoutPending = 0;
+        var NP_LAYOUT_RETRY_BUDGET = 8;
         var _npMirrorRO = null;
         var _npMirrorLayoutRaf = 0;
         function _npMirrorBlockH(el) { // [EN] wysokość bloku mirror po reflow — źródło prawdy dla gutter/wrap-bar
@@ -9663,12 +9671,15 @@
                 }
                 if (!needs && entries.length === 1 && entries[0].target === npMirror) needs = true;
                 if (!needs) return;
-                if (_npMirrorLayoutRaf) cancelAnimationFrame(_npMirrorLayoutRaf);
+                if (_npMirrorLayoutRaf) { cancelAnimationFrame(_npMirrorLayoutRaf); _npMirrorLayoutRaf = 0; _npLayoutPending--; }
+                _npLayoutPending++;
                 _npMirrorLayoutRaf = requestAnimationFrame(function() {
                     _npMirrorLayoutRaf = 0;
-                    var snap = _npLastChrome;
-                    if (!snap.lines || !snap.lines.length) return;
-                    _npLayoutLineChrome(snap.lines, snap.infos);
+                    try {
+                        var snap = _npLastChrome;
+                        if (!snap.lines || !snap.lines.length) return;
+                        _npLayoutLineChrome(snap.lines, snap.infos);
+                    } finally { _npLayoutPending--; }
                 });
             });
             _npMirrorRO.observe(npMirror);
@@ -9683,10 +9694,13 @@
         function _npScheduleLayoutSettle() { // [EN] mobile — mirror wrap kończy się po pierwszym layout pass
             var snap = { lines: _npLastChrome.lines.slice(), infos: _npLastChrome.infos };
             [50, 150, 300].forEach(function(ms) {
+                _npLayoutPending++;
                 setTimeout(function() {
-                    if (!npBody || !document.body.classList.contains('notepad-open')) return;
-                    if (npBody.value.split('\n').length !== snap.lines.length) return;
-                    _npLayoutLineChrome(snap.lines, snap.infos);
+                    try {
+                        if (!npBody || !document.body.classList.contains('notepad-open')) return;
+                        if (npBody.value.split('\n').length !== snap.lines.length) return;
+                        _npLayoutLineChrome(snap.lines, snap.infos);
+                    } finally { _npLayoutPending--; }
                 }, ms);
             });
         }
@@ -9720,7 +9734,7 @@
         function _npIsSoftWrapped(el, lineH) {
             return _npMirrorBlockH(el) > lineH * 1.35;
         }
-        function _npLayoutLineChrome(lines, infos) { // [EN] gutter + wrap-bar; wysokość z probe + mirror (batch przed chrome)
+        function _npLayoutLineChrome(lines, infos, retriesLeft) { // [EN] gutter + wrap-bar; wysokość z probe + mirror (batch przed chrome)
             if (!npBody || !npMirror || !npGutter || !npFoldLayer || !npWrapLayer) return;
             _npPrimeEditorHeight();
             var folded = !!(STATE.settings && STATE.settings.notepadFold);
@@ -9791,8 +9805,17 @@
                 if (!gwEl) continue;
                 if (_npMirrorBlockH(mirrorLines[ri]) > (gwEl.offsetHeight || 0) + 2) { retry = true; break; }
             }
-            if (retry && snap.lines && snap.lines.length) {
-                requestAnimationFrame(function() { _npLayoutLineChrome(snap.lines, snap.infos); });
+            _npLayoutSeq++;
+            // [EN] Budżet dopasowań: pomiar mirror vs gutter potrafi NIE zbiec (ułamkowe
+            // wysokości, zmiana fontu w trakcie) — bez limitu ten rAF kręci się w kółko
+            // i zjada główny wątek. Po wyczerpaniu budżetu zostawiamy ostatni układ.
+            var budget = retriesLeft == null ? NP_LAYOUT_RETRY_BUDGET : retriesLeft;
+            if (retry && budget > 0 && snap.lines && snap.lines.length) {
+                _npLayoutPending++;
+                requestAnimationFrame(function() {
+                    try { _npLayoutLineChrome(snap.lines, snap.infos, budget - 1); }
+                    finally { _npLayoutPending--; }
+                });
             }
         }
         function _npRenderEditorChrome(lines, infos) {
@@ -9808,11 +9831,14 @@
                 npMirror.appendChild(md);
             });
             function relayout() { _npLayoutLineChrome(lines, infos); _npObserveMirrorLines(); }
+            _npLayoutPending++;
             requestAnimationFrame(function() {
                 relayout();
                 requestAnimationFrame(function() {
-                    relayout();
-                    _npScheduleLayoutSettle();
+                    try {
+                        relayout();
+                        _npScheduleLayoutSettle();
+                    } finally { _npLayoutPending--; }
                 });
             });
         }
@@ -13124,6 +13150,7 @@
                 npRecompute: npRecompute,
                 npBuildRows: npBuildRows,
                 npSyncFontSize: _npSyncFontSize,
+                npLayoutState: function() { return { seq: _npLayoutSeq, pending: _npLayoutPending }; }, // [EN] e2e: czekaj na pending===0 zamiast na timeout
                 npRunEditorAction: _npRunEditorAction,
                 loadFxRates: loadFxRates,
                 resolveCalcCurrency: resolveCalcCurrency,
