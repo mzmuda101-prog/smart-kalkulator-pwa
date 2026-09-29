@@ -77,7 +77,11 @@
         '2 kg + 300 g', '5 km + 300 m', '100 zł + 20 eur', '20 eur na zł',
         '100 usd', 'sqrt(144)', 'pierwiastek z 144', '2^10', '20% z 150',
         'brutto 1000', 'netto 1230', 'sin(30 deg)', '2 in na px przy 96 ppi',
-        '108m+900m', 'ans*2', '2+2', 'pi', 'e'
+        '108m+900m', 'ans*2', '2+2', 'pi', 'e',
+        // warianty obsłużone przez warstwę synonimów (js/synonyms.js) — autocomplete
+        // i fuzzy mają je podpowiadać, skoro silnik już je liczy
+        'ile godzin od 8:00 do 16:30', 'ile tygodni do 25.12', '20% z 5 km',
+        'podziel 250 zł na 4', 'średnia 2 4 6'
     ];
 
     function getLiveHints(expr) {

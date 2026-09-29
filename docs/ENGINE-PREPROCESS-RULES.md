@@ -8,6 +8,7 @@ Implementacja: `js/smart-parser.js` → `evaluate()`. Wiązanie UI: `app.js` →
 | Warstwa | Funkcja | Zwraca |
 |---------|---------|--------|
 | Parser | `_PARSER.evaluate(raw, opts)` | plain `EvaluateResult` (bez `STATE`) |
+| Parser (rdzeń) | `_evaluateCore(raw, opts)` | to samo, ale BEZ warstwy synonimów |
 | App | `evalCalcExpression(raw, opts)` | `makeVal(r)` + sync `STATE.calc` |
 
 `opts` (zbierane w `_parserEvaluateOpts`): `fxRates`, `fxReady`, `defaultCurrency`, `currencyCompactSymbols`, `constants`, `lastAnswer`, `evalConstNumeric`, `unitDefs`, `unitDisplay`, `unitNamesRe`, `defaultUnits`, `firstUnitWins`, `keepWorkCurrency`.
@@ -81,6 +82,50 @@ Bramka: `test/readback.js` — dla każdego rodzaju wyniku bierze DOKŁADNIE ten
 który po `=` ląduje w polu (`__matm0.calcEqualsExprText`), i wymaga, by dało się go
 policzyć ponownie.
 
+## Warstwa synonimów (`js/synonyms.js`)
+
+Audyt 2026-09-20: silnik rozumiał JEDNO sformułowanie, a bliski wariant o tym samym
+znaczeniu już nie — `od 8:00 do 16:30` ✓ / `ile godzin od 8:00 do 16:30` ∅. Dla
+użytkownika to nie wygląda jak brak funkcji, tylko jak **losowa awaria**.
+
+**Kontrakt — tylko fallback.** Warstwa nie dokłada się do pipeline'u. `evaluate()` woła
+najpierw `_evaluateCore()` i sięga po synonimy **wyłącznie** gdy rdzeń zwrócił pustkę
+(`_isEmptyResult`: brak `value`, `text`, `big`, bez `pendingFx` i bez `error`).
+Sprawdzone przed wdrożeniem: wszystkie luki z audytu dawały ∅, a nie zły wynik — więc
+przepisanie nie ma jak zmienić żadnego istniejącego wyniku. To ten sam kontrakt co przy
+algebrze wymiarowej: *wchodzi tylko tam, gdzie stara ścieżka milczała albo się myliła*.
+
+Rekurencja jest odcięta flagą `opts.__noSynonyms` — forma kanoniczna liczy się już
+wyłącznie rdzeniem.
+
+### Dwa rodzaje reguł
+
+| Rodzaj | Działanie | Przykład |
+|--------|-----------|----------|
+| Przepisanie | sformułowanie → forma kanoniczna | `podziel 250 zł na 4` → `250 zł / 4` |
+| Przepisanie + konwersja | liczymy formę kanoniczną, a jej WYNIK przepuszczamy przez konwersję | `ile tygodni do 25.12` → `ile dni do 25.12` (87) → `87 dni w tygodniach` |
+
+Drugi rodzaj składa dwie **już przetestowane** zdolności silnika zamiast dublować logikę
+dat czy zegara. Wymaga znajomości jednostki bazowej formy kanonicznej (`fromUnit`):
+zakres zegarowy zwraca minuty, odliczanie do daty — dni.
+
+**Gdy konwersja się nie uda, warstwa MILCZY** (nie oddaje formy kanonicznej).
+`ile miesięcy do 25.12` odpowiedziane jako `87 dni` byłoby odpowiedzią na INNE pytanie;
+apka ma ścieżkę „Nie rozumiem…", a cichy zły wynik jest gorszy niż brak wyniku.
+
+### Zakres
+
+Pokryte: pytajnik przy zakresie zegarowym, odliczanie do daty w dowolnej jednostce
+czasu, procent z wielkości (`20% z 5 km` — jednostka przeżywa), dzielenie opisowe
+(rachunek na osoby), średnia bez przyimka `z`.
+
+**Poza zakresem świadomie:** `suma`/`min`/`max`/`mediana` to NOWE funkcje, nie synonimy —
+nie da się ich przepisać na coś, co silnik już umie.
+
+Bramka: `test/synonyms.js` — trzy sekcje, z czego druga jest ważniejsza od pierwszej:
+*działa* / *nie ukradła* (wyrażenia sprzed warstwy dają identyczny wynik) / *nie zgaduje*.
+Dodatkowo test wymusza zakotwiczenie każdej reguły (`^…$`).
+
 ## Algebra wymiarowa (`js/quantity-algebra.js`)
 
 Stary pipeline przepisuje STRING: wycina jednostkę, liczy gołe liczby, jednostkę dokleja
@@ -111,6 +156,7 @@ wykrycia skrócenia (`100 usd / 20 eur` = 4,59). Kwoty liczy dalej `resolveCurre
 |-------|------------------|
 | `js/smart-parser.js` | pipeline, czas, daty, %, waluty, jednostki, czas roboczy |
 | `js/quantity-algebra.js` | algebra wymiarowa (× ÷ składają wymiar) |
+| `js/synonyms.js` | warstwa synonimów — fallback, przepisuje sformułowania na formy kanoniczne |
 | `js/numeric-eval.js` | BigInt, `compileGraphExpression` |
 | `js/money-decimal.js` | grosze (używane przez parser `_roundMoney`) |
 | `app.js` | `STATE`, FX fetch, `makeVal`, formatowanie UI, notatnik |

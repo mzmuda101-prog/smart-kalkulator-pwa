@@ -108,6 +108,7 @@
                 intro: 'Cztery kierunki: <strong>% z kwoty</strong> (<code>P% z B</code>), <strong>% z %</strong> (<code>P% z Q%</code>), <strong>jaki % to A z B</strong> (<code>ile % stanowi…</code>), <strong>znasz ułamek → szukasz reszty</strong> (<code>P% to A, ile 100%</code>). Szukaj linii <code>→</code> — tam widać typ wyniku.',
                 items: [
                     { syntax: 'P% z B', syntaxAlt: 'P% of B', command: '{pct}% z {base}', yields: 'P% × B', description: 'też słowo: procent' },
+                    { syntax: 'P% z B jednostka', syntaxAlt: 'P% of B unit', command: '20% z 5 km', yields: 'P% × B (z jednostką)', description: 'procent z wielkości — jednostka zostaje w wyniku' },
                     { syntax: 'P% z Q%', syntaxAlt: 'P% of Q%', command: '{pct}% z {pctOf}%', yields: 'P% × Q% ÷ 100', description: 'procent z procenta (składany %)' },
                     { syntax: 'B + P%', command: '{addBase} + {pctAdd}%', yields: 'B + (P% × B)', description: 'dolicza procent do bazy' },
                     { syntax: 'a*b + P%', command: '3*160 + 12%', yields: 'wynik działania + (P% × wynik)', description: 'procent od całego wyrażenia' },
@@ -220,8 +221,9 @@
                     { syntax: 'a mln', syntaxAlt: 'a million', command: '1.5 mln / 12', yields: 'a × 1 000 000 ÷ dzielnik', description: 'miliony' },
                     { syntax: 'połowa B', syntaxAlt: 'half of B', command: 'połowa 300', yields: 'B ÷ 2', description: 'połowa bazy' },
                     { syntax: 'trzecia B', syntaxAlt: 'a third of B', command: 'trzecia 120', yields: 'B ÷ 3', description: 'jedna trzecia' },
+                    { syntax: 'podziel A na N', syntaxAlt: 'split A by N', command: 'podziel 250 zł na 4', yields: 'A ÷ N', description: 'też: „250 zł na 4 osoby”' },
                     { syntax: 'proporcja a do b', syntaxAlt: 'ratio of a to b', command: 'proporcja 3 do 5', yields: 'a ÷ b', description: 'stosunek a:b' },
-                    { syntax: 'średnia z a b c', syntaxAlt: 'average of a b c', command: 'średnia z 10 15 20 35 40', yields: '(a+b+c+…) ÷ n', description: 'średnia arytmetyczna listy liczb' },
+                    { syntax: 'średnia z a b c', syntaxAlt: 'average of a b c', command: 'średnia z 10 15 20 35 40', yields: '(a+b+c+…) ÷ n', description: 'średnia arytmetyczna listy liczb („z” opcjonalne)' },
                 ],
             },
             {
@@ -254,6 +256,8 @@
                     { syntax: 'ile dni od … do …', syntaxAlt: 'how many days from … to …', command: 'ile dni od 1.01.2026 do 1.02.2026', yields: 'różnica w dniach kalendarzowych', description: 'między dwiema datami' },
                     { syntax: 'GG:MM + T h', command: '17:00 + {offsetDur}h', yields: 'godzina po dodaniu czasu', description: 'zegar + trwanie' },
                     { syntax: 'od GG:MM do GG:MM', syntaxAlt: 'from HH:MM to HH:MM', command: 'od 9:30 do 17:15', yields: 'czas trwania / różnica', description: 'między godzinami' },
+                    { syntax: 'ile godzin od GG:MM do GG:MM', syntaxAlt: 'how many hours from HH:MM to HH:MM', command: 'ile godzin od 8:00 do 16:30', yields: 'czas trwania w podanej jednostce', description: 'też: minut, sekund' },
+                    { syntax: 'ile tygodni do data', syntaxAlt: 'how many weeks until date', command: 'ile tygodni do 25.12', yields: 'odliczanie w podanej jednostce', description: 'też: godzin, lat' },
                     { syntax: 'najbliższy dzień', syntaxAlt: 'next weekday', command: 'najbliższy poniedziałek', yields: 'data najbliższego dnia tygodnia', description: 'np. poniedziałek' },
                     { syntax: 'dzień za N tygodni', syntaxAlt: 'weekday in N weeks', command: 'poniedziałek za {offsetWeeks} tygodnie', yields: 'data: dzień + offset', description: 'dzień tygodnia w przyszłości' },
                     { syntax: 'ISO 8601', command: '2026-03-15T14:30:00Z', yields: 'data lokalna z UTC', description: 'format ISO' },

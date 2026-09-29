@@ -30,6 +30,7 @@ const ASSETS_TO_CACHE = [
     './js/smart-parser.js',
     './js/smart-quantity.js',
     './js/quantity-algebra.js',
+    './js/synonyms.js',
     './js/hint-rules.js',
     './js/notepad-format.js',
     './js/notepad-engine.js',

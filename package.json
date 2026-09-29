@@ -26,6 +26,7 @@
     "test:tz": "node test/timezone-regression.js",
     "test:version": "node test/version-compare.js",
     "test:pl-fold": "node test/pl-fold-regression.js",
+    "test:syn": "node test/synonyms.js",
     "test:placeholder": "node test/placeholder-examples.js",
     "test:all": "node scripts/run-tests.mjs",
     "test:e2e": "playwright test",

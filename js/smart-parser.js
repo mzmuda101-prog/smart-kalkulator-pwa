@@ -1601,7 +1601,7 @@
         if (opens > closes) out += new Array(opens - closes + 1).join(')');
         return out;
     }
-    function evaluate(raw, options) {
+    function _evaluateCore(raw, options) {
         var opts = options || {};
         var firstUnitWins = !!opts.firstUnitWins;
         var original = _tolerateInput(raw);
@@ -1793,6 +1793,67 @@
     }
     function preprocessNatural(raw) {
         return resolveTrigDegrees(parseNaturalShortcuts(raw));
+    }
+
+    /* ── WARSTWA SYNONIMÓW (fallback) ──────────────────────────────────────────
+       Silnik rozumiał JEDNO sformułowanie, a bliski wariant o tym samym znaczeniu
+       już nie („od 8:00 do 16:30" ✓ / „ile godzin od 8:00 do 16:30" ∅). Dla
+       użytkownika wygląda to jak losowa awaria, nie jak brak funkcji.
+
+       Kontrakt jest taki sam jak przy algebrze wymiarowej: warstwa wchodzi WYŁĄCZNIE
+       tam, gdzie rdzeń zwrócił pustkę. Każde dotąd poprawne wyrażenie idzie starą
+       ścieżką, więc baseline nie może dryfować.
+
+       Reguły: js/synonyms.js (MATM0_SYN). Bramka: test/synonyms.js. */
+    function _isEmptyResult(r) {
+        if (!r) return true;
+        if (r.pendingFx) return false;          // czeka na kursy — nie nasza sprawa
+        if (r.big) return false;
+        if (r.error) return false;              // „nieokreślone" to ODPOWIEDŹ, nie cisza
+        return r.value == null && r.text == null;
+    }
+    function _synonymsApi() {
+        if (typeof window !== 'undefined' && window.MATM0_SYN) return window.MATM0_SYN;
+        if (typeof self !== 'undefined' && self.MATM0_SYN) return self.MATM0_SYN;
+        return null;
+    }
+    function _trySynonyms(raw, opts) {
+        var syn = _synonymsApi();
+        if (!syn || typeof syn.candidates !== 'function') return null;
+        var list;
+        try { list = syn.candidates(raw); } catch (e) { return null; }
+        if (!list || !list.length) return null;
+        // __noSynonyms — rekurencja przez formę kanoniczną jest zbędna i ryzykowna
+        var inner = {};
+        for (var k in opts) if (Object.prototype.hasOwnProperty.call(opts, k)) inner[k] = opts[k];
+        inner.__noSynonyms = true;
+        for (var i = 0; i < list.length; i++) {
+            var c = list[i];
+            var r = null;
+            try { r = _evaluateCore(c.expr, inner); } catch (e) { r = null; }
+            if (_isEmptyResult(r)) continue;
+            if (!c.convertTo) return r;
+            // Pytanie prosiło o inną jednostkę — składamy z drugą, też przetestowaną
+            // zdolnością silnika (konwersja), zamiast dublować logikę dat/zegara.
+            if (r.value == null || !c.fromUnit) return r;
+            var conv = null;
+            var bridge = _plainDecimalStr(r.value) + ' ' + c.fromUnit + ' w ' + c.convertTo;
+            try { conv = _evaluateCore(bridge, inner); } catch (e) { conv = null; }
+            if (!_isEmptyResult(conv)) return conv;
+            // Konwersja nie wyszła (np. miesiące nie są przeliczalną jednostką czasu).
+            // NIE oddajemy formy kanonicznej — „ile miesięcy do 25.12" odpowiedziane
+            // jako „87 dni" to odpowiedź na INNE pytanie. Lepiej milczeć: apka ma na to
+            // ścieżkę „Nie rozumiem…", a cichy zły wynik jest gorszy niż brak wyniku.
+            continue;
+        }
+        return null;
+    }
+    function evaluate(raw, options) {
+        var opts = options || {};
+        var core = _evaluateCore(raw, opts);
+        if (opts.__noSynonyms || !_isEmptyResult(core)) return core;
+        var alt = _trySynonyms(raw, opts);
+        return alt || core;
     }
 
     var API = {

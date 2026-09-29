@@ -97,23 +97,31 @@ Bramka: `test/readback.js` (53 przypadki) + testy e2e historii i podpowiedzi.
 **Wzorzec systemowy:** silnik rozumie JEDNO sformułowanie, bliski wariant już nie.
 Największa dźwignia jakościowa to warstwa synonimów, nie kolejne regexy.
 
-| działa | nie działa (to samo znaczenie) |
+> **ZROBIONE 2026-09-29 (v1.04)** — `js/synonyms.js` + `test/synonyms.js`.
+> Warstwa jest czystym FALLBACKIEM (odpala się tylko gdy rdzeń zwrócił pustkę), więc
+> baseline nie dryfuje: 86/86 bez zmian, korpus 79 wyrażeń identyczny co do bajtu poza
+> dwoma zależnymi od zegara. Szczegóły: `docs/ENGINE-PREPROCESS-RULES.md` → „Warstwa synonimów".
+> Tabela niżej — stan PO zmianie.
+
+| wariant | stan |
 |---|---|
-| `od 8:00 do 16:30` | `ile godzin od 8:00 do 16:30` |
-| `średnia z 2 4 6` | `średnia 2 4 6` |
-| `ile dni do 25.12` | `ile tygodni do 25.12`, `ile godzin do 25.12` |
-| `19m + 47%` | `20% z 5 km`, `60% z 2 godzin` |
-| `250 zł / 4` | `podziel 250 zł na 4`, `250 zł na 4 osoby` |
+| `ile godzin od 8:00 do 16:30` (też `minut`, `czasu`, ang. `how many hours from…`) | ✅ 8,5 |
+| `średnia 2 4 6`, `avg of 2 4 6` | ✅ 4 |
+| `ile tygodni do 25.12`, `ile godzin do 25.12` | ✅ 12,43 / 2088 |
+| `20% z 5 km`, `60% z 2 godzin` | ✅ 1 km / 1 h 12 min (jednostka przeżywa) |
+| `podziel 250 zł na 4`, `250 zł na 4 osoby`, `250 zł podzielić na 4`, `split 250 by 4` | ✅ 62,50 zł |
+| `ile miesięcy do 25.12` | ⛔ świadomie milczy — miesiąc nie jest przeliczalną jednostką czasu, a odpowiedź „87 dni" dotyczyłaby innego pytania |
 
 **Braki zapisu liczb:** `1e3`, `0x1f`, `0b1010`, `5!`, `sqrt` jako znak, `5^2` jako indeks górny, wartość bezwzględna, `1.000,5`.
 
 **Braki agregacji** (`evalAverage` to gotowy szkielet): suma, min, max, mediana, odchylenie.
+**Uwaga:** to NOWE funkcje, nie synonimy — warstwa synonimów świadomie ich nie obejmuje.
 
 **Braki dat:** wiek (`ile mam lat ur. 15.03.1990`), `ostatni dzień miesiąca`, kwartał, tydzień roku, `pierwszy poniedziałek marca`.
 
 **Braki finansowe** (Soulver to ma, my mamy już VAT): rata kredytu, procent składany, brutto→netto UoP, odsetki za okres.
 
-**Braki życiowe:** dzielenie rachunku na osoby (+ napiwek), miary kuchenne (łyżka/szklanka → ml), geometria z tekstu (`pole koła r=5`, `pole 3m x 4m`), materiał na powierzchnię.
+**Braki życiowe:** ~~dzielenie rachunku na osoby~~ (✅ v1.04, warstwa synonimów; napiwek osobno: `10% napiwek na 150`), miary kuchenne (łyżka/szklanka → ml), geometria z tekstu (`pole koła r=5`, `pole 3m x 4m`), materiał na powierzchnię.
 
 ### Do rozważenia później
 
