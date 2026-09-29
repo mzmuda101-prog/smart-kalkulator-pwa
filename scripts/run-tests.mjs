@@ -36,6 +36,7 @@ const SUITES = [
     'test/pl-fold-regression.js',
     'test/timezone-regression.js',
     'test/hint-rules.js',
+    'test/placeholder-examples.js',
     'test/settings-migration.js',
 ];
 

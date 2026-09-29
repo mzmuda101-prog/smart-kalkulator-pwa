@@ -1,13 +1,29 @@
 # Smart Kalkulator
 
-PWA do codziennych i technicznych obliczen: standardowy kalkulator, podzialy inzynierskie, wykresy, prosta geometria 2D i wlasne stale.
+**Kalkulator, ktory rozumie zdania. Offline, po polsku.**
+
+`100 zl + 23% vat` · `ile dni do 25.12` · `czas w Tokio` · `od 8:00 do 16:30` · `2 kg na lb`
+
+PWA do obliczen codziennych i technicznych. Rdzen jest deterministyczny (parser regulowy
++ testy baseline), dziala bez sieci i nic nie wysyla na zewnatrz.
 
 ## Funkcje
 
-- Standardowy kalkulator z historia, procentami w stylu kalkulatorow mobilnych i kopiowaniem przez przytrzymanie wyniku.
+- **Parser zdan (PL/EN)** — jednostki i algebra wymiarowa (`5 km * 5 km` → km²), waluty
+  (NBP + Frankfurter), VAT/brutto/netto, daty, strefy czasowe, czas roboczy, BigInt na
+  duzych liczbach calkowitych.
+- **Notatnik obliczeniowy** (Soulver-like) — zmienne, etykiety, szablony, eksport.
+- Standardowy kalkulator z historia, procentami w stylu kalkulatorow mobilnych i
+  kopiowaniem przez przytrzymanie wyniku.
 - Inzynieria: podzial dlugosci na punkty, marginesy, os X/Y, stale odstepy, wiele serii.
 - Wykresy: funkcje `f(x)`, podzialy na osi, punkty, prostokaty i siatki 2D.
-- PWA: instalacja na ekranie glownym, cache offline na produkcji, czyszczenie lokalnego cache podczas debugowania.
+- Warsztat: przeliczniki do remontu, ogrodu i prac domowych.
+- PWA: instalacja na ekranie glownym, cache offline na produkcji, czyszczenie lokalnego
+  cache podczas debugowania.
+
+Pole wyrazenia rotuje przykladami tego, co silnik potrafi — kazdy z nich jest pilnowany
+przez `test/placeholder-examples.js`, zeby placeholder nigdy nie obiecywal funkcji,
+ktorej parser nie policzy.
 
 ## Przyklady komend
 

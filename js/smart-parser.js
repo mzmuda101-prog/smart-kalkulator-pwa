@@ -1566,8 +1566,9 @@
          „30.1"        → „30.1.2026 (piątek)" → ∅   (opisowy nawias z dniem tygodnia)
          „czas w Tokio"→ „07:05 (Tokio)"      → ∅   (opisowy nawias z miastem)
          „5 km * 5 km" → „25 km²"             → ∅   (indeks górny nie jest nazwą jednostki)
-       Nawias zdejmujemy TYLKO gdy w środku jest dzień tygodnia albo znane miasto —
-       „(2+3)" czy „(x)" muszą zostać nietknięte. */
+         „za 4 godziny"→ „00:17 (jutro)"      → ∅   (dopisek _dayShift przy przejściu doby)
+       Nawias zdejmujemy TYLKO gdy w środku jest dzień tygodnia, znane miasto albo
+       dopisek z _dayShift — „(2+3)" czy „(x)" muszą zostać nietknięte. */
     function _readBackOwnOutput(str) {
         var out = String(str);
         // indeks górny: przy jednostce to cyfra (km² → km2), przy liczbie to potęga (5² → 5^2)
@@ -1576,7 +1577,12 @@
         var m = out.match(/^(.*\S)\s*\(([^()]*)\)\s*$/);
         if (m) {
             var inner = String(m[2]).trim();
-            if (inner && !/[\d+\-*/^]/.test(inner)) {
+            // Dopisek doby z _dayShift: „(jutro)", „(wczoraj)", „(+2 dni)".
+            // Sprawdzany ODDZIELNIE, bo „+2 dni" ma cyfrę i znak, więc wypadłby
+            // przez filtr matematyczny niżej.
+            if (/^(jutro|wczoraj|[+-]\s*\d+\s*dni)$/i.test(inner)) {
+                out = m[1];
+            } else if (inner && !/[\d+\-*/^]/.test(inner)) {
                 var isWeekday = _parseWeekday(inner) >= 0;
                 var isCity = !!_tzLookup(inner);
                 if (isWeekday || isCity) out = m[1];

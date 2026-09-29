@@ -112,7 +112,7 @@ window.CALC_LAYOUT_TUNE = {
 
         displayPadY: 12, // padding góra/dół ekranika; dół przy 2 liniach → resultWrapPadBottom
         displayPadX: 14,
-        exprMinHeight: 44, // min. miejsce na „Lub wpisz wyrażenie…”
+        exprMinHeight: 44, // min. miejsce na placeholder-przykład („np. 100 zł + 23% vat”)
         exprResultGap: 6, // odstęp między polem a wynikiem
         resultReserveEmpty: 48, // rezerwa na „0” gdy pusto
         resultAnimSlack: 4, // zapas w _calcResultReserve (expr max-height)
@@ -125,7 +125,7 @@ window.CALC_LAYOUT_TUNE = {
 
         /* Fonty EKRANIKA — osobno od keypadFont (przyciski klawiatury). */
         displayFont: {
-            exprRem: 1.25, // wpisywany tekst + placeholder „Lub wpisz…”
+            exprRem: 1.25, // wpisywany tekst + placeholder-przykład („np. …”)
             exprMinRem: 1, // dolna granica shrinku expr (mobile: nie poniżej exprMinPx)
             exprMinPx: 16, // próg iOS — focus bez zoomu WebKit
             resultRem: 2.5, // bazowy rozmiar wyniku (CSS --calc-result-font)
@@ -186,18 +186,35 @@ window.CALC_LAYOUT_TUNE = {
             typingBonusPx: 0,
             displayPadEstimate: 40,
             scrollOverflow: {
-                // .panels ma scroll — karta może wystawać pod dół ekranu
+                // .panels ma scroll — karta MOŻE wystawać pod dół ekranu.
+                //
+                // Było: belowPx 100 / wideBelowPx 220 + wideBelowShare 0.12 — karta z
+                // założenia chowała klawiaturę pod scroll. Skutek na zwykłym laptopie
+                // (1440x900): dolna krawędź "=" na 972 px, rząd Historia/Ściąga na 1032 px
+                // przy viewporcie 900 — żeby wcisnąć "=", trzeba było przewinąć, mając
+                // jednocześnie ~39% szerokości ekranu pustej. Za wysoka cena.
+                //
+                // Teraz: zero DOMYŚLNEGO zwisu. Karta dopasowuje się do widocznej
+                // wysokości (klawisze mają min-height:0 w calc-split-active, więc się
+                // ścieśniają), a furtka na naprawdę niskie okna zostaje — gdy visibleH
+                // spadnie poniżej cardMinPx, wysokość referencyjna podbija się do 360 px
+                // i karta wystaje SAMA, włączając scroll .panels. Wtedy zwis jest
+                // wymuszony brakiem miejsca, a nie ustawiony z góry.
                 enabled: true, // false → wszystko musi się zmieścić bez scrolla
-                belowPx: 100, // tablet/desktop: +100 px pod viewport
+                forceScroll: false, // debug: wymuś scroll niezależnie od wysokości
+                // Niskie okno (np. 1280x600) — scroll zamiast ściskania klawiszy do ~26 px.
+                compactViewportPx: 470, // widoczna wys. karty poniżej tego progu → scroll
+                keypadMinPx: 300, // min. wys. klawiatury gdy scroll aktywny (5 rzędów ~52 px)
+                belowPx: 0,
                 belowShare: 0,
-                maxBelowPx: 140,
-                wideMinWidthPx: 1024, // laptop/PC — więcej scrolla pod klawiaturą
-                wideBelowPx: 220,
-                wideBelowShare: 0.12, // max(220px, 12% vh) — laptop/PC chowa klawiaturę pod scroll
-                wideMaxBelowPx: 380,
+                maxBelowPx: 0,
+                wideMinWidthPx: 1024,
+                wideBelowPx: 0,
+                wideBelowShare: 0,
+                wideMaxBelowPx: 0,
                 wideCardMaxPx: 1080,
                 viewportBottomGapPx: 8, // luz nad dołem ekranu (mniej = więcej miejsca)
-                cardMinPx: 360, // min. wys. referencyjna całej karty
+                cardMinPx: 360, // min. wys. referencyjna karty = próg włączenia scrolla
                 cardMaxPx: 960, // max. wys. karty (tablet); wide → wideCardMaxPx
             },
         },

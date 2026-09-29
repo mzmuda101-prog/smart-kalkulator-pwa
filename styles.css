@@ -453,9 +453,39 @@
             position: sticky;
             top: calc(61px + var(--safe-top)); /* nagłówek wyższy o safe-top — pasek lepi się pod nim */
             z-index: 99;
+            /* [PL] Przepełnienie → przewijanie W PASKU, nie rozpychanie strony.
+               Bez tego 4 zakładki (nowrap) wychodziły poza ekran na ≤390px i cała
+               strona dostawała scroll poziomy ("Moje Stałe" ucięte). */
+            overflow-x: auto;
+            overflow-y: hidden;
+            scroll-snap-type: x proximity;
+            overscroll-behavior-x: contain;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        .tab-nav::-webkit-scrollbar { display: none; }
+
+        /* [PL] Wygaszenie krawędzi TYLKO gdy realnie jest co przewinąć — klasy ustawia
+           syncTabNavOverflow() w app.js. Maska kosztuje warstwę kompozytora, więc w
+           typowym przypadku (wszystko się mieści) nie ma jej wcale. */
+        .tab-nav.can-scroll-start {
+            -webkit-mask-image: linear-gradient(to right, transparent 0, #000 22px, #000 100%);
+            mask-image: linear-gradient(to right, transparent 0, #000 22px, #000 100%);
+        }
+        .tab-nav.can-scroll-end {
+            -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 22px), transparent 100%);
+            mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 22px), transparent 100%);
+        }
+        .tab-nav.can-scroll-start.can-scroll-end {
+            -webkit-mask-image: linear-gradient(to right, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
+            mask-image: linear-gradient(to right, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
         }
         .tab-btn {
-            flex: 1;
+            /* [PL] 1 0 auto — rosną gdy jest miejsce, ale NIE kurczą się poniżej treści
+               (i tak nie mogą przez white-space:nowrap); nadmiar idzie w scroll paska. */
+            flex: 1 0 auto;
+            scroll-snap-align: center;
+            scroll-margin-inline: 12px;
             padding: 10px 6px;
             border: none;
             border-radius: var(--radius);
@@ -520,6 +550,11 @@
             /* [EN] Override body's touch-action:manipulation to allow vertical pan */
             touch-action: pan-y;
         }
+        /* [PL] Przykłady „na start" — widoczne TYLKO na szerokim ekranie (≥1024px),
+           gdzie i tak była pusta kolumna. Na węższych ekranie nie ma dla nich miejsca,
+           a rolę witryny możliwości przejmuje rotujący placeholder w polu wyrażenia. */
+        .calc-examples { display: none; }
+
         .panel {
             display: none;
             animation: fadeSlideIn 0.30s ease;
@@ -4080,12 +4115,57 @@
             #panel-calculator.active {
                 display: grid;
                 grid-template-columns: minmax(0, 520px) clamp(280px, 26vw, 360px);
+                /* [PL] 2 wiersze: Historia (auto) + przykłady (reszta). Klawiatura
+                   rozpina się na oba, więc jej wysokość nie zależy od prawej kolumny. */
+                grid-template-rows: auto 1fr;
                 gap: 18px;
                 align-items: start;
                 justify-content: center;
                 max-width: 960px;
                 margin: 0 auto;
             }
+            /* Jawne pozycje — szuflada Historii trafia tu dopiero w runtime
+               (syncWideLayout), więc auto-placement nie jest wiarygodny. */
+            #panel-calculator.active > .card { grid-column: 1; grid-row: 1 / span 2; }
+            #panel-calculator.active > .history-drawer { grid-column: 2; grid-row: 1; }
+            #panel-calculator.active > .calc-examples { grid-column: 2; grid-row: 2; }
+
+            #panel-calculator.active > .calc-examples {
+                display: block;
+                padding: 16px 18px;
+                background: var(--card-bg);
+                border: 1px solid var(--border);
+                border-radius: var(--radius-xl);
+                box-shadow: var(--shadow-sm);
+                align-self: start;
+            }
+            .calc-examples-title {
+                margin: 0 0 10px;
+                font-size: 0.8125rem;
+                font-weight: 700;
+                color: var(--text-secondary);
+            }
+            .calc-examples-chips {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            .calc-example-chip {
+                padding: 7px 12px;
+                border: 1px solid var(--border);
+                border-radius: 999px;
+                background: var(--bg);
+                color: var(--text-secondary);
+                font-family: var(--font-mono);
+                font-size: 0.8125rem;
+                cursor: pointer;
+                transition: all var(--transition);
+            }
+            .calc-example-chip:hover {
+                border-color: var(--primary);
+                color: var(--primary);
+            }
+            .calc-example-chip:active { transform: scale(0.97); }
             /* Zadokowana Historia — z bottom-sheet na statyczny panel boczny. ID-specyficzność
                bije `body.history-open .history-drawer`, więc dok nie zależy od stanu szuflady. */
             #panel-calculator > .history-drawer {

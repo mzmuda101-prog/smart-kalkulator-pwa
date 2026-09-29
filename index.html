@@ -20,7 +20,7 @@
          jasnym tłem przy wybranym/systemowym dark. Lekki klucz osobny (matm0_theme):
          'dark' | 'light' | brak = auto (śledzi system).
          [EN] External file (not inline) so CSP stays script-src 'self'; sync load before CSS. -->
-    <script src="js/theme-init.js?v=v1.03.8"></script>
+    <script src="js/theme-init.js?v=v1.04"></script>
     <meta name="application-name" content="Smart Kalkulator">
     <meta name="format-detection" content="telephone=no">
     <meta name="description" content="Szwajcarski scyzoryk do obliczeń codziennych i technicznych">
@@ -28,8 +28,8 @@
     <link rel="icon" href="assets/img/icon-192.png" type="image/png">
     <link rel="apple-touch-icon" href="assets/img/icon-192.png">
     <title>Smart Kalkulator</title>
-    <link rel="stylesheet" href="styles.css?v=v1.03.8" id="matm0MainCss">
-    <script src="js/cache-bust.js?v=v1.03.8" data-phase="head"></script>
+    <link rel="stylesheet" href="styles.css?v=v1.04" id="matm0MainCss">
+    <script src="js/cache-bust.js?v=v1.04" data-phase="head"></script>
 </head>
 
 <body>
@@ -106,8 +106,10 @@
                     <div class="calc-expr-wrap">
                         <textarea class="calc-expression" id="calcExpr" rows="1"
                             autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-                            inputmode="text" aria-label="Wyrażenie kalkulatora" placeholder="Lub wpisz wyrażenie ręcznie…"></textarea>
-                        <span class="calc-ph" id="calcPh" aria-hidden="true"><span>Lub wpisz wyrażenie ręcznie…</span></span>
+                            inputmode="text" aria-label="Wyrażenie kalkulatora" placeholder="np. 100 zł + 23% vat"></textarea>
+                        <!-- Pierwszy przykład STATYCZNIE — pierwszy paint bez migotania;
+                             dalszą rotację przejmuje startPlaceholderExamples() w app.js. -->
+                        <span class="calc-ph" id="calcPh" aria-hidden="true"><span>np. 100 zł + 23% vat</span></span>
                         <div class="autocomplete-dropdown calc-ac-dropdown" id="calcExprAC" role="listbox" aria-label="Podpowiedzi wyrażenia"></div>
                     </div>
                     <div class="calc-live-hint" id="calcLiveHint" hidden aria-live="polite"></div>
@@ -155,6 +157,22 @@
                     </button>
                 </div>
             </div>
+
+            <!-- [PL] Przykłady „na start" — tylko ≥1024px, w pustej kolumnie pod Historią.
+                 Powód: cała przewaga apki (parser zdań) była niewidoczna za placeholderem,
+                 a na szerokim ekranie ~39% szerokości stało puste. Obsługę kliknięcia ma
+                 bindCalcExampleChips() w app.js. Wyrażenia pilnuje test/placeholder-examples.js. -->
+            <aside class="calc-examples" id="calcExamples" aria-label="Przykłady obliczeń">
+                <h3 class="calc-examples-title">Kalkulator rozumie zdania</h3>
+                <div class="calc-examples-chips">
+                    <button class="calc-example-chip" type="button" data-expr="100 zł + 23% vat">100 zł + 23% vat</button>
+                    <button class="calc-example-chip" type="button" data-expr="ile dni do 25.12">ile dni do 25.12</button>
+                    <button class="calc-example-chip" type="button" data-expr="czas w Tokio">czas w Tokio</button>
+                    <button class="calc-example-chip" type="button" data-expr="od 8:00 do 16:30">od 8:00 do 16:30</button>
+                    <button class="calc-example-chip" type="button" data-expr="2 kg na lb">2 kg na lb</button>
+                    <button class="calc-example-chip" type="button" data-expr="5 km * 5 km">5 km * 5 km</button>
+                </div>
+            </aside>
         </section>
 
         <!-- ==================== PANEL: Komenda (merged Engineering + Graph) ==================== -->
@@ -1216,24 +1234,24 @@
 
     <!-- defer: statyczny UI (nagłówek, wyświetlacz, zakładki) maluje się ZANIM wykona się JS
          (app.js ~525 KB). Kolejność zachowana, DOM gotowy przed wykonaniem. -->
-    <script src="js/cache-bust.js?v=v1.03.8" data-phase="defer"></script>
-    <script defer src="version.js?v=v1.03.8"></script>
-    <script defer src="js/cursor-hint.js?v=v1.03.8"></script>
-    <script defer src="js/vendor/decimal.js?v=v1.03.8"></script>
-    <script defer src="js/money-decimal.js?v=v1.03.8"></script>
-    <script defer src="js/numeric-eval.js?v=v1.03.8"></script>
-    <script defer src="js/data-tables.js?v=v1.03.8"></script>
-    <script defer src="js/format-pl.js?v=v1.03.8"></script>
-    <script defer src="js/pl-fold.js?v=v1.03.8"></script>
-    <script defer src="js/smart-parser.js?v=v1.03.8"></script>
-    <script defer src="js/smart-quantity.js?v=v1.03.8"></script>
-    <script defer src="js/quantity-algebra.js?v=v1.03.8"></script>
-    <script defer src="js/hint-rules.js?v=v1.03.8"></script>
-    <script defer src="js/notepad-format.js?v=v1.03.8"></script>
-    <script defer src="js/notepad-engine.js?v=v1.03.8"></script>
-    <script defer src="command-definitions.js?v=v1.03.8"></script>
-    <script defer src="js/calc-layout-tune.js?v=v1.03.8"></script>
-    <script defer src="app.js?v=v1.03.8"></script>
+    <script src="js/cache-bust.js?v=v1.04" data-phase="defer"></script>
+    <script defer src="version.js?v=v1.04"></script>
+    <script defer src="js/cursor-hint.js?v=v1.04"></script>
+    <script defer src="js/vendor/decimal.js?v=v1.04"></script>
+    <script defer src="js/money-decimal.js?v=v1.04"></script>
+    <script defer src="js/numeric-eval.js?v=v1.04"></script>
+    <script defer src="js/data-tables.js?v=v1.04"></script>
+    <script defer src="js/format-pl.js?v=v1.04"></script>
+    <script defer src="js/pl-fold.js?v=v1.04"></script>
+    <script defer src="js/smart-parser.js?v=v1.04"></script>
+    <script defer src="js/smart-quantity.js?v=v1.04"></script>
+    <script defer src="js/quantity-algebra.js?v=v1.04"></script>
+    <script defer src="js/hint-rules.js?v=v1.04"></script>
+    <script defer src="js/notepad-format.js?v=v1.04"></script>
+    <script defer src="js/notepad-engine.js?v=v1.04"></script>
+    <script defer src="command-definitions.js?v=v1.04"></script>
+    <script defer src="js/calc-layout-tune.js?v=v1.04"></script>
+    <script defer src="app.js?v=v1.04"></script>
 </body>
 
 </html>

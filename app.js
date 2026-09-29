@@ -691,6 +691,7 @@
             Object.keys(panels).forEach(function(key) {
                 panels[key].classList.toggle('active', key === tabName);
             });
+            scrollActiveTabIntoView(true);
             if (tabName === 'komenda') {
                 setTimeout(function() { updateGraph(); }, 50);
             }
@@ -715,6 +716,39 @@
                 switchTab(btn.getAttribute('data-tab'));
             });
         });
+
+        /* ── Pasek zakładek: przewijanie w bok + wygaszenie krawędzi ──────────────
+           Zasada: wygaszamy KRAWĘDŹ TYLKO wtedy, gdy po tej stronie realnie coś jest.
+           Maska = warstwa kompozytora, więc przy 4 zakładkach mieszczących się na
+           ekranie nie zakładamy jej w ogóle. */
+        var tabNav = document.querySelector('.tab-nav');
+        function syncTabNavOverflow() {
+            if (!tabNav) return;
+            var max = tabNav.scrollWidth - tabNav.clientWidth;
+            var x = tabNav.scrollLeft;
+            // 2px tolerancji — subpikselowe zaokrąglenia przy zoomie/DPR
+            tabNav.classList.toggle('can-scroll-start', max > 2 && x > 2);
+            tabNav.classList.toggle('can-scroll-end', max > 2 && x < max - 2);
+        }
+        function scrollActiveTabIntoView(smooth) {
+            if (!tabNav) return;
+            var active = tabNav.querySelector('.tab-btn.active');
+            if (!active) return;
+            if (tabNav.scrollWidth - tabNav.clientWidth <= 2) return; // nie ma czego przewijać
+            active.scrollIntoView({
+                inline: 'nearest',
+                block: 'nearest',
+                behavior: smooth && !_prefersReducedMotion ? 'smooth' : 'auto',
+            });
+        }
+        if (tabNav) {
+            tabNav.addEventListener('scroll', syncTabNavOverflow, { passive: true });
+            window.addEventListener('resize', syncTabNavOverflow);
+            if (typeof ResizeObserver === 'function') {
+                new ResizeObserver(syncTabNavOverflow).observe(tabNav);
+            }
+            syncTabNavOverflow();
+        }
 
         // [EN] Dostosowania układu do SZEROKIEGO ekranu (≥1024px). Robione na starcie i przy
         // przekroczeniu progu media-query (nie ciągle, więc ręczne zmiany usera zostają).
@@ -1811,7 +1845,54 @@
             }
             updatePlaceholderMarquee();
             autoGrowExpr();
+            startPlaceholderExamples();
             setTimeout(onResize, 300); // po ustaleniu layoutu/fontów
+        }
+
+        /* ── Placeholder = witryna możliwości silnika ─────────────────────────────
+           Było „Lub wpisz wyrażenie ręcznie…" — samo słowo „Lub" degradowało pole
+           tekstowe do ścieżki pobocznej, a to ono jest przewagą tej apki nad zwykłym
+           kalkulatorem. Teraz pole samo pokazuje, co potrafi.
+
+           Każdy przykład jest sprawdzony na silniku (test/placeholder-examples.js) —
+           placeholder nie może obiecywać czegoś, czego parser nie policzy. */
+        var CALC_PH_EXAMPLES = [
+            '100 zł + 23% vat',
+            'ile dni do 25.12',
+            'czas w Tokio',
+            'od 8:00 do 16:30',
+            '2 kg na lb',
+            '17:00 + 3h',
+            '5 km * 5 km',
+            '145 min czytelnie',
+        ];
+        var CALC_PH_INTERVAL_MS = 4500;
+        var _phExIdx = 0, _phExTimer = 0;
+        function _setPlaceholderText(txt) {
+            if (!_calcPh || !_calcPhInner || !calcExpr) return;
+            _calcPhInner.textContent = txt;
+            calcExpr.setAttribute('placeholder', txt); // a11y + natywny fallback
+            updatePlaceholderMarquee();
+        }
+        function _phExamplesShouldRun() {
+            return STATE.activeTab === 'calculator'
+                && calcExpr && !calcExpr.value
+                && document.visibilityState !== 'hidden'
+                && document.activeElement !== calcExpr; // przy pisaniu nie podmieniamy
+        }
+        function _phExamplesTick() {
+            if (!_phExamplesShouldRun()) return;
+            _phExIdx = (_phExIdx + 1) % CALC_PH_EXAMPLES.length;
+            _setPlaceholderText('np. ' + CALC_PH_EXAMPLES[_phExIdx]);
+        }
+        function startPlaceholderExamples() {
+            if (!_calcPh || !_calcPhInner || _phExTimer) return;
+            _setPlaceholderText('np. ' + CALC_PH_EXAMPLES[_phExIdx]);
+            _phExTimer = setInterval(_phExamplesTick, CALC_PH_INTERVAL_MS);
+            // Zakładka w tle nie ma po co mielić timera.
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'visible') _phExamplesTick();
+            });
         }
 
         function autoGrowExpr() { fitCalcDisplay(); } // alias — starsze wywołania
@@ -1960,11 +2041,19 @@
             document.body.classList.toggle('calc-panel-scroll', !!on);
         }
         function _calcPanelScrollNeeded(t, availDetail, budget, wrapMin) {
-            if (!_isCalcMobileLayout()) return false;
             var c = (t.displayCurve || {}).scrollOverflow || {};
-            if (c.enabled) return true;
             var visible = availDetail && availDetail.visibleH > 0 ? availDetail.visibleH : 0;
             var compact = c.compactViewportPx != null ? c.compactViewportPx : 500;
+            if (!_isCalcMobileLayout()) {
+                // [PL] Desktop/tablet. UWAGA: `enabled` znaczy tu co innego niż na mobile
+                // (tam = wymuś scroll; tu = wolno karcie wystawać), więc NIE używamy go
+                // jako wyzwalacza — od tego jest forceScroll.
+                if (c.forceScroll) return true;
+                // Ściskamy klawiaturę dopóki jest sensownie; przy niskim oknie (np. 1280x600)
+                // lepiej oddać scroll niż zejść z klawiszami do ~26 px.
+                return visible > 0 && visible < compact;
+            }
+            if (c.enabled) return true;
             if (visible > 0 && visible < compact) return true;
             if (wrapMin > 0 && budget) {
                 var df = t.displayFont || {};
@@ -13135,6 +13224,7 @@
                 resolveDisplayBudget: window.resolveCalcDisplayBudget,
                 resolveKeypadFontScale: window.resolveKeypadFontScale,
                 switchTab: switchTab,
+                calcPlaceholderExamples: CALC_PH_EXAMPLES, // bramka: test/placeholder-examples.js
                 updateGraph: updateGraph,
                 renderConstants: renderConstants,
                 renderHistory: renderHistory,

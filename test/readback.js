@@ -72,6 +72,11 @@ const EXTRA = [
     ['5 px na cm', false],        // px zalezy od PPI - konwersja na cm NIE moze przejsc
     ['(2+3)*4', true],            // nawias matematyczny — nietknięty
     ['2 * (3 + 4)', true],
+    // dopisek doby z _dayShift — „za 4 godziny" o 20:17 daje „00:17 (jutro)"
+    ['00:17 (jutro)', true],
+    ['05:00 (wczoraj)', true],
+    ['07:00 (+2 dni)', true],
+    ['12:00 (-3 dni)', true],
 ];
 EXTRA.forEach(function (pair) {
     const r = api.evalCalcExpression(pair[0]);
