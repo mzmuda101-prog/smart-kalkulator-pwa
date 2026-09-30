@@ -4923,14 +4923,14 @@
 
         function ensureHelpSystem() { initHelpSystem(); } // [EN] idempotent — heavy help init deferred off critical path
 
-        var calcHelpOpen = $('#calcHelpOpen');
-        if (calcHelpOpen) {
-            calcHelpOpen.addEventListener('click', function() {
+        [$('#calcHelpOpen'), $('#calcHelpOpenWide')].forEach(function(btn) {
+            if (!btn) return;
+            btn.addEventListener('click', function() {
                 ensureHelpSystem();
                 activeCommandTarget = 'calculator';
                 openCommandHelp();
             });
-        }
+        });
         var graphCommandHelpOpen = $('#graphCommandHelpOpen');
         if (graphCommandHelpOpen) {
             graphCommandHelpOpen.addEventListener('click', function() {
@@ -8152,7 +8152,10 @@
         var _npListQuery = '';                         // filtr wyszukiwania na liście notatek
         // T3-13 — wbudowane szablony (surowy tekst notatki)
         var _NP_TEMPLATES = [
-            { id: 'przyklad-jednostki', title: 'Przykład: wyjazd', learn: true, text: 'Nocleg: 115pln×10os\npaliwo: 5,60pln×100km\nrazem(usd)\ntest: @razem × 2.5\ntest2: @test na pln\n' },
+            // [PL] Każda linia MUSI się liczyć przy DOMYŚLNYCH ustawieniach (notepadUnitMix 'strict').
+            // Stary tekst (5,60pln×100km, razem(usd) z pozycji w zł) dawał „—" i „1 150 $" z 1150 zł —
+            // przykład do nauki pokazywał błędy. Pilnuje tego smoke „learn example computes".
+            { id: 'przyklad-jednostki', title: 'Przykład: wyjazd', learn: true, text: 'Nocleg: 115 usd × 4 os\nPaliwo: 5,60 usd × 40\nrazem(usd)\nNa osobę: @razem / 4\nW złotych: @razem na zł\n' },
             { id: 'remont', title: 'Remont', text: 'Farba: \nGips: \nTaśma: \nRazem\n' },
             { id: 'wyjazd', title: 'Wyjazd', text: 'Dystans km: \nSpalanie l/100: \nPaliwo l: \nKoszt: \nRazem\n' },
             { id: 'faktura', title: 'Faktura VAT', text: 'Netto: \nVAT 23%: \nBrutto: \n' }

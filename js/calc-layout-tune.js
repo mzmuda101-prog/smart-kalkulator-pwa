@@ -444,7 +444,19 @@ function _resolveCalcAvailHeightDetail(panel, card, tune) {
     var vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
     var top = card.getBoundingClientRect().top;
     var tools = card.querySelector('.calc-tools');
-    var toolsH = tools ? tools.getBoundingClientRect().height + 8 : 48;
+    var toolsH;
+    if (tools && tools.getClientRects().length) {
+        toolsH = tools.getBoundingClientRect().height + 8;
+    } else if (tools) {
+        // [PL] ≥1024 rząd narzędzi jest ukryty (Historia obok, Ściąga w .calc-examples).
+        // Jego „+8 px zapasu" przykrywało margines karty i padding .panels — bez rzędu
+        // trzeba je odjąć jawnie, inaczej .panels przewija się o ~32 px.
+        var panelsEl = card.closest('.panels');
+        toolsH = 8 + (parseFloat(getComputedStyle(card).marginBottom) || 0)
+            + (panelsEl ? (parseFloat(getComputedStyle(panelsEl).paddingBottom) || 0) : 0);
+    } else {
+        toolsH = 48;
+    }
     var bottomGap = scroll.viewportBottomGapPx != null ? scroll.viewportBottomGapPx
         : (tune.cardPadEstimate != null ? tune.cardPadEstimate : 16);
     var visibleH = Math.round(vh - top - toolsH - bottomGap);

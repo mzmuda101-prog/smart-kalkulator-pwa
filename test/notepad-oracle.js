@@ -102,6 +102,26 @@ gold('razem bez jednostki (off)', 'A: 100 zł\nB: 50 zł\nrazem', 2, 150);
 api.state.settings.notepadSumUnit = savedSum;
 api.state.settings.notepadUnitMix = savedMix;
 
+// ── PRZYKŁAD DO NAUKI („Przykład: wyjazd") — każda linia liczy się przy DOMYŚLNYCH ustawieniach.
+// Stary tekst działał tylko z ⚙️ „Pierwsza jednostka wygrywa", więc nowy użytkownik widział „—".
+{
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const m = src.match(/id: 'przyklad-jednostki'[^\n]*?text: '((?:[^'\\]|\\.)*)'/);
+  check('learn example: znaleziony w app.js', !!m, {});
+  if (m) {
+    const text = m[1].replace(/\\n/g, '\n');
+    const saved = saveEnv();
+    api.state.fx.rates = Object.assign({}, FX); api.state.fx.ts = Date.now();
+    api.state.settings.notepadUnitMix = 'strict';
+    api.state.settings.notepadSumUnit = 'inherit';
+    np(text).forEach((l, i) => {
+      if (!String(l.raw || '').trim()) return;
+      check('learn example linia ' + (i + 1) + ' liczy się', !!l.text && typeof l.value === 'number', { raw: l.raw, got: l.text });
+    });
+    restoreEnv(saved);
+  }
+}
+
 // ── FORMAT — markery i prefixy nie zmieniają eval ───────────────────────────
 gold('bold strip', '**Paliwo**: 100 + 194', 0, 294);
 gold('align center', '< Nocleg: 3 * 180', 0, 540);

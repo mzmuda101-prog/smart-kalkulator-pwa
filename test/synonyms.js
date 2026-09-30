@@ -20,6 +20,16 @@
 'use strict';
 const { api } = require('./_bootstrap');
 
+// [PL] Dni do najbliższego 25.12 liczone OD DZIŚ. Wcześniej stało tu na sztywno 87
+// (prawda tylko 2026-09-29) — test czerwieniał następnego dnia bez żadnej zmiany w kodzie.
+const DAYS_TO_XMAS = (() => {
+    const now = new Date();
+    const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    let xmas = Date.UTC(now.getFullYear(), 11, 25);
+    if (xmas < today) xmas = Date.UTC(now.getFullYear() + 1, 11, 25);
+    return Math.round((xmas - today) / 86400000);
+})();
+
 api.state.fx.rates = { PLN: 1, EUR: 4.30, USD: 3.95 };
 api.state.fx.ts = Date.now();
 
@@ -46,8 +56,8 @@ const WORKS = [
     ['how many hours from 8:00 to 16:30', 8.5],
     ['ile czasu od 8:00 do 16:30', 510],     // bez konwersji — forma kanoniczna
     // odliczanie do daty w innej jednostce
-    ['ile tygodni do 25.12', 87 / 7, 'tyg'],
-    ['ile godzin do 25.12', 87 * 24],
+    ['ile tygodni do 25.12', DAYS_TO_XMAS / 7, 'tyg'],
+    ['ile godzin do 25.12', DAYS_TO_XMAS * 24],
     // procent z WIELKOŚCI (jednostka musi przeżyć)
     ['20% z 5 km', 1, 'km'],
     ['60% z 2 godzin', 1.2, 'godzin'],   // jednostka echem słowa z wejścia
@@ -79,7 +89,7 @@ for (const [expr, want, unit] of WORKS) {
 // Wartości wpisane RĘCZNIE z przebiegu na HEAD sprzed warstwy synonimów.
 const UNCHANGED = [
     ['od 8:00 do 16:30', 510],
-    ['ile dni do 25.12', 87],
+    ['ile dni do 25.12', DAYS_TO_XMAS],
     ['średnia z 2 4 6', 4],
     ['average of 2 4 6', 4],
     ['20% z 5', 1],

@@ -4114,16 +4114,21 @@
             /* ── Kalkulator: pad (lewo) | stały panel Historii (prawo) ── */
             #panel-calculator.active {
                 display: grid;
-                grid-template-columns: minmax(0, 520px) clamp(280px, 26vw, 360px);
-                /* [PL] 2 wiersze: Historia (auto) + przykłady (reszta). Klawiatura
-                   rozpina się na oba, więc jej wysokość nie zależy od prawej kolumny. */
-                grid-template-rows: auto 1fr;
+                /* [PL] Szerokość klawiatury idzie za WYSOKOŚCIĄ okna. Sztywne 520 px dawało
+                   na 2560×1440 klawisze 111×135 (wyższe niż szersze) i kartę na 20% ekranu.
+                   Do ~1080 px wysokości zostaje 520 (tam klawisze i tak są ≈ kwadratowe). */
+                grid-template-columns: clamp(520px, calc((100dvh - 290px) * 0.68), 720px) clamp(300px, 26vw, 420px);
+                /* [PL] 2 wiersze: Historia (rośnie) + przykłady (na dole). Klawiatura
+                   rozpina się na oba, a Historia ma contain:size, więc wysokość wiersza
+                   wyznacza WYŁĄCZNIE karta — Historia dociąga do jej dołu. */
+                grid-template-rows: minmax(0, 1fr) auto;
                 gap: 18px;
                 align-items: start;
                 justify-content: center;
-                max-width: 960px;
+                max-width: 1180px;
                 margin: 0 auto;
             }
+            #panel-calculator.active .calc-tools { display: none; } /* Historia obok, Ściąga w .calc-examples */
             /* Jawne pozycje — szuflada Historii trafia tu dopiero w runtime
                (syncWideLayout), więc auto-placement nie jest wiarygodny. */
             #panel-calculator.active > .card { grid-column: 1; grid-row: 1 / span 2; }
@@ -4166,17 +4171,34 @@
                 color: var(--primary);
             }
             .calc-example-chip:active { transform: scale(0.97); }
+            .calc-examples-help {
+                display: block;
+                margin-top: 14px;
+                padding: 9px 14px;
+                border: 1.5px solid var(--border-focus);
+                border-radius: var(--radius);
+                background: var(--primary-light);
+                color: var(--primary);
+                font-family: var(--font);
+                font-size: 0.8125rem;
+                font-weight: 700;
+                cursor: pointer;
+            }
+            .calc-examples-help:active { transform: scale(0.97); }
             /* Zadokowana Historia — z bottom-sheet na statyczny panel boczny. ID-specyficzność
                bije `body.history-open .history-drawer`, więc dok nie zależy od stanu szuflady. */
             #panel-calculator > .history-drawer {
-                position: sticky;
-                top: 8px;
+                position: relative;
+                align-self: stretch;
+                contain: size; /* [PL] długa lista nie rozpycha wiersza — przewija się w środku */
+                contain-intrinsic-size: none; /* [PL] bez tego wisi 320px z trybu szuflady (body:not(.history-open)) */
+                min-height: 0;
                 left: auto;
                 bottom: auto;
                 transform: none;
                 width: auto;
                 max-width: none;
-                max-height: calc(100dvh - 150px);
+                max-height: none;
                 border: 1px solid var(--border);
                 border-radius: var(--radius-xl);
                 box-shadow: var(--shadow);

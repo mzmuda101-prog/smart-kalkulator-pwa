@@ -82,13 +82,18 @@ test('klawiatura kalkulatora mieści się na laptopie bez przewijania', async ({
     for (const [w, h] of [[1024, 768], [1280, 800], [1366, 768], [1440, 900], [1920, 1080]]) {
         await page.setViewportSize({ width: w, height: h });
         await H.waitAppReady(page);
-        const m = await page.evaluate(() => ({
-            toolsB: document.querySelector('.calc-tools').getBoundingClientRect().bottom,
-            eqB: document.querySelector('.calc-btn--equals').getBoundingClientRect().bottom,
-            vh: window.innerHeight,
-        }));
+        const m = await page.evaluate(() => {
+            // ≥1024 rząd .calc-tools jest ukryty — Ściąga siedzi wtedy w karcie przykładów
+            const tools = document.querySelector('.calc-tools');
+            const help = tools.getClientRects().length ? tools : document.getElementById('calcHelpOpenWide');
+            return {
+                toolsB: help.getBoundingClientRect().bottom,
+                eqB: document.querySelector('.calc-btn--equals').getBoundingClientRect().bottom,
+                vh: window.innerHeight,
+            };
+        });
         expect(m.eqB, `${w}x${h}: "=" pod zgięciem`).toBeLessThanOrEqual(m.vh);
-        expect(m.toolsB, `${w}x${h}: rząd narzędzi pod zgięciem`).toBeLessThanOrEqual(m.vh);
+        expect(m.toolsB, `${w}x${h}: Ściąga pod zgięciem`).toBeLessThanOrEqual(m.vh);
     }
 });
 
@@ -113,4 +118,59 @@ test('przykłady na szerokim ekranie liczą się po kliknięciu', async ({ page 
     const res = (await page.textContent('#calcResult')).trim();
     expect(res, `przykład "${expr}" nie policzył się`).not.toBe('');
     expect(res).not.toBe('—');
+});
+
+// ============================================================
+//  SZEROKI EKRAN (2026-10-01) — zmierzone przed fixem:
+//  1280x720 klawisze 111x38 (rząd samej „Ściągi" zjadał ~60 px),
+//  2560x1440 karta sztywno 520 px (20% ekranu), klawisze 111x135,
+//  Historia 272 px wysokości niezależnie od okna.
+// ============================================================
+test('szeroki ekran: bez scrolla, klawisze sensowne, Historia do dołu karty', async ({ page }) => {
+    for (const [w, h] of [[1280, 720], [1366, 768], [1440, 900], [1920, 1080], [2560, 1440]]) {
+        await page.setViewportSize({ width: w, height: h });
+        await H.waitAppReady(page);
+        await page.waitForTimeout(300);
+        const m = await page.evaluate(() => {
+            const pn = document.querySelector('.panels');
+            const key = document.querySelector('.calc-btn--number').getBoundingClientRect();
+            const card = document.querySelector('#panel-calculator > .card').getBoundingClientRect();
+            const ex = document.getElementById('calcExamples').getBoundingClientRect();
+            return {
+                panScroll: pn.scrollHeight - pn.clientHeight,
+                keyW: key.width, keyH: key.height,
+                cardB: card.bottom, exB: ex.bottom,
+            };
+        });
+        expect(m.panScroll, `${w}x${h}: panel przewija się o ${m.panScroll}px`).toBeLessThanOrEqual(1);
+        expect(m.keyH, `${w}x${h}: klawisze za niskie`).toBeGreaterThanOrEqual(48);
+        expect(m.keyH / m.keyW, `${w}x${h}: klawisz wyraźnie wyższy niż szerszy`).toBeLessThanOrEqual(1.1);
+        expect(Math.abs(m.exB - m.cardB), `${w}x${h}: prawa kolumna nie kończy się z kartą`).toBeLessThanOrEqual(16);
+    }
+});
+
+test('szeroki ekran: długa Historia przewija się w sobie, nie stronę', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.goto('index.html');
+    await page.evaluate(() => {
+        const a = [];
+        for (let i = 0; i < 40; i++) a.push({ text: `${i}+${i} = ${2 * i}`, pinned: false });
+        localStorage.setItem('matm0_calc_history', JSON.stringify(a));
+    });
+    await H.waitAppReady(page);
+    const m = await page.evaluate(() => {
+        const pn = document.querySelector('.panels');
+        const l = document.getElementById('historyList');
+        return { panScroll: pn.scrollHeight - pn.clientHeight, listScroll: l.scrollHeight - l.clientHeight };
+    });
+    expect(m.panScroll, 'Historia rozepchnęła stronę').toBeLessThanOrEqual(1);
+    expect(m.listScroll, 'lista Historii powinna mieć własny scroll').toBeGreaterThan(0);
+});
+
+test('szeroki ekran: Ściąga z karty przykładów otwiera pomoc', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await H.waitAppReady(page);
+    await expect(page.locator('.calc-tools')).toBeHidden();
+    await page.click('#calcHelpOpenWide');
+    await expect(page.locator('body')).toHaveClass(/help-open/);
 });
