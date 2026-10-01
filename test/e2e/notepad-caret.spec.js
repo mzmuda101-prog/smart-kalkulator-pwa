@@ -85,27 +85,30 @@ test('H1 kasia — klik po pierwszej „a” kasuje „a” (nie s/i)', async ({
     return { x: r.left + 0.5, y: (r.top + r.bottom) / 2 };
   });
 
-  // Dowód regresji: metryki textarea w tym X wskazywałyby zły indeks (≥4 → kasuje s/i)
-  const taGuess = await page.evaluate(({ x }) => {
+  // [PL] 2026-10-01: NATYWNE metryki textarea (surowy bufor ZE znacznikami, font textarea) muszą
+  // trafiać w ten sam znak co podgląd. Dawniej H1 miało większy font, a znacznik PUA pełną
+  // szerokość znaku → textarea trafiała w ≥4 (kasowała s/i), a iOS stawiał kursor właśnie
+  // z tych metryk. Teraz znaczniki mają 0 px (czcionka NpMarkers), nagłówki ten sam font.
+  const taGuess = await page.evaluate(async ({ x }) => {
+    await document.fonts.ready;
     const ta = document.querySelector('textarea.np-text');
-    const FMT = window.MATM0_NP_FMT;
     const cs = getComputedStyle(ta);
     const probe = document.createElement('div');
-    probe.style.cssText = `position:absolute;left:-9999px;white-space:pre-wrap;font:${cs.font};width:${ta.clientWidth}px;padding:${cs.padding}`;
+    probe.style.cssText = `position:absolute;left:-9999px;white-space:pre-wrap;font:${cs.font};width:${ta.clientWidth}px;padding:${cs.padding};box-sizing:${cs.boxSizing}`;
     document.body.appendChild(probe);
     const taRect = ta.getBoundingClientRect();
     let best = 0, bestD = Infinity;
     for (let i = 0; i <= ta.value.length; i++) {
       probe.textContent = '';
-      probe.appendChild(document.createTextNode(FMT.displayPrefix(ta.value, i)));
+      probe.appendChild(document.createTextNode(ta.value.slice(0, i)));
       const zw = document.createElement('span'); zw.textContent = '\u200b'; probe.appendChild(zw);
       const d = Math.abs(taRect.left + zw.offsetLeft - x);
-      if (d < bestD) { bestD = d; best = i; }
+      if (d < bestD - 0.01) { bestD = d; best = i; }
     }
     probe.remove();
-    return best;
+    return ta.value.slice(0, best).replace(/[\uE000-\uE01F]/g, '').length; // widoczne znaki przed kursorem
   }, pt);
-  expect(taGuess, 'textarea metrics should MIS-hit (≥4) — precondition of bug').toBeGreaterThanOrEqual(4);
+  expect(taGuess, 'natywny kursor textarea musi trafiać za pierwsze „a” (2 znaki widoczne)').toBe(2);
 
   await NP.tapAt(page, pt.x, pt.y);
   let st = await NP.readCaretState(page);

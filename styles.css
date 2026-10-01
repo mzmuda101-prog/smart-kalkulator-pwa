@@ -1,7 +1,20 @@
         /* ============================================================
            [EN] CSS Custom Properties — global design tokens
            ============================================================ */
+        /* [PL] Czcionka-cień: znaczniki formatowania notatnika (U+E000–E01F, Private Use Area)
+           mają ZEROWĄ szerokość. Bez tego przezroczysta textarea rysowała je w foncie zastępczym
+           na pełną szerokość znaku, a podgląd (.np-mirror) wcale — natywny kursor iOS/Androida
+           stał 1–2 znaki obok tego, co widać. Źródło: scripts/build-np-markers-font.py */
+        @font-face {
+            font-family: 'NpMarkers';
+            src: url('assets/fonts/np-markers.woff') format('woff');
+            unicode-range: U+E000-E01F;
+            font-display: block;
+        }
+
         :root {
+            /* Wspólna rodzina textarea + podglądu notatnika — MUSI być identyczna w obu warstwach. */
+            --np-font-family: 'NpMarkers', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
             /* Apka zaprojektowana na jasno — natywne kontrolki też renderują się jasno
                w systemowym dark (patrz <meta name="color-scheme">). */
             color-scheme: light;
@@ -2829,7 +2842,7 @@
             padding: 6px 8px;
             white-space: pre-wrap;
             overflow-wrap: anywhere;
-            font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+            font-family: var(--np-font-family);
             font-size: var(--np-font-size);
             line-height: 2;
             color: var(--text); /* [EN] formatted preview layer — textarea text is transparent on top */
@@ -2840,12 +2853,31 @@
             white-space: pre-wrap;
             overflow-wrap: anywhere;
         }
-        .np-mirror-line.np-h1 { font-size: calc(var(--np-font-size) * 1.34); font-weight: 700; line-height: 1.45; letter-spacing: -0.01em; }
-        .np-mirror-line.np-h2 { font-size: calc(var(--np-font-size) * 1.18); font-weight: 600; line-height: 1.5; }
-        .np-mirror-line.np-h3 { font-size: calc(var(--np-font-size) * 1.08); font-weight: 600; line-height: 1.55; }
-        .np-mirror-line .np-h1 { font-size: calc(var(--np-font-size) * 1.34); font-weight: 700; line-height: 1.45; letter-spacing: -0.01em; }
-        .np-mirror-line .np-h2 { font-size: calc(var(--np-font-size) * 1.18); font-weight: 600; line-height: 1.5; }
-        .np-mirror-line .np-h3 { font-size: calc(var(--np-font-size) * 1.08); font-weight: 600; line-height: 1.55; }
+        /* [PL] Nagłówki NIE zmieniają rozmiaru, wagi fontu ani wysokości wiersza — tylko kolor,
+           faux-bold (cień, jak .np-fmt-bold) i podkreślenie. Powód: podgląd leży POD przezroczystą
+           textarea, która ma jeden font na wszystko. Większe H1 łamało się w podglądzie na więcej
+           wierszy niż w textarea (390px: 3 vs 2), więc każda linia niżej była o wiersz przesunięta —
+           natywny kursor iOS stawał gdzie indziej, Backspace kasował 1–2 linie dalej.
+           Niezmiennik pilnowany w test/e2e/notepad-geometry.spec.js. */
+        .np-mirror-line.np-h1, .np-mirror-line .np-h1 {
+            font-weight: inherit;
+            color: var(--text);
+            text-shadow: 0.7px 0 0 currentColor, -0.7px 0 0 currentColor;
+            text-decoration: underline;
+            text-decoration-color: var(--primary);
+            text-decoration-thickness: 2px;
+            text-underline-offset: 0.3em;
+        }
+        .np-mirror-line.np-h2, .np-mirror-line .np-h2 {
+            font-weight: inherit;
+            color: var(--primary);
+            text-shadow: 0.6px 0 0 currentColor, -0.6px 0 0 currentColor;
+        }
+        .np-mirror-line.np-h3, .np-mirror-line .np-h3 {
+            font-weight: inherit;
+            color: var(--text-secondary);
+            text-shadow: 0.5px 0 0 currentColor, -0.5px 0 0 currentColor;
+        }
         .np-mirror-line.np-align-center { text-align: center; }
         .np-mirror-line.np-align-right { text-align: right; }
         .np-mirror-line.np-align-justify { text-align: justify; }
@@ -2874,7 +2906,7 @@
             margin: 0;
             resize: none;
             overflow: hidden;
-            font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+            font-family: var(--np-font-family);
             font-size: var(--np-font-size);
             line-height: 2;
             white-space: pre-wrap;
@@ -2917,7 +2949,7 @@
             background: transparent;
             color: var(--text);
             text-align: left;
-            font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+            font-family: var(--np-font-family);
             font-size: var(--np-font-size);
             line-height: 2;
             padding: 0 8px;
@@ -3024,7 +3056,7 @@
         .np-editor.np-fold.np-editing .np-fold-layer { opacity: 0; pointer-events: none; }
         /* Legacy row styles (tests / stare klasy) */
         .np-line, .np-label {
-            font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+            font-family: var(--np-font-family);
             font-size: var(--np-font-size);
             line-height: 2;
         }

@@ -412,7 +412,32 @@ async function readCaretState(page) {
     const lh = parseFloat(cs.lineHeight) || (parseFloat(cs.fontSize) * 2) || 24;
     const lineH = mLineRect ? mLineRect.height : 0;
     const visualRows = lineH > 0 ? Math.max(1, Math.round(lineH / lh)) : 1;
+    // [PL] 2026-10-01: kursor jest NATYWNY (nakładka .np-visual-caret wyłączona — na iOS z klawiaturą
+    // jej position:fixed lądowała o offset visualViewport obok). Pozycję natywnego kursora liczymy
+    // z klonu textarea z PEŁNYM tekstem; znacznik = U+2060 (0 px, NIE jest miejscem łamania).
+    let caretLeft = null, caretTop = null;
+    if (a === b) {
+      const probe = document.createElement('div');
+      for (const k of ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'lineHeight', 'letterSpacing',
+        'paddingLeft', 'paddingRight', 'paddingTop', 'whiteSpace', 'overflowWrap', 'wordBreak', 'boxSizing']) probe.style[k] = cs[k];
+      probe.style.cssText += ';position:absolute;visibility:hidden;left:-9999px;top:0';
+      probe.style.width = ta.clientWidth + 'px';
+      document.body.appendChild(probe);
+      probe.append(ta.value.slice(0, a));
+      const mark = document.createElement('span');
+      mark.textContent = '\u2060';
+      probe.append(mark);
+      probe.append(ta.value.slice(a));
+      const pr = probe.getBoundingClientRect();
+      const mr = mark.getBoundingClientRect();
+      const taRect = ta.getBoundingClientRect();
+      caretLeft = taRect.left + (mr.left - pr.left) - ta.scrollLeft;
+      caretTop = taRect.top + (mr.top - pr.top) - ta.scrollTop;
+      probe.remove();
+    }
     return {
+      caretLeft,
+      caretTop,
       value: ta.value,
       selectionStart: a,
       selectionEnd: b,
@@ -442,18 +467,21 @@ async function readCaretState(page) {
   });
 }
 
+/** Kursor (natywny) w pudełku linii podglądu — i BEZ nakładki .np-visual-caret.
+ *  Nazwa historyczna: dawniej sprawdzało nakładkę; od 2026-10-01 geometria textarea ≡ podgląd,
+ *  więc jedynym kursorem jest natywny (patrz test/e2e/notepad-geometry.spec.js). */
 function assertVisualCaretInLine(st, label) {
   const { expect } = require('playwright/test');
   expect(st, label).toBeTruthy();
-  expect(st.visualCaretOn, `${label}: visual caret should be on`).toBe(true);
-  expect(st.visualCaretHidden, `${label}: overlay visible`).toBe(false);
-  expect(st.visLeft, `${label}: left`).toEqual(expect.any(Number));
-  expect(st.visTop, `${label}: top`).toEqual(expect.any(Number));
-  if (st.mLine && Number.isFinite(st.visLeft) && Number.isFinite(st.visTop)) {
-    expect(st.visLeft, `${label}: left in/near line`).toBeGreaterThanOrEqual(st.mLine.left - 4);
-    expect(st.visLeft, `${label}: left not past line`).toBeLessThanOrEqual(st.mLine.right + 4);
-    expect(st.visTop, `${label}: top near line`).toBeGreaterThanOrEqual(st.mLine.top - 8);
-    expect(st.visTop, `${label}: top not below line`).toBeLessThanOrEqual(st.mLine.bottom + 8);
+  expect(st.visualCaretOn, `${label}: nakładka kursora ma być wyłączona (kursor natywny)`).toBe(false);
+  expect(st.visualCaretHidden, `${label}: nakładka ukryta`).toBe(true);
+  expect(st.caretLeft, `${label}: left`).toEqual(expect.any(Number));
+  expect(st.caretTop, `${label}: top`).toEqual(expect.any(Number));
+  if (st.mLine) {
+    expect(st.caretLeft, `${label}: left in/near line`).toBeGreaterThanOrEqual(st.mLine.left - 4);
+    expect(st.caretLeft, `${label}: left not past line`).toBeLessThanOrEqual(st.mLine.right + 4);
+    expect(st.caretTop, `${label}: top near line`).toBeGreaterThanOrEqual(st.mLine.top - 8);
+    expect(st.caretTop, `${label}: top not below line`).toBeLessThanOrEqual(st.mLine.bottom + 8);
   }
 }
 
@@ -469,11 +497,11 @@ function assertSoftWrapped(st, label) {
 function assertCaretOnVisualRow(st, visualRow, label) {
   const { expect } = require('playwright/test');
   expect(st.mLine, `${label}: mirror line`).toBeTruthy();
-  expect(st.visTop, `${label}: visTop`).toEqual(expect.any(Number));
+  expect(st.caretTop, `${label}: caretTop`).toEqual(expect.any(Number));
   const rowTop = st.mLine.top + st.lineHeightPx * visualRow;
   const rowBot = rowTop + st.lineHeightPx;
-  expect(st.visTop, `${label}: caret on visual row ${visualRow}`).toBeGreaterThanOrEqual(rowTop - 6);
-  expect(st.visTop, `${label}: caret on visual row ${visualRow}`).toBeLessThan(rowBot + 6);
+  expect(st.caretTop, `${label}: caret on visual row ${visualRow}`).toBeGreaterThanOrEqual(rowTop - 6);
+  expect(st.caretTop, `${label}: caret on visual row ${visualRow}`).toBeLessThan(rowBot + 6);
 }
 
 module.exports = {

@@ -8595,6 +8595,7 @@
                 }
                 _npCommit();
                 _npUpdateVisualCaret();
+                requestAnimationFrame(_npEnsureCaretVisible);
             });
             npBody.addEventListener('select', _npOnFmtSelectionLive);
             npBody.addEventListener('keyup', _npOnFmtSelectionEnd);
@@ -8602,6 +8603,7 @@
                 requestAnimationFrame(function() {
                     _npUpdateVisualCaret();
                     _npRefreshMirrorFmt();
+                    _npEnsureCaretVisible();
                 });
             });
             npBody.addEventListener('pointerdown', _npOnCaretPointerDown);
@@ -8642,6 +8644,14 @@
             _npBindPanelCtx(npEditor);
             if (npGutter) _npBindPanelCtx(npGutter);
             _npBindSelectionFmtMenu(npBody);
+            // [PL] Czcionka-cień NpMarkers (znaczniki formatowania = 0 px, styles.css @font-face).
+            // Ładuje się leniwie przy pierwszym znaczniku — dociągamy ją od razu, a po wczytaniu
+            // przeliczamy układ, żeby textarea i podgląd od startu miały tę samą geometrię.
+            if (document.fonts && typeof document.fonts.load === 'function') {
+                document.fonts.load('1em NpMarkers', '').then(function() {
+                    if (npBody && document.body.classList.contains('notepad-open')) npRecompute();
+                }).catch(function() {});
+            }
         }
         function _npSyncGutterHidden() {
             var hidden = !!(STATE.settings && STATE.settings.notepadGutterHidden);
@@ -9013,13 +9023,17 @@
             if (isTap) _npPlaceCaretFromClientPoint(pt.clientX, pt.clientY);
             _npOnFmtSelectionEnd();
         }
-        function _npNeedsVisualCaret(val, index) { // [EN] markery PUA + H zmienia szerokość glyfów vs bufor
-            if (index == null || index < 0) return false;
-            if (_npDisplayPrefix(val, index).length !== index) return true;
-            if (!_NP_FMT || typeof _NP_FMT.listRegions !== 'function') return false;
-            var li = _npLineIndexAt(index);
-            var b = _npLineBounds(li);
-            return _NP_FMT.listRegions(val.slice(b.start, b.end)).some(function (r) { return r.fmt && r.fmt.heading; });
+        function _npNeedsVisualCaret(val, index) {
+            // [PL] 2026-10-01: nakładka kursora WYŁĄCZONA — kursor jest zawsze natywny.
+            // Dawniej włączała się w KAŻDEJ linii po jakimkolwiek znaczniku formatowania w notatce
+            // (displayPrefix ≠ index), bo textarea i podgląd miały różną geometrię (większe H1,
+            // znaczniki PUA o pełnej szerokości). Na iOS z klawiaturą jej position:fixed lądowała
+            // o visualViewport.offsetTop obok ([[reference_ios_visual_viewport_fixed]]) — kursor
+            // „wisiał" dwie linie wyżej, choć edycja trafiała gdzie indziej.
+            // Teraz geometria jest identyczna (czcionka NpMarkers = znaczniki 0 px, nagłówki bez
+            // zmiany rozmiaru), więc natywny kursor stoi dokładnie tam, gdzie widać tekst.
+            // Strażnik: test/e2e/notepad-geometry.spec.js.
+            return false;
         }
         function _npEnsureVisualCaret() {
             if (_npVisualCaret) return _npVisualCaret;
@@ -9643,6 +9657,20 @@
             for (var i = 0; i < idx && i < parts.length; i++) pos += parts[i].length + 1;
             npBody.focus();
             try { npBody.setSelectionRange(pos, pos); } catch (e) {}
+        }
+        // [PL] Linia z kursorem zawsze widoczna w edytorze. textarea ma auto-wysokość wewnątrz
+        // przewijanego .np-editor, więc iOS NIE przewija za kursorem sam — po wysunięciu klawiatury
+        // (nakładka kurczy się do visualViewport) edytowana linia lądowała pod klawiaturą.
+        function _npEnsureCaretVisible() {
+            if (!npEditor || !npBody || document.activeElement !== npBody) return;
+            var a = npBody.selectionStart, b = npBody.selectionEnd;
+            if (a == null || b == null || a !== b) return;
+            var r = _npCaretRectFromMirror(npBody, a);
+            if (!r) return;
+            var er = npEditor.getBoundingClientRect();
+            var pad = 8;
+            if (r.bottom > er.bottom - pad) npEditor.scrollTop += Math.ceil(r.bottom - (er.bottom - pad));
+            else if (r.top < er.top + pad) npEditor.scrollTop -= Math.ceil((er.top + pad) - r.top);
         }
         function _npSyncEditorScroll() {
             if (!npEditor) return;
@@ -10498,6 +10526,7 @@
             notepadModal.style.bottom = 'auto';     // bez tego top+bottom:0 zignorowałyby height
             _npSyncKbBar();
             _npScheduleSelectionFmtMenu();
+            requestAnimationFrame(_npEnsureCaretVisible); // klawiatura wysunięta → pisana linia nad nią
         }
         function _npClearViewport() {
             if (!notepadModal) return;
