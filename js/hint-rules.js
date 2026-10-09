@@ -81,7 +81,7 @@
         // warianty obsłużone przez warstwę synonimów (js/synonyms.js) — autocomplete
         // i fuzzy mają je podpowiadać, skoro silnik już je liczy
         'ile godzin od 8:00 do 16:30', 'ile tygodni do 25.12', '20% z 5 km',
-        'podziel 250 zł na 4', 'średnia 2 4 6'
+        'podziel 250 zł na 4', 'średnia 2 4 6', 'mediana 2 4 8', 'suma z 12 15 18'
     ];
 
     function getLiveHints(expr) {

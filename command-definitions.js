@@ -224,6 +224,9 @@
                     { syntax: 'podziel A na N', syntaxAlt: 'split A by N', command: 'podziel 250 zł na 4', yields: 'A ÷ N', description: 'też: „250 zł na 4 osoby”' },
                     { syntax: 'proporcja a do b', syntaxAlt: 'ratio of a to b', command: 'proporcja 3 do 5', yields: 'a ÷ b', description: 'stosunek a:b' },
                     { syntax: 'średnia z a b c', syntaxAlt: 'average of a b c', command: 'średnia z 10 15 20 35 40', yields: '(a+b+c+…) ÷ n', description: 'średnia arytmetyczna listy liczb („z” opcjonalne)' },
+                    { syntax: 'suma z a b c', syntaxAlt: 'sum of a b c', command: 'suma z 10 15 20', yields: 'a+b+c+…', description: 'suma listy liczb („z” opcjonalne)' },
+                    { syntax: 'min / max z a b c', syntaxAlt: 'min / max of a b c', command: 'max z 10 15 20', yields: 'najmniejsza / największa wartość', description: 'skrajna wartość z listy liczb' },
+                    { syntax: 'mediana z a b c', syntaxAlt: 'median of a b c', command: 'mediana z 10 15 20 35', yields: 'środkowa wartość po sortowaniu', description: 'dla parzystej listy — średnia dwóch środkowych' },
                 ],
             },
             {

@@ -1864,6 +1864,7 @@
             '2 kg na lb',
             '17:00 + 3h',
             '5 km * 5 km',
+            'mediana 12 4 18 8',
             '145 min czytelnie',
         ];
         var CALC_PH_INTERVAL_MS = 4500;

@@ -162,7 +162,8 @@
 
         /* ── 5. Agregacja bez „z" ──────────────────────────────────────────────
            „średnia 2 4 6" → „średnia z 2 4 6". Sam przyimek gubił całą komendę.
-           Suma/min/max/mediana to NOWE funkcje, nie synonimy — nie ma ich tutaj. */
+           Agregacje działają też bez przyimka. Reguły są fallbackiem, więc nie
+           przechwytują wyrażeń, które rozumie już rdzeń. */
         {
             id: 'average-no-preposition',
             re: /^(?:średnia|srednia|average|avg|mean)\s+(?!(?:z|ze|of|from)\s)(.+)$/i,
@@ -172,6 +173,11 @@
             id: 'average-alias',
             re: /^(?:avg|mean)\s+(?:of|z|ze)\s+(.+)$/i,
             build: function (m) { return { expr: 'średnia z ' + m[1] }; },
+        },
+        {
+            id: 'aggregate-no-preposition',
+            re: /^(suma|sum|min(?:imum)?|max(?:imum)?|maksimum|mediana|median)\s+(?!(?:z|of)\s)(.+)$/i,
+            build: function (m) { return { expr: m[1] + ' z ' + m[2] }; },
         },
     ];
 

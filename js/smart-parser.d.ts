@@ -74,6 +74,7 @@ export interface Matm0Parser {
   evalPercentBaseQuery: (raw: string, options?: ParserEvaluateOptions) => EvaluateResult | null;
   evalPeriodPercentage: (raw: string) => EvaluateResult | null;
   evalAverage: (raw: string) => EvaluateResult | null;
+  evalAggregate: (raw: string) => EvaluateResult | null;
   evalRouteCost: (raw: string) => EvaluateResult | null;
   resolveCalcAnswer: (raw: string, lastAnswer?: number | null) => string;
   resolveCalcConstants: (raw: string, options?: ParserEvaluateOptions) => string;

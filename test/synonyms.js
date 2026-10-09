@@ -70,6 +70,12 @@ const WORKS = [
     // agregacja bez przyimka
     ['średnia 2 4 6', 4],
     ['avg of 2 4 6', 4],
+    ['suma 2 4 6', 12],
+    ['sum of 2 4 6', 12],
+    ['min 8 2 5', 2],
+    ['maksimum 8 2 5', 8],
+    ['mediana 9 1 5', 5],
+    ['median of 1 9 3 7', 5],
 ];
 
 for (const [expr, want, unit] of WORKS) {
@@ -130,7 +136,8 @@ const SILENT = [
     'podziel na 4',           // nie ma czego dzielić
     'średnia',                // nie ma z czego liczyć
     'ile godzin od 8:00',     // brak końca zakresu
-    'suma 2 4 6',             // suma to NOWA funkcja, nie synonim — świadomie poza zakresem
+    'suma',                   // nie ma z czego liczyć
+    'mediana z 10 zł 20 zł',  // agregacje nie zgadują, jak łączyć jednostki/waluty
 ];
 
 for (const expr of SILENT) {

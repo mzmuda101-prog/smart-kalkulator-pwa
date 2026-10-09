@@ -1185,23 +1185,42 @@
         }
         return result;
     }
-    // Średnia arytmetyczna listy liczb: „średnia z 10 15 20", „average of 10, 15, 20".
-    function evalAverage(raw) {
+    // Agregacje dla list liczb. Przyjmujemy wyłącznie gołe liczby, aby nie
+    // zgadywać semantyki mieszaniny jednostek lub walut.
+    function evalAggregate(raw) {
         var s = _plFold(raw).trim();
-        if (!s || !/(?:srednia|average|mean|avg)\b/.test(s)) return null;
-        var m = s.match(/^(?:srednia|average|mean|avg)\s+(?:z|of)\s+(.+)$/i);
+        if (!s || !/(?:srednia|average|mean|avg|suma|sum|min(?:imum)?|max(?:imum)?|maksimum|mediana|median)\b/.test(s)) return null;
+        var m = s.match(/^(srednia|average|mean|avg|suma|sum|min(?:imum)?|max(?:imum)?|maksimum|mediana|median)\s+(?:z|of)\s+(.+)$/i);
         if (!m) return null;
-        var tokens = m[1].trim().replace(/[,:;]+$/g, '').split(/[\s,;:]+/).filter(Boolean);
+        var kind = m[1].toLowerCase();
+        var tokens = m[2].trim().replace(/[,:;]+$/g, '').split(/[\s,;:]+/).filter(Boolean);
         if (!tokens.length) return null;
-        var sum = 0;
+        var values = [];
         for (var i = 0; i < tokens.length; i++) {
             var n = parseFloat(String(tokens[i]).replace(',', '.'));
             if (!isFinite(n)) return null;
-            sum += n;
+            values.push(n);
         }
-        var avg = sum / tokens.length;
-        var label = Number.isInteger(avg) ? undefined : 6;
-        return { value: avg, unit: null, kind: 'number', text: _formatLocaleNumber(avg, label) };
+        var value;
+        if (/^(srednia|average|mean|avg)$/.test(kind)) {
+            value = values.reduce(function(sum, n) { return sum + n; }, 0) / values.length;
+        } else if (/^(suma|sum)$/.test(kind)) {
+            value = values.reduce(function(sum, n) { return sum + n; }, 0);
+        } else if (/^min/.test(kind)) {
+            value = Math.min.apply(Math, values);
+        } else if (/^(max|maks)/.test(kind)) {
+            value = Math.max.apply(Math, values);
+        } else {
+            var sorted = values.slice().sort(function(a, b) { return a - b; });
+            var mid = Math.floor(sorted.length / 2);
+            value = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+        }
+        var label = Number.isInteger(value) ? undefined : 6;
+        return { value: value, unit: null, kind: 'number', text: _formatLocaleNumber(value, label) };
+    }
+    // Zachowany eksport dla aktualnych klientów silnika i testów.
+    function evalAverage(raw) {
+        return evalAggregate(raw);
     }
     function evalRouteCost(raw) {
         var s = _plFold(raw).replace(',', ',');
@@ -1652,8 +1671,8 @@
         if (pctDiffQ) return pctDiffQ;
         var periodPctQ = evalPeriodPercentage(original);
         if (periodPctQ) return periodPctQ;
-        var avgQ = evalAverage(original);
-        if (avgQ) return avgQ;
+        var aggregateQ = evalAggregate(original);
+        if (aggregateQ) return aggregateQ;
         var routeQ = evalRouteCost(original);
         if (routeQ) return routeQ;
         try {
@@ -1871,6 +1890,7 @@
         evalDateExpression: evalDateExpression,
         evalPeriodPercentage: evalPeriodPercentage,
         evalAverage: evalAverage,
+        evalAggregate: evalAggregate,
         evalPercentQuery: evalPercentQuery,
         evalPercentOfPercent: evalPercentOfPercent,
         evalPercentDifference: evalPercentDifference,
