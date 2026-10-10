@@ -47,6 +47,7 @@
                 lastResult: null,
                 lastUnit: null,
                 ans: null, // ostatni ZATWIERDZONY wynik (=) — dla słowa „ans"/„wynik"
+                justEvaluated: false, // następna cyfra z pada zaczyna nowe działanie; operator ciągnie wynik dalej
             },
             // Kursy walut (NBP + Frankfurter, opcjonalnie online — działa offline z cache)
             // source: 'nbp' | 'frankfurter' | 'merge' | 'cache' — co dostarczyło aktualne kursy.
@@ -110,6 +111,7 @@
         const calcLiveHint = $('#calcLiveHint');
         const calcEmptySuggest = $('#calcEmptySuggest');
         const calcResult = $('#calcResult');
+        const calcCopyBtn = $('#calcCopyBtn');
         const calcApprox = $('#calcApprox');
         const calcGrid = $('#calcGrid');
         const historyList = $('#historyList');
@@ -1767,6 +1769,16 @@
             liveEval();
         }
 
+        // Po '=' pole zawiera już wynik (np. „123,00 zł”). Dopisanie do niego cyfry z pada
+        // dawało tekst typu „123,00 zł5”, który parser odczytywał jako 123,005 zł. Zachowanie
+        // zgodne ze zwykłym kalkulatorem: liczba zaczyna kolejne działanie, operator używa wyniku.
+        function _beginFreshCalcAfterEquals() {
+            if (!STATE.calc.justEvaluated || !calcExpr) return;
+            calcExpr.value = '';
+            try { calcExpr.setSelectionRange(0, 0); } catch (e) {}
+            STATE.calc.justEvaluated = false;
+        }
+
         // Placeholder: na wąsko — marquee; gdy jest miejsce w pionie — zawijanie (2 linie, wyrównane do prawej).
         var _calcPh = null, _calcPhInner = null, _calcPhWrapProbe = null;
         function updatePlaceholderMarquee() {
@@ -3084,6 +3096,8 @@
             var expr = calcExpr.value;
 
             if ((action >= '0' && action <= '9') || action === '.') {
+                _beginFreshCalcAfterEquals();
+                expr = calcExpr.value;
                 if (action >= '0' && action <= '9') {
                     var focusedD = document.activeElement === calcExpr;
                     var sd = focusedD && calcExpr.selectionStart != null ? calcExpr.selectionStart : calcExpr.value.length;
@@ -3097,6 +3111,7 @@
             // Smart „()" jak w Samsungu: domknij nawias, gdy jest co domknąć i poprzedni
             // znak to liczba / ) / „.", w przeciwnym razie otwórz nowy.
             if (action === '()') {
+                _beginFreshCalcAfterEquals();
                 var focused = document.activeElement === calcExpr;
                 var pos = focused && calcExpr.selectionStart != null ? calcExpr.selectionStart : calcExpr.value.length;
                 var before = calcExpr.value.slice(0, pos);
@@ -3109,6 +3124,7 @@
             }
 
             if (action === '%') {
+                STATE.calc.justEvaluated = false;
                 // [EN] Insert literal '%' — parseNaturalShortcuts already implements the Samsung
                 // semantics („100+10%" = 110, łańcuch „100+10%+5%" = 115,5) POPRAWNIE. Wcześniejsze
                 // rozwijanie w tym miejscu dublowało tę logikę z błędem (baza bez nawiasów → „210,5"),
@@ -3118,6 +3134,7 @@
             }
 
             if (action === '⌫') {
+                STATE.calc.justEvaluated = false;
                 var focused = document.activeElement === calcExpr;
                 var s = focused ? calcExpr.selectionStart : expr.length;
                 var eb = focused ? calcExpr.selectionEnd : expr.length;
@@ -3137,11 +3154,13 @@
                 STATE.calc.lastResult = null;
                 STATE.calc.lastUnit = null;
                 STATE.calc.ans = null;
+                STATE.calc.justEvaluated = false;
                 liveEval();
                 return;
             }
 
             if (action === '+' || action === '−' || action === '×' || action === '÷') {
+                STATE.calc.justEvaluated = false;
                 _insertCalcExprText(action);
                 return;
             }
@@ -3149,12 +3168,15 @@
             if (action === '=') {
                 var res = evalCalcExpression(expr);
                 if (!expr.trim()) return;
+                // Nie twórz śmieciowego duplikatu historii przy kolejnym '=' na już zatwierdzonym wyniku.
+                if (STATE.calc.justEvaluated) return;
                 // Duża liczba całkowita (BigInt) — grouped text w polu (nie surowy bigStr)
                 if (res.big) {
                     addHistory(expr + ' = ' + res.text);
                     STATE.calc.ans = res.bigStr;
                     calcExpr.value = _calcEqualsExprText(res) || res.text;
                     calcExpr.setSelectionRange(calcExpr.value.length, calcExpr.value.length);
+                    STATE.calc.justEvaluated = true;
                     liveEval();
                     return;
                 }
@@ -3167,6 +3189,7 @@
                         calcExpr.value = txtAns;
                         calcExpr.setSelectionRange(calcExpr.value.length, calcExpr.value.length);
                     }
+                    STATE.calc.justEvaluated = true;
                     liveEval();
                     return;
                 }
@@ -3178,6 +3201,7 @@
                         calcExpr.value = ansText;
                         calcExpr.setSelectionRange(calcExpr.value.length, calcExpr.value.length);
                     }
+                    STATE.calc.justEvaluated = true;
                     liveEval();
                 }
                 return;
@@ -3233,6 +3257,16 @@
         }
 
         bindCalcResultCopy(calcResult);
+
+        // [PL] Szybka akcja w stylu launchera: zwykły Enter nadal zatwierdza działanie
+        // (naturalne dla kalkulatora), a Cmd/Ctrl+Enter kopiuje bieżący wynik bez zmiany wyrażenia.
+        function copyCurrentCalcResult() {
+            var fm = _calcCopyFormatsNow();
+            if (!fm || !fm.withUnit) return;
+            copyText(fm.withUnit).then(function() { showToast('Skopiowano', 'success'); })
+                .catch(function() { showToast('Nie udało się skopiować', 'error'); });
+        }
+        if (calcCopyBtn) calcCopyBtn.addEventListener('click', copyCurrentCalcResult);
 
         bindLongPressCopy(calcApprox, function() {
             if (calcApprox.dataset.exact) return calcApprox.dataset.exact;
@@ -3464,6 +3498,7 @@
                     if (reuse) {
                         var reusedNorm = reuse.text;
                         calcExpr.value = reusedNorm;
+                        STATE.calc.justEvaluated = !!reuse.isResult;
                         if (reuse.isResult) {
                             var reusedNum = parseFloat(reusedNorm);
                             // Duża liczba całkowita: trzymaj dokładny string (nie float, by nie zgubić cyfr).
@@ -12031,8 +12066,29 @@
             // na inicjalizację wykresu/Warsztatu/parsera, które są częścią innych zakładek).
             buildCalcButtons();
             bindCalcExampleChips(); // [EN] chips on calc panel — sync in phase 1 (not deferred with help DOM)
+            calcExpr.addEventListener('pointerdown', function() {
+                // Tap w tekst oznacza świadomą edycję wyniku po '=', nie nowy kalkulatorowy wpis.
+                STATE.calc.justEvaluated = false;
+            });
             calcExpr.addEventListener('input', liveEval);
             calcExpr.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    copyCurrentCalcResult();
+                    return;
+                }
+                if (STATE.calc.justEvaluated && !e.metaKey && !e.ctrlKey && !e.altKey) {
+                    // Fizyczna klawiatura ma te same zasady co pad: cyfra/tekst zaczyna nową
+                    // kalkulację, operator kontynuuje na wyniku. Kliknięcie w pole powyżej
+                    // wyłącza ten stan, więc ręczna edycja pozostaje możliwa.
+                    if (['+', '-', '*', '/', '×', '÷', '%'].indexOf(e.key) !== -1) {
+                        STATE.calc.justEvaluated = false;
+                    } else if (e.key !== '=' && e.key.length === 1) {
+                        _beginFreshCalcAfterEquals();
+                    } else if (e.key === 'Backspace' || e.key === 'Delete') {
+                        STATE.calc.justEvaluated = false;
+                    }
+                }
                 if (e.key === 'Enter' && e.shiftKey) return; // [EN] Shift+Enter — nowa linia w wyrażeniu
                 if (calcExprAC && calcExprAC.classList.contains('open') && (e.key === 'Enter' || e.key === 'Tab')) return; // [EN] AC wybiera sugestię
                 if (e.key === 'Enter') { e.preventDefault(); handleCalcAction('='); return; } // [EN] Enter = oblicz

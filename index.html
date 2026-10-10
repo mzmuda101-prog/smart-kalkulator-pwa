@@ -20,7 +20,7 @@
          jasnym tłem przy wybranym/systemowym dark. Lekki klucz osobny (matm0_theme):
          'dark' | 'light' | brak = auto (śledzi system).
          [EN] External file (not inline) so CSP stays script-src 'self'; sync load before CSS. -->
-    <script src="js/theme-init.js?v=v1.04.5"></script>
+    <script src="js/theme-init.js?v=v1.04.16"></script>
     <meta name="application-name" content="Smart Kalkulator">
     <meta name="format-detection" content="telephone=no">
     <meta name="description" content="Szwajcarski scyzoryk do obliczeń codziennych i technicznych">
@@ -28,8 +28,8 @@
     <link rel="icon" href="assets/img/icon-192.png" type="image/png">
     <link rel="apple-touch-icon" href="assets/img/icon-192.png">
     <title>Smart Kalkulator</title>
-    <link rel="stylesheet" href="styles.css?v=v1.04.5" id="matm0MainCss">
-    <script src="js/cache-bust.js?v=v1.04.5" data-phase="head"></script>
+    <link rel="stylesheet" href="styles.css?v=v1.04.16" id="matm0MainCss">
+    <script src="js/cache-bust.js?v=v1.04.16" data-phase="head"></script>
 </head>
 
 <body>
@@ -55,7 +55,7 @@
                 style="width:38px;height:38px;max-width:38px;object-fit:contain;">
             <div class="brand-copy">
                 <h1>Smart Kalkulator</h1>
-                <p class="subtitle">Szwajcarski scyzoryk do obliczeń</p>
+                <p class="subtitle">Wpisz po polsku. Wynik od razu.</p>
             </div>
             <div class="header-actions">
                 <button class="install-btn" id="installAppBtn" type="button" aria-label="Zainstaluj aplikację"
@@ -102,6 +102,10 @@
         <!-- ==================== PANEL: Standard Calculator ==================== -->
         <section id="panel-calculator" class="panel active" role="tabpanel">
             <div class="card">
+                <div class="calc-workspace-bar">
+                    <span class="calc-workspace-mode">Standard</span>
+                    <span class="calc-workspace-live">Wynik aktualizuje się na żywo</span>
+                </div>
                 <div class="calc-display">
                     <div class="calc-expr-wrap">
                         <textarea class="calc-expression" id="calcExpr" rows="1"
@@ -118,6 +122,8 @@
                             data-hint data-hint-from="data-eq" data-hint-anchor="element"
                             data-hint-touch="on" data-hint-tap data-hint-fade>≈</span>
                         <div class="calc-result" id="calcResult" aria-live="polite">0</div>
+                        <button class="calc-copy-btn" id="calcCopyBtn" type="button" title="Kopiuj wynik (⌘ Enter)"
+                            aria-label="Kopiuj wynik">⧉ Kopiuj</button>
                     </div>
                     <div class="calc-empty-suggest" id="calcEmptySuggest" hidden aria-live="polite"></div>
                 </div>
@@ -163,7 +169,8 @@
                  a na szerokim ekranie ~39% szerokości stało puste. Obsługę kliknięcia ma
                  bindCalcExampleChips() w app.js. Wyrażenia pilnuje test/placeholder-examples.js. -->
             <aside class="calc-examples" id="calcExamples" aria-label="Przykłady obliczeń">
-                <h3 class="calc-examples-title">Kalkulator rozumie zdania</h3>
+                <p class="calc-examples-kicker">Spróbuj</p>
+                <h3 class="calc-examples-title">Po polsku, bez składni</h3>
                 <div class="calc-examples-chips">
                     <button class="calc-example-chip" type="button" data-expr="100 zł + 23% vat">100 zł + 23% vat</button>
                     <button class="calc-example-chip" type="button" data-expr="ile dni do 25.12">ile dni do 25.12</button>
@@ -175,7 +182,8 @@
                 </div>
                 <!-- [PL] Na ≥1024 rząd .calc-tools jest ukryty (Historia stoi obok), więc Ściąga
                      mieszka tutaj — sama zajmowała cały rząd i zabierała ~60 px klawiszom. -->
-                <button class="calc-examples-help" id="calcHelpOpenWide" type="button">ⓘ Pełna ściąga komend</button>
+                <p class="calc-examples-tip"><kbd>⌘</kbd> <kbd>↵</kbd> kopiuje wynik · kliknij wynik, aby użyć go dalej</p>
+                <button class="calc-examples-help" id="calcHelpOpenWide" type="button">Otwórz pełną ściągę</button>
             </aside>
         </section>
 
@@ -1238,25 +1246,25 @@
 
     <!-- defer: statyczny UI (nagłówek, wyświetlacz, zakładki) maluje się ZANIM wykona się JS
          (app.js ~525 KB). Kolejność zachowana, DOM gotowy przed wykonaniem. -->
-    <script src="js/cache-bust.js?v=v1.04.5" data-phase="defer"></script>
-    <script defer src="version.js?v=v1.04.5"></script>
-    <script defer src="js/cursor-hint.js?v=v1.04.5"></script>
-    <script defer src="js/vendor/decimal.js?v=v1.04.5"></script>
-    <script defer src="js/money-decimal.js?v=v1.04.5"></script>
-    <script defer src="js/numeric-eval.js?v=v1.04.5"></script>
-    <script defer src="js/data-tables.js?v=v1.04.5"></script>
-    <script defer src="js/format-pl.js?v=v1.04.5"></script>
-    <script defer src="js/pl-fold.js?v=v1.04.5"></script>
-    <script defer src="js/smart-parser.js?v=v1.04.5"></script>
-    <script defer src="js/smart-quantity.js?v=v1.04.5"></script>
-    <script defer src="js/quantity-algebra.js?v=v1.04.5"></script>
-    <script defer src="js/synonyms.js?v=v1.04.5"></script>
-    <script defer src="js/hint-rules.js?v=v1.04.5"></script>
-    <script defer src="js/notepad-format.js?v=v1.04.5"></script>
-    <script defer src="js/notepad-engine.js?v=v1.04.5"></script>
-    <script defer src="command-definitions.js?v=v1.04.5"></script>
-    <script defer src="js/calc-layout-tune.js?v=v1.04.5"></script>
-    <script defer src="app.js?v=v1.04.5"></script>
+    <script src="js/cache-bust.js?v=v1.04.16" data-phase="defer"></script>
+    <script defer src="version.js?v=v1.04.16"></script>
+    <script defer src="js/cursor-hint.js?v=v1.04.16"></script>
+    <script defer src="js/vendor/decimal.js?v=v1.04.16"></script>
+    <script defer src="js/money-decimal.js?v=v1.04.16"></script>
+    <script defer src="js/numeric-eval.js?v=v1.04.16"></script>
+    <script defer src="js/data-tables.js?v=v1.04.16"></script>
+    <script defer src="js/format-pl.js?v=v1.04.16"></script>
+    <script defer src="js/pl-fold.js?v=v1.04.16"></script>
+    <script defer src="js/smart-parser.js?v=v1.04.16"></script>
+    <script defer src="js/smart-quantity.js?v=v1.04.16"></script>
+    <script defer src="js/quantity-algebra.js?v=v1.04.16"></script>
+    <script defer src="js/synonyms.js?v=v1.04.16"></script>
+    <script defer src="js/hint-rules.js?v=v1.04.16"></script>
+    <script defer src="js/notepad-format.js?v=v1.04.16"></script>
+    <script defer src="js/notepad-engine.js?v=v1.04.16"></script>
+    <script defer src="command-definitions.js?v=v1.04.16"></script>
+    <script defer src="js/calc-layout-tune.js?v=v1.04.16"></script>
+    <script defer src="app.js?v=v1.04.16"></script>
 </body>
 
 </html>

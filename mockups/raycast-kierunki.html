@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart Kalkulator — kierunki UI</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0c0d10; --surface:#17191f; --surface-2:#20232b; --line:#30343e; --text:#f7f7f8; --muted:#9a9eaa; --blue:#7aa7ff; --green:#82d4aa; --pink:#ef75a6; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-width:320px; background:radial-gradient(circle at 12% 0%, #1d2230 0, transparent 28rem), var(--bg); color:var(--text); font:14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    button { font:inherit; color:inherit; cursor:pointer; }
+    .board { max-width:1280px; margin:0 auto; padding:46px 28px 72px; }
+    .eyebrow { color:var(--blue); font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+    h1 { max-width:760px; margin:10px 0 10px; font-size:clamp(31px, 5vw, 58px); letter-spacing:-.055em; line-height:.97; }
+    .lede { max-width:635px; margin:0; color:var(--muted); font-size:16px; }
+    .directions { display:flex; gap:8px; flex-wrap:wrap; margin:32px 0 20px; }
+    .direction { border:1px solid var(--line); border-radius:10px; background:#15171c; padding:9px 13px; transition:background .18s, border-color .18s, transform .18s; }
+    .direction:hover, .direction:focus-visible { border-color:#6689cd; background:#222b3c; outline:none; transform:translateY(-1px); }
+    .direction[aria-pressed="true"] { border-color:var(--blue); background:#273452; }
+    .notes { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin-bottom:24px; }
+    .note { border-top:1px solid var(--line); padding-top:12px; color:var(--muted); }
+    .note strong { display:block; color:#dde1ea; margin-bottom:3px; }
+    .mockup { overflow:hidden; min-height:600px; border:1px solid #3d424e; border-radius:20px; background:#17191f; box-shadow:0 30px 80px rgba(0,0,0,.35); }
+    .mockup[hidden] { display:none; }
+    .windowbar { display:flex; align-items:center; gap:7px; height:40px; padding:0 15px; border-bottom:1px solid rgba(255,255,255,.07); background:#14161b; }
+    .dot { width:9px; height:9px; border-radius:50%; background:#454954; } .dot:first-child{background:#ec6f7c}.dot:nth-child(2){background:#e8be68}.dot:nth-child(3){background:#65c98c}
+    .window-title { margin-left:8px; color:#7f8490; font-size:12px; }
+    .keys { margin-left:auto; color:#9298a4; font-size:11px; }
+    .key { display:inline-block; padding:1px 5px; border:1px solid #4b505b; border-radius:4px; color:#c8cbd2; font-size:11px; line-height:16px; }
+    /* A — command palette */
+    .palette { width:min(930px, 92%); margin:clamp(42px,9vw,100px) auto; overflow:hidden; border:1px solid #3a3f4b; border-radius:15px; background:#1b1e24; box-shadow:0 32px 90px rgba(0,0,0,.42); }
+    .query { display:flex; align-items:center; gap:13px; padding:20px 22px 17px; border-bottom:1px solid #333844; font-size:23px; letter-spacing:-.025em; }
+    .query .glyph { display:grid; width:29px; height:29px; place-items:center; border-radius:8px; color:#15171c; background:var(--blue); font-size:16px; }
+    .cursor { display:inline-block; width:2px; height:1.1em; margin-left:3px; background:var(--blue); vertical-align:-.14em; animation:blink 1.05s steps(1) infinite; }
+    @keyframes blink { 50% { opacity:0; } }
+    .resultline { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:26px 22px 24px; background:linear-gradient(90deg, #20242d, #1c1f25); }
+    .resultline small, .resultlabel, .section-title { color:#9298a4; font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; }
+    .answer { margin-top:3px; font-size:42px; font-weight:700; letter-spacing:-.05em; font-variant-numeric:tabular-nums; }
+    .copy { display:flex; align-items:center; gap:7px; border:1px solid #48505e; border-radius:8px; background:#2a2e37; padding:8px 11px; }
+    .command-list { padding:13px 10px 10px; }
+    .section-title { display:block; padding:4px 11px 8px; }
+    .command { display:grid; grid-template-columns:32px 1fr auto; align-items:center; gap:11px; padding:10px 11px; border-radius:8px; }
+    .command.selected { background:#2a395b; outline:1px solid rgba(122,167,255,.45); }
+    .command-icon { display:grid; width:28px; height:28px; place-items:center; border-radius:7px; background:#2a2e37; font-size:14px; }
+    .command div:first-of-type { font-weight:600; } .command p { margin:1px 0 0; color:#959ba8; font-size:12px; } .command .shortcut { color:#abb0bc; }
+    .palette-footer { display:flex; justify-content:space-between; gap:12px; padding:11px 20px; border-top:1px solid #333844; color:#9298a4; font-size:12px; }
+    /* B — calculator first */
+    .studio { display:grid; grid-template-columns:minmax(0,1.5fr) minmax(270px,.7fr); min-height:560px; }
+    .studio-main { padding:34px; } .studio-side { padding:22px; border-left:1px solid #343944; background:#15171c; }
+    .studio-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:46px; }
+    .brand { display:flex; align-items:center; gap:9px; font-weight:700; letter-spacing:-.02em; } .brand-mark { display:grid; width:25px; height:25px; place-items:center; border-radius:7px; background:linear-gradient(135deg,#fff 0 48%,#ef75a6 49%); color:#17191f; font-size:14px; }
+    .mode { color:var(--muted); } .mode b { color:var(--text); font-weight:600; }
+    .expression { padding:0 0 20px; border-bottom:1px solid #383d48; color:#b6bac4; font-size:clamp(25px,4vw,46px); letter-spacing:-.05em; }
+    .big-result { display:flex; align-items:end; justify-content:space-between; padding:19px 0 37px; } .big-result b { font-size:clamp(50px,8vw,88px); letter-spacing:-.075em; line-height:.9; font-variant-numeric:tabular-nums; } .big-result span { color:var(--green); font-weight:600; }
+    .keypad { display:grid; grid-template-columns:repeat(4,1fr); gap:9px; max-width:600px; } .pad { border:0; border-radius:10px; min-height:54px; background:#272b33; font-size:17px; font-weight:600; } .pad.operator { color:#a7c0fa; background:#27334b; } .pad.equal { background:var(--blue); color:#10131a; box-shadow:inset 0 1px rgba(255,255,255,.45); }
+    .side-label { color:#8d93a0; font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; } .suggestion { display:flex; align-items:center; gap:9px; padding:12px 0; border-bottom:1px solid #292d36; } .suggestion:last-child { border:0; } .suggestion em { color:#8d93a0; font-style:normal; font-size:12px; } .suggestion span { margin-left:auto; color:#b6bbca; }
+    .history-item { margin:17px 0; padding:11px 0 0; border-top:1px solid #292d36; } .history-item p { margin:0 0 2px; color:#969ca9; } .history-item b { font-size:17px; font-variant-numeric:tabular-nums; }
+    /* C — sheet / workflow */
+    .sheet { display:grid; grid-template-columns:205px minmax(0,1fr); min-height:560px; } .rail { padding:17px 10px; background:#15171c; border-right:1px solid #343944; }
+    .rail-brand { padding:6px 8px 21px; } .navitem { display:flex; align-items:center; gap:9px; padding:9px 9px; border-radius:7px; color:#a5aab5; } .navitem.active { background:#2a395b; color:#f4f6fb; } .navitem .tiny { margin-left:auto; color:#a0b8f2; font-size:11px; }
+    .sheet-body { padding:26px clamp(22px,4vw,50px); } .sheet-head { display:flex; align-items:start; justify-content:space-between; gap:16px; } .sheet-head h2 { margin:0; font-size:24px; letter-spacing:-.04em; } .sheet-head p { margin:5px 0 0; color:#9da2ad; }
+    .new-line { display:grid; grid-template-columns:30px 1fr auto; align-items:center; gap:11px; margin-top:30px; padding:14px 15px; border:1px solid #46609b; border-radius:9px; background:#202a40; } .new-line input { width:100%; border:0; outline:0; background:transparent; color:#f7f8fb; font:inherit; font-size:17px; } .new-line .run { border:0; border-radius:6px; background:var(--blue); color:#10131a; padding:7px 10px; font-weight:700; }
+    .row { display:grid; grid-template-columns:30px minmax(100px,1fr) auto; align-items:center; gap:10px; padding:15px; border-bottom:1px solid #30343d; } .row .line-no { color:#69707d; text-align:right; font:12px ui-monospace,SFMono-Regular,Menlo,monospace; } .row .math { color:#d7dae0; font:15px ui-monospace,SFMono-Regular,Menlo,monospace; } .row .value { color:var(--green); font:600 15px ui-monospace,SFMono-Regular,Menlo,monospace; }
+    .row.focus { margin:0 -15px; padding:15px 30px; background:#1e222a; } .row.focus .math { color:#fff; }
+    .inspector { margin-top:28px; padding:15px 0 0; border-top:1px solid #383d47; color:#8f95a0; font-size:12px; } .inspector b { color:#d4d7de; font-weight:600; }
+    .caption { display:flex; gap:9px; align-items:center; padding:18px 3px 0; color:#aeb2bd; } .caption b { color:white; } .caption .badge { border:1px solid #4e5562; border-radius:4px; padding:2px 5px; font-size:11px; }
+    @media (max-width:740px) { .board{padding:30px 14px 50px}.notes{grid-template-columns:1fr}.mockup{border-radius:14px}.studio{grid-template-columns:1fr}.studio-side{display:none}.studio-main{padding:22px}.studio-top{margin-bottom:32px}.palette{width:94%;margin:45px auto}.query{font-size:18px;padding:16px}.answer{font-size:31px}.resultline{padding:20px 16px}.command-list{padding:8px}.palette-footer{font-size:10px;padding:10px}.sheet{grid-template-columns:1fr}.rail{display:none}.sheet-body{padding:20px}.row.focus{margin:0 -8px;padding:15px 8px}.new-line{padding:11px}.caption{font-size:12px} }
+  </style>
+</head>
+<body>
+  <main class="board">
+    <div class="eyebrow">Smart Kalkulator · propozycje UI</div>
+    <h1>Szybkość Raycasta, ale po Twojemu.</h1>
+    <p class="lede">Trzy interaktywne kierunki dla tej samej logiki — bez kopiowania identyfikacji Raycasta i bez ruszania parsera, PWA czy obecnych kart narzędzi.</p>
+    <div class="directions" role="group" aria-label="Wybierz kierunek makiety">
+      <button class="direction" data-show="a" aria-pressed="true">A · Szybka komenda <span class="key">polecam</span></button>
+      <button class="direction" data-show="b" aria-pressed="false">B · Kalkulator na pierwszym planie</button>
+      <button class="direction" data-show="c" aria-pressed="false">C · Notatnik obliczeń</button>
+    </div>
+    <div class="notes">
+      <div class="note"><strong>A — jak launcher</strong>Jedno pole i podpowiedzi. Najlepszy, jeśli wpisywanie komend ma być główną przewagą aplikacji.</div>
+      <div class="note"><strong>B — znany kalkulator</strong>Klawiatura zostaje mocna, a pole wyrażenia ma lepszą hierarchię i kontekst po prawej.</div>
+      <div class="note"><strong>C — dla pracy</strong>Obliczenia ułożone jak arkusz/notatnik: wyniki i zmienne zostają w widoku.</div>
+    </div>
+
+    <section class="mockup" data-mockup="a">
+      <div class="windowbar"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span class="window-title">Smart Kalkulator</span><span class="keys"><span class="key">⌘</span> <span class="key">K</span> paleta komend</span></div>
+      <div class="palette">
+        <div class="query"><span class="glyph">⌕</span><span>100 zł + 23% VAT</span><i class="cursor"></i></div>
+        <div class="resultline"><div><small>Wynik brutto</small><div class="answer">123,00 zł</div></div><button class="copy">⧉ Kopiuj <span class="key">↵</span></button></div>
+        <div class="command-list">
+          <span class="section-title">Możesz też</span>
+          <div class="command selected"><span class="command-icon">↗</span><div>Wstaw wynik do pola</div><span class="shortcut"><span class="key">⌘</span> <span class="key">↵</span></span></div>
+          <div class="command"><span class="command-icon">▣</span><div><b>Zapisz w notatniku</b><p>Dodaj obliczenie jako nowy wiersz</p></div><span class="shortcut"><span class="key">⌘</span> <span class="key">S</span></span></div>
+          <div class="command"><span class="command-icon">◷</span><div><b>Historia obliczeń</b><p>Ostatnie wyniki i komendy</p></div><span class="shortcut">⌘ H</span></div>
+        </div>
+        <div class="palette-footer"><span>↑↓ wybierz</span><span>↵ wykonaj</span><span>esc zamknij</span></div>
+      </div>
+    </section>
+
+    <section class="mockup" data-mockup="b" hidden>
+      <div class="windowbar"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span class="window-title">Smart Kalkulator</span></div>
+      <div class="studio">
+        <div class="studio-main"><div class="studio-top"><div class="brand"><span class="brand-mark">÷</span> Smart Kalkulator</div><div class="mode"><b>Standard</b> · Komenda · Warsztat</div></div>
+          <div class="expression">100 zł + 23% VAT</div><div class="big-result"><b>123,00 zł</b><span>↵ kopiuj wynik</span></div>
+          <div class="keypad"><button class="pad">AC</button><button class="pad">( )</button><button class="pad">%</button><button class="pad operator">÷</button><button class="pad">7</button><button class="pad">8</button><button class="pad">9</button><button class="pad operator">×</button><button class="pad">4</button><button class="pad">5</button><button class="pad">6</button><button class="pad operator">−</button><button class="pad">1</button><button class="pad">2</button><button class="pad">3</button><button class="pad operator">+</button><button class="pad">0</button><button class="pad">.</button><button class="pad">⌫</button><button class="pad equal">=</button></div>
+        </div>
+        <aside class="studio-side"><span class="side-label">Spróbuj</span><div class="suggestion">⌁ <em>czas w Tokio</em><span>→</span></div><div class="suggestion">↔ <em>2 kg na lb</em><span>→</span></div><div class="suggestion">◷ <em>ile dni do 25.12</em><span>→</span></div><br><span class="side-label">Ostatnie</span><div class="history-item"><p>485 ÷ 12</p><b>40,4167</b></div><div class="history-item"><p>3,5 m na cm</p><b>350 cm</b></div></aside>
+      </div>
+    </section>
+
+    <section class="mockup" data-mockup="c" hidden>
+      <div class="windowbar"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span class="window-title">Smart Kalkulator · Notatnik</span></div>
+      <div class="sheet"><aside class="rail"><div class="rail-brand"><div class="brand"><span class="brand-mark">÷</span> Smart</div></div><div class="navitem active">⌘&nbsp; Obliczenia <span class="tiny">⌘1</span></div><div class="navitem">◷&nbsp; Historia</div><div class="navitem">◉&nbsp; Moje stałe</div><div class="navitem">⌁&nbsp; Warsztat</div></aside>
+        <div class="sheet-body"><div class="sheet-head"><div><h2>Koszt remontu</h2><p>6 obliczeń · zapisane lokalnie</p></div><span class="key">⋯</span></div><div class="new-line"><span>+</span><input aria-label="Nowe obliczenie" value="farba = 3 × 4,5 l × 39 zł" readonly><button class="run">Uruchom ↵</button></div>
+          <div class="row"><span class="line-no">1</span><span class="math">powierzchnia = 6,2 m × 3,1 m</span><span class="value">19,22 m²</span></div><div class="row"><span class="line-no">2</span><span class="math">farba = 3 × 4,5 l × 39 zł</span><span class="value">526,50 zł</span></div><div class="row focus"><span class="line-no">3</span><span class="math">suma = farba + 1 250 zł + 320 zł</span><span class="value">2 096,50 zł</span></div><div class="row"><span class="line-no">4</span><span class="math">VAT = suma × 23%</span><span class="value">482,20 zł</span></div><div class="row"><span class="line-no">5</span><span class="math">brutto = suma + VAT</span><span class="value">2 578,70 zł</span></div><div class="inspector"><b>Wiersz 3</b> · wynik aktualizuje się po każdej zmianie · <span class="key">⌘ ↵</span> wstaw do pola</div>
+        </div>
+      </div>
+    </section>
+    <p class="caption"><span class="badge">makieta</span> Kliknij A / B / C powyżej. Jeśli wybierzesz kierunek, przeniosę go do prawdziwego interfejsu etapami, zachowując całą obecną logikę.</p>
+  </main>
+  <script>
+    document.querySelectorAll('[data-show]').forEach((button) => button.addEventListener('click', () => {
+      const view = button.dataset.show;
+      document.querySelectorAll('[data-show]').forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
+      document.querySelectorAll('[data-mockup]').forEach((item) => { item.hidden = item.dataset.mockup !== view; });
+    }));
+  </script>
+</body>
+</html>
