@@ -4858,6 +4858,28 @@ body.calc-sentence #panel-calculator .calc-result,
 body.calc-sentence #panel-calculator .calc-explain-title { text-align: left !important; }
 body.calc-sentence #panel-calculator .calc-ph { justify-content: flex-start !important; }
 body.calc-sentence #panel-calculator .card { display: flex; flex-direction: column; }
+/* telefon ma własną siatkę ekranika (2 wiersze) — w trybie zdania jedna kolumna, 4 wiersze */
+body.calc-sentence #panel-calculator .calc-display { grid-template-columns: minmax(0, 1fr) !important; grid-template-rows: auto auto auto auto !important; }
+body.calc-sentence #panel-calculator .calc-display > * { grid-column: 1 !important; }
+body.calc-sentence #panel-calculator .calc-expr-wrap { grid-row: 1 !important; }
+body.calc-sentence #panel-calculator .calc-live-hint { grid-row: 2 !important; }
+body.calc-sentence #panel-calculator .calc-result-row { grid-row: 3 !important; }
+body.calc-sentence #panel-calculator .calc-explain,
+body.calc-sentence #panel-calculator .calc-empty-suggest { grid-row: 4 !important; }
+body.calc-sentence #panel-calculator .calc-hint-chip {
+    min-height: 34px;
+    height: auto;
+    padding: 6px 12px;
+    line-height: 1;
+    font-size: .8rem;
+    white-space: nowrap;
+}
+body.calc-sentence #panel-calculator .calc-live-hint {
+    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
+    mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
+    padding-right: 28px;
+    scrollbar-width: none;
+}
 body.calc-sentence .calc-display .calc-explain,
 body.calc-sentence .calc-display .calc-empty-suggest { grid-row: 4; }
 body.calc-sentence .calc-expression {

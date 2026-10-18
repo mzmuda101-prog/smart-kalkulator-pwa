@@ -3,7 +3,9 @@ const { expect } = require('playwright/test');
 
 async function waitAppReady(page) {
     await page.goto('index.html', { waitUntil: 'networkidle' });
-    await page.waitForSelector('#calcResult', { state: 'visible' });
+    // Pole wyrażenia jest widoczne zawsze; „0” w #calcResult na pustym ekranie (< 1024 px)
+    // zastępuje pasek przykładów (.calc-start, etap 1 przebudowy UI).
+    await page.waitForSelector('#calcExpr', { state: 'visible' });
     await page.waitForFunction(() => {
         const splash = document.getElementById('appSplash');
         if (!splash) return true;

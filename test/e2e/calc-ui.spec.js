@@ -10,11 +10,13 @@ test.beforeEach(async ({ page }) => {
     await H.clearCalc(page);
 });
 
-test('apka startuje — Standard, wynik i wyrażenie widoczne', async ({ page }) => {
+test('apka startuje — Standard, wyrażenie i wynik (albo przykłady) widoczne', async ({ page }) => {
     const st = await H.readResultState(page);
     expect(st.text.replace(/\s/g, '')).toMatch(/^0$/);
     await expect(page.locator('#calcExpr')).toBeVisible();
-    await expect(page.locator('#calcResult')).toBeVisible();
+    // < 1024 px pusty ekran pokazuje przykłady zamiast „0”; szerzej — „0” (przykłady są w panelu obok)
+    const wide = (page.viewportSize() || { width: 0 }).width >= 1024;
+    await expect(page.locator(wide ? '#calcResult' : '#calcStart')).toBeVisible();
     expect(st.bodyPanel || st.bodySplit).toBeTruthy();
 });
 

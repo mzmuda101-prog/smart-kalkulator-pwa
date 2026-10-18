@@ -1500,6 +1500,7 @@
         var _assistLayoutRaf = 0;
 
         function _calcAssistWide() { // [EN] desktop assist UI (chips + AC dropdown) ≥600px
+            if (_calcSentence()) return true; // tryb zdania: chipy w ekraniku także na telefonie (miejsce jest)
             var vv = window.visualViewport;
             return vv ? vv.width >= 600 : window.innerWidth >= 600;
         }
@@ -11238,18 +11239,22 @@
            [EN] Lock body scroll on touch devices (PWA)
                Allow scroll only inside scrollable containers
            ============================================================ */
+        // Przewijalny w DANEJ osi: overflow auto/scroll/overlay i treść faktycznie większa.
+        function _isScrollableAxis(style, el, axis) {
+            var ov = axis === 'x' ? style.overflowX : style.overflowY;
+            if (ov !== 'auto' && ov !== 'scroll' && ov !== 'overlay') return false;
+            return axis === 'x' ? el.scrollWidth > el.clientWidth + 1 : el.scrollHeight > el.clientHeight;
+        }
         document.addEventListener('touchmove', function(e) {
-            /* [EN] Find the closest scrollable ancestor, if any */
+            /* [EN] Find the closest scrollable ancestor, if any.
+               Bug 2026-10-19 (zgłoszenie z telefonu): sprawdzaliśmy TYLKO oś Y, więc paski
+               przewijane w bok (przykłady na pustym ekranie, pasek skrótów, chipy podpowiedzi,
+               zakładki, pasek notatnika) dostawały preventDefault i nie dało się ich przesunąć
+               palcem. Na komputerze (kółko/trackpad) tego nie widać. */
             var el = e.target;
             while (el && el !== document.body) {
                 var style = window.getComputedStyle(el);
-                var overflowY = style.overflowY;
-                var isScrollable = (
-                    overflowY === 'auto' ||
-                    overflowY === 'scroll' ||
-                    overflowY === 'overlay'
-                );
-                if (isScrollable && el.scrollHeight > el.clientHeight) {
+                if (_isScrollableAxis(style, el, 'y') || _isScrollableAxis(style, el, 'x')) {
                     /* [EN] Container is scrollable — let the event through */
                     return;
                 }
