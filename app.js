@@ -1151,10 +1151,28 @@
             var date = _formatFxDatePl(STATE.fx.date);
             return src + (date ? ' · ' + date : '');
         }
+        // Kurs (≈) tylko gdy naprawdę coś przeliczono: w grze ≥ 2 waluty (wejście ∪ wynik).
+        // „1000 zł + vat" czy „pit 90000" nie dotykają kursów — wcześniej i tak dostawały ≈.
+        function _resultUsedFx(res, rawExpr) {
+            if (!_PARSER.currencyCodesInInput) return true;
+            var fxOpts = { fxRates: (STATE.fx && STATE.fx.rates) || {} };
+            var codes = _PARSER.currencyCodesInInput(rawExpr, fxOpts).slice();
+            if (res.kind === 'money' && res.unit) {
+                var rc = _PARSER.currencyCodeOfUnit(res.unit, fxOpts);
+                if (!rc) return true;                 // etykieta niejednoznaczna („kr") — zostaw ≈
+                if (codes.indexOf(rc) < 0) codes.push(rc);
+            }
+            if (!codes.length && res.kind === 'money') {
+                // kwota bez waluty w wejściu („pit 90000") — wynik w walucie domyślnej, bez kursu
+                return false;
+            }
+            return codes.length > 1;
+        }
         function _fxMetaForResult(res, rawExpr) {
             if (!res || res.pendingFx) return '';
             if (res.value === null && res.text == null) return '';
             if (res.kind !== 'money' && !_inputHasCurrency(rawExpr)) return '';
+            if (!_resultUsedFx(res, rawExpr)) return '';
             return formatFxMeta();
         }
         // Pobierz gdy trzeba: brak kursów lub przeterminowane (i nie trwa już pobieranie).
@@ -1592,6 +1610,7 @@
             'ile','co','ktora','ktory','jaka','jaki','jest','sa','to','ans','czy','jak',
             // domeny: procenty, vat, czas, daty
             'procent','proc','vat','brutto','netto','podatek','stawka','tip','napiwek',
+            'pit','liniowy','ryczalt','wspolnie','malzonkow','pensja','uop','wynagrodzenie','wyplata','reke',
             'znizki','znizka','rabat','rabatu','taniej','drozej','roznica','stosunek','ratio',
             'srednia','average','mean','suma','sum','power','root','pierwiastek','kwadrat',
             'teraz','dzis','dzisiaj','jutro','wczoraj','pojutrze','przedwczoraj',
@@ -8194,7 +8213,9 @@
             { id: 'przyklad-jednostki', title: 'Przykład: wyjazd', learn: true, text: 'Nocleg: 115 usd × 4 os\nPaliwo: 5,60 usd × 40\nrazem(usd)\nNa osobę: @razem / 4\nW złotych: @razem na zł\n' },
             { id: 'remont', title: 'Remont', text: 'Farba: \nGips: \nTaśma: \nRazem\n' },
             { id: 'wyjazd', title: 'Wyjazd', text: 'Dystans km: \nSpalanie l/100: \nPaliwo l: \nKoszt: \nRazem\n' },
-            { id: 'faktura', title: 'Faktura VAT', text: 'Netto: \nVAT 23%: \nBrutto: \n' }
+            { id: 'faktura', title: 'Faktura VAT', text: 'Netto: \nVAT 23%: \nBrutto: \n' },
+            // Roczny PIT na skali — liczby przykładowe (każda linia liczy się od razu; podmień na swoje).
+            { id: 'pit', title: 'PIT (skala)', text: 'Przychód: 120 000 zł\nKoszty: 20 000 zł\nSkładki: 10 000 zł\nDochód: @przychód - @koszty - @składki\nPodatek: pit @dochód\nZaliczki: 7 000 zł\nDopłata: @podatek - @zaliczki\nLiniowo byłoby: pit liniowy @dochód\n' }
         ];
         var _NP_WS_LABELS = { // T1-2 — etykiety wyników Warsztatu przy wysyłce do notatnika
             wsAreaResult: 'Pole netto', wsCovResult: 'Pokrycie', wsVolResult: 'Objętość',
@@ -13227,6 +13248,90 @@
                 var r = evalCalcExpression(t.expr);
                 var pass = r.value != null && Math.abs(r.value - t.value) < 1e-6 && (r.unit || null) === t.unit;
                 results.push({ expr: t.expr + ' (spacja tysięcy)', pass: pass, got: r.value + ' ' + r.unit });
+            });
+            // „P% od B" = P% × B (dawniej B − P% → cichy zły wynik przy podatkach/odsetkach).
+            [
+                { expr: '8% od 1000', value: 80, unit: null },
+                { expr: '12% od 120 000 zł', value: 14400, unit: 'zł' },
+                { expr: '5% od 1000 zł', value: 50, unit: 'zł' },
+                { expr: 'odejmij 20% od 150', value: 120, unit: null },   // jawne odejmowanie zostaje
+                { expr: '20% rabatu na 150', value: 120, unit: null },
+            ].forEach(function(t) {
+                var r = evalCalcExpression(t.expr);
+                var pass = r.value != null && Math.abs(r.value - t.value) < 1e-6 && (r.unit || null) === t.unit;
+                results.push({ expr: t.expr + ' (P% od B)', pass: pass, got: r.value + ' ' + r.unit });
+            });
+            // PIT / pensja (parametry 2026, _TAX_PL). Wartości pensji = publikowane kalkulatory
+            // wynagrodzeń (2026 min. 4 806 → 3 605,85; 2025 min. 4 666 → 3 510,92).
+            [
+                { expr: 'pit 90000', value: 7200 },                    // 12% × 90 000 − 3 600
+                { expr: 'pit 90 000 zł', value: 7200 },
+                { expr: 'podatek od 90000', value: 7200 },
+                { expr: 'pit skala 150000', value: 20400 },            // 10 800 + 32% × 30 000
+                { expr: 'pit od dochodu 120000', value: 10800 },       // dokładnie próg
+                { expr: 'pit 30000', value: 0 },                       // kwota wolna
+                { expr: 'pit 20000', value: 0 },                       // nie schodzi poniżej zera
+                { expr: 'pit 90000,49', value: 7200 },                 // podstawa do pełnych zł (w dół)
+                { expr: 'pit 90004,50', value: 7201 },                 // 90 005 × 12% − 3 600 = 7 200,60 → 7 201
+                { expr: 'pit liniowy 100000', value: 19000 },
+                { expr: 'podatek liniowy od 100 000 zł', value: 19000 },
+                { expr: 'pit wspólnie 200000', value: 16800 },         // 2 × (12% × 100 000 − 3 600)
+                { expr: 'pit małżonków 150000', value: 10800 },
+                { expr: 'ryczałt 12% od 100000', value: 12000 },
+                { expr: 'ryczałt 100 000 zł 8,5%', value: 8500 },
+                { expr: 'ryczalt 8,5% od 12345', value: 1049 },        // 1 049,33 → 1 049
+                { expr: 'pit 19% z 50000 zł', value: 9500 },
+                { expr: 'pensja 4806', value: 3605.85 },
+                { expr: 'pensja 4666', value: 3510.92 },
+                { expr: 'pensja 7000', value: 5101.67 },
+                { expr: 'uop 7000 brutto', value: 5101.67 },
+                { expr: '7000 brutto na rękę', value: 5101.67 },
+                { expr: 'na rękę z 7000 brutto', value: 5101.67 },
+                { expr: 'wynagrodzenie 10 000 zł', value: 7147.39 },
+                { expr: 'pensja 4806 do 26', value: 3773.85 },         // bez zaliczki PIT (168 zł)
+                { expr: 'pensja netto 5101,67', value: 7000, tol: 0.02 },
+                { expr: 'ile brutto dla 7147,39 na rękę', value: 10000, tol: 0.02 },
+                { expr: '5101,67 na rękę ile brutto', value: 7000, tol: 0.02 },
+            ].forEach(function(t) {
+                var r = evalCalcExpression(t.expr);
+                var pass = r.value != null && Math.abs(r.value - t.value) <= (t.tol || 1e-6) && r.unit === 'zł' && r.kind === 'money';
+                results.push({ expr: t.expr + ' (PIT/pensja)', pass: pass, got: r.value + ' ' + r.unit + ' ' + r.kind });
+            });
+            // brutto → netto → brutto wraca do tej samej pensji (co do grosza ± zaokrąglenie zaliczki)
+            [3000, 4806, 6500, 8000, 12000].forEach(function(g) {
+                var n = evalCalcExpression('pensja ' + g).value;
+                var back = evalCalcExpression('pensja netto ' + String(n).replace('.', ',')).value;
+                var nBack = evalCalcExpression('pensja ' + String(back).replace('.', ',')).value;
+                results.push({ expr: 'pensja ' + g + ' ↔ netto (round-trip)', pass: Math.abs(nBack - n) < 0.005 && back === g, got: n + ' → ' + back + ' → ' + nBack });
+            });
+            // Słowa VAT bez słów pensji zostają VAT-em (nie łapie ich moduł PIT).
+            [
+                { expr: '7000 zł brutto', value: 8610 },
+                { expr: 'netto 1230', value: 1000 },
+                { expr: 'brutto 1000', value: 1230 },
+            ].forEach(function(t) {
+                var r = evalCalcExpression(t.expr);
+                results.push({ expr: t.expr + ' (VAT, nie pensja)', pass: Math.abs(r.value - t.value) < 1e-6, got: r.value });
+            });
+            // Szablon notatnika „PIT (skala)" liczy się w całości przy domyślnych ustawieniach.
+            var tplPit = _NP_TEMPLATES.filter(function(t) { return t.id === 'pit'; })[0];
+            var pitRows = tplPit ? ((evalNotepadLines(tplPit.text) || {}).lines || evalNotepadLines(tplPit.text) || []) : [];
+            var pitVals = pitRows.map(function(row) { return row ? row.value : null; });
+            results.push({ expr: 'szablon PIT: dochód 90 000, podatek 7 200, dopłata 200, liniowo 17 100', pass: pitVals[3] === 90000 && pitVals[4] === 7200 && pitVals[6] === 200 && pitVals[7] === 17100, got: pitVals.slice(0, 8).join(' | ') });
+            // ≈ (kurs) tylko gdy coś przeliczono: ≥ 2 waluty w grze (wejście ∪ wynik).
+            [
+                { expr: '1000 zł + vat', fx: false },
+                { expr: 'pit 90000', fx: false },
+                { expr: 'netto 12 300 zł', fx: false },
+                { expr: '20 eur na zł', fx: true },
+                { expr: '12 zł + 20 eur', fx: true },
+                { expr: '100 usd - vat', fx: true },
+                { expr: '100 $', fx: true },
+                { expr: '100 zł na eur', fx: true },
+            ].forEach(function(t) {
+                var r = evalCalcExpression(t.expr);
+                var used = _resultUsedFx(r, t.expr);
+                results.push({ expr: t.expr + ' (≈ kursu: ' + (t.fx ? 'tak' : 'nie') + ')', pass: used === t.fx, got: used + ' | ' + r.value + ' ' + r.unit });
             });
             // Notatnik idzie tym samym silnikiem — kwoty ze spacją w etykietach i działaniach.
             var npThou = evalNotepadLines('Przychód: 120 000 zł\nKoszty: 30 000 zł\nDochód: @przychód - @koszty\nPodatek: @dochód * 12% - 3 600 zł');

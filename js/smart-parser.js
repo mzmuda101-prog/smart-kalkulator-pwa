@@ -110,6 +110,33 @@
         var re = new RegExp('([\\d.,]+)\\s*(' + tokenRe + ')(?![a-ząćęłńóśźż0-9])', 'i');
         return re.test(String(raw || ''));
     }
+    // Kody walut użyte w wejściu („100 zł”, „$100”, „20eur”) — bez duplikatów, np. ['PLN','EUR'].
+    // app.js: kurs (≈) ma sens tylko, gdy w grze są ≥ 2 waluty (wejście ∪ wynik).
+    function currencyCodesInInput(raw, options) {
+        var opts = options || {};
+        var map = _currencyTokenMap(opts.fxRates || {});
+        var tokenRe = _currencyTokenRe(map);
+        var codes = [];
+        if (!tokenRe) return codes;
+        function add(tok) {
+            var c = map[String(tok).toLowerCase()];
+            if (c && codes.indexOf(c) < 0) codes.push(c);
+        }
+        var s = String(raw || ''), m;
+        var after = new RegExp('[\\d.,]\\s*(' + tokenRe + ')(?![a-ząćęłńóśźż0-9])', 'gi');
+        var before = new RegExp('(?:^|[^a-ząćęłńóśźż0-9])(' + tokenRe + ')\\s*\\d', 'gi');
+        var target = new RegExp('\\b(?:na|w|to|in|into)\\s+(' + tokenRe + ')\\s*$', 'i');
+        while ((m = after.exec(s))) add(m[1]);
+        while ((m = before.exec(s))) add(m[1]);
+        if ((m = s.match(target))) add(m[1]);
+        return codes;
+    }
+    // Kod waluty z etykiety wyniku („zł” → PLN, „€” → EUR); null gdy etykieta niejednoznaczna („kr”).
+    function currencyCodeOfUnit(unit, options) {
+        if (!unit) return null;
+        var map = _currencyTokenMap((options || {}).fxRates || {});
+        return map[String(unit).toLowerCase()] || null;
+    }
     function resolveCurrencyExpression(raw, options) {
         var opts = options || {};
         var fxRates = opts.fxRates || {};
@@ -1242,6 +1269,122 @@
     }
 
     /* ============================================================
+       [PL] Podsilnik PODATKÓW PL — PIT (skala, liniowy, ryczałt, wspólnie) + pensja UoP.
+            Parametry w JEDNEJ tabeli (_TAX_PL) — co rok podmieniasz tylko liczby.
+            Zaokrąglenia jak w Ordynacji podatkowej (art. 63): podstawa i podatek do
+            pełnych złotych (< 50 gr w dół, ≥ 50 gr w górę); składki ZUS do grosza.
+       ============================================================ */
+    var _TAX_PL = {
+        year: 2026,
+        scaleRate1: 0.12, scaleRate2: 0.32, scaleThreshold: 120000,
+        taxReducingAmount: 3600,          // kwota zmniejszająca podatek (kwota wolna 30 000 zł)
+        linearRate: 0.19,
+        // pensja UoP (pracownik): emerytalna 9,76% + rentowa 1,5% + chorobowa 2,45%
+        zusEmployee: [0.0976, 0.015, 0.0245],
+        healthRate: 0.09,                 // zdrowotna od (brutto − składki społeczne)
+        employeeCosts: 250,               // koszty uzyskania przychodu (miesięcznie, standard)
+        monthlyReduction: 300             // 3 600 / 12 — przy złożonym PIT-2
+    };
+    function _roundZl(n) { return n < 0 ? -Math.round(-n) : Math.round(n); }
+    function _taxScale(income) {
+        var T = _TAX_PL, d = _roundZl(Math.max(0, income));
+        var tax = d <= T.scaleThreshold
+            ? d * T.scaleRate1 - T.taxReducingAmount
+            : T.scaleThreshold * T.scaleRate1 - T.taxReducingAmount + (d - T.scaleThreshold) * T.scaleRate2;
+        return Math.max(0, _roundZl(tax));
+    }
+    // Miesięczna pensja na umowie o pracę: brutto → netto (standard: KUP 250 zł, PIT-2,
+    // pierwszy próg, bez PPK). young = ulga dla młodych (do 26 lat) → bez zaliczki PIT.
+    function _payrollNet(gross, young) {
+        var T = _TAX_PL;
+        var social = 0;
+        for (var i = 0; i < T.zusEmployee.length; i++) social += _roundMoney(gross * T.zusEmployee[i]);
+        social = _roundMoney(social);
+        var health = _roundMoney((gross - social) * T.healthRate);
+        var advance = 0;
+        if (!young) {
+            var base = _roundZl(Math.max(0, gross - social - T.employeeCosts));
+            advance = Math.max(0, _roundZl(base * T.scaleRate1 - T.monthlyReduction));
+        }
+        return _roundMoney(gross - social - health - advance);
+    }
+    // netto → brutto. Netto NIE rośnie ściśle z brutto: zaliczka PIT skacze o pełne złote,
+    // więc +1 gr brutto potrafi dać −0,99 zł netto. Bisekcja daje okolicę, potem przegląd
+    // ±5 zł co grosz: najpierw najmniejsze brutto z DOKŁADNIE tym netto, inaczej najmniejsze ≥.
+    function _payrollGross(net, young) {
+        var lo = Math.round(net * 100), hi = Math.round(net * 200) + 100000;
+        while (lo < hi) {
+            var mid = Math.floor((lo + hi) / 2);
+            if (_payrollNet(mid / 100, young) >= net - 1e-9) hi = mid; else lo = mid + 1;
+        }
+        // Wiele brutto daje to samo netto (12 000,00 i 11 998,73 → 8 509,87) — wtedy
+        // wygrywa kwota w pełnych złotych (taką ludzie wpisują), potem najmniejsza.
+        var exact = null, exactWhole = null, atLeast = null;
+        for (var c = Math.max(0, lo - 500); c <= lo + 500; c++) {
+            var n = _payrollNet(c / 100, young);
+            if (Math.abs(n - net) < 0.005) {
+                if (exact === null) exact = c;
+                if (exactWhole === null && c % 100 === 0) exactWhole = c;
+            }
+            if (atLeast === null && n >= net - 1e-9) atLeast = c;
+        }
+        if (exactWhole !== null) exact = exactWhole;
+        return (exact !== null ? exact : (atLeast !== null ? atLeast : lo)) / 100;
+    }
+    function evalTaxExpression(raw) {
+        var s = _plFold(raw).trim().replace(/\s+/g, ' ')
+            // notatnik podstawia zmienne w nawiasach: „pit @dochód" → „pit (90000 zł)"
+            .replace(/\(\s*(\d+(?:[.,]\d+)?)(\s*(?:zl|pln))?\s*\)/g, '$1$2');
+        if (!s || !/(pit|podat|liniow|ryczal|pensj|uop|umow|wynagrodz|wyplat|na reke|tax|salary)/.test(s)) return null;
+        var NUM = '(\\d+(?:[.,]\\d+)?)', CUR = '(?:\\s*(?:zl|pln))?';
+        function num(x) { return parseFloat(String(x).replace(',', '.')); }
+        function money(v) { return { value: _roundMoney(v), unit: 'zł', kind: 'money' }; }
+        var m;
+        // ── pensja UoP ──
+        var young = /\b(?:do 26|ponizej 26|mlod[a-z]*|pit-?0|under 26)\b/.test(s);
+        var sp = s.replace(/\b(?:do 26(?: lat)?|ponizej 26(?: lat)?|ulga dla mlodych|mlod[a-z]*|pit-?0|under 26)\b/g, ' ').replace(/\s+/g, ' ').trim();
+        var PAY = '(?:pensja|pensji|uop|umowa o prace|wynagrodzenie|wyplata|salary)';
+        // netto → brutto: „pensja netto 5000", „ile brutto dla 5000 na rękę"
+        if ((m = sp.match(new RegExp('^' + PAY + ' (?:netto|na reke) ' + NUM + CUR + '$'))) ||
+            (m = sp.match(new RegExp('^(?:ile )?brutto (?:dla|za|z) ' + NUM + CUR + ' (?:netto|na reke)(?: ' + PAY + ')?$'))) ||
+            (m = sp.match(new RegExp('^' + NUM + CUR + ' na reke (?:to ile |ile )?brutto$')))) {
+            return money(_payrollGross(num(m[1]), young));
+        }
+        // brutto → netto: „pensja 7000", „uop 7000 brutto", „7000 brutto na rękę", „na rękę z 7000"
+        if ((m = sp.match(new RegExp('^' + PAY + '(?: brutto)? ' + NUM + CUR + '(?: brutto)?(?: (?:na reke|netto))?$'))) ||
+            (m = sp.match(new RegExp('^' + NUM + CUR + ' brutto (?:na reke|netto ' + PAY + '|' + PAY + ')$'))) ||
+            (m = sp.match(new RegExp('^(?:netto|na reke) (?:z|dla|od) ' + NUM + CUR + '(?: brutto)?(?: ' + PAY + ')?$')))) {
+            if (/^(?:netto|na reke) /.test(sp) && !/brutto|pensj|uop|umow|wynagrodz|wyplat|salary/.test(sp)) return null;
+            return money(_payrollNet(num(m[1]), young));
+        }
+        // ── ryczałt: „ryczałt 12% od 100000", „ryczałt 100000 8,5%" ──
+        if ((m = s.match(new RegExp('^ryczalt ' + NUM + ' ?% (?:od|z) ' + NUM + CUR + '$')))) {
+            return money(_roundZl(_roundZl(num(m[2])) * num(m[1]) / 100));
+        }
+        if ((m = s.match(new RegExp('^ryczalt ' + NUM + CUR + ' ' + NUM + ' ?%$')))) {
+            return money(_roundZl(_roundZl(num(m[1])) * num(m[2]) / 100));
+        }
+        // ── jawna stawka: „podatek 12% od 100000", „pit 19% z 50000 zł" = P% × B ──
+        if ((m = s.match(new RegExp('^(?:pit|podatek) ' + NUM + ' ?% (?:od|z) ' + NUM + '(\\s*(?:zl|pln))?$')))) {
+            var pv = num(m[2]) * num(m[1]) / 100;
+            return m[3] ? money(pv) : { value: pv, unit: null, kind: 'number' };
+        }
+        // ── liniowy 19%: „pit liniowy 100000", „podatek liniowy od 100000" ──
+        if ((m = s.match(new RegExp('^(?:(?:pit|podatek) )?liniowy (?:(?:od|z) )?' + NUM + CUR + '$')))) {
+            return money(_roundZl(_roundZl(num(m[1])) * _TAX_PL.linearRate));
+        }
+        // ── wspólne rozliczenie małżonków: 2 × podatek(połowa sumy dochodów) ──
+        if ((m = s.match(new RegExp('^(?:pit|podatek) (?:wspolnie|wspolny|z (?:zona|mezem|malzonkiem)|malzonkow) (?:(?:od|z) )?' + NUM + CUR + '$')))) {
+            return money(2 * _taxScale(num(m[1]) / 2));
+        }
+        // ── skala 12/32%: „pit 90000", „pit skala 90000", „podatek od 90000" ──
+        if ((m = s.match(new RegExp('^(?:pit|podatek)(?: (?:skala|ze skali|wg skali|na skali|dochodowy))? (?:(?:od|z) )?(?:dochodu )?' + NUM + CUR + '$')))) {
+            return money(_taxScale(num(m[1])));
+        }
+        return null;
+    }
+
+    /* ============================================================
        [PL] Podsilnik STREF CZASOWYCH — OFFLINE przez Intl (z DST, bez sieci).
             Raycast-style: „time in Tokyo", „czas w Kioto", „5pm ldn in sf" (zegar).
             Skróty miast w MATM0_DATA.TZ_CITY; pre pozycje: w / we / in / w/in.
@@ -1456,7 +1599,10 @@
             function(_, p, q) { return '(' + p.replace(',', '.') + '*' + q.replace(',', '.') + '/100)'; });
         raw = raw.replace(/([\d.,]+)%\s+(?:z|of)\s+([\d.,]+)/gi, '($2*$1/100)');
         raw = raw.replace(/([\d.,]+)\s+(?:z|of)\s+([\d.,]+)%/gi, '($1*$2/100)');
-        raw = raw.replace(/([\d.,]+)%\s+od\s+([\d.,]+)/gi, '($2*(1-$1/100))');
+        // „P% od B" = P% × B — jak „vat 8% od B", „12% od dochodu", „odsetki 5% od kwoty".
+        // (Dawniej B − P%: cichy zły wynik przy podatkach. Odejmowanie ma jawne formy:
+        // „odejmij P% od B", „P% rabatu na B", „B − P%".)
+        raw = raw.replace(/([\d.,]+)%\s+od\s+([\d.,]+)/gi, '($2*$1/100)');
         var _pctRe = /^([^%]*[^%\s])\s*([+\-])\s*([\d.,]+)%(?=\s*(?:[+\-]|$))/;
         for (var _pctGuard = 0; _pctRe.test(raw) && _pctGuard < 40; _pctGuard++) {
             raw = raw.replace(_pctRe, function(_, base, op, b) {
@@ -1689,6 +1835,8 @@
         if (aggregateQ) return aggregateQ;
         var routeQ = evalRouteCost(original);
         if (routeQ) return routeQ;
+        var taxQ = evalTaxExpression(original);
+        if (taxQ) return taxQ;
         try {
             var expr = original;
             expr = resolveCalcConstants(expr, constOpts);
@@ -1896,6 +2044,8 @@
         currencyTokenRe: _currencyTokenRe,
         currencyDisplay: _currencyDisplay,
         hasCurrencyInInput: hasCurrencyInInput,
+        currencyCodesInInput: currencyCodesInInput,
+        currencyCodeOfUnit: currencyCodeOfUnit,
         resolveUnitsExpression: resolveUnitsExpression,
         analyzeUnitMix: analyzeUnitMix,
         time: _TIME,                       // prymityw czasu (parseSeconds, units, base)
@@ -1918,6 +2068,8 @@
         resolveCalcConstants: resolveCalcConstants,
         resolveFunctionConstants: resolveFunctionConstants,
         evalRouteCost: evalRouteCost,
+        evalTaxExpression: evalTaxExpression,
+        taxParams: _TAX_PL,
         evaluate: evaluate,
         formatDurationSeconds: formatDurationSeconds,
         evalTimezoneExpression: evalTimezoneExpression,

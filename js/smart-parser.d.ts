@@ -76,6 +76,9 @@ export interface Matm0Parser {
   evalAverage: (raw: string) => EvaluateResult | null;
   evalAggregate: (raw: string) => EvaluateResult | null;
   evalRouteCost: (raw: string) => EvaluateResult | null;
+  /** PIT (skala, liniowy, ryczałt, wspólnie) + pensja UoP brutto↔netto — parametry w taxParams. */
+  evalTaxExpression: (raw: string) => EvaluateResult | null;
+  taxParams: Record<string, number | number[]>;
   resolveCalcAnswer: (raw: string, lastAnswer?: number | null) => string;
   resolveCalcConstants: (raw: string, options?: ParserEvaluateOptions) => string;
   resolveFunctionConstants: (raw: string, options?: ParserEvaluateOptions) => string;
@@ -87,6 +90,8 @@ export interface Matm0Parser {
   preprocessNatural: (raw: string) => string;
   formatDurationSeconds: (sec: number) => string;
   hasCurrencyInInput: (raw: string, options?: { fxRates?: Record<string, number> }) => boolean;
+  currencyCodesInInput: (raw: string, options?: { fxRates?: Record<string, number> }) => string[];
+  currencyCodeOfUnit: (unit: string | null, options?: { fxRates?: Record<string, number> }) => string | null;
   currencyTokenMap: (fxRates?: Record<string, number>) => Record<string, string>;
   currencyTokenRe: (map?: Record<string, string>) => string;
   currencyDisplay: (code: string, options?: { currencyCompactSymbols?: boolean }) => string;

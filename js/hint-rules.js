@@ -49,6 +49,19 @@
             }
         },
         {
+            // PIT/pensja — po samym słowie podpowiedz warianty (kwota dopisywana przez usera)
+            test: function (n) { return /^(pit|podatek)$/.test(n); },
+            chips: function () {
+                return [chip('liniowy', ' liniowy '), chip('wspólnie', ' wspólnie '), chip('od 90 000', ' od 90 000')];
+            }
+        },
+        {
+            test: function (n) { return /^(pensja|uop|wynagrodzenie)$/.test(n); },
+            chips: function () {
+                return [chip('7 000', ' 7 000'), chip('netto 5 000', ' netto 5 000'), chip('7 000 do 26', ' 7 000 do 26')];
+            }
+        },
+        {
             test: function (n) { return /\b\d{1,2}:\d{2}\b/.test(n); },
             chips: function () {
                 return [chip('+ 3h', ' + 3h'), chip('w Londynie na Tokio', ' w Londynie na Tokio')];
@@ -76,7 +89,8 @@
         'teraz w Tokio', 'teraz NYC', 'now in London', 'teraz Kyoto',
         '2 kg + 300 g', '5 km + 300 m', '100 zł + 20 eur', '20 eur na zł',
         '100 usd', 'sqrt(144)', 'pierwiastek z 144', '2^10', '20% z 150',
-        'brutto 1000', 'netto 1230', 'sin(30 deg)', '2 in na px przy 96 ppi',
+        'brutto 1000', 'netto 1230', 'pit 90000', 'pit liniowy 90000', 'pit wspólnie 200000',
+        'ryczałt 12% od 100000', 'pensja 7000', 'pensja netto 5000', 'sin(30 deg)', '2 in na px przy 96 ppi',
         '108m+900m', 'ans*2', '2+2', 'pi', 'e',
         // warianty obsłużone przez warstwę synonimów (js/synonyms.js) — autocomplete
         // i fuzzy mają je podpowiadać, skoro silnik już je liczy

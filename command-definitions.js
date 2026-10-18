@@ -47,6 +47,7 @@
         partA: 25, partB: 200, diffA: 30, diffB: 90,
         fracPct: '8,5', partVal: 20, targetPct: 100, halfPct: 50,
         partCur: 80, net: 1000, gross: 1230, vatCustom: 8, grossRm: 1560,
+        income: 90000, jointIncome: 200000, revenue: 100000, ryczRate: 12, salary: 7000, salaryNet: 5000,
         lenVal: 120, lenUnit: 'cm', mixA: 5, mixB: 200,
         kgA: 2, gB: 300, timeMin: 90, tempC: 20,
         distKm: 300, fuel: 7, fuelPrice: '6,50',
@@ -108,6 +109,7 @@
                 intro: 'Cztery kierunki: <strong>% z kwoty</strong> (<code>P% z B</code>), <strong>% z %</strong> (<code>P% z Q%</code>), <strong>jaki % to A z B</strong> (<code>ile % stanowi…</code>), <strong>znasz ułamek → szukasz reszty</strong> (<code>P% to A, ile 100%</code>). Szukaj linii <code>→</code> — tam widać typ wyniku.',
                 items: [
                     { syntax: 'P% z B', syntaxAlt: 'P% of B', command: '{pct}% z {base}', yields: 'P% × B', description: 'też słowo: procent' },
+                    { syntax: 'P% od B', command: '12% od 90000', yields: 'P% × B', description: 'to samo co „z” — np. podatek, odsetki od kwoty' },
                     { syntax: 'P% z B jednostka', syntaxAlt: 'P% of B unit', command: '20% z 5 km', yields: 'P% × B (z jednostką)', description: 'procent z wielkości — jednostka zostaje w wyniku' },
                     { syntax: 'P% z Q%', syntaxAlt: 'P% of Q%', command: '{pct}% z {pctOf}%', yields: 'P% × Q% ÷ 100', description: 'procent z procenta (składany %)' },
                     { syntax: 'B + P%', command: '{addBase} + {pctAdd}%', yields: 'B + (P% × B)', description: 'dolicza procent do bazy' },
@@ -147,6 +149,21 @@
                     { syntax: 'vat P% od B', syntaxAlt: 'tax P% on B', command: 'vat {vatCustom}% od {net}', yields: 'B × P/100', description: 'kwota VAT przy stawce P' },
                     { prose: '<strong>Kolejność stawki dowolna:</strong> <code>B + vat P%</code> i <code>B + P% vat</code> liczą to samo (tak samo z <code>−</code> i z <code>tax</code>).' },
                     { prose: '„minus VAT" to <strong>÷1,23</strong> (nie −23%) — bo VAT liczy się od netta. Samo słowo <code>vat</code> (bez <code>+</code>/<code>−</code> albo „od") nic nie policzy.' },
+                ],
+            },
+            {
+                title: 'Podatki — PIT i pensja (parametry 2026)',
+                intro: 'Szybki szacunek, nie zastępuje deklaracji. Kwoty zaokrąglane do pełnych złotych jak w Ordynacji podatkowej (składki ZUS — do grosza). Pełne rozliczenie krok po kroku: szablon <strong>PIT</strong> w notatniku.',
+                items: [
+                    { syntax: 'pit D', command: 'pit {income}', yields: '12% × D − 3 600 (do 120 000), nadwyżka 32%', description: 'D = roczny DOCHÓD (przychód − koszty − ZUS); też: podatek od D, pit skala D' },
+                    { syntax: 'pit wspólnie D', command: 'pit wspólnie {jointIncome}', yields: '2 × podatek(D ÷ 2)', description: 'z małżonkiem — D = suma dochodów obojga' },
+                    { syntax: 'pit liniowy D', command: 'pit liniowy {income}', yields: '19% × D', description: 'podatek liniowy (bez kwoty wolnej)' },
+                    { syntax: 'ryczałt P% od B', command: 'ryczałt {ryczRate}% od {revenue}', yields: 'P% × B', description: 'B = PRZYCHÓD; stawka zależy od branży (2–17%)' },
+                    { syntax: 'podatek P% od B', command: 'podatek 19% od {revenue}', yields: 'P% × B', description: 'dowolna stawka' },
+                    { syntax: 'pensja B', command: 'pensja {salary}', yields: 'netto „na rękę” z brutto (miesięcznie)', description: 'umowa o pracę; też: uop B, B brutto na rękę' },
+                    { syntax: 'pensja netto N', command: 'pensja netto {salaryNet}', yields: 'ile brutto daje N na rękę', description: 'też: ile brutto dla N na rękę' },
+                    { syntax: 'pensja B do 26', command: 'pensja {salary} do 26', yields: 'netto bez zaliczki PIT', description: 'ulga dla młodych (limit 85 528 zł rocznie)' },
+                    { prose: '<strong>Pensja zakłada standard:</strong> ZUS pracownika 13,71%, zdrowotna 9%, koszty 250 zł, złożony PIT-2 (−300 zł/mies.), pierwszy próg, bez PPK. Inaczej liczą: koszty 300 zł (dojazd), PPK, przekroczenie 120 000 zł w roku.' },
                 ],
             },
             {
