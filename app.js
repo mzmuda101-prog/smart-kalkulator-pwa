@@ -72,7 +72,8 @@
                         standardAutocomplete: false, // T4-16: lista podpowiedzi Standard
                         suggestOnEmpty: true, // T4-19: fuzzy gdy brak wyniku — domyślnie ON od v1.02.81
                         suggestOnEmptyDefaultV2: true, // znacznik jednorazowej migracji domyślnej (patrz loadState)
-                        currencyCompactSymbols: true }, // T4-20: $ € zamiast kodów ISO
+                        currencyCompactSymbols: true, // T4-20: $ € zamiast kodów ISO
+                        calcLayout: 'keypad' }, // układ Standard: 'keypad' (klawisze) | 'sentence' („zdanie najpierw”)
             // Komenda tab (merged Engineering + Graph)
             eng: { unit: 'cm', axis: 'X', mode: 'between' }, // used by drawEngineeringCanvas
             graph: {
@@ -173,6 +174,7 @@
         const settingNotepadAutoUnit = $('#settingNotepadAutoUnit');
         const settingNotepadUnitMix = $('#settingNotepadUnitMix');
         const settingNotepadSumUnit = $('#settingNotepadSumUnit');
+        const settingCalcLayout = $('#settingCalcLayout');
         const settingNotepadFontSize = $('#settingNotepadFontSize');
         const settingNotepadFontReset = $('#settingNotepadFontReset');
         const settingNotepadFontVal = $('#settingNotepadFontVal');
@@ -336,6 +338,7 @@
                             _settingsNeedMigrationSave = true;
                         }
                         if (typeof stObj.currencyCompactSymbols === 'boolean') STATE.settings.currencyCompactSymbols = stObj.currencyCompactSymbols;
+                        STATE.settings.calcLayout = stObj.calcLayout === 'sentence' ? 'sentence' : 'keypad'; // nieznane → klawisze
                     }
                 }
             } catch (e) {
@@ -2184,6 +2187,13 @@
         // [EN] Expr height: mieści się w wyświetlaczu; nadmiar ucinany od góry, wynik zawsze w boxie.
         function fitCalcExpr() {
             if (!calcExpr) return;
+            if (_calcSentence()) { // pole rośnie w pionie (CSS), nie zmniejszamy fontu
+                calcExpr.style.fontSize = '';
+                calcExpr.style.maxHeight = '';
+                if (_calcPh) _calcPh.style.fontSize = '';
+                calcExpr.classList.remove('is-clipped');
+                return;
+            }
             var display = calcExpr.closest('.calc-display');
             var resultRow = display && display.querySelector('.calc-result-row');
             var wrap = calcExpr.parentElement;
@@ -2936,6 +2946,16 @@
             calcGrid.style.removeProperty('display');
             if (!panel.classList.contains('active')) {
                 _clearCalcLayoutInline(card, display);
+                requestAnimationFrame(function() { fitCalcDisplay(); });
+                return;
+            }
+            if (_calcSentence()) {
+                // „Zdanie najpierw”: bez klawiatury — ekranik po prostu wypełnia kartę (CSS),
+                // budżety wysokości z calc-layout-tune nie mają tu czego dzielić.
+                var isMobileS = _isCalcMobileLayout();
+                _clearCalcLayoutInline(card, display);
+                document.body.classList.toggle('calc-panel-active', isMobileS);
+                document.body.classList.toggle('calc-split-active', !isMobileS);
                 requestAnimationFrame(function() { fitCalcDisplay(); });
                 return;
             }
@@ -5068,6 +5088,139 @@
         }
         if (commandHelpClose) commandHelpClose.addEventListener('click', closeCommandHelp);
         if (commandHelpBackdrop) commandHelpBackdrop.addEventListener('click', closeCommandHelp);
+
+        /* ============================================================
+           Układ „zdanie najpierw” (etap 2 przebudowy UI) — opcja obok klasycznych klawiszy.
+           Duże pole wyrównane do lewej, wynik + rozpisanie, podpowiedzi i pasek skrótów.
+           Na telefonie pasek przykleja się nad klawiaturę systemu (ta sama technika co
+           key-bar w Sheet Workbench: position:fixed + transform z visualViewport — GOTCHA iOS:
+           fixed żyje w layout viewport, więc do top dodajemy vv.offsetTop).
+           ============================================================ */
+        function _calcSentence() { return !!(STATE.settings && STATE.settings.calcLayout === 'sentence'); }
+        var CALC_KEY_BAR_KEYS = [
+            { k: '=', act: '=', cls: 'is-eq', label: '=' },
+            { k: 'AC', act: 'AC', cls: 'is-clear', label: 'AC' },
+            { k: ' + ', label: '+' }, { k: ' − ', label: '−' }, { k: ' × ', label: '×' }, { k: ' ÷ ', label: '÷' },
+            { k: '(', label: '(' }, { k: ')', label: ')' }, { k: '%', label: '%' }, { k: ',', label: ',' },
+            { k: 'zł', word: true, label: 'zł' }, { k: 'vat', word: true, label: 'vat' },
+            { k: 'dni', word: true, label: 'dni' }, { k: 'h', word: true, label: 'h' }, { k: 'km', word: true, label: 'km' },
+            { k: '1' }, { k: '2' }, { k: '3' }, { k: '4' }, { k: '5' }, { k: '6' }, { k: '7' }, { k: '8' }, { k: '9' }, { k: '0' }
+        ];
+        var calcKeyBar = $('#calcKeyBar');
+        var _keyBarHome = calcKeyBar ? calcKeyBar.nextElementSibling : null; // miejsce w karcie (przed .calc-tools)
+        var _keyBarFrame = 0, _keyBarTop = NaN;
+        function _buildCalcKeyBar() {
+            if (!calcKeyBar || calcKeyBar.childElementCount) return;
+            var row = document.createElement('div');
+            row.className = 'calc-key-bar-row';
+            CALC_KEY_BAR_KEYS.forEach(function(key, i) {
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.tabIndex = -1;
+                b.className = 'calc-key-bar-key no-haptic' + (key.cls ? ' ' + key.cls : '') + (/^\d$/.test(key.k) ? ' is-digit' : '');
+                b.dataset.idx = String(i);
+                b.textContent = key.label || key.k;
+                if (key.act === 'AC') b.setAttribute('aria-label', 'Wyczyść');
+                row.appendChild(b);
+            });
+            calcKeyBar.appendChild(row);
+            // Fokus zostaje w polu (klawiatura systemu się nie chowa): blokujemy mousedown,
+            // NIE touchstart — tamto zablokowałoby przewijanie rzędu palcem.
+            calcKeyBar.addEventListener('mousedown', function(e) { e.preventDefault(); });
+            calcKeyBar.addEventListener('click', function(e) {
+                var b = e.target.closest('.calc-key-bar-key');
+                if (!b) return;
+                var key = CALC_KEY_BAR_KEYS[+b.dataset.idx];
+                if (!key) return;
+                hapticTap(8);
+                if (key.act) { handleCalcAction(key.act); return; }
+                if (STATE.calc.justEvaluated && /^\d$/.test(key.k)) _beginFreshCalcAfterEquals();
+                STATE.calc.justEvaluated = false;
+                var text = key.k;
+                var pos = calcExpr.selectionStart != null ? calcExpr.selectionStart : calcExpr.value.length;
+                var prev = calcExpr.value.charAt(pos - 1);
+                if (key.word) {
+                    if (prev && !/\s/.test(prev)) text = ' ' + text;
+                    text += ' ';
+                }
+                // bez podwójnych spacji („100 zł ” + „ + ”) i bez spacji na początku pola
+                if (/^\s/.test(text) && (!prev || /\s/.test(prev))) text = text.replace(/^\s+/, '');
+                insertAtCursor(calcExpr, text);
+                liveEval();
+            });
+        }
+        function _calcKeyboardOpen() {
+            var vv = window.visualViewport;
+            if (window.__calcKeyBarForce) return true; // testy — w przeglądarce bez okna nie ma klawiatury
+            return !!vv && window.innerHeight - vv.height > 120;
+        }
+        function _placeCalcKeyBar() {
+            if (!calcKeyBar) return;
+            var floating = _calcSentence() && document.activeElement === calcExpr && _calcKeyboardOpen();
+            calcKeyBar.classList.toggle('is-floating', floating);
+            // Pływający pasek mieszka w <body>: przodek z transform (animacje paneli) robi z siebie
+            // blok zawierający dla position:fixed i pasek lądował o wysokość nagłówka za nisko.
+            if (floating && calcKeyBar.parentNode !== document.body) document.body.appendChild(calcKeyBar);
+            if (!floating && _keyBarHome && calcKeyBar.parentNode === document.body) _keyBarHome.parentNode.insertBefore(calcKeyBar, _keyBarHome);
+            if (!floating) {
+                if (calcKeyBar.style.transform) calcKeyBar.style.transform = '';
+                _keyBarTop = NaN;
+                return false;
+            }
+            var vv = window.visualViewport;
+            var h = calcKeyBar.offsetHeight || 52;
+            var top = vv ? vv.offsetTop + vv.height - h : window.innerHeight - h;
+            if (top !== _keyBarTop) {
+                _keyBarTop = top;
+                calcKeyBar.style.transform = 'translate3d(0,' + Math.round(top) + 'px,0)';
+            }
+            return true;
+        }
+        function _watchCalcKeyBar() {
+            _keyBarFrame = 0;
+            // Klawiatura wjeżdża animacją, a iOS nie zawsze daje zdarzenie — póki pasek pływa, pilnujemy w rAF.
+            if (_placeCalcKeyBar()) _keyBarFrame = requestAnimationFrame(_watchCalcKeyBar);
+        }
+        function _syncCalcKeyBar() {
+            if (_keyBarFrame) { cancelAnimationFrame(_keyBarFrame); _keyBarFrame = 0; }
+            if (_placeCalcKeyBar()) _keyBarFrame = requestAnimationFrame(_watchCalcKeyBar);
+        }
+        function _syncCalcLayoutToggles() {
+            var on = _calcSentence();
+            document.querySelectorAll('.calc-layout-toggle').forEach(function(b) {
+                var icon = on ? 'keypad' : 'text-cursor';
+                var label = on ? 'Klawisze' : 'Tryb zdania';
+                b.innerHTML = '<svg class="ui-icon" aria-hidden="true"><use href="#i-' + icon + '"/></svg><span>' + label + '</span>';
+                b.setAttribute('aria-pressed', on ? 'true' : 'false');
+                b.title = on ? 'Wróć do klasycznych klawiszy' : 'Tryb „zdanie najpierw”: duże pole, wynik z rozpisaniem, pasek skrótów';
+            });
+        }
+        function applyCalcLayout() {
+            var on = _calcSentence();
+            document.body.classList.toggle('calc-sentence', on);
+            if (on) _buildCalcKeyBar();
+            _syncCalcLayoutToggles();
+            _calcExplainKey = ''; // przerysuj rozpisanie (na telefonie w tym trybie widać je wprost)
+            fitCalcLayout();
+            liveEval();
+            _syncCalcKeyBar();
+        }
+        function setCalcLayout(mode) {
+            STATE.settings.calcLayout = mode === 'sentence' ? 'sentence' : 'keypad';
+            if (settingCalcLayout) settingCalcLayout.value = STATE.settings.calcLayout;
+            saveSettings();
+            applyCalcLayout();
+            if (_calcSentence() && !window.matchMedia('(pointer: coarse)').matches && calcExpr) calcExpr.focus();
+        }
+        document.querySelectorAll('.calc-layout-toggle').forEach(function(b) {
+            b.addEventListener('click', function() { setCalcLayout(_calcSentence() ? 'keypad' : 'sentence'); });
+        });
+        if (calcExpr) {
+            calcExpr.addEventListener('focus', function() { setTimeout(_syncCalcKeyBar, 0); });
+            calcExpr.addEventListener('blur', function() { setTimeout(_syncCalcKeyBar, 0); });
+        }
+        // klawiatura wjeżdża PO focusie — dopiero resize visualViewport mówi, że jest otwarta
+        if (window.visualViewport) window.visualViewport.addEventListener('resize', function() { if (_calcSentence()) _syncCalcKeyBar(); });
 
         // Pusty ekran: przykłady w kategoriach — panel „Spróbuj" (≥1024) i pasek w miejscu „0".
         function renderCalcStart() {
@@ -8320,6 +8473,7 @@
             if (settingNotepadAutoUnit) settingNotepadAutoUnit.value = STATE.settings.notepadAutoUnit || 'safe';
             if (settingNotepadUnitMix) settingNotepadUnitMix.value = STATE.settings.notepadUnitMix || 'strict';
             if (settingNotepadSumUnit) settingNotepadSumUnit.value = STATE.settings.notepadSumUnit || 'off';
+            if (settingCalcLayout) settingCalcLayout.value = STATE.settings.calcLayout === 'sentence' ? 'sentence' : 'keypad';
             if (settingStandardLiveHint) settingStandardLiveHint.checked = !!STATE.settings.standardLiveHint;
             if (settingStandardAutocomplete) settingStandardAutocomplete.checked = !!STATE.settings.standardAutocomplete;
             if (settingSuggestOnEmpty) settingSuggestOnEmpty.checked = !!STATE.settings.suggestOnEmpty;
@@ -11003,6 +11157,11 @@
                 if (document.body.classList.contains('notepad-open')) npRecompute();
             });
         }
+        if (settingCalcLayout) {
+            settingCalcLayout.addEventListener('change', function() {
+                setCalcLayout(settingCalcLayout.value);
+            });
+        }
         if (settingNotepadSumUnit) {
             settingNotepadSumUnit.addEventListener('change', function() {
                 STATE.settings.notepadSumUnit = settingNotepadSumUnit.value === 'inherit' ? 'inherit' : 'off';
@@ -12246,6 +12405,7 @@
             // na inicjalizację wykresu/Warsztatu/parsera, które są częścią innych zakładek).
             buildCalcButtons();
             bindCalcExampleChips(); // [EN] chips on calc panel — sync in phase 1 (not deferred with help DOM)
+            applyCalcLayout(); // układ Standard z ustawień (klawisze / „zdanie najpierw”)
             calcExpr.addEventListener('pointerdown', function() {
                 // Tap w tekst oznacza świadomą edycję wyniku po '=', nie nowy kalkulatorowy wpis.
                 STATE.calc.justEvaluated = false;

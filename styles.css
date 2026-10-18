@@ -4803,3 +4803,136 @@
             .header-actions { gap: 4px; }
             .app-header h1 { font-size: 1.03rem; }
         }
+
+/* ============================================================
+   Układ „zdanie najpierw” (body.calc-sentence) — etap 2 przebudowy UI.
+   Bez klawiatury: ekranik wypełnia kartę, pole i wynik wyrównane do lewej,
+   rozpisanie i podpowiedzi widoczne też na telefonie, pasek skrótów pod spodem.
+   ============================================================ */
+.calc-key-bar { display: none; }
+.calc-layout-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-secondary);
+    font: 600 .74rem/1 var(--font);
+    padding: 6px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.calc-layout-toggle .ui-icon { width: 15px; height: 15px; }
+.calc-layout-toggle:hover { color: var(--primary); border-color: var(--primary); }
+.calc-layout-toggle--tools {
+    flex-shrink: 0;
+    min-height: 48px;
+    border-radius: var(--radius);
+    padding: 0 12px;
+}
+@media (max-width: 380px) {
+    .calc-layout-toggle--tools span { display: none; } /* wąsko: sama ikona (aria w title) */
+}
+.calc-workspace-bar .calc-layout-toggle { margin-left: 12px; }
+
+body.calc-sentence #calcGrid { display: none !important; }
+body.calc-sentence #panel-calculator .calc-display {
+    flex: 1 1 auto !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    grid-template-rows: auto auto auto auto;
+    align-content: start;
+    overflow-y: auto;
+    margin-bottom: 0;
+}
+body.calc-sentence .calc-display .calc-expr-wrap { grid-row: 1; }
+body.calc-sentence .calc-display .calc-live-hint { grid-row: 2; }
+body.calc-sentence .calc-display .calc-result-row { grid-row: 3; justify-content: flex-start; flex-wrap: wrap; }
+/* szeroki ekran ma własne reguły #panel-calculator … (wyrównanie do prawej) — przebijamy je tu */
+body.calc-sentence #panel-calculator .calc-result-row { justify-content: flex-start !important; }
+body.calc-sentence #panel-calculator .calc-expression,
+body.calc-sentence #panel-calculator .calc-ph,
+body.calc-sentence #panel-calculator .calc-result,
+body.calc-sentence #panel-calculator .calc-explain-title { text-align: left !important; }
+body.calc-sentence #panel-calculator .calc-ph { justify-content: flex-start !important; }
+body.calc-sentence #panel-calculator .card { display: flex; flex-direction: column; }
+body.calc-sentence .calc-display .calc-explain,
+body.calc-sentence .calc-display .calc-empty-suggest { grid-row: 4; }
+body.calc-sentence .calc-expression {
+    text-align: left;
+    font-family: var(--font);
+    font-size: 1.35rem !important;
+    line-height: 1.4;
+    color: var(--text);
+    min-height: 2.8em;
+    max-height: 40vh;
+    field-sizing: content;
+    overflow-y: auto;
+}
+body.calc-sentence .calc-ph { text-align: left; justify-content: flex-start; font-family: var(--font); font-size: 1.35rem !important; }
+body.calc-sentence .calc-result { text-align: left; }
+body.calc-sentence .calc-explain-title,
+body.calc-sentence .calc-empty-suggest { text-align: left; }
+body.calc-sentence .calc-explain:not([hidden]) { display: block !important; }
+body.calc-sentence .calc-explain-tip { display: none !important; }
+body.calc-sentence .calc-live-hint:not([hidden]) { display: flex !important; }
+body.calc-sentence .calc-empty-suggest:not([hidden]) { display: block !important; }
+/* pusty ekran: przykłady także na szerokim ekranie (panel „Spróbuj” zostaje obok) */
+body.calc-sentence .calc-display.is-empty .calc-result,
+body.calc-sentence .calc-display.is-empty .calc-copy-btn { display: none !important; }
+body.calc-sentence .calc-display.is-empty .calc-start {
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 12px, #000 calc(100% - 28px), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 12px, #000 calc(100% - 28px), transparent 100%);
+}
+
+/* Pasek skrótów: w karcie pod ekranikiem; na telefonie z otwartą klawiaturą — przyklejony nad nią. */
+body.calc-sentence .calc-key-bar {
+    display: block;
+    flex: 0 0 auto;
+    margin-top: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
+    mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
+}
+.calc-key-bar::-webkit-scrollbar { display: none; }
+body.calc-sentence .calc-key-bar.is-floating {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 80;
+    margin: 0;
+    padding: 6px max(8px, var(--safe-left, 0px)) 6px max(8px, var(--safe-left, 0px));
+    background: var(--card-bg);
+    border-top: 1px solid var(--border);
+    will-change: transform;
+}
+.calc-key-bar-row { display: flex; gap: 6px; width: max-content; padding-right: 28px; }
+.calc-key-bar-key {
+    flex: 0 0 auto;
+    min-width: 44px;
+    min-height: 40px;
+    padding: 0 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+    color: var(--text);
+    font: 600 1rem/1 var(--font);
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+.calc-key-bar-key.is-digit { font-family: var(--font-mono); }
+.calc-key-bar-key.is-eq { background: var(--primary); border-color: var(--primary); color: var(--text-on-accent, #fff); min-width: 56px; }
+.calc-key-bar-key.is-clear { color: var(--danger, #e11d48); }
+.calc-key-bar-key:active { transform: scale(0.95); }

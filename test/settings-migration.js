@@ -85,9 +85,23 @@ function reload(stored) {
     check('opt-out chipów po migracji: zostaje OFF', r.settings.standardLiveHint, false);
 }
 
+// 11–13. Układ kalkulatora (calcLayout): domyślnie klawisze, zapis wraca, śmieć → klawisze.
+{
+    const r = reload(null);
+    check('świeża instalacja: calcLayout', r.settings.calcLayout, 'keypad');
+}
+{
+    const r = reload({ calcLayout: 'sentence', standardLiveHintDefaultV2: true, suggestOnEmptyDefaultV2: true });
+    check('zapisany tryb zdania wraca', r.settings.calcLayout, 'sentence');
+}
+{
+    const r = reload({ calcLayout: 'cokolwiek', standardLiveHintDefaultV2: true, suggestOnEmptyDefaultV2: true });
+    check('nieznany układ → klawisze', r.settings.calcLayout, 'keypad');
+}
+
 if (failed) {
     console.error('❌ settings-migration: ' + failed + ' błędów');
     process.exit(1);
 }
-console.log('✅ settings-migration: 14 asercji OK');
+console.log('✅ settings-migration: 17 asercji OK');
 process.exit(0); // [EN] atrapa fetch/timerów trzyma event-loop przy życiu

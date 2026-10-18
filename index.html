@@ -20,7 +20,7 @@
          jasnym tłem przy wybranym/systemowym dark. Lekki klucz osobny (matm0_theme):
          'dark' | 'light' | brak = auto (śledzi system).
          [EN] External file (not inline) so CSP stays script-src 'self'; sync load before CSS. -->
-    <script src="js/theme-init.js?v=v1.04.19"></script>
+    <script src="js/theme-init.js?v=v1.04.21"></script>
     <meta name="application-name" content="Smart Kalkulator">
     <meta name="format-detection" content="telephone=no">
     <meta name="description" content="Szwajcarski scyzoryk do obliczeń codziennych i technicznych">
@@ -28,8 +28,8 @@
     <link rel="icon" href="assets/img/icon-192.png" type="image/png">
     <link rel="apple-touch-icon" href="assets/img/icon-192.png">
     <title>Smart Kalkulator</title>
-    <link rel="stylesheet" href="styles.css?v=v1.04.19" id="matm0MainCss">
-    <script src="js/cache-bust.js?v=v1.04.19" data-phase="head"></script>
+    <link rel="stylesheet" href="styles.css?v=v1.04.21" id="matm0MainCss">
+    <script src="js/cache-bust.js?v=v1.04.21" data-phase="head"></script>
 </head>
 
 <body>
@@ -53,6 +53,8 @@
             <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
             <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5M12 7v5l4 2"/></symbol>
             <symbol id="i-book" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></symbol>
+            <symbol id="i-keypad" viewBox="0 0 24 24"><rect x="3" y="3" width="5" height="5" rx="1"/><rect x="10" y="3" width="5" height="5" rx="1"/><rect x="17" y="3" width="4" height="5" rx="1"/><rect x="3" y="10" width="5" height="5" rx="1"/><rect x="10" y="10" width="5" height="5" rx="1"/><rect x="17" y="10" width="4" height="5" rx="1"/><rect x="3" y="17" width="18" height="4" rx="1"/></symbol>
+            <symbol id="i-text-cursor" viewBox="0 0 24 24"><path d="M17 22h-1a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4h1M7 22h1a4 4 0 0 0 4-4v-1M7 2h1a4 4 0 0 1 4 4v1"/></symbol>
             <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
             <symbol id="i-coins" viewBox="0 0 24 24"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18M7 6h1v4M16.71 13.88l.7.71-2.82 2.82"/></symbol>
             <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
@@ -127,6 +129,8 @@
                 <div class="calc-workspace-bar">
                     <span class="calc-workspace-mode">Standard</span>
                     <span class="calc-workspace-live">Wynik aktualizuje się na żywo</span>
+                    <!-- Przełącznik układu: klawisze ↔ „zdanie najpierw” (to samo co ⚙️ → Układ kalkulatora). -->
+                    <button class="calc-layout-toggle no-haptic" type="button" aria-pressed="false"></button>
                 </div>
                 <div class="calc-display is-empty">
                     <div class="calc-expr-wrap">
@@ -180,12 +184,16 @@
                     <button class="calc-btn calc-btn--fn" data-action="⌫">⌫</button>
                     <button class="calc-btn calc-btn--equals" data-action="=">=</button>
                 </div>
+                <!-- Tryb „zdanie najpierw”: pasek klawiszy-skrótów. Na telefonie przy otwartej klawiaturze
+                     systemu przykleja się nad nią (calcKeyBar w app.js, pozycja z visualViewport). -->
+                <div class="calc-key-bar" id="calcKeyBar" role="toolbar" aria-label="Skróty do wpisywania"></div>
                 <div class="calc-tools">
                     <button class="history-open-btn" id="openHistory" type="button" aria-controls="historyDrawer"
                         aria-expanded="false">
                         <span class="btn-with-icon"><svg class="ui-icon" aria-hidden="true"><use href="#i-history"/></svg>Historia</span>
                         <span class="history-count" id="historyCount">0</span>
                     </button>
+                    <button class="calc-layout-toggle calc-layout-toggle--tools no-haptic" type="button" aria-pressed="false"></button>
                     <button class="calc-help-btn no-haptic" id="calcHelpOpen" type="button" aria-label="Ściąga komend kalkulatora">
                         <svg class="ui-icon" aria-hidden="true"><use href="#i-book"/></svg>Ściąga
                     </button>
@@ -1199,6 +1207,14 @@
             </div>
             <p class="settings-fxstatus" id="settingsFxStatus"></p>
             <div class="settings-field">
+                <label for="settingCalcLayout">Układ kalkulatora</label>
+                <select id="settingCalcLayout">
+                    <option value="keypad">Klawisze — klasyczny kalkulator z polem nad klawiaturą</option>
+                    <option value="sentence">Zdanie najpierw — duże pole, wynik z rozpisaniem, pasek skrótów</option>
+                </select>
+                <p class="settings-hint">Przełącza się też przyciskiem na karcie kalkulatora.</p>
+            </div>
+            <div class="settings-field">
                 <label>Podpowiedzi i asysta</label>
                 <p class="settings-hint">Nie zmieniają wyników, tylko ułatwiają pisanie. Chipy pod polem są domyślnie włączone.</p>
                 <label class="settings-check">
@@ -1279,25 +1295,25 @@
 
     <!-- defer: statyczny UI (nagłówek, wyświetlacz, zakładki) maluje się ZANIM wykona się JS
          (app.js ~525 KB). Kolejność zachowana, DOM gotowy przed wykonaniem. -->
-    <script src="js/cache-bust.js?v=v1.04.19" data-phase="defer"></script>
-    <script defer src="version.js?v=v1.04.19"></script>
-    <script defer src="js/cursor-hint.js?v=v1.04.19"></script>
-    <script defer src="js/vendor/decimal.js?v=v1.04.19"></script>
-    <script defer src="js/money-decimal.js?v=v1.04.19"></script>
-    <script defer src="js/numeric-eval.js?v=v1.04.19"></script>
-    <script defer src="js/data-tables.js?v=v1.04.19"></script>
-    <script defer src="js/format-pl.js?v=v1.04.19"></script>
-    <script defer src="js/pl-fold.js?v=v1.04.19"></script>
-    <script defer src="js/smart-parser.js?v=v1.04.19"></script>
-    <script defer src="js/smart-quantity.js?v=v1.04.19"></script>
-    <script defer src="js/quantity-algebra.js?v=v1.04.19"></script>
-    <script defer src="js/synonyms.js?v=v1.04.19"></script>
-    <script defer src="js/hint-rules.js?v=v1.04.19"></script>
-    <script defer src="js/notepad-format.js?v=v1.04.19"></script>
-    <script defer src="js/notepad-engine.js?v=v1.04.19"></script>
-    <script defer src="command-definitions.js?v=v1.04.19"></script>
-    <script defer src="js/calc-layout-tune.js?v=v1.04.19"></script>
-    <script defer src="app.js?v=v1.04.19"></script>
+    <script src="js/cache-bust.js?v=v1.04.21" data-phase="defer"></script>
+    <script defer src="version.js?v=v1.04.21"></script>
+    <script defer src="js/cursor-hint.js?v=v1.04.21"></script>
+    <script defer src="js/vendor/decimal.js?v=v1.04.21"></script>
+    <script defer src="js/money-decimal.js?v=v1.04.21"></script>
+    <script defer src="js/numeric-eval.js?v=v1.04.21"></script>
+    <script defer src="js/data-tables.js?v=v1.04.21"></script>
+    <script defer src="js/format-pl.js?v=v1.04.21"></script>
+    <script defer src="js/pl-fold.js?v=v1.04.21"></script>
+    <script defer src="js/smart-parser.js?v=v1.04.21"></script>
+    <script defer src="js/smart-quantity.js?v=v1.04.21"></script>
+    <script defer src="js/quantity-algebra.js?v=v1.04.21"></script>
+    <script defer src="js/synonyms.js?v=v1.04.21"></script>
+    <script defer src="js/hint-rules.js?v=v1.04.21"></script>
+    <script defer src="js/notepad-format.js?v=v1.04.21"></script>
+    <script defer src="js/notepad-engine.js?v=v1.04.21"></script>
+    <script defer src="command-definitions.js?v=v1.04.21"></script>
+    <script defer src="js/calc-layout-tune.js?v=v1.04.21"></script>
+    <script defer src="app.js?v=v1.04.21"></script>
 </body>
 
 </html>
