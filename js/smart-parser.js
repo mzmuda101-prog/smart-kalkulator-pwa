@@ -1295,7 +1295,7 @@
     }
     // Miesięczna pensja na umowie o pracę: brutto → netto (standard: KUP 250 zł, PIT-2,
     // pierwszy próg, bez PPK). young = ulga dla młodych (do 26 lat) → bez zaliczki PIT.
-    function _payrollNet(gross, young) {
+    function _payrollDetail(gross, young) {
         var T = _TAX_PL;
         var social = 0;
         for (var i = 0; i < T.zusEmployee.length; i++) social += _roundMoney(gross * T.zusEmployee[i]);
@@ -1306,8 +1306,10 @@
             var base = _roundZl(Math.max(0, gross - social - T.employeeCosts));
             advance = Math.max(0, _roundZl(base * T.scaleRate1 - T.monthlyReduction));
         }
-        return _roundMoney(gross - social - health - advance);
+        return { gross: gross, social: social, health: health, advance: advance,
+            net: _roundMoney(gross - social - health - advance) };
     }
+    function _payrollNet(gross, young) { return _payrollDetail(gross, young).net; }
     // netto → brutto. Netto NIE rośnie ściśle z brutto: zaliczka PIT skacze o pełne złote,
     // więc +1 gr brutto potrafi dać −0,99 zł netto. Bisekcja daje okolicę, potem przegląd
     // ±5 zł co grosz: najpierw najmniejsze brutto z DOKŁADNIE tym netto, inaczej najmniejsze ≥.
@@ -1331,7 +1333,33 @@
         if (exactWhole !== null) exact = exactWhole;
         return (exact !== null ? exact : (atLeast !== null ? atLeast : lo)) / 100;
     }
+    /* Rozpisanie wyniku (UI pokazuje je pod wynikiem): { title, rows: [[etykieta, kwota]] }.
+       Kwoty jako liczby — formatowanie robi UI, żeby zgadzało się z resztą wyników. */
+    function _pctLabel(r) { return _formatLocaleNumber(r * 100, 2) + '%'; }
+    function _explainScale(income, title) {
+        var T = _TAX_PL, d = _roundZl(Math.max(0, income));
+        var rows = [['Dochód (do pełnych zł)', d]];
+        rows.push([_pctLabel(T.scaleRate1) + ' do ' + _formatLocaleNumber(T.scaleThreshold, 0) + ' zł', Math.min(d, T.scaleThreshold) * T.scaleRate1]);
+        if (d > T.scaleThreshold) rows.push([_pctLabel(T.scaleRate2) + ' od nadwyżki', (d - T.scaleThreshold) * T.scaleRate2]);
+        rows.push(['Kwota zmniejszająca podatek', -T.taxReducingAmount]);
+        return { title: title || ('PIT na skali ' + _TAX_PL.year + ' · od dochodu'), rows: rows };
+    }
+    function _explainPayroll(det, title, young) {
+        var T = _TAX_PL;
+        var zusPct = _pctLabel(T.zusEmployee.reduce(function(a, b) { return a + b; }, 0));
+        return { title: title, rows: [
+            ['Brutto', det.gross],
+            ['ZUS pracownika ' + zusPct, -det.social],
+            ['Zdrowotna ' + _pctLabel(T.healthRate), -det.health],
+            [young ? 'Zaliczka PIT (ulga do 26 lat)' : 'Zaliczka PIT', -det.advance]
+        ] };
+    }
     function evalTaxExpression(raw) {
+        var r = _evalTaxCore(raw);
+        if (r && r.value != null && isFinite(r.value)) r.kind = r.kind || 'money';
+        return r;
+    }
+    function _evalTaxCore(raw) {
         var s = _plFold(raw).trim().replace(/\s+/g, ' ')
             // notatnik podstawia zmienne w nawiasach: „pit @dochód" → „pit (90000 zł)"
             .replace(/\(\s*(\d+(?:[.,]\d+)?)(\s*(?:zl|pln))?\s*\)/g, '$1$2');
@@ -1339,6 +1367,12 @@
         var NUM = '(\\d+(?:[.,]\\d+)?)', CUR = '(?:\\s*(?:zl|pln))?';
         function num(x) { return parseFloat(String(x).replace(',', '.')); }
         function money(v) { return { value: _roundMoney(v), unit: 'zł', kind: 'money' }; }
+        function _ryczalt(base, rate) {
+            var b = _roundZl(base);
+            return Object.assign(money(_roundZl(b * rate / 100)), { explain: {
+                title: 'Ryczałt ' + _formatLocaleNumber(rate, 2) + '% · od przychodu',
+                rows: [['Przychód (do pełnych zł)', b], [_formatLocaleNumber(rate, 2) + '% przychodu', b * rate / 100]] } });
+        }
         var m;
         // ── pensja UoP ──
         var young = /\b(?:do 26|ponizej 26|mlod[a-z]*|pit-?0|under 26)\b/.test(s);
@@ -1348,21 +1382,25 @@
         if ((m = sp.match(new RegExp('^' + PAY + ' (?:netto|na reke) ' + NUM + CUR + '$'))) ||
             (m = sp.match(new RegExp('^(?:ile )?brutto (?:dla|za|z) ' + NUM + CUR + ' (?:netto|na reke)(?: ' + PAY + ')?$'))) ||
             (m = sp.match(new RegExp('^' + NUM + CUR + ' na reke (?:to ile |ile )?brutto$')))) {
-            return money(_payrollGross(num(m[1]), young));
+            var gNet = _payrollGross(num(m[1]), young);
+            return Object.assign(money(gNet), { explain: _explainPayroll(_payrollDetail(gNet, young),
+                'Pensja (umowa o pracę) · ile brutto daje ' + _formatMoneyNumber(num(m[1])) + ' zł na rękę', young) });
         }
         // brutto → netto: „pensja 7000", „uop 7000 brutto", „7000 brutto na rękę", „na rękę z 7000"
         if ((m = sp.match(new RegExp('^' + PAY + '(?: brutto)? ' + NUM + CUR + '(?: brutto)?(?: (?:na reke|netto))?$'))) ||
             (m = sp.match(new RegExp('^' + NUM + CUR + ' brutto (?:na reke|netto ' + PAY + '|' + PAY + ')$'))) ||
             (m = sp.match(new RegExp('^(?:netto|na reke) (?:z|dla|od) ' + NUM + CUR + '(?: brutto)?(?: ' + PAY + ')?$')))) {
             if (/^(?:netto|na reke) /.test(sp) && !/brutto|pensj|uop|umow|wynagrodz|wyplat|salary/.test(sp)) return null;
-            return money(_payrollNet(num(m[1]), young));
+            var pd = _payrollDetail(num(m[1]), young);
+            return Object.assign(money(pd.net), { explain: _explainPayroll(pd,
+                'Pensja (umowa o pracę) · brutto → na rękę, miesięcznie', young) });
         }
         // ── ryczałt: „ryczałt 12% od 100000", „ryczałt 100000 8,5%" ──
         if ((m = s.match(new RegExp('^ryczalt ' + NUM + ' ?% (?:od|z) ' + NUM + CUR + '$')))) {
-            return money(_roundZl(_roundZl(num(m[2])) * num(m[1]) / 100));
+            return _ryczalt(num(m[2]), num(m[1]));
         }
         if ((m = s.match(new RegExp('^ryczalt ' + NUM + CUR + ' ' + NUM + ' ?%$')))) {
-            return money(_roundZl(_roundZl(num(m[1])) * num(m[2]) / 100));
+            return _ryczalt(num(m[1]), num(m[2]));
         }
         // ── jawna stawka: „podatek 12% od 100000", „pit 19% z 50000 zł" = P% × B ──
         if ((m = s.match(new RegExp('^(?:pit|podatek) ' + NUM + ' ?% (?:od|z) ' + NUM + '(\\s*(?:zl|pln))?$')))) {
@@ -1371,15 +1409,21 @@
         }
         // ── liniowy 19%: „pit liniowy 100000", „podatek liniowy od 100000" ──
         if ((m = s.match(new RegExp('^(?:(?:pit|podatek) )?liniowy (?:(?:od|z) )?' + NUM + CUR + '$')))) {
-            return money(_roundZl(_roundZl(num(m[1])) * _TAX_PL.linearRate));
+            var ld = _roundZl(num(m[1]));
+            return Object.assign(money(_roundZl(ld * _TAX_PL.linearRate)), { explain: {
+                title: 'PIT liniowy ' + _pctLabel(_TAX_PL.linearRate) + ' · od dochodu, bez kwoty wolnej',
+                rows: [['Dochód (do pełnych zł)', ld], [_pctLabel(_TAX_PL.linearRate) + ' dochodu', ld * _TAX_PL.linearRate]] } });
         }
         // ── wspólne rozliczenie małżonków: 2 × podatek(połowa sumy dochodów) ──
         if ((m = s.match(new RegExp('^(?:pit|podatek) (?:wspolnie|wspolny|z (?:zona|mezem|malzonkiem)|malzonkow) (?:(?:od|z) )?' + NUM + CUR + '$')))) {
-            return money(2 * _taxScale(num(m[1]) / 2));
+            var half = num(m[1]) / 2, halfTax = _taxScale(half);
+            return Object.assign(money(2 * halfTax), { explain: {
+                title: 'PIT wspólnie z małżonkiem · od sumy dochodów',
+                rows: [['Połowa dochodów', _roundZl(half)], ['Podatek od połowy (skala)', halfTax], ['× 2', 2 * halfTax]] } });
         }
         // ── skala 12/32%: „pit 90000", „pit skala 90000", „podatek od 90000" ──
         if ((m = s.match(new RegExp('^(?:pit|podatek)(?: (?:skala|ze skali|wg skali|na skali|dochodowy))? (?:(?:od|z) )?(?:dochodu )?' + NUM + CUR + '$')))) {
-            return money(_taxScale(num(m[1])));
+            return Object.assign(money(_taxScale(num(m[1]))), { explain: _explainScale(num(m[1])) });
         }
         return null;
     }

@@ -67,7 +67,8 @@
                         notepadGutterHidden: false, // notatnik: panel chipów schowany (T6-3)
                         notepadFontSize: 1, // notatnik: rozmiar czcionki 0.6–1.3 (T6-1)
                         unitProfile: 'default', // T2-10: preset domyślnych jednostek
-                        standardLiveHint: false, // T4-17: chipy pod polem Standard
+                        standardLiveHint: true, // T4-17: chipy pod polem Standard — domyślnie ON od v1.04.19
+                        standardLiveHintDefaultV2: true, // znacznik jednorazowej migracji domyślnej (patrz loadState)
                         standardAutocomplete: false, // T4-16: lista podpowiedzi Standard
                         suggestOnEmpty: true, // T4-19: fuzzy gdy brak wyniku — domyślnie ON od v1.02.81
                         suggestOnEmptyDefaultV2: true, // znacznik jednorazowej migracji domyślnej (patrz loadState)
@@ -113,6 +114,9 @@
         const calcResult = $('#calcResult');
         const calcCopyBtn = $('#calcCopyBtn');
         const calcApprox = $('#calcApprox');
+        const calcExplain = $('#calcExplain');
+        const calcExplainTip = $('#calcExplainTip');
+        const calcStart = $('#calcStart');
         const calcGrid = $('#calcGrid');
         const historyList = $('#historyList');
         const historySearch = $('#historySearch');
@@ -325,6 +329,12 @@
                             STATE.settings.suggestOnEmpty = true;
                             _settingsNeedMigrationSave = true;
                         }
+                        // [EN] Migracja T4-17 (v1.04.19): chipy pod polem domyślnie ON — jak wyżej, raz;
+                        //      świadome wyłączenie po migracji zostaje.
+                        if (stObj.standardLiveHintDefaultV2 !== true) {
+                            STATE.settings.standardLiveHint = true;
+                            _settingsNeedMigrationSave = true;
+                        }
                         if (typeof stObj.currencyCompactSymbols === 'boolean') STATE.settings.currencyCompactSymbols = stObj.currencyCompactSymbols;
                     }
                 }
@@ -418,7 +428,7 @@
             var btn = $('#themeToggleBtn');
             if (btn) {
                 // Pokazujemy ikonę DOCELOWĄ (co zrobi tap): w ciemnym → słońce (włącz jasny).
-                btn.textContent = dark ? '☀️' : '🌙';
+                btn.innerHTML = '<svg class="ui-icon" aria-hidden="true"><use href="#i-' + (dark ? 'sun' : 'moon') + '"/></svg>';
                 btn.setAttribute('aria-pressed', dark ? 'true' : 'false');
                 btn.title = dark ? 'Tryb jasny' : 'Tryb ciemny';
                 btn.setAttribute('aria-label', 'Przełącz na ' + (dark ? 'tryb jasny' : 'tryb ciemny'));
@@ -1246,6 +1256,7 @@
                 pendingFx: !!o.pendingFx,
                 big: !!o.big,
                 bigStr: o.bigStr != null ? o.bigStr : null,
+                explain: o.explain || null, // { title, rows: [[etykieta, kwota]] } — rozpisanie pod wynikiem (PIT/pensja)
                 _debugCode: o._debugCode != null ? o._debugCode : null, // [EN] tylko gdy opts.debug w evaluate
                 _debugDetail: o._debugDetail != null ? o._debugDetail : null
             };
@@ -1509,12 +1520,13 @@
             var px = 0;
             if (calcLiveHint && !calcLiveHint.hidden) px += Math.max(28, calcLiveHint.offsetHeight || 0);
             if (calcEmptySuggest && !calcEmptySuggest.hidden) px += Math.max(20, calcEmptySuggest.offsetHeight || 0);
+            if (calcExplain && !calcExplain.hidden) px += calcExplain.offsetHeight || 0;
             return px;
         }
 
-        function _scheduleAssistLayout() { // [EN] reflow display budget after assist rows show/hide
+        function _scheduleAssistLayout(force) { // [EN] reflow display budget after assist rows show/hide
             if (!_calcAssistWide()) return;
-            if (!(STATE.settings && (STATE.settings.standardLiveHint || STATE.settings.suggestOnEmpty))) return;
+            if (!force && !(STATE.settings && (STATE.settings.standardLiveHint || STATE.settings.suggestOnEmpty))) return;
             if (!_usesCalcFlexSplit()) return;
             if (_assistLayoutRaf) cancelAnimationFrame(_assistLayoutRaf);
             _assistLayoutRaf = requestAnimationFrame(function () {
@@ -2332,6 +2344,7 @@
             var px = 0;
             if (calcLiveHint && !calcLiveHint.hidden) px += Math.max(28, calcLiveHint.offsetHeight || 0) + gap;
             if (calcEmptySuggest && !calcEmptySuggest.hidden) px += Math.max(20, calcEmptySuggest.offsetHeight || 0);
+            if (calcExplain && !calcExplain.hidden) px += calcExplain.offsetHeight || 0;
             return px;
         }
         function _displayRowGapsPx() { // [EN] CSS grid gap między wierszami ekranika (hidden też liczą szczelinę)
@@ -2986,6 +2999,8 @@
         function liveEval() {
             var empty = !calcExpr.value;
             _calcWasEmpty = empty;
+            var dispEl = calcExpr && calcExpr.closest('.calc-display');
+            if (dispEl) dispEl.classList.toggle('is-empty', empty);
             if (empty) {
                 _calcResultWrapLines = 1;
                 _resetCalcResultFont();
@@ -3015,6 +3030,7 @@
                 _lastCopyFormats = null;
                 fitCalcDisplay();
                 _setApproxMark(false, null, null);
+                renderCalcExplain(null);
                 updateCalcLiveHint();
                 updateCalcEmptySuggest(res);
                 return;
@@ -3031,9 +3047,57 @@
             var fxMeta = _fxMetaForResult(res, calcExpr.value);
             _lastCopyFormats = buildCopyFormats(res, calcExpr.value);
             _setApproxMark(hasResult && (res.exact === false || fxMeta), res, fxMeta);
+            renderCalcExplain(hasResult ? res.explain : null);
             fitCalcDisplay();
             updateCalcLiveHint();
             updateCalcEmptySuggest(res);
+        }
+        // Rozpisanie wyniku (PIT, pensja…) — tytuł „jak to zrozumiałem" + wiersze kwot.
+        // Pokazujemy tylko, gdy silnik je dał; zwykłe działania zostają bez zmian.
+        var _calcExplainKey = '';
+        function renderCalcExplain(explain) {
+            if (!calcExplain) return;
+            var key = explain ? JSON.stringify(explain) : '';
+            if (key === _calcExplainKey) return;
+            _calcExplainKey = key;
+            if (!explain || !explain.rows || !explain.rows.length) {
+                calcExplain.hidden = true;
+                calcExplain.textContent = '';
+                if (calcExplainTip) { calcExplainTip.hidden = true; delete calcExplainTip.dataset.eq; }
+                _scheduleAssistLayout(true);
+                return;
+            }
+            // Telefon: ekranik nie ma miejsca na wiersze — przycisk „Rozpisz” obok wyniku
+            // otwiera ten sam dymek co ≈ (cursor-hint, linie rozdzielone „/|”).
+            if (calcExplainTip) {
+                calcExplainTip.dataset.eq = [explain.title].concat(explain.rows.map(function(row) {
+                    var v = Number(row[1]);
+                    return row[0] + ': ' + (v < 0 ? '− ' : '') + formatMoneyNumber(Math.abs(v)) + ' zł';
+                })).join('/|');
+                calcExplainTip.dataset.hintClass = 'calc-eq';
+                calcExplainTip.hidden = false;
+            }
+            var frag = document.createDocumentFragment();
+            var title = document.createElement('div');
+            title.className = 'calc-explain-title';
+            title.textContent = explain.title || '';
+            frag.appendChild(title);
+            var list = document.createElement('dl');
+            list.className = 'calc-explain-rows';
+            explain.rows.forEach(function(row) {
+                var dt = document.createElement('dt');
+                dt.textContent = row[0];
+                var dd = document.createElement('dd');
+                var v = Number(row[1]);
+                dd.textContent = (v < 0 ? '− ' : '') + formatMoneyNumber(Math.abs(v)) + ' zł';
+                list.appendChild(dt);
+                list.appendChild(dd);
+            });
+            frag.appendChild(list);
+            calcExplain.textContent = '';
+            calcExplain.appendChild(frag);
+            calcExplain.hidden = false;
+            _scheduleAssistLayout(true);
         }
         // Znacznik „≈" — kurs (góra) + pełna wartość (dół) w cursor-hint via /|. [[A2]]
         function _setApproxMark(on, res, fxMeta) {
@@ -5005,8 +5069,103 @@
         if (commandHelpClose) commandHelpClose.addEventListener('click', closeCommandHelp);
         if (commandHelpBackdrop) commandHelpBackdrop.addEventListener('click', closeCommandHelp);
 
+        // Pusty ekran: przykłady w kategoriach — panel „Spróbuj" (≥1024) i pasek w miejscu „0".
+        function renderCalcStart() {
+            var cats = (window.MATM0_HINT && window.MATM0_HINT.START_CATEGORIES) || [];
+            if (!cats.length) return;
+            function icon(name) {
+                var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg.setAttribute('class', 'ui-icon');
+                svg.setAttribute('aria-hidden', 'true');
+                var use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+                use.setAttribute('href', '#i-' + name);
+                svg.appendChild(use);
+                return svg;
+            }
+            function chipBtn(expr, cls) {
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.className = cls;
+                b.setAttribute('data-expr', expr);
+                b.textContent = expr;
+                return b;
+            }
+            var wide = $('#calcExamplesChips');
+            if (wide) {
+                wide.textContent = '';
+                cats.forEach(function(cat) {
+                    var group = document.createElement('div');
+                    group.className = 'calc-examples-group';
+                    var head = document.createElement('p');
+                    head.className = 'calc-examples-cat';
+                    head.appendChild(icon(cat.icon));
+                    head.appendChild(document.createTextNode(cat.label));
+                    group.appendChild(head);
+                    cat.examples.forEach(function(ex) { group.appendChild(chipBtn(ex, 'calc-example-chip')); });
+                    wide.appendChild(group);
+                });
+            }
+            if (calcStart) {
+                calcStart.textContent = '';
+                var track = document.createElement('div');
+                track.className = 'calc-start-track';
+                cats.forEach(function(cat) {
+                    var lab = document.createElement('span');
+                    lab.className = 'calc-start-cat';
+                    lab.title = cat.label;
+                    lab.appendChild(icon(cat.icon));
+                    track.appendChild(lab);
+                    cat.examples.forEach(function(ex) { track.appendChild(chipBtn(ex, 'calc-start-chip')); });
+                });
+                calcStart.appendChild(track);
+            }
+        }
+        // Warsztat — wyszukiwarka przeliczników. Dopasowanie po słowach (bez polskich znaków):
+        // tytuł + data-ws-keywords + etykiety pól. Każde słowo zapytania musi pasować (AND).
+        // Sekcja bez trafień chowa też swój nagłówek; jedno trafienie rozwija się samo.
+        function _wsFold(t) {
+            return String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l');
+        }
+        function filterWarsztat(query) {
+            var panel = $('#panel-warsztat');
+            if (!panel) return 0;
+            var words = _wsFold(query).split(/\s+/).filter(Boolean);
+            var tools = panel.querySelectorAll('details.section-panel');
+            var shown = [];
+            tools.forEach(function(d) {
+                if (!d._wsHay) {
+                    var sum = d.querySelector('summary');
+                    var labels = Array.prototype.map.call(d.querySelectorAll('label'), function(l) { return l.textContent; }).join(' ');
+                    d._wsHay = _wsFold((sum ? sum.textContent : '') + ' ' + (d.getAttribute('data-ws-keywords') || '') + ' ' + labels);
+                }
+                var ok = words.every(function(w) { return d._wsHay.indexOf(w) >= 0; });
+                d.hidden = !ok;
+                if (ok) shown.push(d);
+            });
+            panel.querySelectorAll('.ws-section-title').forEach(function(h) {
+                var any = false;
+                for (var el = h.nextElementSibling; el && !el.classList.contains('ws-section-title'); el = el.nextElementSibling) {
+                    if (el.matches('details.section-panel') && !el.hidden) { any = true; break; }
+                }
+                h.hidden = !any;
+            });
+            if (words.length && shown.length === 1) shown[0].open = true;
+            var empty = $('#wsSearchEmpty');
+            if (empty) empty.hidden = !(words.length && !shown.length);
+            return shown.length;
+        }
+        (function bindWarsztatSearch() {
+            var inp = $('#wsSearch');
+            if (!inp) return;
+            inp.addEventListener('input', function() { filterWarsztat(inp.value); });
+            inp.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && inp.value) { inp.value = ''; filterWarsztat(''); e.stopPropagation(); }
+            });
+        })();
+
         function bindCalcExampleChips() {
-            document.querySelectorAll('.calc-example-chip').forEach(function(chip) {
+            renderCalcStart();
+            document.querySelectorAll('.calc-example-chip, .calc-start-chip').forEach(function(chip) {
                 chip.addEventListener('click', function() {
                     var expr = chip.getAttribute('data-expr') || '';
                     if (!expr) return;
@@ -10568,7 +10727,7 @@
             })
             : null;
         function npBindHints() { if (_npHintCtl && npEditor) _npHintCtl.setupCursorHint(npEditor.querySelectorAll('.np-res')); }
-        if (_npHintCtl && calcApprox) _npHintCtl.setupCursorHint([calcApprox]); // dymek dokładnej wartości przy ≈
+        if (_npHintCtl && calcApprox) _npHintCtl.setupCursorHint(calcExplainTip ? [calcApprox, calcExplainTip] : [calcApprox]); // dymek dokładnej wartości przy ≈ + rozpisanie (telefon)
         function npHideTip() { if (_npHintCtl && _npHintCtl.hideHint) _npHintCtl.hideHint(); }
         // Klawiatura ekranowa na telefonie zasłaniałaby dolne wiersze (nakładka jest fixed/inset:0,
         // więc rośnie pod klawiaturę). Kurczymy nakładkę do OBSZARU WIDOCZNEGO (visualViewport) —
@@ -13304,6 +13463,34 @@
                 var nBack = evalCalcExpression('pensja ' + String(back).replace('.', ',')).value;
                 results.push({ expr: 'pensja ' + g + ' ↔ netto (round-trip)', pass: Math.abs(nBack - n) < 0.005 && back === g, got: n + ' → ' + back + ' → ' + nBack });
             });
+            // Rozpisanie wyniku (explain): wiersze sumują się do wyniku, tytuł niepusty.
+            ['pensja 7000', 'pensja 4806 do 26', 'pensja netto 5000', 'pit 150000', 'pit 90000', 'pit liniowy 100000',
+             'ryczałt 12% od 100000', 'pit wspólnie 200000'].forEach(function(ex) {
+                var r = evalCalcExpression(ex);
+                var ok = !!(r.explain && r.explain.title && r.explain.rows && r.explain.rows.length);
+                if (ok && /^pensja/.test(ex)) {
+                    // brutto − składki − zaliczka = netto; przy „pensja netto N" wynik to brutto (1. wiersz), a suma = N
+                    var sum = r.explain.rows.reduce(function(a, row) { return a + row[1]; }, 0);
+                    ok = /netto/.test(ex)
+                        ? Math.abs(sum - 5000) < 0.005 && r.explain.rows[0][1] === r.value
+                        : Math.abs(sum - r.value) < 0.005;
+                } else if (ok && /^pit \d/.test(ex)) {
+                    var tax = r.explain.rows.slice(1).reduce(function(a, row) { return a + row[1]; }, 0);
+                    ok = Math.abs(Math.max(0, Math.round(tax)) - r.value) < 0.005;
+                } else if (ok) {
+                    ok = Math.abs(r.explain.rows[r.explain.rows.length - 1][1] - r.value) < 0.5;
+                }
+                results.push({ expr: ex + ' (rozpisanie sumuje się do wyniku)', pass: ok, got: JSON.stringify(r.explain) });
+            });
+            results.push({ expr: '2 + 2 (bez rozpisania)', pass: evalCalcExpression('2 + 2').explain === null, got: String(evalCalcExpression('2 + 2').explain) });
+            // Pusty ekran: każdy przykład z kategorii (MATM0_HINT.START_CATEGORIES) daje wynik.
+            ((window.MATM0_HINT && window.MATM0_HINT.START_CATEGORIES) || []).forEach(function(cat) {
+                cat.examples.forEach(function(ex) {
+                    var r = evalCalcExpression(ex);
+                    results.push({ expr: 'start [' + cat.id + '] ' + ex, pass: r.value != null || r.text != null, got: r.value + ' ' + (r.text || '') });
+                });
+            });
+            results.push({ expr: 'START_CATEGORIES: 4 kategorie', pass: ((window.MATM0_HINT || {}).START_CATEGORIES || []).length === 4, got: ((window.MATM0_HINT || {}).START_CATEGORIES || []).length });
             // Słowa VAT bez słów pensji zostają VAT-em (nie łapie ich moduł PIT).
             [
                 { expr: '7000 zł brutto', value: 8610 },

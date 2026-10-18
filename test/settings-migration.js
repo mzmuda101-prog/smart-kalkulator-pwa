@@ -69,9 +69,25 @@ function reload(stored) {
     check('opt-in zachowany', r.settings.suggestOnEmpty, true);
 }
 
+// 7–10. To samo dla chipów pod polem (standardLiveHint ON od v1.04.19).
+{
+    const r = reload(null);
+    check('świeża instalacja: standardLiveHint', r.settings.standardLiveHint, true);
+}
+{
+    const r = reload({ standardLiveHint: false, suggestOnEmptyDefaultV2: true });
+    check('stary zapis false: podniesione do ON', r.settings.standardLiveHint, true);
+    check('stary zapis: znacznik zapisany', r.saved && r.saved.standardLiveHintDefaultV2, true);
+    check('stary zapis: suggestOnEmpty nietknięte', r.settings.suggestOnEmpty, true);
+}
+{
+    const r = reload({ standardLiveHint: false, standardLiveHintDefaultV2: true, suggestOnEmptyDefaultV2: true });
+    check('opt-out chipów po migracji: zostaje OFF', r.settings.standardLiveHint, false);
+}
+
 if (failed) {
     console.error('❌ settings-migration: ' + failed + ' błędów');
     process.exit(1);
 }
-console.log('✅ settings-migration: 9 asercji OK');
+console.log('✅ settings-migration: 14 asercji OK');
 process.exit(0); // [EN] atrapa fetch/timerów trzyma event-loop przy życiu

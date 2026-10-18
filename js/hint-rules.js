@@ -225,7 +225,17 @@
         return s;
     }
 
+    // Pusty ekran — przykłady pogrupowane tematycznie (pasek pod wyświetlaczem na telefonie,
+    // panel „Spróbuj" na szerokim ekranie). Każdy MUSI się liczyć — pilnuje runCalcSmokeTests.
+    var START_CATEGORIES = [
+        { id: 'money', label: 'Pieniądze', icon: 'coins', examples: ['pensja 7 000', 'brutto 1 000', 'pit 90 000', '100 zł + 23% vat'] },
+        { id: 'time', label: 'Czas i daty', icon: 'calendar', examples: ['ile dni do 25.12', 'od 8:00 do 16:30', 'czas w Tokio'] },
+        { id: 'units', label: 'Jednostki', icon: 'ruler', examples: ['2 kg na lb', '5 km * 5 km', '90 min na h'] },
+        { id: 'percent', label: 'Procenty i liczby', icon: 'percent', examples: ['20% z 150', 'ile % stanowi 25 z 200', 'mediana 12 4 18 8'] }
+    ];
+
     var API = {
+        START_CATEGORIES: START_CATEGORIES,
         getLiveHints: getLiveHints,
         fuzzySuggest: fuzzySuggest,
         matchIntent: matchIntent,
