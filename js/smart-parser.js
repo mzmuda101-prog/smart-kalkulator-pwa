@@ -1620,11 +1620,25 @@
         if (opens > closes) out += new Array(opens - closes + 1).join(')');
         return out;
     }
+    /* Spacja tysięcy („1 000”, „12 345,67”, też NBSP/U+202F z własnego wyniku) → „1000”.
+       Reguły preprocessu (VAT, waluty, jednostki, %) łapią liczbę wzorcem [\d.,]+,
+       więc widziały tylko OSTATNIĄ grupę: „1 000 zł” = 1 × „000 zł” → 10 zł,
+       „netto 12 300 zł” = 12 × netto(300) → 2 926,83 zł. Scalamy na samym wejściu.
+       Grupa = 1–3 cyfry, potem same trójki; nie ruszamy cyfr przyklejonych do
+       kropki/przecinka z lewej („1,5 000” to nie grupowanie). */
+    var _THOUSANDS_RE = /(^|[^\d.,])(\d{1,3})((?:[   ]\d{3})+)(?!\d)/g;
+    function _joinThousandGroups(s) {
+        return String(s).replace(_THOUSANDS_RE, function(_, pre, head, groups) {
+            return pre + head + groups.replace(/[   ]/g, '');
+        });
+    }
     function _evaluateCore(raw, options) {
         var opts = options || {};
         var firstUnitWins = !!opts.firstUnitWins;
-        var original = _tolerateInput(raw);
-        if (!original) return _dbgFail(opts, 'empty_input');
+        var tolerated = _tolerateInput(raw);
+        if (!tolerated) return _dbgFail(opts, 'empty_input');
+        // Agregaty („suma z 100 200 300”) to LISTY liczb — tam spacja rozdziela pozycje.
+        var original = _joinThousandGroups(tolerated);
         var fxRates = opts.fxRates || {};
         var currencyOpts = {
             fxRates: fxRates,
@@ -1671,7 +1685,7 @@
         if (pctDiffQ) return pctDiffQ;
         var periodPctQ = evalPeriodPercentage(original);
         if (periodPctQ) return periodPctQ;
-        var aggregateQ = evalAggregate(original);
+        var aggregateQ = evalAggregate(tolerated);
         if (aggregateQ) return aggregateQ;
         var routeQ = evalRouteCost(original);
         if (routeQ) return routeQ;

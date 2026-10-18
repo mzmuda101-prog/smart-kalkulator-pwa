@@ -13191,6 +13191,48 @@
                     : (r.unit === t.unit && Math.abs(r.value - t.value) < 1e-6);
                 results.push({ expr: t.expr + ' (waluta+operacja)', pass: pass, got: r.value + ' ' + r.unit });
             });
+            // Spacja tysięcy (2026-10-19): reguły VAT/walut/% widziały tylko OSTATNIĄ grupę cyfr
+            // → cichy zły wynik („1 000 zł" = 10 zł, „netto 12 300 zł" = 2 926,83 zł).
+            // Warianty z NBSP/U+202F = to, co apka sama wypisuje (wynik wraca z historii / po =).
+            var thouCases = [
+                { expr: '1 000 zł', value: 1000, unit: 'zł' },
+                { expr: '1 000 zł', value: 1000, unit: 'zł' },
+                { expr: '1 000 zł', value: 1000, unit: 'zł' },
+                { expr: '5 000 zł * 2', value: 10000, unit: 'zł' },
+                { expr: '1 000 zł + 1 000 zł', value: 2000, unit: 'zł' },
+                { expr: '12 345,67 zł', value: 12345.67, unit: 'zł' },
+                { expr: 'netto 12 300 zł', value: 10000, unit: 'zł' },
+                { expr: 'netto 1 230 zł', value: 1000, unit: 'zł' },
+                { expr: '1 230 zł - vat', value: 1000, unit: 'zł' },
+                { expr: 'brutto 12 345,67 zł', value: Math.round(12345.67 * 1.23 * 100) / 100, unit: 'zł' },
+                { expr: '1 000 zł + 8% vat', value: 1080, unit: 'zł' },
+                { expr: 'vat 8% od 1 000 zł', value: 80, unit: 'zł' },
+                { expr: '20% z 1 500 zł', value: 300, unit: 'zł' },
+                { expr: '100 000 zł * 12%', value: 12000, unit: 'zł' },
+                { expr: '1 000 usd - vat', value: Math.round((1000 * 3.95) / 1.23 * 100) / 100, unit: 'zł' },
+                { expr: 'brutto 1 000', value: 1230, unit: null },
+                { expr: 'netto 1 230', value: 1000, unit: null },
+                { expr: 'vat od 1 000', value: 230, unit: null },
+                { expr: '1 000 + 23% vat', value: 1230, unit: null },
+                { expr: '12% z 100 000', value: 12000, unit: null },
+                { expr: '1 000 000 / 4', value: 250000, unit: null },
+                { expr: '1 000 km na m', value: 1000000, unit: 'm' },
+                // listy w agregatach to NIE grupowanie tysięcy
+                { expr: 'suma z 100 200 300', value: 600, unit: null },
+                { expr: 'suma 100 200 300', value: 600, unit: null },
+                { expr: 'średnia 100 200 300', value: 200, unit: null },
+                { expr: 'max 100 200', value: 200, unit: null },
+            ];
+            thouCases.forEach(function(t) {
+                var r = evalCalcExpression(t.expr);
+                var pass = r.value != null && Math.abs(r.value - t.value) < 1e-6 && (r.unit || null) === t.unit;
+                results.push({ expr: t.expr + ' (spacja tysięcy)', pass: pass, got: r.value + ' ' + r.unit });
+            });
+            // Notatnik idzie tym samym silnikiem — kwoty ze spacją w etykietach i działaniach.
+            var npThou = evalNotepadLines('Przychód: 120 000 zł\nKoszty: 30 000 zł\nDochód: @przychód - @koszty\nPodatek: @dochód * 12% - 3 600 zł');
+            var npThouRows = (npThou && npThou.lines) || npThou || [];
+            var npThouVals = [0, 2, 3].map(function(i) { var row = npThouRows[i]; return row ? row.value : null; });
+            results.push({ expr: 'notatnik: 120 000 zł − 30 000 zł, 12% − 3 600 zł (spacja tysięcy)', pass: npThouVals[0] === 120000 && npThouVals[1] === 90000 && Math.abs(npThouVals[2] - 7200) < 1e-6, got: npThouVals.join(' | ') });
             // Kurs krzyżowy (para bez PLN) — przez pivot PLN: 100 USD → EUR = 100*3,95/4,30.
             var cross = evalCalcExpression('100 usd na eur');
             results.push({ expr: '100 usd na eur (cross)', pass: cross.unit === _smokeCurUnit('EUR') && Math.abs(cross.value - Math.round(100 * 3.95 / 4.30 * 100) / 100) < 1e-6, got: cross.value + ' ' + cross.unit });
