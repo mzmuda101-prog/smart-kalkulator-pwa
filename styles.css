@@ -4778,20 +4778,26 @@
             .calc-example-chip::before { content: "↗"; margin-right: 9px; color: var(--primary); font-family: var(--font); }
             .calc-example-chip::after { content: "→"; margin-left: auto; color: var(--text-muted); font-family: var(--font); }
             .calc-example-chip:nth-child(n + 4) { display: none; }
-            /* [PL] Niskie okno (1280×720, 1366×768): 4 grupy × 2 przykłady = ~520 px, czyli
-               cała wysokość karty — Historia pod spodem dostawała 7 px i wypychała panel.
-               Jeden przykład na grupę zostawia jej ~160–200 px. */
-            @media (max-height: 820px) {
+            /* [PL] Niższe okna (≤ 960 px wysokości): 4 grupy × 2 przykłady + nagłówek + Ściąga
+               = ~565 px — przy 1280×720 cała karta (528), Historia pod spodem dostawała
+               kilka px i wypychała panel; przy 1440×900 zostawał jej 1 wiersz.
+               Jeden przykład na grupę i bez nagłówka oddaje Historii ~200 px. */
+            @media (max-height: 960px) {
                 .calc-example-chip:nth-child(n + 3) { display: none; }
-                /* [PL] Ramka karty (padding, pasek trybu, odstęp pod ekranikiem) zjadała
-                   ~130 px z 528 — przy ekraniku na minimum strukturalnym klawisze
-                   wychodziły 43 px. Ciaśniejsze odstępy oddają ~38 px klawiaturze (→ 51 px). */
+                .calc-examples-kicker, .calc-examples-title { display: none; }
+            }
+            /* [PL] Ramka karty (padding, pasek trybu, odstęp pod ekranikiem) zjadała
+               ~130 px z 528 — przy ekraniku na minimum strukturalnym klawisze
+               wychodziły 43 px. Ciaśniejsze odstępy oddają ~38 px klawiaturze (→ 51 px). */
+            @media (max-height: 820px) {
                 #panel-calculator.active > .card { padding: 20px 30px 22px; }
                 .calc-workspace-bar { margin-bottom: 10px; }
                 #panel-calculator.active .calc-display { margin-bottom: 12px; }
             }
-            .calc-examples-tip,
-            .calc-examples-help { display: none; }
+            .calc-examples-tip { display: none; }
+            /* [PL] Przycisk Ściągi ZOSTAJE: na ≥1024 px .calc-tools jest ukryte, więc to
+               jedyna droga do pełnej ściągi z kalkulatora (wcześniej display:none → brak). */
+            .calc-examples-help { margin-top: 10px; padding: 8px 12px; }
             .history-header { margin-bottom: 8px; }
             .history-header h3 { font-size: .88rem; letter-spacing: -.02em; }
             .history-search { margin-bottom: 8px; }

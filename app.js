@@ -2543,14 +2543,17 @@
                 if (w1 >= bestW1) { bestW1 = w1; best = [l1, l2]; }
             }
             if (best) return best;
-            var splitAt = 1;
+            // Żaden podział nie mieści się @ tym foncie (i tak będzie shrink) — bierzemy najbardziej
+            // ZRÓWNOWAŻONY (najkrótsza dłuższa linia), np. 5+5 grup zamiast 4+6: mniejszy shrink,
+            // a przy złej sondzie druga linia nie wystaje (iPhone, 30 cyfr).
+            var bestSplit = 1, bestMax = Infinity;
             for (var j = 1; j < tokens.length; j++) {
-                var head = tokens.slice(0, j).join('\u00a0');
-                if (!_calcResultOverflows(maxW, row, head, fontSizePx, true, true)) splitAt = j;
-                else break;
+                var wa = _measureCalcResultWidth(tokens.slice(0, j).join('\u00a0'), fontSizePx, row, true);
+                var wb = _measureCalcResultWidth(tokens.slice(j).join('\u00a0'), fontSizePx, row, true);
+                var mx = Math.max(wa, wb);
+                if (mx < bestMax) { bestMax = mx; bestSplit = j; }
             }
-            if (splitAt >= tokens.length) splitAt = tokens.length - 1;
-            return [tokens.slice(0, splitAt).join('\u00a0'), tokens.slice(splitAt).join('\u00a0')];
+            return [tokens.slice(0, bestSplit).join('\u00a0'), tokens.slice(bestSplit).join('\u00a0')];
         }
         function _calcResultFloorPx() {
             var df = _displayFontTune();
@@ -2737,7 +2740,46 @@
             else if ((_calcResultWrapLines || 1) > 1 && fs >= capPx - 0.5) _applyResultFontPx(capPx);
             if (disp) _syncResultRowStable(disp);
         }
+        // Strażnik „prawdy z DOM”: sondy szerokości (_measureCalcResultWidth) potrafią się różnić od
+        // faktycznego renderu (znaczniki animacji, wąskie odstępy) — na iPhonie druga linia 30-cyfrowego
+        // wyniku wystawała poza ramkę i była ucięta („…573 764 7”). Mierzymy prawdziwe linie tekstu
+        // (Range → getClientRects) i zmniejszamy font, aż żadna nie wystaje.
+        function _resultDomOverflowPx() {
+            if (!calcResult || !calcResult.firstChild) return 0;
+            var box = calcResult.getBoundingClientRect();
+            if (!box.width) return 0;
+            var cs = getComputedStyle(calcResult);
+            var left = box.left + (parseFloat(cs.paddingLeft) || 0);
+            var right = box.right - (parseFloat(cs.paddingRight) || 0);
+            var rg = document.createRange();
+            rg.selectNodeContents(calcResult);
+            var rects = rg.getClientRects(), over = 0;
+            for (var i = 0; i < rects.length; i++) {
+                if (!rects[i].width) continue;
+                over = Math.max(over, rects[i].right - right, left - rects[i].left);
+            }
+            return over;
+        }
+        var _resultDomGuardTimer = null;
+        function _guardResultDomFit(floorPx) {
+            if (!calcResult) return;
+            if (_resultAnimActive()) { // animacja cyfr trwa dłużej niż finalizacja (240 ms) — sprawdź tuż po niej
+                clearTimeout(_resultDomGuardTimer);
+                _resultDomGuardTimer = setTimeout(function() { _guardResultDomFit(floorPx); }, Math.max(30, _resultAnimUntil - Date.now() + 30));
+                return;
+            }
+            var fs = parseFloat(getComputedStyle(calcResult).fontSize);
+            var guard = 0;
+            while (guard++ < 60 && fs > floorPx && _resultDomOverflowPx() > 0.5) {
+                fs = Math.max(floorPx, fs - 0.5);
+                calcResult.style.fontSize = fs + 'px';
+            }
+        }
         function _finalizeResultFit(row, flat, floorPx, basePx, prevRendered) {
+            _finalizeResultFitCore(row, flat, floorPx, basePx, prevRendered);
+            _guardResultDomFit(floorPx);
+        }
+        function _finalizeResultFitCore(row, flat, floorPx, basePx, prevRendered) {
             if (!calcResult || !row) return;
             if (_resultAnimActive()) { // [EN] nie przerywaj calcCharIn — font sync + shrink wrap na gotowym DOM
                 if ((_calcResultWrapLines || 1) > 1) {

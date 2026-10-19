@@ -224,6 +224,7 @@ window.CALC_LAYOUT_TUNE = {
         exprMinHeight: 40,
         exprResultGap: 6,
         resultReserveEmpty: 52,
+        typingStructuralExtraPx: 12, // dopłata do minimum ekranika przy pisaniu (linia wyrażenia 26 px)
         resultAnimSlack: 4,
         resultReserveMin: 40,
         resultWrapPadBottom: 4, // padding-bottom ekranika przy 2 liniach wyniku
@@ -370,6 +371,10 @@ window.resolveCalcDisplayBudget = function resolveCalcDisplayBudget(panelH, isTy
     }
 
     var structural = _calcDisplayStructuralMin(tune, c);
+    // Minimum strukturalne liczy wynik jako resultReserveEmpty („0”), a przy pisaniu wiersz
+    // wyniku ma swoją realną wysokość (+ odstęp i luz animacji) — bez dopłaty wyrażenie
+    // dostawało 16 px przy 26 px linii i cyfry były ucięte od góry (1280×720/800).
+    if (isTyping && tune.typingStructuralExtraPx) structural += tune.typingStructuralExtraPx;
     var minPx = Math.max(c.minPx != null ? c.minPx : 108, structural);
     var maxPx = c.maxPx != null ? c.maxPx : 200;
     var height = Math.max(minPx, Math.min(maxPx, Math.round(raw)));
