@@ -218,6 +218,13 @@ async function openNotepad(page) {
     throw new Error(`openNotepad: klik przeszedł, ale notatnik nie otworzył się w ${T.action} ms — `
       + `${JSON.stringify(why)} — ${await describeStall(page)}`);
   }
+  // Na telefonie (ekran Notatek, v1.04.51) niepusta notatka NIE dostaje fokusu sama —
+  // użytkownik dotyka tekstu. Test robi to samo: fokus, gdy pole go nie ma.
+  await page.waitForTimeout(90);
+  await page.evaluate(() => {
+    const ta = document.querySelector('textarea.np-text');
+    if (ta && document.activeElement !== ta) ta.focus();
+  });
   // Gotowość = mirror wyrenderowany i pole ma fokus (openNotepad fokusuje po 60 ms),
   // czyli dokładnie to, na co poprzednio czekał sztywny `waitForTimeout(80)`.
   try {
@@ -233,8 +240,15 @@ async function openNotepad(page) {
 
 async function closeNotepad(page) {
   const close = page.locator('#notepadClose');
+  const calcTab = page.locator('#bottomNav [data-nav="calc"]');
   if (await close.isVisible().catch(() => false)) {
     await close.click({ timeout: T.action }).catch(() => {});
+  } else {
+    // telefon: ekran Notatek zamyka „Licz” — przy pisaniu (kb-open) pasek jest schowany, więc najpierw blur
+    await page.evaluate(() => { if (document.activeElement) document.activeElement.blur(); }).catch(() => {});
+    await page.waitForTimeout(80);
+    if (await calcTab.isVisible().catch(() => false)) await calcTab.click({ timeout: T.action }).catch(() => {});
+    else await page.keyboard.press('Escape').catch(() => {});
   }
   await page.waitForFunction(
     () => !document.body.classList.contains('notepad-open'),

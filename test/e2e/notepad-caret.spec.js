@@ -94,7 +94,10 @@ test('H1 kasia — klik po pierwszej „a” kasuje „a” (nie s/i)', async ({
     const ta = document.querySelector('textarea.np-text');
     const cs = getComputedStyle(ta);
     const probe = document.createElement('div');
-    probe.style.cssText = `position:absolute;left:-9999px;white-space:pre-wrap;font:${cs.font};width:${ta.clientWidth}px;padding:${cs.padding};box-sizing:${cs.boxSizing}`;
+    // cs.font bywa pusty (kerning/ligatury wyłączone nie mieszczą się w skrócie) — kopiujemy osobno
+    probe.style.cssText = `position:absolute;left:-9999px;white-space:pre-wrap;width:${ta.clientWidth}px;padding:${cs.padding};box-sizing:${cs.boxSizing}`;
+    for (const k of ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'lineHeight', 'letterSpacing',
+      'fontKerning', 'fontVariantLigatures', 'fontFeatureSettings', 'fontVariantNumeric']) probe.style[k] = cs[k];
     document.body.appendChild(probe);
     const taRect = ta.getBoundingClientRect();
     let best = 0, bestD = Infinity;

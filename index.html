@@ -20,7 +20,7 @@
          jasnym tłem przy wybranym/systemowym dark. Lekki klucz osobny (matm0_theme):
          'dark' | 'light' | brak = auto (śledzi system).
          [EN] External file (not inline) so CSP stays script-src 'self'; sync load before CSS. -->
-    <script src="js/theme-init.js?v=v1.04.49"></script>
+    <script src="js/theme-init.js?v=v1.04.54"></script>
     <meta name="application-name" content="Smart Kalkulator">
     <meta name="format-detection" content="telephone=no">
     <meta name="description" content="Szwajcarski scyzoryk do obliczeń codziennych i technicznych">
@@ -28,8 +28,8 @@
     <link rel="icon" href="assets/img/icon-192.png" type="image/png">
     <link rel="apple-touch-icon" href="assets/img/icon-192.png">
     <title>Smart Kalkulator</title>
-    <link rel="stylesheet" href="styles.css?v=v1.04.49" id="matm0MainCss">
-    <script src="js/cache-bust.js?v=v1.04.49" data-phase="head"></script>
+    <link rel="stylesheet" href="styles.css?v=v1.04.54" id="matm0MainCss">
+    <script src="js/cache-bust.js?v=v1.04.54" data-phase="head"></script>
 </head>
 
 <body>
@@ -59,6 +59,7 @@
             <symbol id="i-fold" viewBox="0 0 24 24"><path d="m7 20 5-5 5 5M7 4l5 5 5-5"/></symbol>
             <symbol id="i-unfold" viewBox="0 0 24 24"><path d="m7 15 5 5 5-5M7 9l5-5 5 5"/></symbol>
             <symbol id="i-share" viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></symbol>
+            <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
             <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
             <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
             <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 13v8M8 17l4 4 4-4"/><path d="M20 16.6A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.3"/></symbol>
@@ -1057,7 +1058,7 @@
                 <p class="help-lang-note">Ładowanie ściągi z <code>command-definitions.js</code>…</p>
             </div>
             <div class="help-section" data-help="notepad">
-                <p class="help-lang-note">Notatnik obliczeniowy — każda linia liczy się osobno. Klik w przykład wstawia linię w aktywnej notatce. Pełna ściąga: <strong>≣</strong> → <strong>ⓘ Ściąga</strong>.</p>
+                <p class="help-lang-note">Notatnik obliczeniowy — każda linia liczy się osobno. Klik w przykład wstawia linię w aktywnej notatce. Pełna ściąga: <strong>⋯</strong> → <strong>Ściąga notatnika</strong>.</p>
                 <section>
                     <h4>Legenda</h4>
                     <p><code>a × b</code> — działanie (etykieta przed <code>:</code> jest pomijana). <code>@nazwa</code> — zmienna. <code>@razem</code> — wynik ostatniej sumy.</p>
@@ -1067,34 +1068,36 @@
                     <p>Każda linia = osobne działanie; wynik na końcu wiersza. <strong>Dotknij wynik</strong> — dymek z rozpisanym równaniem (np. <code>razem</code> → <code>a + b</code>).</p>
                     <p class="help-command" data-command="Nocleg: {nocleg} * {cena}"><span class="help-pair"><code>Etykieta: a × b</code></span> etykieta przed <code>:</code> pomijana w liczeniu</p>
                     <p class="help-command" data-command="Wyjazd w góry"><span class="help-pair"><code>Nagłówek tekstowy</code></span> linia bez działania = czysty tekst (nagłówek)</p>
-                    <p><strong>Wiele notatek:</strong> <strong>+</strong> nowa · ikona listy (tytuł = pierwsza linia) · kosz usuwa · ikona udostępniania = eksport.</p>
+                    <p><strong>Wiele notatek:</strong> <strong>+</strong> nowa · ikona listy (tytuł = pierwsza linia) · kosz usuwa · <strong>⋯</strong> = same wyniki, przykład, eksport. <strong>{ }</strong> — zmienne tej notatki (dotknij, by wstawić).</p>
+                    <p><strong>Łącznie</strong> pod notatką — suma wszystkich pozycji (gdy mają tę samą jednostkę); dotknij, by zobaczyć sumy sekcji.</p>
                 </section>
                 <section>
                     <h4>Zwykłe zdania (smart)</h4>
                     <p>Gdy linia nie jest działaniem, notatnik próbuje ją zrozumieć. Taki wynik ma <strong>kropkowane podkreślenie</strong> — dotknij go, a dymek pokaże, jak został policzony.</p>
                     <p class="help-command" data-command="Jedzenie 4 osoby po 60 zł przez 3 dni"><span class="help-pair"><code>N po kwota przez M</code></span> iloczyn: 4 × 60 zł × 3 (też <code>razy</code>, <code>x</code>, <code>za</code>)</p>
+                    <p class="help-command" data-command="Termy 2 * 95 zł"><span class="help-pair"><code>Nazwa a × b</code></span> etykieta bez dwukropka przed działaniem (też <code>Taxi 35 zł + 20 zł</code>); nazwa staje się zmienną</p>
                     <p class="help-command" data-command="Zaliczka od Ani 200 zł"><span class="help-pair"><code>zdanie z jedną kwotą</code></span> bierze tę kwotę (musi mieć jednostkę, np. zł)</p>
                     <p class="help-command" data-command="Paliwo: 420 km * 7 l/100 km * 6,50 zł"><span class="help-pair"><code>km · l/100 km · cena</code></span> koszt paliwa</p>
                     <p class="help-command" data-command="Drugi nocleg: nocleg * 2"><span class="help-pair"><code>nazwa × k</code></span> nazwa wcześniejszej etykiety działa też bez <code>@</code> (podkreślona)</p>
-                    <p>Zdanie bez jednostki (<code>spotkanie o 15</code>) zostaje tekstem — notatnik nie zgaduje liczb.</p>
+                    <p>Zdanie bez jednostki (<code>spotkanie o 15</code>) zostaje tekstem — notatnik nie zgaduje liczb. Linia, która wygląda na działanie, ale się nie policzyła, ma <strong>„?”</strong> — dotknij po podpowiedź.</p>
                 </section>
                 <section>
                     <h4>Sumy i sekcje</h4>
                     <p><code>razem</code> / <code>suma</code> — suma wyników od ostatniego <code>---</code>. <code>półsuma</code> / <code>subtotal</code> — podobnie, inny styl.</p>
-                    <p class="help-command" data-command="# Transport"><span class="help-pair"><code># Nazwa</code><span class="help-sep">·</span><code>Nazwa:</code><span class="help-sep">·</span>nagłówek H1–H3</span> nowa sekcja — <code>razem</code> niżej liczy tylko ją</p>
+                    <p class="help-command" data-command="# Transport"><span class="help-pair"><code># Nazwa</code><span class="help-sep">·</span><code>Nazwa:</code><span class="help-sep">·</span>nagłówek H1–H3</span> nowa sekcja — <code>razem</code> niżej liczy tylko ją; pasek nagłówka sam pokazuje sumę sekcji</p>
                     <p class="help-command" data-command="---"><span class="help-pair"><code>---</code></span> nowa sekcja bez nazwy (zeruje sumę)</p>
                     <p class="help-command" data-command="suma wszystkiego"><span class="help-pair"><code>suma wszystkiego</code><span class="help-sep">·</span><code>łącznie</code><span class="help-sep">·</span><code>ogółem</code></span> suma całej notatki (wszystkie sekcje)</p>
                     <p class="help-command" data-command="Zaliczka od Ani 200 zł"><span class="help-pair"><code>Zaliczka / rabat / zwrot / bon …</code></span> odejmuje się od sumy (pokazane jako „− 200 zł”); <code>+</code> przed kwotą = dodaj</p>
                     <p>Zwykła linia tekstu (np. <code>kupić prezent</code>) <strong>nie</strong> dzieli sum — tylko nagłówek.</p>
                     <p class="help-command" data-command="razem(usd)"><span class="help-pair"><code>razem(jednostka)</code><span class="help-sep">·</span><code>półsuma(jednostka)</code></span> ręczna jednostka sumy → też <code>@razem</code></p>
                     <p><code>razem</code> dziedziczy jednostkę, gdy wszystkie pozycje mają tę samą (zł + zł → <code>720 zł</code>, też w <code>razem / 4</code>). Wyłączysz w ⚙️.</p>
-                    <p>Gdy jakaś linia z liczbą nie ma wyniku, <code>razem</code> dostaje <strong>„!”</strong> — dymek mówi, które linie pominęło.</p>
+                    <p>Gdy jakaś linia z liczbą nie ma wyniku, <code>razem</code> dostaje <strong>„!”</strong> — dymek mówi, które linie pominęło. Wiersz z samym <code>razem</code> ma kreskę nad sobą, <code>suma wszystkiego</code> — podwójną.</p>
                 </section>
                 <section>
                     <h4>Zmienne</h4>
                     <p class="help-command" data-command="@stawka: {stawka}"><span class="help-pair"><code>@nazwa: wartość</code></span> zmienna dzielona między notatkami</p>
                     <p class="help-command" data-command="@stawka * 8"><span class="help-pair"><code>@nazwa × k</code></span> użycie @globalnej w innej notatce</p>
-                    <p>Etykieta jednowyrazowa (<code>Pozycja: wartość</code>) → zmienna <code>@pozycja</code> w panelu Zmienne. Gdy cała linia jest działaniem, wystarczy sama nazwa (<code>pozycja * 2</code>); w zdaniu nazwa zostaje słowem.</p>
+                    <p>Etykieta jednowyrazowa (<code>Pozycja: wartość</code>) → zmienna <code>pozycja</code> w panelu <strong>{ }</strong>. Gdy cała linia jest działaniem, wystarczy sama nazwa (<code>pozycja * 2</code>); w zdaniu nazwa zostaje słowem.</p>
                     <p class="help-command" data-command="test: @razem × {mnoznik}"><span class="help-pair"><code>test: @razem × k</code></span> odwołanie do wyniku sumy</p>
                 </section>
                 <section>
@@ -1142,13 +1145,17 @@
         aria-labelledby="npTitleBtn" aria-hidden="true">
         <div class="np-head">
             <button class="np-head-btn" id="npListBtn" type="button" aria-label="Lista notatek" title="Notatki"><span class="np-list-btn-icon"><svg class="ui-icon" aria-hidden="true"><use href="#i-list"/></svg></span></button>
-            <button class="np-head-btn" id="npFoldBtn" type="button" aria-pressed="false" aria-label="Zwiń wyrażenia do wyników" title="Zwiń wyrażenia do wyników"><svg class="ui-icon" aria-hidden="true"><use href="#i-fold"/></svg></button>
             <button type="button" id="npTitleBtn" class="np-title-btn" aria-label="Tytuł notatki — dotknij, by zmienić">📝 Notatnik</button>
             <input type="text" id="npTitleInput" class="np-title-input" hidden maxlength="80" aria-label="Edytuj tytuł notatki" autocomplete="off">
-            <button class="np-head-btn" id="npExportBtn" type="button" aria-label="Eksportuj notatki" title="Eksportuj"><svg class="ui-icon" aria-hidden="true"><use href="#i-share"/></svg></button>
+            <button class="np-head-btn" id="npVarsBtn" type="button" aria-label="Zmienne w notatce" title="Zmienne" aria-expanded="false" aria-controls="npVarsPanel" hidden><svg class="ui-icon" aria-hidden="true"><use href="#i-braces"/></svg></button>
             <button class="np-head-btn" id="npNewBtn" type="button" aria-label="Nowa notatka" title="Nowa notatka"><svg class="ui-icon" aria-hidden="true"><use href="#i-plus"/></svg></button>
+            <button class="np-head-btn" id="npExportBtn" type="button" aria-label="Więcej: widok, przykład, ściąga, eksport" title="Więcej" aria-haspopup="true" aria-expanded="false"><svg class="ui-icon" aria-hidden="true"><use href="#i-more"/></svg></button>
             <button class="settings-close" id="notepadClose" type="button" aria-label="Zamknij"><svg class="ui-icon" aria-hidden="true"><use href="#i-x"/></svg></button>
             <div class="np-export-menu" id="npExportMenu" role="menu" hidden>
+                <button type="button" role="menuitemcheckbox" id="npFoldBtn" aria-checked="false">Same wyniki (zwiń działania)</button>
+                <button type="button" role="menuitem" data-np-action="example">Wstaw przykład: wyjazd</button>
+                <button type="button" role="menuitem" data-np-action="help">Ściąga notatnika</button>
+                <div class="np-export-sep" role="separator" aria-hidden="true"></div>
                 <button type="button" role="menuitem" data-export="txt">Eksport .txt</button>
                 <button type="button" role="menuitem" data-export="txt-computed">Eksport .txt z wynikami</button>
                 <button type="button" role="menuitem" data-export="md">Eksport .md</button>
@@ -1158,14 +1165,10 @@
             </div>
         </div>
         <div class="np-body">
-            <aside class="np-vars-panel" id="npVarsPanel" aria-label="Aktywne zmienne" hidden>
-                <button type="button" class="np-vars-toggle" id="npVarsToggle" aria-expanded="false">
-                    <span class="np-vars-toggle-label">Zmienne</span>
-                    <span class="np-vars-toggle-icon" aria-hidden="true">▾</span>
-                </button>
+            <aside class="np-vars-panel" id="npVarsPanel" aria-label="Zmienne — dotknij, by wstawić" hidden>
                 <div class="np-vars-body" id="npVarsBody">
                     <div class="np-vars-group" id="npVarsGlobal" hidden>
-                        <span class="np-vars-group-label">@globalne</span>
+                        <span class="np-vars-group-label">globalne (@) — ze wszystkich notatek</span>
                         <div class="np-vars-chips" id="npVarsGlobalChips"></div>
                     </div>
                     <div class="np-vars-group" id="npVarsLocal" hidden>
@@ -1178,14 +1181,10 @@
             <div class="np-learn-bar">
                 <button type="button" class="np-learn-btn" id="npLearnExampleBtn" title="Wstaw przykład: jednostki, razem(usd), @zmienne i konwersja na zł">Przykład: wyjazd</button>
             </div>
-            <details class="np-hint-details">
-                <summary>Porady notatnika</summary>
-                <p class="np-hint">Skrót — pełna ściąga: ikona listy notatek (lewy górny róg) → <strong>Ściąga</strong>.</p>
-                <p class="np-hint">Każda linia liczy się osobno; wynik obok linii. <code>Etykieta: działanie</code> — etykieta pomijana. <code>razem</code> / <code>półsuma</code> sumują pozycje od <code>---</code>.</p>
-                <p class="np-hint">Zmienne: <code>@nazwa</code> (z panelu Zmienne). <code>@globalna: wartość</code> — współdzielona między notatkami. <code>razem(zł)</code> / <code>razem(usd)</code> — ręczna jednostka sumy.</p>
-                <p class="np-hint">Waluta w notatniku zostaje (USD → USD), chyba że napiszesz <code>@razem na zł</code>. Miks jednostek: ⚙️ <em>Pierwsza jednostka wygrywa</em>. Sumy: ⚙️ <em>Dziedzicz</em> jednostkę z pozycji.</p>
-                <p class="np-hint"><strong>Ctrl+A / zaznacz palcem</strong> — wiele linii naraz. <strong>Zaznacz tekst</strong> — pasek <strong>B / I / U / S / ◆</strong> (toggle). Przytrzymaj — Kopiuj/Wytnij. Dotknij wynik — dymek z równaniem.</p>
-            </details>
+            <div class="np-total-bar" id="npTotalBar" hidden>
+                <span class="np-total-label">Łącznie</span>
+                <button type="button" class="np-total-val" id="npTotalVal" data-hint="" data-hint-from="data-eq" data-hint-anchor="element" data-hint-touch="on" data-hint-tap="" data-hint-fade="" data-hint-class="np-eq"></button>
+            </div>
             <aside class="np-list-panel" id="npListPanel" aria-hidden="true" aria-label="Twoje notatki">
                 <div class="np-list-toolbar">
                     <button type="button" class="np-help-btn" id="npHelpOpen" aria-label="Ściąga notatnika">ⓘ Ściąga</button>
@@ -1298,6 +1297,13 @@
                         <button type="button" class="settings-seg-btn" data-val="on">Wł</button>
                     </div>
                 </div>
+                <div class="settings-toggle-row">
+                    <span class="settings-toggle-text"><strong>Krój tekstu</strong><br><small>Zwykły mieści więcej słów w linii. Stała szerokość równa kolumny wpisane spacjami.</small></span>
+                    <div class="settings-seg" id="settingNotepadFontFace" role="group" aria-label="Krój tekstu notatnika">
+                        <button type="button" class="settings-seg-btn" data-val="sans">Zwykły</button>
+                        <button type="button" class="settings-seg-btn" data-val="mono">Stały</button>
+                    </div>
+                </div>
                 <div class="settings-toggle-row np-font-settings-row">
                     <span class="settings-toggle-text"><strong>Rozmiar czcionki</strong><br><small>Czytelność tekstu w edytorze (60–130%).</small></span>
                     <div class="np-font-settings">
@@ -1350,25 +1356,25 @@
 
     <!-- defer: statyczny UI (nagłówek, wyświetlacz, zakładki) maluje się ZANIM wykona się JS
          (app.js ~525 KB). Kolejność zachowana, DOM gotowy przed wykonaniem. -->
-    <script src="js/cache-bust.js?v=v1.04.49" data-phase="defer"></script>
-    <script defer src="version.js?v=v1.04.49"></script>
-    <script defer src="js/cursor-hint.js?v=v1.04.49"></script>
-    <script defer src="js/vendor/decimal.js?v=v1.04.49"></script>
-    <script defer src="js/money-decimal.js?v=v1.04.49"></script>
-    <script defer src="js/numeric-eval.js?v=v1.04.49"></script>
-    <script defer src="js/data-tables.js?v=v1.04.49"></script>
-    <script defer src="js/format-pl.js?v=v1.04.49"></script>
-    <script defer src="js/pl-fold.js?v=v1.04.49"></script>
-    <script defer src="js/smart-parser.js?v=v1.04.49"></script>
-    <script defer src="js/smart-quantity.js?v=v1.04.49"></script>
-    <script defer src="js/quantity-algebra.js?v=v1.04.49"></script>
-    <script defer src="js/synonyms.js?v=v1.04.49"></script>
-    <script defer src="js/hint-rules.js?v=v1.04.49"></script>
-    <script defer src="js/notepad-format.js?v=v1.04.49"></script>
-    <script defer src="js/notepad-engine.js?v=v1.04.49"></script>
-    <script defer src="command-definitions.js?v=v1.04.49"></script>
-    <script defer src="js/calc-layout-tune.js?v=v1.04.49"></script>
-    <script defer src="app.js?v=v1.04.49"></script>
+    <script src="js/cache-bust.js?v=v1.04.54" data-phase="defer"></script>
+    <script defer src="version.js?v=v1.04.54"></script>
+    <script defer src="js/cursor-hint.js?v=v1.04.54"></script>
+    <script defer src="js/vendor/decimal.js?v=v1.04.54"></script>
+    <script defer src="js/money-decimal.js?v=v1.04.54"></script>
+    <script defer src="js/numeric-eval.js?v=v1.04.54"></script>
+    <script defer src="js/data-tables.js?v=v1.04.54"></script>
+    <script defer src="js/format-pl.js?v=v1.04.54"></script>
+    <script defer src="js/pl-fold.js?v=v1.04.54"></script>
+    <script defer src="js/smart-parser.js?v=v1.04.54"></script>
+    <script defer src="js/smart-quantity.js?v=v1.04.54"></script>
+    <script defer src="js/quantity-algebra.js?v=v1.04.54"></script>
+    <script defer src="js/synonyms.js?v=v1.04.54"></script>
+    <script defer src="js/hint-rules.js?v=v1.04.54"></script>
+    <script defer src="js/notepad-format.js?v=v1.04.54"></script>
+    <script defer src="js/notepad-engine.js?v=v1.04.54"></script>
+    <script defer src="command-definitions.js?v=v1.04.54"></script>
+    <script defer src="js/calc-layout-tune.js?v=v1.04.54"></script>
+    <script defer src="app.js?v=v1.04.54"></script>
 </body>
 
 </html>

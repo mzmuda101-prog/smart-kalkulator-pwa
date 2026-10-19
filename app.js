@@ -67,6 +67,7 @@
                         notepadSumUnitDefaultV2: true, // znacznik jednorazowej migracji domyślnej (patrz loadState)
                         notepadGutterHidden: false, // notatnik: panel chipów schowany (T6-3)
                         notepadFontSize: 1, // notatnik: rozmiar czcionki 0.6–1.3 (T6-1)
+                        notepadFontMono: false, // notatnik: stała szerokość zamiast kroju proporcjonalnego (v1.04.50)
                         unitProfile: 'default', // T2-10: preset domyślnych jednostek
                         standardLiveHint: true, // T4-17: chipy pod polem Standard — domyślnie ON od v1.04.19
                         standardLiveHintDefaultV2: true, // znacznik jednorazowej migracji domyślnej (patrz loadState)
@@ -151,7 +152,9 @@
         const npListUl = $('#npListUl');
         const npListSearch = $('#npListSearch');
         const npVarsPanel = $('#npVarsPanel');
-        const npVarsToggle = $('#npVarsToggle');
+        const npVarsBtn = $('#npVarsBtn');
+        const npTotalBar = $('#npTotalBar');
+        const npTotalVal = $('#npTotalVal');
         const npVarsGlobal = $('#npVarsGlobal');
         const npVarsLocal = $('#npVarsLocal');
         const npVarsGlobalChips = $('#npVarsGlobalChips');
@@ -177,6 +180,7 @@
         const settingNotepadSumUnit = $('#settingNotepadSumUnit');
         const settingCalcLayout = $('#settingCalcLayout');
         const settingNotepadFontSize = $('#settingNotepadFontSize');
+        const settingNotepadFontFace = $('#settingNotepadFontFace');
         const settingNotepadFontReset = $('#settingNotepadFontReset');
         const settingNotepadFontVal = $('#settingNotepadFontVal');
         const settingsFxStatus = $('#settingsFxStatus');
@@ -320,6 +324,7 @@
                         }
                         if (typeof stObj.notepadGutterHidden === 'boolean') STATE.settings.notepadGutterHidden = stObj.notepadGutterHidden;
                         if (typeof stObj.notepadFontSize === 'number' && isFinite(stObj.notepadFontSize)) STATE.settings.notepadFontSize = stObj.notepadFontSize;
+                        if (typeof stObj.notepadFontMono === 'boolean') STATE.settings.notepadFontMono = stObj.notepadFontMono;
                         if (stObj.defaultUnits && typeof stObj.defaultUnits === 'object') {
                             Object.keys(STATE.settings.defaultUnits).forEach(function(cat) {
                                 if (typeof stObj.defaultUnits[cat] === 'string') STATE.settings.defaultUnits[cat] = stObj.defaultUnits[cat];
@@ -5431,6 +5436,7 @@
                 var it = e.target.closest('.tools-sheet-item');
                 if (!it) return;
                 closeToolsSheet();
+                if (document.body.classList.contains('notepad-open')) closeNotepad(); // Narzędzia z ekranu Notatek
                 switchTab(it.getAttribute('data-tab'));
                 _syncBottomNav();
             });
@@ -5447,7 +5453,9 @@
             var open = !!vv && (window.innerHeight - vv.height > 120);
             var ae = document.activeElement;
             var typing = ae && (ae.tagName === 'TEXTAREA' || (ae.tagName === 'INPUT' && !/^(button|checkbox|radio|range|submit)$/i.test(ae.type)));
+            var was = document.body.classList.contains('kb-open');
             document.body.classList.toggle('kb-open', !!(open || (typing && window.matchMedia('(pointer: coarse)').matches)));
+            if (was !== document.body.classList.contains('kb-open') && typeof _npSyncViewport === 'function') _npSyncViewport(); // pasek znika/wraca → wysokość ekranu Notatek
         }
         if (window.visualViewport) window.visualViewport.addEventListener('resize', _syncKbOpen);
         document.addEventListener('focusin', function() { setTimeout(_syncKbOpen, 0); });
@@ -9111,7 +9119,7 @@
                 md.className = 'np-mirror-line np-align-' + mctx.align;
                 _npFillMirrorLine(md, line, mctx);
                 var inf = _npLastChrome && _npLastChrome.infos ? _npLastChrome.infos[i] : null; // podkreślenia zmiennych bez „@”
-                if (inf && inf.isHeading && _npLastChrome.lines[i] === line) md.classList.add('np-sec-heading');
+                if (inf && inf.isHeading && _npLastChrome.lines[i] === line) { md.classList.add('np-sec-heading'); _npDimHashMarks(md); }
                 if (inf && inf.bareVars && inf.bareVars.length && _npLastChrome.lines[i] === line) _npMarkBareVars(md, inf.bareVars, (inf.labelPart || '').length);
             });
         }
@@ -9306,6 +9314,13 @@
             var fs = _npClampFontSize((STATE.settings && STATE.settings.notepadFontSize) || 1);
             STATE.settings.notepadFontSize = fs;
             if (npEditor) npEditor.style.setProperty('--np-font-size', fs + 'rem');
+            var mono = !!(STATE.settings && STATE.settings.notepadFontMono);
+            if (npEditor) npEditor.classList.toggle('np-mono', mono);
+            if (settingNotepadFontFace) settingNotepadFontFace.querySelectorAll('.settings-seg-btn').forEach(function(b) {
+                var sel = (b.dataset.val === 'mono') === mono;
+                b.classList.toggle('active', sel);
+                b.setAttribute('aria-pressed', sel ? 'true' : 'false');
+            });
             if (settingNotepadFontSize) settingNotepadFontSize.value = String(fs);
             if (settingNotepadFontVal) settingNotepadFontVal.textContent = Math.round(fs * 100) + '%';
             if (!npBody || !document.body.classList.contains('notepad-open')) return;
@@ -9719,6 +9734,7 @@
         function _npSyncCaretMirrorStyle(ta, div) {
             var cs = getComputedStyle(ta);
             ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing', 'textTransform',
+                'fontKerning', 'fontVariantLigatures', 'fontFeatureSettings', 'fontVariantNumeric', // v1.04.50 krój proporcjonalny
                 'wordSpacing', 'textIndent', 'boxSizing', 'borderLeftWidth', 'borderRightWidth',
                 'borderTopWidth', 'borderBottomWidth', 'paddingLeft', 'paddingRight', 'paddingTop',
                 'paddingBottom', 'lineHeight', 'whiteSpace', 'overflowWrap', 'wordBreak'].forEach(function(p) { div.style[p] = cs[p]; });
@@ -9786,7 +9802,7 @@
             var host = (targetNode && targetNode.parentElement) || mLine.querySelector('.np-h1, .np-h2, .np-h3, .np-fmt-bold, .np-fmt-italic') || mLine;
             var cs = getComputedStyle(host);
             var div = _npEnsureCaretMirror();
-            ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing', 'textTransform',
+            ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing', 'textTransform', 'fontKerning', 'fontVariantLigatures', 'fontFeatureSettings', 'fontVariantNumeric',
                 'wordSpacing', 'textIndent', 'lineHeight', 'whiteSpace', 'overflowWrap', 'wordBreak'].forEach(function (p) {
                 div.style[p] = cs[p];
             });
@@ -10382,8 +10398,11 @@
             res.setAttribute('data-hint-fade', '');
             res.setAttribute('data-hint-class', 'np-eq');
             if (kind === 'warn') {
-                res.textContent = '—';
+                // „?” zamiast „—”: linia wygląda na działanie, ale się nie policzyła — dymek mówi, co zrobić.
+                res.textContent = '?';
                 res.classList.add('np-res-warn');
+                res.dataset.eq = 'Nie umiem policzyć tej linii./|Spróbuj zapisu „Nazwa: 2 * 95 zł”./|Pełna lista: ⋯ → Ściąga notatnika';
+                res.setAttribute('aria-label', 'Linia bez wyniku — ' + res.dataset.eq.replace(/\/\|/g, ' '));
             } else if (kind === 'pending') {
                 res.textContent = '…';
                 res.classList.add('np-res-warn');
@@ -10418,6 +10437,26 @@
             }
             return res;
         }
+        function _npMakeSectionChip(sec) { // suma sekcji w pasku nagłówka (B3) — bez pisania „razem”
+            var res = document.createElement('button');
+            res.type = 'button';
+            res.className = 'np-res np-res-section';
+            res.tabIndex = -1;
+            ['data-hint', 'data-hint-tap', 'data-hint-fade'].forEach(function(a) { res.setAttribute(a, ''); });
+            res.setAttribute('data-hint-from', 'data-eq');
+            res.setAttribute('data-hint-anchor', 'element');
+            res.setAttribute('data-hint-touch', 'on');
+            res.setAttribute('data-hint-class', 'np-eq');
+            if (_needsTightMarkup(sec.text)) _setResultMarkup(res, sec.text); else res.textContent = sec.text;
+            var eq = 'Suma sekcji „' + sec.name + '”: ' + sec.count + ' ' + _npPlural(sec.count, 'pozycja', 'pozycje', 'pozycji');
+            if (sec.skipped.length) {
+                res.classList.add('np-res-partial');
+                eq += '/|Uwaga: pominięto ' + sec.skipped.length + ' ' + _npPlural(sec.skipped.length, 'linię', 'linie', 'linii') + ' bez wyniku (nr ' + sec.skipped.join(', ') + ')';
+            }
+            res.dataset.eq = eq;
+            res.setAttribute('aria-label', eq.replace(/\/\|/g, '. ') + ' — ' + sec.text);
+            return res;
+        }
         function _npLineHeightPx() {
             if (!npMirror) return 32;
             var cs = getComputedStyle(npMirror);
@@ -10444,6 +10483,7 @@
             probe.style.fontSize = mcs.fontSize;
             probe.style.lineHeight = mlcs.lineHeight || mcs.lineHeight;
             probe.style.letterSpacing = mcs.letterSpacing;
+            probe.style.fontKerning = mcs.fontKerning; probe.style.fontVariantLigatures = mcs.fontVariantLigatures; probe.style.fontFeatureSettings = mcs.fontFeatureSettings;
             probe.style.width = (_npEditorTextWidth() || npBody.clientWidth) + 'px';
             probe.style.padding = '0'; // [EN] mirror-line nie ma paddingu — padding textarea zawyżał każdą linię
             probe.style.margin = '0';
@@ -10561,6 +10601,13 @@
             npWrapLayer.replaceChildren();
             npGutter.replaceChildren();
             npFoldLayer.replaceChildren();
+            // B3: sekcje jako bloki — nagłówek = pasek z sumą sekcji, linie sekcji = szyna z lewej
+            var eng = _npEngine();
+            var secs = eng && eng.sectionTotals ? eng.sectionTotals(infos) : {};
+            var inSec = [];
+            Object.keys(secs).forEach(function(k) {
+                for (var li = secs[k].head + 1; li <= secs[k].last; li++) inSec[li] = true;
+            });
             mirrorLines.forEach(function(md, i) {
                 var lineText = lines[i] != null ? lines[i] : '';
                 var h = blockHs[i] || Math.max(lineH, _npMeasureLineBlock(lineText).h, _npMirrorBlockH(md));
@@ -10580,14 +10627,21 @@
                 var info = infos[i] || {};
                 var lineTrim = String((info.raw != null ? info.raw : lines[i]) || '').trim();
                 var kind = _npLineKind(info, lineTrim);
+                // kreska nad „razem” przez całą szerokość (tekst + wynik) — jak podsumowanie na rachunku
+                var sumCls = !info.isSumLine ? '' : (info.isGrand ? ' np-k-grand' : ' np-k-sum'); // „na osobę: razem / 4” to zwykły wynik
+                var sec = secs[i];
+                if (sec) sumCls += ' np-k-head';
+                if (sumCls) wrapSlot.className += sumCls;
+                if (inSec[i]) wrapSlot.className += ' np-in-sec';
                 var gWrap = document.createElement('div');
-                gWrap.className = 'np-gutter-wrap' + (wrapped ? ' np-wrapped' : '');
+                gWrap.className = 'np-gutter-wrap' + (wrapped ? ' np-wrapped' : '') + sumCls;
                 gWrap.style.height = h + 'px';
                 gWrap.style.minHeight = h + 'px';
                 var gRow = document.createElement('div');
-                gRow.className = 'np-gutter-row np-' + kind + (kind === 'calc' || kind === 'total' || kind === 'subtotal' ? ' np-has' : '') + (kind === 'warn' ? ' np-warn' : '');
+                gRow.className = 'np-gutter-row np-' + kind + (kind === 'calc' || kind === 'total' || kind === 'subtotal' ? ' np-has' : '') + (kind === 'warn' ? ' np-warn' : '') + (info.isSumLine ? ' np-pure-sum' : '');
                 var hasChip = kind === 'calc' || kind === 'total' || kind === 'subtotal' || kind === 'warn' || kind === 'pending';
                 if (hasChip) gRow.appendChild(_npMakeResChip(info, kind));
+                else if (sec && sec.text) gRow.appendChild(_npMakeSectionChip(sec));
                 gWrap.appendChild(gRow);
                 npGutter.appendChild(gWrap);
                 if (folded) {
@@ -10663,6 +10717,21 @@
                 tn.parentNode.replaceChild(frag, tn);
             });
         }
+        // „# ” / „## ” przed nazwą sekcji — przygaszone, żeby nagłówek czytał się jak nagłówek.
+        // Tylko kolor w osobnym spanie: znaki zostają, geometria lustra = textarea.
+        function _npDimHashMarks(md) {
+            var walker = document.createTreeWalker(md, NodeFilter.SHOW_TEXT);
+            var tn = walker.nextNode();
+            while (tn && !tn.nodeValue.length) tn = walker.nextNode();
+            if (!tn) return;
+            var m = tn.nodeValue.match(/^#{1,3}\s+/);
+            if (!m) return;
+            var sp = document.createElement('span');
+            sp.className = 'np-hash-mark';
+            sp.textContent = m[0];
+            tn.nodeValue = tn.nodeValue.slice(m[0].length);
+            tn.parentNode.insertBefore(sp, tn);
+        }
         function _npRenderEditorChrome(lines, infos) {
             if (!npBody || !npMirror || !npGutter || !npFoldLayer || !npWrapLayer) return;
             _npLastChrome = { lines: lines.slice(), infos: infos.slice() };
@@ -10674,7 +10743,7 @@
                 md.className = 'np-mirror-line np-align-' + mctx.align;
                 _npFillMirrorLine(md, line, mctx);
                 if (infos[i] && infos[i].bareVars && infos[i].bareVars.length) _npMarkBareVars(md, infos[i].bareVars, (infos[i].labelPart || '').length);
-                if (infos[i] && infos[i].isHeading) md.classList.add('np-sec-heading');
+                if (infos[i] && infos[i].isHeading) { md.classList.add('np-sec-heading'); _npDimHashMarks(md); }
                 npMirror.appendChild(md);
             });
             function relayout() { _npLayoutLineChrome(lines, infos); _npObserveMirrorLines(); }
@@ -10736,9 +10805,35 @@
             _npRenderEditorChrome(lines, infos);
             if (npEditor) npEditor.classList.toggle('np-fold', !!(STATE.settings && STATE.settings.notepadFold));
             _npSyncGutterHidden();
+            npRenderTotalBar(infos);
             npBindHints();
             npRenderVarsPanel();
+            if (notepadModal) notepadModal.classList.toggle('np-is-empty', !String(text).trim());
             _npUpdateVisualCaret();
+        }
+        function _npPlural(n, one, few, many) {
+            if (n === 1) return one;
+            return (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)) ? few : many;
+        }
+        // Pasek „Łącznie” pod edytorem — suma całej notatki zawsze na widoku (wariant A, v1.04.50).
+        function npRenderTotalBar(infos) {
+            if (!npTotalBar || !npTotalVal) return;
+            var eng = _npEngine();
+            var sum = eng && eng.summarize ? eng.summarize(infos || []) : null;
+            npTotalBar.hidden = !sum;
+            if (!sum) return;
+            if (_needsTightMarkup(sum.text)) _setResultMarkup(npTotalVal, sum.text);
+            else npTotalVal.textContent = sum.text;
+            var parts = ['Suma ' + sum.count + ' pozycji z całej notatki'];
+            if (sum.sections.length > 1) sum.sections.forEach(function(sct) { parts.push(sct.name + ': ' + sct.text); });
+            var partial = sum.skipped && sum.skipped.length;
+            if (partial) {
+                var n = sum.skipped.length;
+                parts.push('Uwaga: pominięto ' + n + ' ' + _npPlural(n, 'linię', 'linie', 'linii') + ' bez wyniku (nr ' + sum.skipped.join(', ') + ')');
+            }
+            npTotalVal.dataset.eq = parts.join('/|');
+            npTotalVal.classList.toggle('np-res-partial', !!partial);
+            npTotalVal.setAttribute('aria-label', 'Łącznie ' + sum.text + '. ' + parts.join('. '));
         }
         function _npRecomputeSync(text) {
             var lines = text.split('\n');
@@ -10777,9 +10872,10 @@
             var gKeys = Object.keys(data.globals || {}).sort();
             var lKeys = Object.keys(data.locals || {}).sort();
             var hasAny = gKeys.length || lKeys.length;
-            npVarsPanel.hidden = !hasAny;
-            if (!hasAny) return;
-            function fillChips(container, keys, map, units) {
+            // Zmienne = popover pod ikoną {x} w nagłówku (v1.04.50) — wcześniej stały pasek nad edytorem.
+            if (npVarsBtn) npVarsBtn.hidden = !hasAny;
+            if (!hasAny) { npCloseVars(); return; }
+            function fillChips(container, keys, map, units, global) {
                 if (!container) return;
                 container.replaceChildren();
                 keys.forEach(function(k) {
@@ -10790,22 +10886,36 @@
                     var val = map[k];
                     var uRaw = units && units[k] ? units[k] : '';
                     var u = uRaw ? (' ' + uRaw) : '';
-                    btn.appendChild(document.createTextNode('@' + k + ' '));
+                    btn.appendChild(document.createTextNode((global ? '@' : '') + k + ' '));
                     var sm = document.createElement('small');
                     sm.textContent = (_isCurrencyDisplayUnit(uRaw) ? formatMoneyNumber(val) : formatLocaleNumber(val, 10)) + u;
                     btn.appendChild(sm);
-                    btn.addEventListener('click', function() { _npInsertVarName(k); });
+                    btn.addEventListener('click', function() { _npInsertVarName(k, global); npCloseVars(); });
                     container.appendChild(btn);
                 });
             }
             if (npVarsGlobal) npVarsGlobal.hidden = !gKeys.length;
             if (npVarsLocal) npVarsLocal.hidden = !lKeys.length;
-            fillChips(npVarsGlobalChips, gKeys, data.globals, {});
-            fillChips(npVarsLocalChips, lKeys, data.locals, data.localUnits);
+            fillChips(npVarsGlobalChips, gKeys, data.globals, {}, true);
+            fillChips(npVarsLocalChips, lKeys, data.locals, data.localUnits, false);
         }
-        function _npInsertVarName(name) {
+        function npOpenVars() {
+            if (!npVarsPanel || !npVarsBtn || npVarsBtn.hidden) return;
+            npVarsPanel.hidden = false;
+            npVarsPanel.classList.add('open');
+            npVarsBtn.setAttribute('aria-expanded', 'true');
+            npVarsBtn.classList.add('is-on');
+        }
+        function npCloseVars() {
+            if (!npVarsPanel) return;
+            npVarsPanel.classList.remove('open');
+            npVarsPanel.hidden = true;
+            if (npVarsBtn) { npVarsBtn.setAttribute('aria-expanded', 'false'); npVarsBtn.classList.remove('is-on'); }
+        }
+        // Lokalne zmienne wstawiamy bez „@” (działają od v1.04.24), globalne zostają z „@”.
+        function _npInsertVarName(name, global) {
             if (!npBody) return;
-            var token = '@' + String(name || '').replace(/^@+/, '');
+            var token = (global === false ? '' : '@') + String(name || '').replace(/^@+/, '');
             var start = npBody.selectionStart != null ? npBody.selectionStart : npBody.value.length;
             var end = npBody.selectionEnd != null ? npBody.selectionEnd : start;
             var v = npBody.value;
@@ -11215,11 +11325,8 @@
         function updateFoldBtn() {
             if (!npFoldBtn) return;
             var on = !!(STATE.settings && STATE.settings.notepadFold);
-            npFoldBtn.classList.toggle('is-on', on);
-            npFoldBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
-            npFoldBtn.innerHTML = '<svg class="ui-icon" aria-hidden="true"><use href="#i-' + (on ? 'unfold' : 'fold') + '"/></svg>';
-            npFoldBtn.title = on ? 'Pokaż wyrażenia (rozwiń)' : 'Zwiń wyrażenia do wyników';
-            npFoldBtn.setAttribute('aria-label', npFoldBtn.title);
+            npFoldBtn.classList.toggle('is-on', on); // pozycja menu ⋯ (v1.04.50) — ✓ przy włączonym
+            npFoldBtn.setAttribute('aria-checked', on ? 'true' : 'false');
         }
         function npToggleFold() {
             STATE.settings.notepadFold = !STATE.settings.notepadFold;
@@ -11241,19 +11348,33 @@
                 getFallbackHint: function() { return ''; }
             })
             : null;
-        function npBindHints() { if (_npHintCtl && npEditor) _npHintCtl.setupCursorHint(npEditor.querySelectorAll('.np-res')); }
+        function npBindHints() {
+            if (!_npHintCtl || !npEditor) return;
+            var els = Array.prototype.slice.call(npEditor.querySelectorAll('.np-res'));
+            if (npTotalVal) els.push(npTotalVal);
+            _npHintCtl.setupCursorHint(els);
+        }
         if (_npHintCtl && calcApprox) _npHintCtl.setupCursorHint(calcExplainTip ? [calcApprox, calcExplainTip] : [calcApprox]); // dymek dokładnej wartości przy ≈ + rozpisanie (telefon)
         function npHideTip() { if (_npHintCtl && _npHintCtl.hideHint) _npHintCtl.hideHint(); }
         // Klawiatura ekranowa na telefonie zasłaniałaby dolne wiersze (nakładka jest fixed/inset:0,
         // więc rośnie pod klawiaturę). Kurczymy nakładkę do OBSZARU WIDOCZNEGO (visualViewport) —
         // tak jak natywny notatnik: pisana linia zawsze nad klawiaturą. Brak API = no-op (desktop OK).
         var _npVVBound = false;
+        // B1 (v1.04.51): na telefonie Notatki to EKRAN nad dolnym paskiem, nie nakładka na całość —
+        // pasek zostaje, dopóki nie wysunie się klawiatura (body.kb-open go chowa).
+        function _npNavInset() {
+            var nav = document.getElementById('bottomNav');
+            if (!nav || document.body.classList.contains('kb-open')) return 0;
+            if (getComputedStyle(nav).display === 'none') return 0;
+            return nav.getBoundingClientRect().height || 0;
+        }
+        function _npIsScreenMode() { return _npNavInset() > 0 || (window.innerWidth < 640 && !!document.getElementById('bottomNav')); }
         function _npSyncViewport() {
             if (!notepadModal || !document.body.classList.contains('notepad-open')) return;
             var vv = window.visualViewport;
             if (!vv) return;
             notepadModal.style.top = vv.offsetTop + 'px';
-            notepadModal.style.height = vv.height + 'px';
+            notepadModal.style.height = Math.max(0, vv.height - _npNavInset()) + 'px';
             notepadModal.style.bottom = 'auto';     // bez tego top+bottom:0 zignorowałyby height
             _npSyncKbBar();
             _npScheduleSelectionFmtMenu();
@@ -11296,19 +11417,32 @@
             _npSyncGutterHidden();
             npHideTip();
             _npBindViewport();   // kurcz nakładkę do obszaru nad klawiaturą (telefon)
+            _npSyncViewport();   // ekran Notatek kończy się nad dolnym paskiem
+            var memo = _npCurrentId && _npScrollMemo[_npCurrentId];
+            if (memo) requestAnimationFrame(function() { requestAnimationFrame(function() { _npResetEditorScroll(memo); }); });
+            // Ekran Notatek (dotyk) NIE wysuwa klawiatury sam — to przełączenie widoku, nie „pisz”;
+            // pusta notatka i desktop dostają fokus jak dotąd.
+            var touchScreen = _npIsScreenMode() && window.matchMedia('(pointer: coarse)').matches;
+            if (touchScreen && npBody && npBody.value.trim()) return;
             // Fokus odroczony (po animacji). Guard: jeśli zamknięto w międzyczasie — nie fokusuj
             // ukrytego pola (inaczej aria-hidden + fokus = ostrzeżenie a11y).
             setTimeout(function() {
                 if (!document.body.classList.contains('notepad-open')) return;
-                if (npBody) { npBody.focus(); var L = npBody.value.length; try { npBody.setSelectionRange(L, L); } catch (_) {} }
+                if (npBody) {
+                    npBody.focus({ preventScroll: !!memo });
+                    var L = npBody.value.length;
+                    try { if (!memo) npBody.setSelectionRange(L, L); } catch (_) {}
+                }
             }, 60);
         }
+        var _npScrollMemo = {}; // przewinięcie per notatka — powrót z „Licz” zostawia notatkę tam, gdzie była
         function closeNotepad() {
             // KOLEJNOŚĆ KLUCZOWA dla a11y: najpierw fokus POZA modal (do przycisku otwierającego),
             // dopiero potem aria-hidden — inaczej ostrzeżenie „aria-hidden na elemencie z fokusem".
             npHideTip();
             _npUnbindViewport();   // przywróć pełną wysokość nakładki
             _npStashCurrent(); flushNotepadPersist();   // zapisz bieżącą treść przy wyjściu
+            if (_npCurrentId && npEditor) _npScrollMemo[_npCurrentId] = npEditor.scrollTop;
             setTimeout(function() { if (typeof _syncBottomNav === 'function') _syncBottomNav(); }, 0);
             npCloseList();
             var active = document.activeElement;
@@ -11338,10 +11472,20 @@
                 npRenderList();
             });
         }
-        if (npVarsToggle) {
-            npVarsToggle.addEventListener('click', function() {
-                var open = npVarsToggle.getAttribute('aria-expanded') !== 'false';
-                npVarsToggle.setAttribute('aria-expanded', open ? 'false' : 'true');
+        if (npVarsBtn) {
+            npVarsBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (npVarsPanel && npVarsPanel.classList.contains('open')) npCloseVars(); else npOpenVars();
+            });
+            document.addEventListener('click', function(e) {
+                if (!npVarsPanel || !npVarsPanel.classList.contains('open')) return;
+                if (npVarsPanel.contains(e.target) || npVarsBtn.contains(e.target)) return;
+                npCloseVars();
+            });
+            document.addEventListener('keydown', function(e) { // Esc stopniowo: najpierw popover, notatnik dopiero następnym
+                if (e.key !== 'Escape' || !npVarsPanel || !npVarsPanel.classList.contains('open')) return;
+                npCloseVars();
+                e.stopImmediatePropagation();
             });
         }
         if (npNewBtn) npNewBtn.addEventListener('click', npNewNote);
@@ -11371,12 +11515,32 @@
                     closeExp();
                 });
             });
+            // Menu ⋯ zbiera też to, co wcześniej leżało w nagłówku/stopce: fold, przykład, ściąga.
+            npExportMenu.querySelectorAll('[data-np-action]').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    closeExp();
+                    var act = btn.getAttribute('data-np-action');
+                    if (act === 'example') npInsertLearnExample();
+                    else if (act === 'help') {
+                        ensureHelpSystem();
+                        activeCommandTarget = 'notepad';
+                        npCloseList();
+                        openCommandHelp();
+                    }
+                });
+            });
+            if (npFoldBtn) npFoldBtn.addEventListener('click', function() { closeExp(); });
             document.addEventListener('click', function(e) {
                 if (npExportMenu.hidden) return;
                 if (npExportMenu.contains(e.target) || e.target === npExportBtn) return;
                 closeExp();
             });
-            document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeExp(); });
+            document.addEventListener('keydown', function(e) { // Esc zamyka samo menu, nie cały notatnik
+                if (e.key !== 'Escape' || npExportMenu.hidden) return;
+                closeExp();
+                e.stopImmediatePropagation();
+            });
         }
         setupNpExportMenu();
         function bindLongPressNotepad(el, getLine) { // T1-2 — Warsztat: przytrzymaj → do notatnika
@@ -11513,6 +11677,15 @@
                 syncFoldSetting(STATE.settings.notepadFold);
                 updateFoldBtn(); // zsynchronizuj też przycisk ⊟/⊞ w nagłówku notatnika
                 if (document.body.classList.contains('notepad-open')) npRecompute(); // przerysuj tryb na żywo
+            });
+        }
+        if (settingNotepadFontFace) {
+            settingNotepadFontFace.addEventListener('click', function(e) {
+                var btn = e.target.closest('.settings-seg-btn');
+                if (!btn) return;
+                STATE.settings.notepadFontMono = btn.dataset.val === 'mono';
+                saveSettings();
+                _npSyncFontSize();
             });
         }
         if (settingNotepadAutoUnit) {
@@ -13607,6 +13780,41 @@
                 results.push({ expr: 'smart notatka: bareVars = [nocleg]', pass: JSON.stringify(trip[8].bareVars) === '["nocleg"]', got: JSON.stringify(trip[8].bareVars) });
                 results.push({ expr: 'smart notatka: dymek „Zrozumiałem jako: 4 × 60 zł × 3”', pass: /Zrozumiałem jako: 4 × 60 zł × 3/.test(trip[3].resolved), got: trip[3].resolved });
                 results.push({ expr: 'smart notatka: dymek z polskim przecinkiem', pass: /12,50 zł/.test(trip[12].resolved), got: trip[12].resolved });
+                // etykieta bez dwukropka przed działaniem („Termy 2 * 95 zł”) — v1.04.50
+                var lead = evalNotepadLines([
+                    'Termy 2 * 95 zł',                 // 0 190 zł
+                    'Taxi 35 zł + 20 zł',              // 1 55 zł
+                    'Kolejka linowa 4 * 89 zł',        // 2 356 zł (etykieta z dwóch słów)
+                    'termy / 2',                       // 3 95 zł (zmienna z etykiety bez dwukropka)
+                    'spotkanie o 15 z Anią',           // 4 brak — bez operatora nie zgadujemy
+                    'Zwrot za bilet 2 * 20 zł',        // 5 40 zł, odejmowane od sumy
+                    'razem'                            // 6 190 + 55 + 356 + 95 − 40
+                ].join('\n'));
+                function chkL(i, val, unitRe, smart, label) {
+                    var r = lead[i] || {};
+                    var ok = val === null ? !r.text : (r.value != null && Math.abs(r.value - val) < 1e-6 && (!unitRe || unitRe.test(r.text)));
+                    if (ok && smart !== undefined) ok = (r.smart || null) === smart;
+                    results.push({ expr: 'smart notatka: ' + label, pass: ok, got: r.text + ' [' + (r.smart || '-') + ']' });
+                }
+                chkL(0, 190, /zł/, 'etykieta', 'Termy 2 * 95 zł = 190 zł');
+                chkL(1, 55, /zł/, 'etykieta', 'Taxi 35 zł + 20 zł = 55 zł');
+                chkL(2, 356, /zł/, 'etykieta', 'Kolejka linowa 4 * 89 zł = 356 zł');
+                chkL(3, 95, /zł/, 'zmienne', 'termy / 2 = 95 zł (zmienna z etykiety)');
+                chkL(4, null, null, undefined, 'spotkanie o 15 z Anią → brak');
+                chkL(5, 40, /zł/, 'etykieta', 'Zwrot za bilet 2 * 20 zł = 40 zł');
+                chkL(6, 656, /zł/, undefined, 'razem z etykietami i zwrotem = 656 zł');
+                results.push({ expr: 'smart notatka: zwrot z etykietą bez dwukropka odejmuje się', pass: lead[5].negated === true, got: String(lead[5].negated) });
+                results.push({ expr: 'smart notatka: dymek „Zrozumiałem jako: 2 × 95 zł”', pass: /Zrozumiałem jako: 2 × 95 zł/.test(lead[0].resolved), got: lead[0].resolved });
+                var leadVars = _npEngine().listVars('Termy 2 * 95 zł\nNocleg: 3 noce po 180 zł');
+                results.push({ expr: 'panel Zmienne: termy i nocleg ze zdań', pass: leadVars.locals.termy === 190 && leadVars.locals.nocleg === 540, got: JSON.stringify(leadVars.locals) });
+                // B3 + pasek „Łącznie” (v1.04.50–53): sumy sekcji i całej notatki
+                var secInfos = evalNotepadLines(['# Nocleg', 'Hotel: 2 * 300 zł', 'Zaliczka 100 zł', '', '## Atrakcje', 'Termy 2 * 95 zł', 'Parking 3 * nieznana', '---', 'Kawa 12 zł'].join('\n'));
+                var secT = _npEngine().sectionTotals(secInfos);
+                results.push({ expr: 'sekcje-bloki: „Nocleg” = 500 zł (zaliczka na minus), zasięg do linii 3', pass: secT[0] && Math.abs(secT[0].value - 500) < 1e-9 && /zł/.test(secT[0].text) && secT[0].last === 2, got: JSON.stringify(secT[0]) });
+                results.push({ expr: 'sekcje-bloki: „Atrakcje” = 190 zł, pominięta linia 7, koniec na „---”', pass: secT[4] && secT[4].value === 190 && JSON.stringify(secT[4].skipped) === '[7]' && secT[4].last === 6, got: JSON.stringify(secT[4]) });
+                var sumAll = _npEngine().summarize(secInfos);
+                results.push({ expr: 'Łącznie: 702 zł z 4 pozycji', pass: sumAll && Math.abs(sumAll.value - 702) < 1e-9 && sumAll.count === 4 && /zł/.test(sumAll.text), got: JSON.stringify(sumAll && { v: sumAll.value, c: sumAll.count, t: sumAll.text }) });
+                results.push({ expr: 'Łącznie: miks zł + kg → brak paska', pass: _npEngine().summarize(evalNotepadLines('A: 10 zł\nB: 2 kg')) === null, got: 'ok' });
                 // dotychczasowe linie liczą się jak wcześniej (smart = tylko fallback)
                 results.push({ expr: 'smart notatka: zwykłe działanie bez znacznika smart', pass: trip[1].value === 540 && !trip[1].smart, got: trip[1].text + ' ' + trip[1].smart });
                 // „razem” pomija linie bez wyniku → lista numerów (ostrzeżenie „!” w UI)

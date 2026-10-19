@@ -55,7 +55,9 @@ async function measure(page) {
         const taRect = ta.getBoundingClientRect();
         // klon textarea: ten sam font (z NpMarkers), szerokość, padding, łamanie
         const probe = document.createElement('div');
+        // v1.04.50: krój proporcjonalny + wyłączony kerning/ligatury — klon musi je też mieć
         for (const k of ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'lineHeight', 'letterSpacing',
+            'fontKerning', 'fontVariantLigatures', 'fontFeatureSettings', 'fontVariantNumeric',
             'paddingLeft', 'paddingRight', 'paddingTop', 'whiteSpace', 'overflowWrap', 'wordBreak', 'boxSizing']) {
             probe.style[k] = cs[k];
         }
@@ -147,7 +149,8 @@ test('znacznik formatowania ma zerową szerokość w foncie notatnika', async ({
         const ta = document.querySelector('textarea.np-text');
         const s = document.createElement('span');
         s.style.cssText = 'position:absolute;white-space:pre;visibility:hidden';
-        s.style.font = getComputedStyle(ta).font;
+        const tcs = getComputedStyle(ta); // .font bywa pusty (kerning wyłączony) — kopiujemy składowe
+        for (const k of ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'fontKerning', 'fontVariantLigatures', 'fontFeatureSettings']) s.style[k] = tcs[k];
         document.body.appendChild(s);
         const out = {};
         for (const [k, t] of [['a', 'a'], ['aMa', 'a\uE000a'], ['aa', 'aa'], ['H1', '\uE013\uE014']]) {

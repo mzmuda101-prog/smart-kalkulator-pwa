@@ -14,7 +14,11 @@
 
         :root {
             /* Wspólna rodzina textarea + podglądu notatnika — MUSI być identyczna w obu warstwach. */
-            --np-font-family: 'NpMarkers', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+            /* v1.04.50: tekst notatki proporcjonalnym krojem UI (zdania nie łamią się co 3 słowa);
+               stała szerokość = opcja w ⚙️ (.np-editor.np-mono). Kerning/ligatury wyłączone w obu
+               warstwach — patrz blok „Notatnik — wariant A” na końcu pliku. */
+            --np-font-family: 'NpMarkers', ui-sans-serif, -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+            --np-font-family-mono: 'NpMarkers', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
             /* Apka zaprojektowana na jasno — natywne kontrolki też renderują się jasno
                w systemowym dark (patrz <meta name="color-scheme">). */
             color-scheme: light;
@@ -5164,3 +5168,249 @@ body.kb-open.notepad-open .np-head { padding-top: 8px; padding-bottom: 8px; }
 
 /* Menu formatowania: format już włączony na zaznaczeniu */
 .np-ctx-btn.is-on { background: var(--primary-light); color: var(--primary); box-shadow: inset 0 0 0 1.5px var(--primary); }
+
+/* ============================================================
+   Notatnik — wariant A przebudowy (v1.04.50)
+   Proporcjonalny tekst, 3 poziomy wyników (pozycja · razem · cała notatka),
+   Zmienne jako popover pod {x}, menu ⋯, pasek „Łącznie”, kolumna na desktopie.
+   ============================================================ */
+/* Krój: textarea i lustro MUSZĄ kształtować tekst identycznie. Kerning i ligatury wyłączone
+   w obu warstwach — przy kroju proporcjonalnym para „AV” na granicy spanu lustra (formatowanie)
+   kształtowałaby się inaczej niż w ciągłym tekście pola i natywny kursor stałby obok litery. */
+.np-mirror, .np-mirror-line, .np-text, .np-wrap-probe, .np-fold-row {
+    font-kerning: none;
+    font-variant-ligatures: none;
+    font-feature-settings: "kern" 0, "liga" 0, "calt" 0;
+    letter-spacing: 0;
+}
+.np-editor.np-mono { --np-font-family: var(--np-font-family-mono); }
+
+/* Wyniki: cyfry tabelaryczne w kroju UI (kolumna równa się do prawej), mniej krzykliwe. */
+.np-res {
+    font-family: var(--font);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+.np-res.np-res-smart { text-decoration-color: color-mix(in srgb, currentColor 45%, transparent); }
+/* razem / półsuma — bez pigułki; pogrubiona liczba + kreska nad całym wierszem (jak na rachunku) */
+.np-gutter-row.np-total .np-res,
+.np-gutter-row.np-subtotal .np-res,
+.np-row.np-total .np-res,
+.np-row.np-subtotal .np-res { background: transparent; color: var(--text); font-weight: 750; }
+.np-gutter-row.np-subtotal .np-res { color: var(--text-secondary); }
+/* „razem” użyte w działaniu („na osobę: razem / 4”) — zwykły wynik, nie podsumowanie */
+.np-gutter-row.np-total:not(.np-pure-sum) .np-res,
+.np-gutter-row.np-subtotal:not(.np-pure-sum) .np-res { color: var(--primary); font-weight: 600; }
+@media (max-width: 639px) {
+    .np-head { padding-left: 8px; padding-right: 8px; }
+}
+/* Kreska idzie warstwą zawijania (kolumna tekstu, aż do prawej krawędzi paddingu) + kolumną
+   wyników — razem jedna ciągła linia. Pseudo-element, żeby nie ruszać wysokości wiersza. */
+.np-wrap-line.np-k-sum::after,
+.np-wrap-line.np-k-grand::after,
+.np-gutter-wrap.np-k-sum::after,
+.np-gutter-wrap.np-k-grand::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: -8px;
+    top: 0;
+    border-top: 1px solid color-mix(in srgb, var(--text) 22%, transparent);
+    pointer-events: none;
+}
+/* suma całej notatki — jedyna pigułka + podwójna kreska */
+.np-gutter-wrap.np-k-sum::after, .np-gutter-wrap.np-k-grand::after { right: 0; }
+.np-wrap-line.np-k-grand::after,
+.np-gutter-wrap.np-k-grand::after {
+    height: 3px;
+    border-top-color: color-mix(in srgb, var(--text) 32%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--text) 32%, transparent);
+}
+.np-gutter-row .np-res.np-res-grand,
+.np-res.np-res-grand,
+.np-res.np-res-grand.np-res-partial { background: var(--primary); color: var(--text-on-accent); box-shadow: none; }
+/* pominięte linie: sam znak „!” przy liczbie, bez żółtej ramki */
+.np-res.np-res-partial { box-shadow: none; }
+/* linia bez wyniku: „?” w kółku, dotknij → dymek z podpowiedzią */
+.np-gutter-row.np-warn .np-res.np-res-warn {
+    pointer-events: auto;
+    opacity: 1;
+    min-width: 1.6em;
+    padding: 0 6px;
+    border: 1px dashed color-mix(in srgb, var(--text-muted) 70%, transparent);
+    color: var(--text-muted);
+    font-weight: 700;
+    text-align: center;
+}
+.np-gutter-row.np-pending .np-res.np-res-warn { border-color: transparent; }
+.np-editor.np-editing .np-gutter-row.np-warn .np-res { pointer-events: none; }
+
+/* Nagłówki sekcji: kolor tekstu + faux-bold, „#” przygaszone (szerokość bez zmian) */
+.np-mirror-line.np-sec-heading { color: var(--text); text-shadow: 0.6px 0 0 currentColor, -0.6px 0 0 currentColor; }
+.np-mirror-line .np-hash-mark { color: var(--text-muted); text-shadow: none; }
+
+/* Nagłówek: {x} pokazuje się tylko, gdy są zmienne; menu ⋯ z pozycją-przełącznikiem */
+#npVarsBtn[hidden] { display: none !important; }
+.np-export-menu { right: 44px; min-width: 240px; }
+.np-export-menu [role="menuitemcheckbox"] {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    text-align: left;
+    font-size: 0.875rem;
+    color: var(--text, #0f172a);
+    cursor: pointer;
+}
+.np-export-menu [role="menuitemcheckbox"]::before {
+    content: "";
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    box-shadow: inset 0 0 0 1.5px var(--text-muted);
+}
+.np-export-menu [role="menuitemcheckbox"][aria-checked="true"]::before {
+    content: "✓";
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--text-on-accent);
+    background: var(--primary);
+    box-shadow: none;
+}
+.np-export-menu [role="menuitemcheckbox"]:hover,
+.np-export-menu [role="menuitemcheckbox"]:focus-visible { background: color-mix(in srgb, var(--primary) 10%, transparent); outline: none; }
+
+/* Zmienne — popover w prawym górnym rogu treści (nie zabiera wiersza nad edytorem) */
+.np-vars-panel {
+    position: absolute;
+    top: 6px;
+    right: 10px;
+    z-index: 25;
+    width: max-content;
+    max-width: min(380px, calc(100% - 20px));
+    max-height: min(50%, 320px);
+    margin: 0;
+    overflow-y: auto;
+    background: var(--surface, #fff);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
+}
+.np-vars-body { padding: 8px 12px 12px; }
+.np-vars-group-label { text-transform: none; letter-spacing: 0; font-size: 0.75rem; }
+.np-var-chip { font-family: var(--font); font-variant-numeric: tabular-nums; }
+
+/* „Przykład: wyjazd” tylko w pustej notatce (reszta czasu: menu ⋯) */
+.np-learn-bar { display: none; }
+.notepad-modal.np-is-empty .np-learn-bar { display: flex; }
+
+/* Pasek „Łącznie” — suma całej notatki zawsze na widoku */
+.np-total-bar[hidden] { display: none !important; }
+.np-total-bar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 8px 2px 0;
+    padding: 6px 6px 6px 14px;
+    border-radius: 12px;
+    background: var(--surface-2, var(--surface));
+    border: 1px solid var(--border);
+    min-width: 0;
+}
+.np-total-label { flex: 0 0 auto; font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); }
+.np-total-val {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border: none;
+    background: transparent;
+    padding: 4px 8px;
+    border-radius: 8px;
+    font-family: var(--font);
+    font-variant-numeric: tabular-nums;
+    font-size: 1.05rem;
+    font-weight: 750;
+    color: var(--primary);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+.np-total-val:hover, .np-total-val:focus-visible { background: var(--primary-light); outline: none; }
+.np-total-val.np-res-partial::before { content: "!"; display: inline-block; margin-right: 6px; padding: 0 5px; border-radius: 999px; background: var(--warning, #f59e0b); color: #1f1300; font-weight: 800; font-size: .72em; line-height: 1.5; vertical-align: 0.15em; }
+body.kb-open.notepad-open .np-total-bar { margin-top: 6px; padding-top: 2px; padding-bottom: 2px; }
+
+/* Szeroki ekran: treść w kolumnie ~860 px — wynik obok tekstu, nie 600 px dalej */
+@media (min-width: 900px) {
+    .np-head, .np-body {
+        padding-left: max(18px, calc((100% - 860px) / 2));
+        padding-right: max(18px, calc((100% - 860px) / 2));
+    }
+    .np-export-menu { right: max(62px, calc((100% - 860px) / 2 + 44px)); }
+    .np-vars-panel { right: max(28px, calc((100% - 860px) / 2 + 10px)); }
+}
+/* Przy pisaniu wyniki tylko lekko przygaszone (notatnik otwiera się z fokusem — przy 0,45
+   kolumna wyglądała na nieaktywną przez cały czas). Klikanie chipów nadal wyłączone. */
+.np-editor.np-editing .np-gutter-row .np-res { opacity: 0.72; }
+
+/* ============================================================
+   B1 (v1.04.51) — Notatki jako ekran w dolnej nawigacji (telefon < 640 px)
+   Notatnik kończy się nad dolnym paskiem (JS: _npNavInset → wysokość), bez ✕ i tła —
+   „Licz” / „Narzędzia” przełączają ekran. Z klawiaturą pasek znika, notatnik sięga do niej.
+   ============================================================ */
+@media (max-width: 639px) {
+    body.notepad-open:not(.kb-open) .notepad-modal { bottom: calc(57px + var(--safe-bottom)); } /* zanim JS zmierzy pasek */
+    .np-backdrop { display: none; }
+    #notepadClose { display: none; }
+    .notepad-modal { transform: none; transition: opacity 0.16s ease; }
+    body.notepad-open:not(.kb-open) .np-body { padding-bottom: 8px; } /* safe-bottom niesie pasek */
+    body.notepad-open .tools-sheet:not([hidden]) { z-index: 700; } /* Narzędzia nad ekranem Notatek */
+}
+
+/* ============================================================
+   B3 (v1.04.51) — sekcje jako bloki
+   Nagłówek sekcji = pasek z sumą (kolumna tekstu + kolumna wyników), linie sekcji = szyna
+   z lewej. Wszystko pseudo-elementami/tłem — wysokości wierszy bez zmian (geometria kursora).
+   ============================================================ */
+.np-wrap-line.np-k-head::before {
+    content: "";
+    position: absolute;
+    left: -6px;
+    right: -8px;
+    top: 2px;
+    bottom: 2px;
+    border-radius: 8px 0 0 8px;
+    background: color-mix(in srgb, var(--primary) 9%, transparent);
+    pointer-events: none;
+}
+.np-gutter-wrap.np-k-head {
+    background: linear-gradient(color-mix(in srgb, var(--primary) 9%, transparent), color-mix(in srgb, var(--primary) 9%, transparent)) 0 2px / 100% calc(100% - 4px) no-repeat;
+    border-radius: 0 8px 8px 0;
+}
+.np-wrap-line.np-in-sec::before {
+    content: "";
+    position: absolute;
+    left: -6px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: color-mix(in srgb, var(--primary) 28%, transparent);
+    pointer-events: none;
+}
+.np-gutter-row.np-header .np-res.np-res-section { /* wygrywa z „:not(.np-has) .np-res { display:none }” */
+    display: inline-block;
+    background: transparent;
+    color: var(--primary);
+    font-weight: 750;
+}
+.np-mirror-line.np-sec-heading { color: var(--text); }

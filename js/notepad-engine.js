@@ -320,6 +320,19 @@
             }
             return null;
         }
+        // „Termy 2 * 95 zł”, „Taxi 35 zł + 20 zł” — etykieta bez dwukropka przed działaniem.
+        // Tylko gdy po słowach stoi prawdziwe działanie (operator między liczbami), żeby
+        // „spotkanie o 15 z Anią” dalej nic nie dawało.
+        var _NP_LEAD_LABEL_RE = /^([\p{L}][\p{L}.\-]*(?:\s+[\p{L}][\p{L}.\-]*)*)\s+([\d(−-].*)$/u;
+        function _npLabelMathCandidate(s) {
+            var m = String(s).trim().match(_NP_LEAD_LABEL_RE);
+            if (!m) return null;
+            var rest = m[2].trim();
+            if (!/\d\s*[\p{L}.²³/]*\s*[+\-−*\/×÷x]\s*[\d(]/u.test(rest)) return null;
+            // słowo-jednostka/waluta w etykiecie („eur 100 + 20”) zmienia sens — wtedy nie zdejmujemy
+            if (m[1].split(/\s+/).some(function (w) { return _npIsRealUnit(w); })) return null;
+            return { expr: rest, kind: 'etykieta', label: m[1] };
+        }
         function _npSmartEval(evalStr, vars, varUnits) {
             var tries = [];
             var bare = _npBareVarSubst(evalStr, vars, varUnits);
@@ -328,6 +341,11 @@
             // przy zmiennej paliwo=100 dałoby 100 × 6,50 zł — nazwa w zdaniu to słowo, nie liczba.
             var ph = _npPhraseCandidate(evalStr);
             if (ph) tries.push({ expr: ph.expr, kind: ph.kind, vars: [] });
+            var lab = _npLabelMathCandidate(evalStr);
+            if (lab) {
+                var labBare = _npBareVarSubst(lab.expr, vars, varUnits);
+                tries.push({ expr: labBare ? labBare.expr : lab.expr, kind: lab.kind, vars: labBare ? labBare.vars : [], label: lab.label });
+            }
             for (var i = 0; i < tries.length; i++) {
                 var r = null;
                 try { r = _npEval(tries[i].expr); } catch (e) { r = null; }
@@ -417,6 +435,7 @@
                     var usedTotal = false;
                     var sumLine = _npParseSumLine(exprPart);
                     var sumUnitHint = sumLine ? _npSumUnitForLine(exprPart, itemUnits) : null;
+                    if (sumLine || _NP_GRAND_RE.test(exprPart.trim())) info.isSumLine = true; // samo „razem”/„suma wszystkiego” — UI: kreska nad wierszem
                     var evalStr = _npSubVars(exprPart, vars, null, varUnits); // @nazwa PRZED słowami sumy (inaczej @suma → kolizja z „suma")
                     // „razem” w działaniu niesie jednostkę pozycji („razem / 4” → 180 zł, nie 180),
                     // gdy wszystkie mają tę samą (ustawienie „Dziedzicz”, domyślne od v1.04.24).
@@ -485,18 +504,21 @@
                                     info.negated = true;
                                 }
                                 runningSum += contrib; items.push(contrib); itemUnits.push(res.unit || null); info.isItem = true;
+                                info.contrib = contrib; info.unit = res.unit || null; // pasek „Łącznie” (summarize)
                                 grandSum += contrib; grandItems.push(contrib); grandUnits.push(res.unit || null);
                             }
                             var assignUnit = sumLine ? outUnit : (res.unit || null);
                             if (gName) _npAssignVar(vars, varUnits, gName, res.value, assignUnit);
                             else {
-                                var vn2 = lm ? _npVarName(lm[1].trim()) : null;
+                                var vn2 = lm ? _npVarName(lm[1].trim())
+                                    : (smartHit && smartHit.smart.label ? _npVarName(smartHit.smart.label) : null);
                                 if (vn2) _npAssignVar(vars, varUnits, vn2, res.value, assignUnit);
                                 var sk = _npSumKeywordVarName(exprPart, usedTotal);
                                 if (sk && sk !== vn2) _npAssignVar(vars, varUnits, sk, res.value, assignUnit);
                             }
                         } else if (usedTotal && !info.isSubtotal) { info.isTotal = true; }
                     } else if (!usedTotal && !gName && /\d/.test(exprPart)) {
+                        info.noResult = true;
                         skipped.push(i + 1); // linia z liczbą bez wyniku — „razem” ją pominie (ostrzeżenie w UI)
                         grandSkipped.push(i + 1);
                     }
@@ -553,7 +575,13 @@
                     evalStr = _npReplaceSumWords(evalStr, function () { usedTotal = true; return '(' + runningSum + ')'; });
                     if (autoMode === 'full') evalStr = _npStripProse(evalStr);
                     try {
-                        var res = _npEval(evalStr);
+                        var res = null;
+                        try { res = _npEval(evalStr); } catch (e0) { res = null; }
+                        var smartL = null;
+                        if (!(res && typeof res.value === 'number' && isFinite(res.value)) && !usedTotal) {
+                            smartL = _npSmartEval(evalStr, vars, varUnits); // jak evalLines — panel Zmienne widzi to samo co wyniki
+                            res = smartL ? smartL.res : null;
+                        }
                         if (res && typeof res.value === 'number' && isFinite(res.value)) {
                             var assignUnit = sumLine ? (sumUnitHint || res.unit || null) : (res.unit || null);
                             if (!usedTotal && !gName) {
@@ -564,7 +592,8 @@
                             if (gName) {
                                 globalsCopy[gName] = res.value; vars[gName] = res.value; varUnits[gName] = assignUnit;
                             } else {
-                                var vn2 = lm ? _npVarName(lm[1].trim()) : null;
+                                var vn2 = lm ? _npVarName(lm[1].trim())
+                                    : (smartL && smartL.smart.label ? _npVarName(smartL.smart.label) : null);
                                 if (vn2) { locals[vn2] = res.value; localUnits[vn2] = assignUnit; vars[vn2] = res.value; varUnits[vn2] = assignUnit; }
                                 var sk = _npSumKeywordVarName(exprPart, usedTotal);
                                 if (sk && sk !== vn2) { locals[sk] = res.value; localUnits[sk] = assignUnit; vars[sk] = res.value; varUnits[sk] = assignUnit; }
@@ -594,7 +623,63 @@
             return g;
         }
 
-        return { evalLines: evalLines, listVars: listVars, prepareLine: prepareLine, rebuildGlobals: rebuildGlobals };
+        // Pasek „Łącznie” pod notatką: suma WSZYSTKICH pozycji (jak „suma wszystkiego”), z jednostką
+        // tylko gdy każda pozycja ma tę samą — miks (zł + kg, zł + liczba) nie daje sensownej sumy → null.
+        function summarize(infos) {
+            var total = 0, units = [], count = 0, skipped = [], sections = [], cur = null;
+            (infos || []).forEach(function (inf, i) {
+                if (!inf) return;
+                if (inf.isHeading && inf.sectionName) { cur = { name: inf.sectionName, value: 0, units: [], count: 0 }; sections.push(cur); return; }
+                if (inf.noResult) skipped.push(i + 1);
+                if (!inf.isItem || typeof inf.contrib !== 'number' || !isFinite(inf.contrib)) return;
+                var u = _npNormalizeSumUnit(inf.unit);
+                total += inf.contrib; units.push(u); count++;
+                if (cur) { cur.value += inf.contrib; cur.units.push(u); cur.count++; }
+            });
+            function mixed(list) { return list.some(function (u) { return u !== list[0]; }); }
+            if (count < 2 || mixed(units)) return null;
+            var unit = units[0] || null;
+            return {
+                count: count,
+                value: total,
+                unit: unit,
+                text: _npFormatWithUnit(total, unit),
+                skipped: skipped,
+                sections: sections.filter(function (sct) { return sct.count > 0; }).map(function (sct) {
+                    return { name: sct.name, value: sct.value, text: _npFormatWithUnit(sct.value, unit) };
+                })
+            };
+        }
+
+        // B3 (v1.04.51): sumy sekcji do nagłówków — klucz = indeks linii nagłówka. Sekcja trwa do
+        // następnego nagłówka, „---” albo „suma wszystkiego”; `last` = ostatnia niepusta linia (zasięg szyny).
+        function sectionTotals(infos) {
+            var out = {}, cur = null;
+            (infos || []).forEach(function (inf, i) {
+                if (!inf) return;
+                if (inf.isHeading) {
+                    cur = { head: i, name: inf.sectionName || '', value: 0, units: [], count: 0, skipped: [], last: i };
+                    out[i] = cur;
+                    return;
+                }
+                if (inf.isSection || inf.isGrand) { cur = null; return; }
+                if (!cur) return;
+                if (String(inf.raw || '').trim()) cur.last = i;
+                if (inf.noResult) cur.skipped.push(i + 1);
+                if (inf.isItem && typeof inf.contrib === 'number' && isFinite(inf.contrib)) {
+                    cur.value += inf.contrib; cur.units.push(_npNormalizeSumUnit(inf.unit)); cur.count++;
+                }
+            });
+            Object.keys(out).forEach(function (k) {
+                var sct = out[k];
+                var mixed = sct.units.some(function (u) { return u !== sct.units[0]; });
+                sct.text = sct.count && !mixed ? _npFormatWithUnit(sct.value, sct.units[0] || null) : '';
+                delete sct.units;
+            });
+            return out;
+        }
+
+        return { evalLines: evalLines, listVars: listVars, prepareLine: prepareLine, rebuildGlobals: rebuildGlobals, summarize: summarize, sectionTotals: sectionTotals };
     }
 
     var API = { createEngine: createEngine, LINE_THRESHOLD: LINE_THRESHOLD };
