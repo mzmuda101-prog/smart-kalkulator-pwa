@@ -5143,3 +5143,21 @@ body.calc-sentence #panel-calculator .calc-ph > span { line-height: inherit; }
 .calc-expr-wrap .calc-ph,
 .calc-expr-wrap .calc-ph.is-wrapped { align-items: flex-start !important; padding-bottom: 0 !important; }
 .calc-expr-wrap .calc-ph > span { line-height: inherit !important; }
+/* Notatnik przy otwartej klawiaturze (body.kb-open): edytor do samej klawiatury.
+   Stopka („Przykład”, „Porady”) i odstęp na pasek gestów iPhone'a (safe-bottom, zasłonięty
+   przez klawiaturę) zabierały ~100 px — na zrzucie z iPhone'a pusty pas nad klawiaturą. */
+body.kb-open.notepad-open .np-learn-bar,
+body.kb-open.notepad-open .np-hint-details { display: none !important; }
+body.kb-open.notepad-open .np-body { padding-bottom: 6px; padding-top: 8px; }
+body.kb-open.notepad-open .np-head { padding-top: 8px; padding-bottom: 8px; }
+/* Tryb zdania przy pisaniu na telefonie: rząd Historia · Klawisze · Ściąga chowa się
+   (zostaje pasek skrótów) — miejsce idzie na taśmę i pole. Wraca po zamknięciu klawiatury. */
+@media (max-width: 639px) {
+    body.kb-open.calc-sentence #panel-calculator .calc-tools { display: none; }
+}
+/* Telefon z dolną nawigacją: to ONA obsługuje pasek gestów iPhone'a (safe-bottom).
+   Rząd Historia · Zdanie · Ściąga miał własny odstęp max(4px, safe-bottom) ≈ 34 px —
+   relikt sprzed dolnego paska, na iPhonie pusty pas pod Historią (emulator ma safe-bottom 0). */
+@media (max-width: 639px) {
+    #panel-calculator .calc-tools { padding-bottom: 4px; }
+}
