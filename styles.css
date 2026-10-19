@@ -4783,6 +4783,12 @@
                Jeden przykład na grupę zostawia jej ~160–200 px. */
             @media (max-height: 820px) {
                 .calc-example-chip:nth-child(n + 3) { display: none; }
+                /* [PL] Ramka karty (padding, pasek trybu, odstęp pod ekranikiem) zjadała
+                   ~130 px z 528 — przy ekraniku na minimum strukturalnym klawisze
+                   wychodziły 43 px. Ciaśniejsze odstępy oddają ~38 px klawiaturze (→ 51 px). */
+                #panel-calculator.active > .card { padding: 20px 30px 22px; }
+                .calc-workspace-bar { margin-bottom: 10px; }
+                #panel-calculator.active .calc-display { margin-bottom: 12px; }
             }
             .calc-examples-tip,
             .calc-examples-help { display: none; }

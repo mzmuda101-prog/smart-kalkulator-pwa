@@ -147,11 +147,17 @@ test('szeroki ekran: bez scrolla, klawisze sensowne, Historia do dołu karty', a
             const pn = document.querySelector('.panels');
             const key = document.querySelector('.calc-btn--number').getBoundingClientRect();
             const card = document.querySelector('#panel-calculator > .card').getBoundingClientRect();
-            const ex = document.getElementById('calcExamples').getBoundingClientRect();
+            // [PL] Dół prawej kolumny = najniższy z jej elementów. Od przebudowy (b232ca6)
+            // przykłady są NA GÓRZE, a Historia pod nimi — stary pomiar samego
+            // #calcExamples dawał przy 1280x720 różnicę 158 px mimo poprawnego układu.
+            const colB = Math.max(...['#calcExamples', '#panel-calculator > .history-drawer']
+                .map((s) => document.querySelector(s))
+                .filter((el) => el && el.getClientRects().length)
+                .map((el) => el.getBoundingClientRect().bottom));
             return {
                 panScroll: pn.scrollHeight - pn.clientHeight,
                 keyW: key.width, keyH: key.height,
-                cardB: card.bottom, exB: ex.bottom,
+                cardB: card.bottom, exB: colB,
             };
         });
         expect(m.panScroll, `${w}x${h}: panel przewija się o ${m.panScroll}px`).toBeLessThanOrEqual(1);
