@@ -63,7 +63,8 @@
                         notepadFold: false, // notatnik: zwijaj wyrażenia do wyników (tryb fold)
                         notepadAutoUnit: 'safe', // notatnik: auto-jednostki niezdefiniowane — 'safe' | 'full'
                         notepadUnitMix: 'strict', // notatnik: miks jednostek — 'strict' | 'first'
-                        notepadSumUnit: 'off', // notatnik: jednostka przy razem/suma — 'off' | 'inherit'
+                        notepadSumUnit: 'inherit', // notatnik: jednostka przy razem/suma — 'off' | 'inherit' (domyślnie 'inherit' od v1.04.24)
+                        notepadSumUnitDefaultV2: true, // znacznik jednorazowej migracji domyślnej (patrz loadState)
                         notepadGutterHidden: false, // notatnik: panel chipów schowany (T6-3)
                         notepadFontSize: 1, // notatnik: rozmiar czcionki 0.6–1.3 (T6-1)
                         unitProfile: 'default', // T2-10: preset domyślnych jednostek
@@ -311,6 +312,12 @@
                         if (stObj.notepadAutoUnit === 'safe' || stObj.notepadAutoUnit === 'full') STATE.settings.notepadAutoUnit = stObj.notepadAutoUnit;
                         if (stObj.notepadUnitMix === 'strict' || stObj.notepadUnitMix === 'first') STATE.settings.notepadUnitMix = stObj.notepadUnitMix;
                         if (stObj.notepadSumUnit === 'off' || stObj.notepadSumUnit === 'inherit') STATE.settings.notepadSumUnit = stObj.notepadSumUnit;
+                        // Migracja (v1.04.24): „razem” dziedziczy jednostkę pozycji („720 zł”, nie „720”).
+                        // Stare „off” zapisywało się u każdego, kto ruszył ⚙️ — podnosimy raz; późniejszy wybór zostaje.
+                        if (stObj.notepadSumUnitDefaultV2 !== true) {
+                            STATE.settings.notepadSumUnit = 'inherit';
+                            _settingsNeedMigrationSave = true;
+                        }
                         if (typeof stObj.notepadGutterHidden === 'boolean') STATE.settings.notepadGutterHidden = stObj.notepadGutterHidden;
                         if (typeof stObj.notepadFontSize === 'number' && isFinite(stObj.notepadFontSize)) STATE.settings.notepadFontSize = stObj.notepadFontSize;
                         if (stObj.defaultUnits && typeof stObj.defaultUnits === 'object') {
@@ -8879,6 +8886,8 @@
                 var mctx = _npMirrorCtxForLine(i, lines);
                 md.className = 'np-mirror-line np-align-' + mctx.align;
                 _npFillMirrorLine(md, line, mctx);
+                var inf = _npLastChrome && _npLastChrome.infos ? _npLastChrome.infos[i] : null; // podkreślenia zmiennych bez „@”
+                if (inf && inf.bareVars && inf.bareVars.length && _npLastChrome.lines[i] === line) _npMarkBareVars(md, inf.bareVars, (inf.labelPart || '').length);
             });
         }
         var _NP_SUM_WORDS_RE = /\b(razem|suma|total|subtotal|półsuma|podsuma)\b/giu;
@@ -8899,6 +8908,7 @@
             if (info.isSubtotal) return 'subtotal';
             if (info.isTotal) return 'total';
             if (info.text) return 'calc';
+            if (info.pendingFx) return 'pending';
             if (!lineTrim) return 'empty';
             if (info.exprPart && _npLooksLikeMath(info.exprPart)) return 'warn';
             return 'header';
@@ -8924,7 +8934,8 @@
             npBody.className = 'np-text'; // [EN] not .np-body — that class is the modal shell in index.html
             npBody.setAttribute('aria-label', 'Notatnik');
             npBody.setAttribute('enterkeyhint', 'enter');
-            npBody.setAttribute('placeholder', 'Pisz… np. „Nocleg: 3 * 180", potem „razem"   (Enter = nowa linia)');
+            // Placeholder w kilku liniach = mini-ściąga trybu smart (zwykłe zdania też się liczą).
+            npBody.setAttribute('placeholder', 'Pisz zwykłymi zdaniami, np.\nNocleg: 3 * 180 zł\nJedzenie 4 osoby po 60 zł\nZaliczka od Ani 200 zł\nrazem');
             npBody.spellcheck = false;
             npBody.autocapitalize = 'off';
             npBody.autocomplete = 'off';
@@ -10093,11 +10104,30 @@
             if (kind === 'warn') {
                 res.textContent = '—';
                 res.classList.add('np-res-warn');
+            } else if (kind === 'pending') {
+                res.textContent = '…';
+                res.classList.add('np-res-warn');
+                res.dataset.eq = 'Pobieram kursy walut…';
             } else if (kind === 'calc' || kind === 'total' || kind === 'subtotal') {
-                if (_needsTightMarkup(info.text)) _setResultMarkup(res, info.text);
-                else res.textContent = info.text;
+                // W kolumnie sama data — dzień tygodnia rozpychał kolumnę i łamał tekst obok (telefon);
+                // pełny wynik z dniem tygodnia jest w dymku („= 2.11.2026 (poniedziałek)”).
+                var shown = String(info.text).replace(/\s*\((poniedziałek|wtorek|środa|czwartek|piątek|sobota|niedziela)\)/, '');
+                if (shown !== String(info.text)) res.dataset.eqFull = '1';
+                if (_needsTightMarkup(shown)) _setResultMarkup(res, shown);
+                else res.textContent = shown;
                 res.dataset.eq = info.resolved || info.exprPart || '';
-                res.setAttribute('aria-label', 'Wynik ' + info.text + (res.dataset.eq ? ', z: ' + res.dataset.eq : ''));
+                if (info.smart) res.classList.add('np-res-smart'); // policzone z „zwykłego zdania” — dymek mówi jak
+                // długi wynik (np. data z dniem tygodnia) jest w kolumnie ucięty „…” — pełny tekst w dymku
+                if (String(info.text).length > 14 || res.dataset.eqFull) res.dataset.eq = (res.dataset.eq ? res.dataset.eq + '/|' : '') + '= ' + info.text;
+                // „razem” pominęło linie bez wyniku — nie udajemy pełnej sumy
+                if (info.sumSkipped && info.sumSkipped.length) {
+                    var n = info.sumSkipped.length;
+                    res.classList.add('np-res-partial');
+                    var word = n === 1 ? 'linię' : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'linie' : 'linii');
+                    res.dataset.eq = (res.dataset.eq ? res.dataset.eq + '/|' : '') +
+                        'Uwaga: pominięto ' + n + ' ' + word + ' bez wyniku (nr ' + info.sumSkipped.join(', ') + ')';
+                }
+                res.setAttribute('aria-label', 'Wynik ' + info.text + (res.dataset.eq ? ', z: ' + res.dataset.eq.replace(/\/\|/g, '. ') : ''));
             }
             return res;
         }
@@ -10269,7 +10299,7 @@
                 gWrap.style.minHeight = h + 'px';
                 var gRow = document.createElement('div');
                 gRow.className = 'np-gutter-row np-' + kind + (kind === 'calc' || kind === 'total' || kind === 'subtotal' ? ' np-has' : '') + (kind === 'warn' ? ' np-warn' : '');
-                var hasChip = kind === 'calc' || kind === 'total' || kind === 'subtotal' || kind === 'warn';
+                var hasChip = kind === 'calc' || kind === 'total' || kind === 'subtotal' || kind === 'warn' || kind === 'pending';
                 if (hasChip) gRow.appendChild(_npMakeResChip(info, kind));
                 gWrap.appendChild(gRow);
                 npGutter.appendChild(gWrap);
@@ -10289,6 +10319,10 @@
             npBody.style.height = 'auto';
             npBody.style.height = Math.max(npMirror.scrollHeight, 48) + 'px';
             _npSyncEditorScroll();
+            // Chipy wyników powstają TU (w rAF, po przeliczeniu) — dymki trzeba podpiąć po zbudowaniu
+            // kolumny. Wcześniej npBindHints() szło za wcześnie i żaden chip nie miał dymka
+            // (na telefonie nie dało się zobaczyć pełnego, uciętego wyniku ani rozpisania).
+            npBindHints();
             var snap = _npLastChrome;
             var retry = false;
             for (var ri = 0; ri < mirrorLines.length; ri++) {
@@ -10309,6 +10343,38 @@
                 });
             }
         }
+        // Smart notatki: nazwy zmiennych użyte bez „@” („nocleg * 2”) dostają podkreślenie w lustrze,
+        // żeby było widać, że to odwołanie, a nie zwykłe słowo. Tylko kolor/dekoracja — szerokość
+        // znaków bez zmian, więc kursor w przezroczystym polu dalej trafia w litery.
+        function _npFoldWord(t) { return String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l'); }
+        function _npMarkBareVars(md, names, skipChars) {
+            var wanted = {};
+            var offset = 0; // znaki przed „:” (etykieta) — tam to zwykłe słowo, nie odwołanie
+            names.forEach(function(n) { wanted[_npFoldWord(n)] = 1; });
+            var walker = document.createTreeWalker(md, NodeFilter.SHOW_TEXT, null);
+            var nodes = [], n;
+            while ((n = walker.nextNode())) nodes.push(n);
+            nodes.forEach(function(tn) {
+                var txt = tn.nodeValue, re = /[\p{L}][\p{L}\p{N}_]*/gu, m, last = 0, frag = null;
+                var base = offset;
+                offset += txt.length;
+                while ((m = re.exec(txt)) !== null) {
+                    var prev = m.index > 0 ? txt.charAt(m.index - 1) : '';
+                    if (base + m.index < (skipChars || 0)) continue;
+                    if (prev === '@' || !wanted[_npFoldWord(m[0])]) continue;
+                    if (!frag) frag = document.createDocumentFragment();
+                    frag.appendChild(document.createTextNode(txt.slice(last, m.index)));
+                    var sp = document.createElement('span');
+                    sp.className = 'np-var-ref';
+                    sp.textContent = m[0];
+                    frag.appendChild(sp);
+                    last = m.index + m[0].length;
+                }
+                if (!frag) return;
+                frag.appendChild(document.createTextNode(txt.slice(last)));
+                tn.parentNode.replaceChild(frag, tn);
+            });
+        }
         function _npRenderEditorChrome(lines, infos) {
             if (!npBody || !npMirror || !npGutter || !npFoldLayer || !npWrapLayer) return;
             _npLastChrome = { lines: lines.slice(), infos: infos.slice() };
@@ -10319,6 +10385,7 @@
                 var md = document.createElement('div');
                 md.className = 'np-mirror-line np-align-' + mctx.align;
                 _npFillMirrorLine(md, line, mctx);
+                if (infos[i] && infos[i].bareVars && infos[i].bareVars.length) _npMarkBareVars(md, infos[i].bareVars, (infos[i].labelPart || '').length);
                 npMirror.appendChild(md);
             });
             function relayout() { _npLayoutLineChrome(lines, infos); _npObserveMirrorLines(); }
@@ -10374,6 +10441,9 @@
         }
         function _npFinishRecompute(text, infos) {
             var lines = text.split('\n');
+            // Waluty bez kursów: notatnik sam je pobiera (wcześniej robił to tylko kalkulator,
+            // więc „100 eur na zł” zostawało „—”, dopóki ktoś nie wpisał waluty w kalkulatorze).
+            if ((infos || []).some(function(inf) { return inf && inf.pendingFx; })) ensureFxRates();
             _npRenderEditorChrome(lines, infos);
             if (npEditor) npEditor.classList.toggle('np-fold', !!(STATE.settings && STATE.settings.notepadFold));
             _npSyncGutterHidden();
@@ -10857,7 +10927,7 @@
             var on = !!(STATE.settings && STATE.settings.notepadFold);
             npFoldBtn.classList.toggle('is-on', on);
             npFoldBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
-            npFoldBtn.textContent = on ? '⊞' : '⊟';
+            npFoldBtn.innerHTML = '<svg class="ui-icon" aria-hidden="true"><use href="#i-' + (on ? 'unfold' : 'fold') + '"/></svg>';
             npFoldBtn.title = on ? 'Pokaż wyrażenia (rozwiń)' : 'Zwiń wyrażenia do wyników';
             npFoldBtn.setAttribute('aria-label', npFoldBtn.title);
         }
@@ -11046,6 +11116,15 @@
             npEditor.addEventListener('click', function(e) {
                 if (e.target.closest('.np-res')) { e.stopPropagation(); return; }
                 npHideTip();
+                // Dotknięcie pustego miejsca pod tekstem (pole ma wysokość treści) → kursor na końcu,
+                // jak w Notatkach Apple/Samsunga. Wcześniej nic się nie działo i trzeba było trafić w linię.
+                if (!npBody || e.target === npBody || e.target.closest('button, a, input, .np-fold-row')) return;
+                if (window.getSelection && String(window.getSelection())) return; // zaznaczanie — nie przeszkadzaj
+                try {
+                    npBody.focus();
+                    var end = npBody.value.length;
+                    npBody.setSelectionRange(end, end);
+                } catch (err) {}
             });
         }
         document.addEventListener('keydown', function(e) {
@@ -11189,6 +11268,7 @@
         // Po zakończeniu pobierania kursów odśwież status, jeśli modal otwarty.
         document.addEventListener('matm0-fx-updated', function() {
             if (document.body.classList.contains('settings-open')) { buildCurrencyOptions(); updateFxStatusLine(); }
+            if (document.body.classList.contains('notepad-open') && typeof npRecompute === 'function') npRecompute(); // kursy przyszły → przelicz notatkę
         });
 
         /* ============================================================
@@ -13188,7 +13268,68 @@
             results.push({ expr: 'zmienne: dymek „294 * 2"', pass: vlines[1].resolved === '294 * 2', got: '"' + vlines[1].resolved + '"' });
             results.push({ expr: 'zmienne: @budżet-@paliwo=4706', pass: vlines[3].value === 4706, got: vlines[3].text });
             results.push({ expr: 'zmienne: odwołanie w przód (@y przed def) → brak', pass: vlines[4].text === '', got: '"' + vlines[4].text + '"' });
-            results.push({ expr: 'zmienne: bare paliwo nie podstawia', pass: evalNotepadLines('Paliwo: 100\nX: paliwo * 2')[1].text === '', got: 'blocked' });
+            // Smart notatki (v1.04.24): nazwa bez „@” podstawia się, gdy CAŁA linia jest działaniem…
+            var bareV = evalNotepadLines('Paliwo: 100\nX: paliwo * 2')[1];
+            results.push({ expr: 'zmienne: bare paliwo*2 = 200 (smart)', pass: bareV.value === 200 && bareV.smart === 'zmienne', got: bareV.text + ' ' + bareV.smart });
+            // ── Smart notatki (v1.04.24): zwykłe zdania, ostrzeżenie przy „razem”, jednostka w „razem / n” ──
+            (function() {
+                var savedSU = STATE.settings.notepadSumUnit, savedMix2 = STATE.settings.notepadUnitMix, savedAuto = STATE.settings.notepadAutoUnit;
+                STATE.settings.notepadSumUnit = 'inherit'; STATE.settings.notepadUnitMix = 'strict'; STATE.settings.notepadAutoUnit = 'safe';
+                var trip = evalNotepadLines([
+                    'Wyjazd do Zakopanego',                       // 0 nagłówek
+                    'Nocleg: 3 * 180 zł',                         // 1 540 zł
+                    'Paliwo: 420 km * 7 l/100 km * 6,50 zł',      // 2 191,10 zł (paliwo bez „/l”)
+                    'Jedzenie 4 osoby po 60 zł przez 3 dni',      // 3 720 zł (iloczyn)
+                    'Bilety: 4 * 45 zł',                          // 4 180 zł
+                    'razem',                                      // 5 1631,10 zł
+                    'Na osobę: razem / 4',                        // 6 407,775 zł (jednostka z „razem”)
+                    'Zaliczka od Ani 200 zł',                     // 7 200 zł (kwota w zdaniu)
+                    'Drugi nocleg: nocleg * 2',                   // 8 1080 zł (zmienna bez @)
+                    'spotkanie o 15 z Anią',                      // 9 brak — bez jednostki nie zgadujemy
+                    'mam 3 koty',                                 // 10 brak
+                    '3 paczki po 2 kg',                           // 11 6 kg
+                    'Kawa 12,50 zł'                               // 12 12,50 zł
+                ].join('\n'));
+                function chk(i, val, unitRe, smart, label) {
+                    var r = trip[i] || {};
+                    var ok = val === null ? !r.text : (r.value != null && Math.abs(r.value - val) < 1e-6 && (!unitRe || unitRe.test(r.text)));
+                    if (ok && smart !== undefined) ok = (r.smart || null) === smart;
+                    results.push({ expr: 'smart notatka: ' + label, pass: ok, got: r.text + ' [' + (r.smart || '-') + ']' });
+                }
+                chk(0, null, null, undefined, 'nagłówek bez wyniku');
+                chk(2, 191.1, /zł/, null, 'paliwo 420 km × 7 l/100 × 6,50 zł = 191,10 zł');
+                chk(3, 720, /zł/, 'iloczyn', '4 osoby po 60 zł przez 3 dni = 720 zł');
+                chk(5, 1631.1, /zł/, undefined, 'razem z jednostką = 1 631,10 zł');
+                chk(6, 407.78, /zł/, undefined, 'razem / 4 niesie zł (grosze)');
+                chk(7, 200, /zł/, 'kwota', 'Zaliczka od Ani 200 zł = 200 zł');
+                chk(8, 1080, /zł/, 'zmienne', 'nocleg * 2 bez @ = 1080 zł');
+                chk(9, null, null, undefined, 'spotkanie o 15 → brak (nie zgaduje)');
+                chk(10, null, null, undefined, 'mam 3 koty → brak (bez jednostki)');
+                chk(11, 6, /kg/, 'iloczyn', '3 paczki po 2 kg = 6 kg');
+                chk(12, 12.5, /zł/, 'kwota', 'Kawa 12,50 zł');
+                results.push({ expr: 'smart notatka: bareVars = [nocleg]', pass: JSON.stringify(trip[8].bareVars) === '["nocleg"]', got: JSON.stringify(trip[8].bareVars) });
+                results.push({ expr: 'smart notatka: dymek „Zrozumiałem jako: 4 × 60 zł × 3”', pass: /Zrozumiałem jako: 4 × 60 zł × 3/.test(trip[3].resolved), got: trip[3].resolved });
+                results.push({ expr: 'smart notatka: dymek z polskim przecinkiem', pass: /12,50 zł/.test(trip[12].resolved), got: trip[12].resolved });
+                // dotychczasowe linie liczą się jak wcześniej (smart = tylko fallback)
+                results.push({ expr: 'smart notatka: zwykłe działanie bez znacznika smart', pass: trip[1].value === 540 && !trip[1].smart, got: trip[1].text + ' ' + trip[1].smart });
+                // „razem” pomija linie bez wyniku → lista numerów (ostrzeżenie „!” w UI)
+                var part = evalNotepadLines('Nocleg: 3 * 180 zł\nParking: 3 * nieznanacena\nBilety: 4 * 45 zł\nrazem');
+                results.push({ expr: 'razem: pominięta linia 2 → sumSkipped [2]', pass: part[3].value === 720 && JSON.stringify(part[3].sumSkipped) === '[2]', got: part[3].text + ' ' + JSON.stringify(part[3].sumSkipped) });
+                var full = evalNotepadLines('A: 100 zł\nTekst bez liczb\nB: 50 zł\nrazem');
+                results.push({ expr: 'razem: tekst bez liczb nie jest „pominięty”', pass: full[3].value === 150 && !full[3].sumSkipped, got: JSON.stringify(full[3].sumSkipped) });
+                var sect = evalNotepadLines('X: 3 * nieznanacena\n---\nA: 10 zł\nrazem');
+                results.push({ expr: 'razem: sekcja --- zeruje pominięte', pass: !sect[3].sumSkipped && sect[3].value === 10, got: JSON.stringify(sect[3].sumSkipped) });
+                // waluta bez kursów → pendingFx (app.js pobiera kursy i przelicza)
+                var savedR = STATE.fx.rates, savedT = STATE.fx.ts;
+                STATE.fx.rates = null; STATE.fx.ts = null;
+                var pend = evalNotepadLines('100 eur na zł');
+                results.push({ expr: 'notatka: waluta bez kursów → pendingFx', pass: pend[0].pendingFx === true && !pend[0].text, got: JSON.stringify(pend[0].pendingFx) });
+                STATE.fx.rates = savedR; STATE.fx.ts = savedT;
+                STATE.settings.notepadSumUnit = savedSU; STATE.settings.notepadUnitMix = savedMix2; STATE.settings.notepadAutoUnit = savedAuto;
+            })();
+            // …ale nie w zdaniu: „paliwo po 6,50 zł za litr” to 6,50 zł (jedna kwota), nie 100 × 6,50 zł
+            var bareProse = evalNotepadLines('Paliwo: 100\npaliwo po 6,50 zł za litr')[1];
+            results.push({ expr: 'zmienne: nazwa w zdaniu nie liczy się jako liczba', pass: bareProse.value === 6.5, got: bareProse.text });
 
             // Zmienne GLOBALNE (@nazwa) — dzielone między notatkami, izolacja zmiennych lokalnych.
             var savedGlobals = _npGlobals, savedNotesG = _npNotes;

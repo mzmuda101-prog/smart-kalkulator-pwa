@@ -4958,3 +4958,31 @@ body.calc-sentence .calc-key-bar.is-floating {
 .calc-key-bar-key.is-eq { background: var(--primary); border-color: var(--primary); color: var(--text-on-accent, #fff); min-width: 56px; }
 .calc-key-bar-key.is-clear { color: var(--danger, #e11d48); }
 .calc-key-bar-key:active { transform: scale(0.95); }
+
+
+/* ============================================================
+   Smart notatki (v1.04.24) — faza 0 + 1
+   ============================================================ */
+/* Kolumna wyników NIE może zjadać tekstu: maks. ~42% szerokości, dłuższy wynik zawija się
+   w swojej kolumnie (wcześniej `auto` → data „2.11.2026 (poniedziałek)” brała 2/3 telefonu). */
+.np-editor-inner { grid-template-columns: minmax(0, 1fr) fit-content(42%); }
+.np-editor-inner.gutter-hidden { grid-template-columns: minmax(0, 1fr) 0fr; }
+.np-gutter { max-width: 42vw; }
+.np-gutter-row .np-res { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+/* Pusta notatka: wieloliniowy placeholder (mini-ściąga) się mieści, a duże pole łatwo trafić palcem. */
+.np-text:placeholder-shown { min-height: 11em; }
+.np-text::placeholder { white-space: pre-line; }
+/* „razem” pominęło linie bez wyniku — wyraźny znak, szczegóły w dymku */
+.np-res.np-res-partial { box-shadow: inset 0 0 0 1.5px var(--warning, #f59e0b); }
+.np-res.np-res-partial::before { content: "!"; display: inline-block; margin-right: 5px; padding: 0 5px; border-radius: 999px; background: var(--warning, #f59e0b); color: #1f1300; font-weight: 800; font-size: .72em; line-height: 1.5; }
+/* wynik policzony ze „zwykłego zdania” — przerywane podkreślenie = „zinterpretowałem” (dymek mówi jak) */
+.np-res.np-res-smart { text-decoration: underline dotted; text-underline-offset: 3px; }
+/* linia czeka na kursy walut */
+.np-gutter-row.np-pending .np-res { color: var(--text-muted); }
+/* nazwa zmiennej bez „@” w tekście */
+.np-mirror-line .np-var-ref { color: var(--primary); text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
+/* ikony SVG w nagłówku notatnika — przyciski centrują ikonę (wcześniej ikona listy w <span>
+   siedziała na linii bazowej tekstu, ~4 px niżej niż ikona zwijania) */
+.np-head .np-head-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; min-height: 36px; }
+.np-head .ui-icon { width: 20px; height: 20px; vertical-align: middle; }
+.np-list-btn-icon { display: inline-flex; line-height: 0; }

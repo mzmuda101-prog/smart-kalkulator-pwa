@@ -1255,6 +1255,12 @@
         var dist = s.match(/([\d.,]+)\s*km\b/);
         var cons = s.match(/([\d.,]+)\s*l(?:itr[a-z]*)?\s*\/?\s*(?:(?:na|per)\s*)?100/);
         var price = s.match(/([\d.,]+)\s*(?:zł|zl|pln)\s*\/?\s*(?:l\b|litr[a-z]*)/);
+        // „420 km * 7 l/100 km * 6,50 zł” — cena bez „/l”: gdy są km i spalanie, jedyna kwota w zł
+        // to cena litra (dwie kwoty = niejednoznaczne → nie zgadujemy).
+        if (!price && dist && cons) {
+            var amounts = s.match(/([\d.,]+)\s*(?:zł|zl|pln)(?![a-z])/g) || [];
+            if (amounts.length === 1) price = amounts[0].match(/([\d.,]+)/);
+        }
         if (!dist || !cons || !price) return null;
         var D = parseFloat(dist[1].replace(',', '.'));
         var C = parseFloat(cons[1].replace(',', '.'));

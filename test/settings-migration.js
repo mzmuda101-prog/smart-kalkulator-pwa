@@ -99,9 +99,24 @@ function reload(stored) {
     check('nieznany układ → klawisze', r.settings.calcLayout, 'keypad');
 }
 
+// 14–16. „razem” w notatniku dziedziczy jednostkę (notepadSumUnit 'inherit' od v1.04.24).
+{
+    const r = reload(null);
+    check('świeża instalacja: notepadSumUnit', r.settings.notepadSumUnit, 'inherit');
+}
+{
+    const r = reload({ notepadSumUnit: 'off', standardLiveHintDefaultV2: true, suggestOnEmptyDefaultV2: true });
+    check('stary zapis „off”: podniesione do inherit', r.settings.notepadSumUnit, 'inherit');
+    check('stary zapis: znacznik notepadSumUnitDefaultV2', r.saved && r.saved.notepadSumUnitDefaultV2, true);
+}
+{
+    const r = reload({ notepadSumUnit: 'off', notepadSumUnitDefaultV2: true, standardLiveHintDefaultV2: true, suggestOnEmptyDefaultV2: true });
+    check('świadome „off” po migracji zostaje', r.settings.notepadSumUnit, 'off');
+}
+
 if (failed) {
     console.error('❌ settings-migration: ' + failed + ' błędów');
     process.exit(1);
 }
-console.log('✅ settings-migration: 17 asercji OK');
+console.log('✅ settings-migration: 21 asercji OK');
 process.exit(0); // [EN] atrapa fetch/timerów trzyma event-loop przy życiu

@@ -248,12 +248,97 @@
             varUnits[name] = unit || null;
         }
 
+        /* ── SMART LINIA (faza 1 trybu smart notatek) ─────────────────────────────
+           Uruchamiane WYŁĄCZNIE, gdy zwykłe liczenie linii dało pustkę — każda linia,
+           która liczyła się wcześniej, liczy się dokładnie tak samo (jak warstwa synonimów).
+           Kandydaci, w kolejności:
+             1. nazwy z wcześniejszych etykiet bez „@” („nocleg * 2”),
+             2. zdanie z „po / razy / przez / x / za” → iloczyn ilości
+                („4 osoby po 60 zł przez 3 dni” → 4 × 60 zł × 3),
+             3. jedna kwota w zdaniu („Zaliczka od Ani 200 zł” → 200 zł).
+           Zwykłe słowa bez jednostki („spotkanie o 15”) NIE dają wyniku — cichy zły wynik
+           jest gorszy niż brak wyniku. */
+        function _npFold(s) {
+            return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l');
+        }
+        function _npIsCurrencyTok(u) { return !!(u && currencyTokenMap()[String(u).toLowerCase()]); }
+        function _npIsRealUnit(u) { // wbudowana / zdefiniowana jednostka — NIE auto-licznik z notatnika („4 osoby”)
+            if (!u) return false;
+            var k = String(u).toLowerCase();
+            if (_npIsCurrencyTok(k)) return true;
+            return !!(CALC_UNITS[k] && !CALC_UNITS[k]._auto);
+        }
+        var _NP_QTY_RE = /(\d+(?:[.,]\d+)?)(?:\s*([\p{L}$€£][\p{L}.²³]*))?/gu;
+        function _npQuantities(s) {
+            var out = [], m, re = new RegExp(_NP_QTY_RE.source, 'gu');
+            while ((m = re.exec(s)) !== null) {
+                var before = s.slice(0, m.index).trim().split(/\s+/).pop() || '';
+                var unit = m[2] ? m[2].replace(/\.$/, '') : '';
+                out.push({ num: m[1], unit: unit, prevWord: _npFold(before) });
+            }
+            return out;
+        }
+        function _npBareVarSubst(s, vars, varUnits) {
+            var used = [];
+            var foldMap = {};
+            Object.keys(vars).forEach(function (k) { foldMap[_npFold(k)] = k; });
+            if (!Object.keys(foldMap).length) return null;
+            var out = String(s).replace(/(^|[^@\p{L}\p{N}_])([\p{L}][\p{L}\p{N}_]*)/gu, function (m0, pre, word) {
+                var key = foldMap[_npFold(word)];
+                if (!key || _npTokenKnown(word)) return m0;
+                if (used.indexOf(key) < 0) used.push(key);
+                var u = varUnits && varUnits[key] ? _npVarUnitLabel(varUnits[key]) : null;
+                return pre + '(' + vars[key] + (u ? ' ' + u : '') + ')';
+            });
+            return used.length ? { expr: out, vars: used } : null;
+        }
+        function _npPhraseCandidate(s) {
+            var t = String(s);
+            if (/[+*\/×÷=^]|\d\s*-\s*\d|\d:\d/.test(t)) return null;      // to już działanie albo godzina — nie zgadujemy
+            var f = _npFold(t);
+            var qs = _npQuantities(t);
+            if (!qs.length) return null;
+            if (/(^|\s)(po|razy|przez|x|×|za)(\s|$)/.test(f) && qs.length >= 2) {
+                var parts = qs.map(function (q) {
+                    var keep = _npIsCurrencyTok(q.unit) ||
+                        ((q.prevWord === 'po' || q.prevWord === 'za') && _npIsRealUnit(q.unit));
+                    return q.num.replace(',', '.') + (keep && q.unit ? ' ' + q.unit : '');
+                });
+                return { expr: parts.join(' * '), kind: 'iloczyn' };
+            }
+            if (qs.length === 1 && _npIsRealUnit(qs[0].unit)) {
+                return { expr: qs[0].num.replace(',', '.') + ' ' + qs[0].unit, kind: 'kwota' };
+            }
+            return null;
+        }
+        function _npSmartEval(evalStr, vars, varUnits) {
+            var tries = [];
+            var bare = _npBareVarSubst(evalStr, vars, varUnits);
+            if (bare) tries.push({ expr: bare.expr, kind: 'zmienne', vars: bare.vars });
+            // Zdanie liczymy z ORYGINAŁU, nie z podstawionych zmiennych: „paliwo po 6,50 zł za litr”
+            // przy zmiennej paliwo=100 dałoby 100 × 6,50 zł — nazwa w zdaniu to słowo, nie liczba.
+            var ph = _npPhraseCandidate(evalStr);
+            if (ph) tries.push({ expr: ph.expr, kind: ph.kind, vars: [] });
+            for (var i = 0; i < tries.length; i++) {
+                var r = null;
+                try { r = _npEval(tries[i].expr); } catch (e) { r = null; }
+                if (r && (r.value !== null || r.text != null || r.big)) return { res: r, smart: tries[i] };
+            }
+            return null;
+        }
+        function _npPrettySmart(expr) {
+            return String(expr).replace(/\s*\*\s*/g, ' × ').replace(/\((-?[\d.]+)(\s+[^)]+)?\)/g, function (m, n, u) {
+                return _npFmt(parseFloat(n)) + (u || '');
+            }).replace(/(\d)\.(\d)/g, '$1,$2'); // zapis polski: 12,50 zł
+        }
+
         function evalLines(text) {
             var lines = String(text == null ? '' : text).split('\n');
             var out = [];
             var runningSum = 0; // suma SUROWYCH pozycji (linie, które same nie użyły „razem")
             var items = [];     // wartości surowych pozycji (do rozpisania „razem" w dymku)
             var itemUnits = []; // jednostki pozycji — do dziedziczenia przy razem/suma
+            var skipped = [];   // numery linii z liczbami, które NIE dały wyniku (od ostatniej sekcji) — „razem” je pomija
             var autoMode = _depSettings().notepadAutoUnit || 'safe';
             var globals = _depGlobals();
             var vars = Object.assign({}, globals); // globalne (@nazwa) widoczne w KAŻDEJ notatce
@@ -283,6 +368,7 @@
                         runningSum = 0;
                         items = [];
                         itemUnits = [];
+                        skipped = [];
                         out.push(info);
                         continue;
                     }
@@ -302,15 +388,31 @@
                     var sumLine = _npParseSumLine(exprPart);
                     var sumUnitHint = sumLine ? _npSumUnitForLine(exprPart, itemUnits) : null;
                     var evalStr = _npSubVars(exprPart, vars, null, varUnits); // @nazwa PRZED słowami sumy (inaczej @suma → kolizja z „suma")
-                    evalStr = _npReplaceSumWords(evalStr, function (m, kw) {
+                    // „razem” w działaniu niesie jednostkę pozycji („razem / 4” → 180 zł, nie 180),
+                    // gdy wszystkie mają tę samą (ustawienie „Dziedzicz”, domyślne od v1.04.24).
+                    var sumInUnit = _depSettings().notepadSumUnit === 'inherit' ? _npInferSumUnit(itemUnits) : null;
+                    evalStr = _npReplaceSumWords(evalStr, function (m, kw, suffix) {
                         usedTotal = true;
                         if (_NP_SUBTOTAL_RE.test(kw)) info.isSubtotal = true;
                         else if (_NP_TOTAL_RE.test(kw)) info.isTotal = true;
-                        return '(' + runningSum + ')';
+                        var explicit = suffix && /\(/.test(suffix);
+                        return '(' + runningSum + (sumInUnit && !explicit && !sumLine ? ' ' + sumInUnit : '') + ')';
                     });
+                    if (usedTotal && skipped.length) { info.sumSkipped = skipped.slice(); }
                     if (autoMode === 'full') evalStr = _npStripProse(evalStr); // zdejmij zbłąkane słowa
                     var res = null;
                     try { res = _npEval(evalStr); } catch (e) { res = null; }
+                    if (res && res.pendingFx) info.pendingFx = true; // czeka na kursy — app.js je pobierze i przeliczy
+                    var smartHit = null;
+                    if (!(res && (res.value !== null || res.text != null || res.big)) && !info.pendingFx && !usedTotal) {
+                        smartHit = _npSmartEval(evalStr, vars, varUnits);
+                        if (smartHit) {
+                            res = smartHit.res;
+                            info.smart = smartHit.smart.kind;
+                            if (smartHit.smart.vars && smartHit.smart.vars.length) info.bareVars = smartHit.smart.vars.slice();
+                            if (res.pendingFx) { info.pendingFx = true; res = null; smartHit = null; }
+                        }
+                    }
                     if (res && (res.value !== null || res.text != null || res.big)) {
                         var outUnit = sumLine ? (sumUnitHint || res.unit || null) : (res.unit || null);
                         info.text = outUnit && typeof res.value === 'number' && isFinite(res.value)
@@ -322,7 +424,7 @@
                             disp = _npReplaceSumWords(disp, function (m, kw, suffix) {
                                 return _NP_SUBTOTAL_RE.test(kw) || _NP_TOTAL_RE.test(kw) ? _npFmt(runningSum) + (suffix || '') : m;
                             });
-                            info.resolved = disp;
+                            info.resolved = smartHit ? ('Zrozumiałem jako: ' + _npPrettySmart(smartHit.smart.expr)) : disp;
                         }
                         if (typeof res.value === 'number' && isFinite(res.value)) {
                             info.value = res.value;
@@ -337,6 +439,8 @@
                                 if (sk && sk !== vn2) _npAssignVar(vars, varUnits, sk, res.value, assignUnit);
                             }
                         } else if (usedTotal && !info.isSubtotal) { info.isTotal = true; }
+                    } else if (!usedTotal && !gName && /\d/.test(exprPart)) {
+                        skipped.push(i + 1); // linia z liczbą bez wyniku — „razem” ją pominie (ostrzeżenie w UI)
                     }
                     out.push(info);
                 }
