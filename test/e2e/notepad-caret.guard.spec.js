@@ -50,7 +50,7 @@ test('zasłonięty przycisk → openNotepad nazywa winowajcę (nie zawisa na cli
   const dt = Date.now() - t0;
 
   expect(err, 'openNotepad powinien rzucić, a nie wisieć').toBeTruthy();
-  expect(err.message).toContain('#notepadBtn jest zasłonięty przez');
+  expect(err.message).toMatch(/(#notepadBtn|\[data-nav="notes"\]) jest zasłonięty przez/);
   expect(err.message).toContain('e2eVeil');
   expect(dt, `padło po ${dt} ms`).toBeLessThan(30_000);
 });

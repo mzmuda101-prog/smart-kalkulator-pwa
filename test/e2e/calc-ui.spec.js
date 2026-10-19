@@ -42,7 +42,10 @@ test('cyfry po kolei (1 + 19 zer) — wynik rośnie, bez błędu UI', async ({ p
 });
 
 test('wrap — stabilny font po wejściu w 2 linie (kolejne cyfry)', async ({ page }) => {
-    const log = await H.typeDigitsSequentially(page, '9'.repeat(18), 55);
+    // [PL] 24, nie 18: od przebudowy szerokiej karty (1.5fr, ~650 px na wynik) 18 dziewiątek
+    // mieści się na desktopie w JEDNEJ linii i wrap słusznie nie startuje. Zmierzone (v1.04.40):
+    // wrap od 13. cyfry na telefonie/tablecie, od 19. na 1280 px; +3 kroki zapasu na pomiar fontu.
+    const log = await H.typeDigitsSequentially(page, '9'.repeat(24), 55);
     const wrapStart = log.findIndex((e) => e.phase === 'after' && (e.hasWrapClass || e.logicalLines > 1));
     expect(wrapStart, 'powinien wejść w wrap przy długim wyniku').toBeGreaterThan(-1);
     const wrapStep = log[wrapStart].step;
@@ -208,7 +211,13 @@ test('mobile: „Nie rozumiem…" znika, gdy wyrażenie zaczyna się liczyć', a
     await setExpr('100 usd');
     // 1,2 s z zapasem na fade (0,14 s) — ale ZNACZNIE poniżej autoHide dymka (6 s)
     await page.waitForTimeout(1200);
-    expect(await visibleHint(), 'stara podpowiedź wisi nad policzonym wynikiem').toBeNull();
+    // [PL] Sprawdzamy tylko podpowiedzi „przy pustym wyniku” (unknown/fuzzy/intent). Od v1.04.19
+    // żywe podpowiedzi (standardLiveHint) są domyślnie WŁĄCZONE, więc po „100 usd” słusznie
+    // pojawia się NOWY dymek „na zł · + 10%” (hint-rules: kwota w walucie) — to nie jest
+    // stara podpowiedź. Test z v1.03.2 zakładał, że żaden dymek nie może być widoczny.
+    const hint = await visibleHint();
+    expect(hint || '', 'stara podpowiedź wisi nad policzonym wynikiem')
+        .not.toMatch(/Nie rozumiem|Czy chodziło o|Rozumiem to jako/);
 });
 
 // [EN] Regresja czasów podpowiedzi. Jeden debounce 300 ms dla wszystkiego oznaczał,

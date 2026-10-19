@@ -14,6 +14,15 @@
     var _NP_SECTION_RE = /^-{3,}\s*$/;
     var _NP_SUM_UNIT_LINE_RE = /^(razem|suma|total|subtotal|półsuma|podsuma)\s*(?:\(\s*([\p{L}][\p{L}.]*)\s*\))?$/iu;
     var _NP_SUM_MANUAL_UNIT_RE = /\b(razem|suma|total|subtotal|półsuma|podsuma)\s*\(\s*([\p{L}][\p{L}.]*)\s*\)/giu;
+    // Faza 2 smart notatek: sekcje, suma całej notatki, pozycje na minus.
+    var _NP_HEADING_MARK_RE = /^[\uE013\uE015\uE017]/;                 // nagłówek H1–H3 z paska formatowania
+    var _NP_HASH_HEADING_RE = /^#{1,3}\s+\S/;                           // „# Transport”
+    var _NP_LABEL_ONLY_RE = /^[^:\d]*\p{L}[^:\d]*:\s*$/u;               // „Transport:” (etykieta bez wartości)
+    var _NP_GRAND_RE = /^(suma\s+wszystkiego|razem\s+wszystko|suma\s+ca[łl]o[śs]ci|[łl][ąa]cznie|og[óo][łl]em)$/i;
+    // granica słowa po literach Unicode — „\b” w JS nie widzi „ł” jako litery („łącznie / 4” nie łapało)
+    var _NP_GRAND_WORDS_RE = /(^|[^\p{L}\p{N}_])(suma\s+wszystkiego|razem\s+wszystko|suma\s+ca[łl]o[śs]ci|[łl][ąa]cznie|og[óo][łl]em)(?![\p{L}\p{N}_])/giu;
+    // Linia zaczynająca się od tych słów ODEJMUJE się od sumy („Zaliczka od Ani 200 zł” → −200 zł w razem).
+    var _NP_MINUS_RE = /^(zaliczk|zadat|wp[łl]at|wp[łl]acon|zap[łl]acon|op[łl]acon|rabat|zni[żz]k|upust|opust|zwrot|odlicz|minus|bon\b|kupon|dofinans|refundac|sp[łl]at)/i;
     var _NP_STOP = { 'na': 1, 'do': 1, 'w': 1, 'z': 1, 'i': 1, 'od': 1, 'to': 1, 'in': 1, 'oraz': 1, 'a': 1, 'po': 1, 'za': 1, 'lub': 1, 'albo': 1, 'ile': 1, 'dni': 1 };
 
     function createEngine(deps) {
@@ -339,6 +348,8 @@
             var items = [];     // wartości surowych pozycji (do rozpisania „razem" w dymku)
             var itemUnits = []; // jednostki pozycji — do dziedziczenia przy razem/suma
             var skipped = [];   // numery linii z liczbami, które NIE dały wyniku (od ostatniej sekcji) — „razem” je pomija
+            var grandSum = 0, grandItems = [], grandUnits = [], grandSkipped = []; // cała notatka („suma wszystkiego”)
+            var sectionName = '';
             var autoMode = _depSettings().notepadAutoUnit || 'safe';
             var globals = _depGlobals();
             var vars = Object.assign({}, globals); // globalne (@nazwa) widoczne w KAŻDEJ notatce
@@ -362,6 +373,25 @@
                     info.align = prep.align;
                     var line = prep.evalText;
                     if (!line) { out.push(info); continue; }
+                    var rawTrim = String(lines[i]).trim();
+                    // nagłówek z paska (H1–H3) zostaje działaniem, jeśli ma cyfry („2+2” jako H2 nadal się liczy)
+                    var isHeading = !_NP_SECTION_RE.test(line) && (
+                        (_NP_HEADING_MARK_RE.test(_npParseAlign(rawTrim).body) && !/\d/.test(line)) || _NP_HASH_HEADING_RE.test(line) ||
+                        (_NP_LABEL_ONLY_RE.test(line) && !_NP_GLOBAL_RE.test(line)));
+                    if (isHeading) {
+                        // Nagłówek otwiera sekcję: „razem” niżej liczy tylko tę sekcję (jak „---”, ale z nazwą).
+                        info.isSection = true;
+                        info.isHeading = true;
+                        sectionName = line.replace(/^#{1,3}\s+/, '').replace(/:\s*$/, '').trim();
+                        info.sectionName = sectionName;
+                        info.exprPart = line;
+                        runningSum = 0;
+                        items = [];
+                        itemUnits = [];
+                        skipped = [];
+                        out.push(info);
+                        continue;
+                    }
                     if (_NP_SECTION_RE.test(line)) {
                         info.isSection = true;
                         info.exprPart = line;
@@ -391,6 +421,20 @@
                     // „razem” w działaniu niesie jednostkę pozycji („razem / 4” → 180 zł, nie 180),
                     // gdy wszystkie mają tę samą (ustawienie „Dziedzicz”, domyślne od v1.04.24).
                     var sumInUnit = _depSettings().notepadSumUnit === 'inherit' ? _npInferSumUnit(itemUnits) : null;
+                    var isGrandLine = _NP_GRAND_RE.test(exprPart.trim());
+                    if (isGrandLine || _NP_GRAND_WORDS_RE.test(evalStr)) {
+                        _NP_GRAND_WORDS_RE.lastIndex = 0;
+                        var grandUnit = _depSettings().notepadSumUnit === 'inherit' ? _npInferSumUnit(grandUnits) : null;
+                        evalStr = evalStr.replace(_NP_GRAND_WORDS_RE, function (m0, pre) {
+                            usedTotal = true;
+                            info.isTotal = true;
+                            info.isGrand = true;
+                            return pre + '(' + grandSum + (grandUnit && !isGrandLine ? ' ' + grandUnit : '') + ')';
+                        });
+                        if (grandSkipped.length) info.sumSkipped = grandSkipped.slice();
+                        if (isGrandLine) { sumUnitHint = grandUnit; sumLine = sumLine || { keyword: 'łącznie', manualUnit: null }; }
+                    }
+                    _NP_GRAND_WORDS_RE.lastIndex = 0;
                     evalStr = _npReplaceSumWords(evalStr, function (m, kw, suffix) {
                         usedTotal = true;
                         if (_NP_SUBTOTAL_RE.test(kw)) info.isSubtotal = true;
@@ -417,8 +461,10 @@
                         var outUnit = sumLine ? (sumUnitHint || res.unit || null) : (res.unit || null);
                         info.text = outUnit && typeof res.value === 'number' && isFinite(res.value)
                             ? _npFormatWithUnit(res.value, outUnit) : formatCalcResult(res);
-                        if (sumLine || _NP_TOTAL_RE.test(exprPart) || _NP_SUBTOTAL_RE.test(exprPart)) {
-                            info.resolved = items.length ? items.map(_npFmt).join(' + ') : exprPart;
+                        if (info.isGrand && isGrandLine) {
+                            info.resolved = grandItems.length ? 'Cała notatka: ' + grandItems.map(_npFmt).join(' + ').replace(/\+ -/g, '− ') : exprPart;
+                        } else if (sumLine || _NP_TOTAL_RE.test(exprPart) || _NP_SUBTOTAL_RE.test(exprPart)) {
+                            info.resolved = items.length ? items.map(_npFmt).join(' + ').replace(/\+ -/g, '− ') : exprPart;
                         } else {
                             var disp = _npSubVars(exprPart, vars, _npFmt, varUnits);
                             disp = _npReplaceSumWords(disp, function (m, kw, suffix) {
@@ -429,7 +475,18 @@
                         if (typeof res.value === 'number' && isFinite(res.value)) {
                             info.value = res.value;
                             if (usedTotal || gName) { /* isTotal/isSubtotal ustawione w replace słów sumy */ }
-                            else { runningSum += res.value; items.push(res.value); itemUnits.push(res.unit || null); info.isItem = true; }
+                            else {
+                                // „Zaliczka / rabat / zwrot … 200 zł” — kwota odejmuje się od sumy (wartość linii zostaje dodatnia,
+                                // UI pokazuje „− 200 zł”). Jawny znak („-200 zł”, „+200 zł”) wygrywa.
+                                var signWord = (labelPart || exprPart).trim();
+                                var contrib = res.value;
+                                if (_NP_MINUS_RE.test(signWord) && res.value > 0 && !/^[+\-−]/.test(exprPart.trim())) {
+                                    contrib = -res.value;
+                                    info.negated = true;
+                                }
+                                runningSum += contrib; items.push(contrib); itemUnits.push(res.unit || null); info.isItem = true;
+                                grandSum += contrib; grandItems.push(contrib); grandUnits.push(res.unit || null);
+                            }
                             var assignUnit = sumLine ? outUnit : (res.unit || null);
                             if (gName) _npAssignVar(vars, varUnits, gName, res.value, assignUnit);
                             else {
@@ -441,7 +498,9 @@
                         } else if (usedTotal && !info.isSubtotal) { info.isTotal = true; }
                     } else if (!usedTotal && !gName && /\d/.test(exprPart)) {
                         skipped.push(i + 1); // linia z liczbą bez wyniku — „razem” ją pominie (ostrzeżenie w UI)
+                        grandSkipped.push(i + 1);
                     }
+                    if (sectionName) info.sectionName = sectionName;
                     out.push(info);
                 }
             } finally { _npAutoClear(_autoKeys); } // usuń tymczasowe auto-jednostki
@@ -476,6 +535,8 @@
                     var line = prepL.evalText;
                     if (!line) continue;
                     if (_NP_SECTION_RE.test(line)) { runningSum = 0; itemUnits = []; continue; }
+                    if ((_NP_HEADING_MARK_RE.test(_npParseAlign(String(lines[i]).trim()).body) && !/\d/.test(line)) || _NP_HASH_HEADING_RE.test(line) ||
+                        (_NP_LABEL_ONLY_RE.test(line) && !_NP_GLOBAL_RE.test(line))) { runningSum = 0; itemUnits = []; continue; }
                     var exprPart = line, gName = null;
                     var gm = line.match(_NP_GLOBAL_RE);
                     if (gm) {
@@ -495,7 +556,11 @@
                         var res = _npEval(evalStr);
                         if (res && typeof res.value === 'number' && isFinite(res.value)) {
                             var assignUnit = sumLine ? (sumUnitHint || res.unit || null) : (res.unit || null);
-                            if (!usedTotal && !gName) { runningSum += res.value; itemUnits.push(res.unit || null); }
+                            if (!usedTotal && !gName) {
+                                var lmS = line.match(_NP_LABEL_RE);
+                                var neg = _NP_MINUS_RE.test(((lmS ? lmS[1] : exprPart) || '').trim()) && res.value > 0 && !/^[+\-−]/.test(exprPart.trim());
+                                runningSum += neg ? -res.value : res.value; itemUnits.push(res.unit || null);
+                            }
                             if (gName) {
                                 globalsCopy[gName] = res.value; vars[gName] = res.value; varUnits[gName] = assignUnit;
                             } else {

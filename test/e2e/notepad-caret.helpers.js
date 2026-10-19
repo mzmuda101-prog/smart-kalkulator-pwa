@@ -143,7 +143,8 @@ async function waitLayoutSettled(page, label = 'waitLayoutSettled') {
 async function waitAppReady(page) {
   await page.addInitScript(_diagInitScript);
   await page.goto('index.html', { waitUntil: 'networkidle' });
-  await page.waitForSelector('#notepadBtn', { state: 'visible', timeout: T.ready });
+  // Telefon (< 640 px): notatnik otwiera dolny pasek „Notatki” (ikona w nagłówku jest ukryta).
+  await page.waitForSelector('#notepadBtn:visible, #bottomNav [data-nav="notes"]:visible', { timeout: T.ready });
   // Splash ma position:fixed; inset:0; z-index:10000 i znika dopiero na transitionend
   // (`el.hidden = true`). Przy opacity:0 NADAL łapie kliknięcia, więc czekamy na
   // realne usunięcie z układu, a nie tylko na przezroczystość — i NIE połykamy
@@ -184,9 +185,15 @@ async function waitHittable(page, selector, label) {
   }
 }
 
+async function notepadOpenerSelector(page) {
+  const headerVisible = await page.locator('#notepadBtn').isVisible().catch(() => false);
+  return headerVisible ? '#notepadBtn' : '#bottomNav [data-nav="notes"]';
+}
+
 async function openNotepad(page) {
-  await waitHittable(page, '#notepadBtn', 'openNotepad');
-  await page.locator('#notepadBtn').click({ timeout: T.action });
+  const opener = await notepadOpenerSelector(page);
+  await waitHittable(page, opener, 'openNotepad');
+  await page.locator(opener).click({ timeout: T.action });
   try {
     await page.waitForSelector('body.notepad-open textarea.np-text', { state: 'visible', timeout: T.action });
   } catch (_) {

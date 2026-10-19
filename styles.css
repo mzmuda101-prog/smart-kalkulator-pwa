@@ -4633,7 +4633,10 @@
                 grid-template-rows: auto minmax(0, 1fr);
                 gap: 0;
                 max-width: 1120px;
-                min-height: min(650px, calc(100dvh - 164px));
+                /* [PL] 100% = wnętrze .panels. Wcześniej calc(100dvh - 164px) nie liczyło
+                   paddingu .panels i odstępu pod nim (~27 px), więc przy oknach < ~815 px
+                   panel był wyższy niż miejsce i .panels przewijało się o 27–34 px. */
+                min-height: min(650px, 100%);
                 overflow: hidden;
                 border: 1px solid var(--border);
                 border-radius: 18px;
@@ -4775,6 +4778,12 @@
             .calc-example-chip::before { content: "↗"; margin-right: 9px; color: var(--primary); font-family: var(--font); }
             .calc-example-chip::after { content: "→"; margin-left: auto; color: var(--text-muted); font-family: var(--font); }
             .calc-example-chip:nth-child(n + 4) { display: none; }
+            /* [PL] Niskie okno (1280×720, 1366×768): 4 grupy × 2 przykłady = ~520 px, czyli
+               cała wysokość karty — Historia pod spodem dostawała 7 px i wypychała panel.
+               Jeden przykład na grupę zostawia jej ~160–200 px. */
+            @media (max-height: 820px) {
+                .calc-example-chip:nth-child(n + 3) { display: none; }
+            }
             .calc-examples-tip,
             .calc-examples-help { display: none; }
             .history-header { margin-bottom: 8px; }
@@ -4831,8 +4840,8 @@
     border-radius: var(--radius);
     padding: 0 12px;
 }
-@media (max-width: 380px) {
-    .calc-layout-toggle--tools span { display: none; } /* wąsko: sama ikona (aria w title) */
+@media (max-width: 330px) {
+    .calc-layout-toggle--tools span { display: none; } /* bardzo wąsko: sama ikona (opis w title) */
 }
 .calc-workspace-bar .calc-layout-toggle { margin-left: 12px; }
 
@@ -4986,3 +4995,139 @@ body.calc-sentence .calc-key-bar.is-floating {
 .np-head .np-head-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; min-height: 36px; }
 .np-head .ui-icon { width: 20px; height: 20px; vertical-align: middle; }
 .np-list-btn-icon { display: inline-flex; line-height: 0; }
+
+/* Faza 2 smart notatek — sekcje i pozycje na minus */
+.np-mirror-line.np-sec-heading { color: var(--primary); } /* tylko kolor — inna grubość rozjechałaby kursor w przezroczystym polu */
+.np-res.np-res-minus { color: var(--danger, #e11d48); }
+.np-res.np-res-grand { box-shadow: 0 0 0 2px var(--card-bg), 0 0 0 3.5px var(--primary); } /* suma całej notatki — „suma sum” */
+.np-res.np-res-grand.np-res-partial { box-shadow: 0 0 0 2px var(--card-bg), 0 0 0 3.5px var(--warning, #f59e0b); }
+
+
+/* ============================================================
+   Faza 3 — taśma historii (tryb zdania) + dolna nawigacja (telefon)
+   ============================================================ */
+.calc-tape { display: none; }
+body.calc-sentence #panel-calculator .calc-tape:not([hidden]) {
+    display: block;
+    grid-row: 1 !important;
+    max-height: 34vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    margin: -4px -6px 6px;
+    padding: 0 6px 6px;
+    border-bottom: 1px dashed var(--border);
+}
+/* w trybie zdania z taśmą pozostałe wiersze ekranika przesuwają się o jeden w dół */
+body.calc-sentence #panel-calculator .calc-display { grid-template-rows: auto auto auto auto auto !important; }
+body.calc-sentence #panel-calculator .calc-expr-wrap { grid-row: 2 !important; }
+body.calc-sentence #panel-calculator .calc-live-hint { grid-row: 3 !important; }
+body.calc-sentence #panel-calculator .calc-result-row { grid-row: 4 !important; }
+body.calc-sentence #panel-calculator .calc-explain,
+body.calc-sentence #panel-calculator .calc-empty-suggest { grid-row: 5 !important; }
+.calc-tape-head {
+    position: sticky; top: 0; z-index: 1;
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 4px 0 6px;
+    background: inherit;
+    font-size: .72rem; color: var(--text-muted);
+}
+body.calc-sentence .calc-display { --tape-bg: var(--surface-2, #f6f8fb); }
+.calc-tape-head { background: var(--tape-bg, transparent); }
+.calc-tape-save {
+    display: inline-flex; align-items: center; gap: 5px;
+    border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card-bg); color: var(--primary);
+    font: 600 .72rem/1 var(--font); padding: 5px 9px; cursor: pointer;
+}
+.calc-tape-save .ui-icon { width: 14px; height: 14px; }
+.calc-tape-row { display: flex; align-items: baseline; gap: 10px; min-height: 32px; }
+.calc-tape-expr, .calc-tape-res {
+    border: none; background: transparent; cursor: pointer; padding: 4px 0;
+    font: 400 .95rem/1.3 var(--font); -webkit-tap-highlight-color: transparent;
+}
+.calc-tape-expr { flex: 1 1 auto; min-width: 0; text-align: left; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.calc-tape-res { flex: 0 1 auto; max-width: 48%; text-align: right; color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.calc-tape-expr:active, .calc-tape-res:active { color: var(--primary); }
+
+.bottom-nav, .tools-sheet { display: none; }
+@media (max-width: 639px) {
+    body { padding-bottom: 0; }
+    .tab-nav { display: none !important; }        /* zakładki → dolny pasek */
+    #notepadBtn { display: none !important; }      /* notatki → dolny pasek */
+    .bottom-nav {
+        display: flex;
+        flex: 0 0 auto;
+        justify-content: space-around;
+        gap: 4px;
+        padding: 6px calc(8px + var(--safe-right)) calc(6px + var(--safe-bottom)) calc(8px + var(--safe-left));
+        border-top: 1px solid var(--border);
+        background: var(--card-bg);
+        z-index: 90;
+    }
+    body.kb-open .bottom-nav { display: none; }
+    .bottom-nav-btn {
+        flex: 1 1 0;
+        display: flex; flex-direction: column; align-items: center; gap: 2px;
+        min-height: 50px;
+        border: none; border-radius: 12px; background: transparent;
+        color: var(--text-muted);
+        font: 600 .72rem/1.1 var(--font);
+        cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    .bottom-nav-btn .ui-icon { width: 22px; height: 22px; }
+    .bottom-nav-btn.is-active { color: var(--primary); background: var(--primary-light); }
+    .bottom-nav-btn:active { transform: scale(.96); }
+    .tools-sheet:not([hidden]) {
+        display: flex; flex-direction: column; gap: 6px;
+        position: fixed; left: 10px; right: 10px;
+        bottom: calc(72px + var(--safe-bottom));
+        z-index: 95;
+        padding: 8px;
+        border: 1px solid var(--border); border-radius: 16px;
+        background: var(--card-bg);
+        box-shadow: 0 12px 32px rgba(15, 23, 42, .18);
+    }
+    .tools-sheet-item {
+        display: flex; align-items: center; gap: 12px;
+        min-height: 56px; padding: 8px 12px;
+        border: none; border-radius: 12px; background: transparent;
+        color: var(--text); text-align: left; cursor: pointer;
+    }
+    .tools-sheet-item .ui-icon { width: 22px; height: 22px; color: var(--primary); }
+    .tools-sheet-item span { display: flex; flex-direction: column; }
+    .tools-sheet-item strong { font-size: .95rem; }
+    .tools-sheet-item small { font-size: .74rem; color: var(--text-muted); }
+    .tools-sheet-item.is-active { background: var(--primary-light); }
+}
+/* Rząd Historia · Zdanie/Klawisze · Ściąga na telefonie — trzy przyciski muszą się zmieścić
+   (licznik historii nachodził na przełącznik układu) */
+@media (max-width: 639px) {
+    .calc-tools { gap: 6px; }
+    .calc-tools .history-open-btn { padding: 0 10px; gap: 6px; }
+    .calc-tools .history-count { min-width: 24px; height: 24px; padding: 0 6px; font-size: .75rem; }
+    .calc-tools .calc-help-btn { min-width: 0; padding: 0 10px; }
+    .calc-tools .calc-layout-toggle--tools { padding: 0 9px; }
+}
+/* Tryb zdania na tablecie (640–1023 px): karta wypełnia wysokość jak na telefonie
+   (wcześniej kończyła się w połowie ekranu, pod spodem pusto). */
+@media (min-width: 640px) and (max-width: 1023px) {
+    body.calc-sentence #panel-calculator.active { display: flex; flex-direction: column; min-height: 100%; }
+    body.calc-sentence #panel-calculator.active > .card { flex: 1 1 auto; display: flex; flex-direction: column; }
+}
+/* Tryb zdania: podpowiedź (nakładka .calc-ph) ma leżeć DOKŁADNIE tam, gdzie zacznie się pisany
+   tekst — u góry pola, z tą samą wysokością linii. Klasyczny układ przykleja ją do dołu
+   (flex-end), przez co kursor był ~14 px nad podpowiedzią. */
+body.calc-sentence #panel-calculator .calc-ph {
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    /* wysokość linii i górny odstęp kopiuje z pola updatePlaceholderMarquee() — bez !important */
+}
+body.calc-sentence #panel-calculator .calc-ph > span { line-height: inherit; }
+
+/* Podpowiedź pola zawsze u góry — tam, gdzie kursor i pisany tekst (textarea nie umie
+   wyrównać tekstu do dołu). Wysokość linii i odstęp kopiuje updatePlaceholderMarquee(). */
+.calc-expr-wrap .calc-ph,
+.calc-expr-wrap .calc-ph.is-wrapped { align-items: flex-start !important; padding-bottom: 0 !important; }
+.calc-expr-wrap .calc-ph > span { line-height: inherit !important; }

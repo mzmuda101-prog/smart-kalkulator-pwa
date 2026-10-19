@@ -12,7 +12,8 @@ async function waitAppReady(page) {
         const cs = getComputedStyle(splash);
         return cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0' || splash.hidden;
     }, { timeout: 20_000 }).catch(() => {});
-    const tab = page.locator('[data-tab="calculator"]');
+    // Telefon (< 640 px): górne zakładki ukryte, kalkulator otwiera dolny pasek „Licz”.
+    const tab = page.locator('.tab-btn[data-tab="calculator"]:visible, #bottomNav [data-nav="calc"]:visible').first();
     if (await tab.count()) await tab.click();
     await page.waitForSelector('#panel-calculator.active, #panel-calculator.panel.active', { timeout: 5000 }).catch(() => {});
 }

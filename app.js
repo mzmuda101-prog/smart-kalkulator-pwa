@@ -705,6 +705,7 @@
                 constants:  'Moje Stałe — Smart Kalkulator',
             };
             document.title = titles[tabName] || 'Smart Kalkulator';
+            if (typeof _syncBottomNav === 'function') setTimeout(_syncBottomNav, 0);
             tabBtns.forEach(function(btn) {
                 var isActive = btn.getAttribute('data-tab') === tabName;
                 btn.classList.toggle('active', isActive);
@@ -1828,6 +1829,14 @@
             var wrap = calcExpr && calcExpr.parentElement;
             var empty = !calcExpr.value;
             _calcPh.classList.toggle('is-visible', empty);
+            // Podpowiedź leży DOKŁADNIE tam, gdzie zacznie się pisany tekst: ta sama wysokość linii
+            // i górny odstęp co w polu (każdy układ — telefon/tablet/komputer — ma inne wartości).
+            // Wcześniej była przyklejona do dołu, a kursor stał u góry pola (kilkanaście px wyżej).
+            if (empty && calcExpr) {
+                var tcs = getComputedStyle(calcExpr);
+                _calcPh.style.lineHeight = tcs.lineHeight;
+                _calcPh.style.paddingTop = tcs.paddingTop;
+            }
             _calcPh.classList.remove('is-scrolling', 'is-wrapped');
             _calcPh.style.removeProperty('--ph-shift');
             if (!empty) {
@@ -3288,6 +3297,7 @@
                     calcExpr.value = _calcEqualsExprText(res) || res.text;
                     calcExpr.setSelectionRange(calcExpr.value.length, calcExpr.value.length);
                     STATE.calc.justEvaluated = true;
+                    STATE.calc._evalText = calcExpr.value;
                     liveEval();
                     return;
                 }
@@ -3301,6 +3311,7 @@
                         calcExpr.setSelectionRange(calcExpr.value.length, calcExpr.value.length);
                     }
                     STATE.calc.justEvaluated = true;
+                    STATE.calc._evalText = calcExpr.value;
                     liveEval();
                     return;
                 }
@@ -3313,6 +3324,7 @@
                         calcExpr.setSelectionRange(calcExpr.value.length, calcExpr.value.length);
                     }
                     STATE.calc.justEvaluated = true;
+                    STATE.calc._evalText = calcExpr.value;
                     liveEval();
                 }
                 return;
@@ -3460,6 +3472,7 @@
         }
 
         function renderHistory() {
+            if (typeof renderCalcTape === 'function') renderCalcTape();
             if (historyCount) historyCount.textContent = String(STATE.history.length);
             historyList.replaceChildren();
             if (STATE.history.length === 0) {
@@ -5197,7 +5210,7 @@
             var on = _calcSentence();
             document.querySelectorAll('.calc-layout-toggle').forEach(function(b) {
                 var icon = on ? 'keypad' : 'text-cursor';
-                var label = on ? 'Klawisze' : 'Tryb zdania';
+                var label = on ? 'Klawisze' : (b.classList.contains('calc-layout-toggle--tools') ? 'Zdanie' : 'Tryb zdania');
                 b.innerHTML = '<svg class="ui-icon" aria-hidden="true"><use href="#i-' + icon + '"/></svg><span>' + label + '</span>';
                 b.setAttribute('aria-pressed', on ? 'true' : 'false');
                 b.title = on ? 'Wróć do klasycznych klawiszy' : 'Tryb „zdanie najpierw”: duże pole, wynik z rozpisaniem, pasek skrótów';
@@ -5209,6 +5222,7 @@
             if (on) _buildCalcKeyBar();
             _syncCalcLayoutToggles();
             _calcExplainKey = ''; // przerysuj rozpisanie (na telefonie w tym trybie widać je wprost)
+            renderCalcTape();
             fitCalcLayout();
             liveEval();
             _syncCalcKeyBar();
@@ -5229,6 +5243,173 @@
         }
         // klawiatura wjeżdża PO focusie — dopiero resize visualViewport mówi, że jest otwarta
         if (window.visualViewport) window.visualViewport.addEventListener('resize', function() { if (_calcSentence()) _syncCalcKeyBar(); });
+
+        /* ── Faza 3: taśma historii (tryb zdania) ─────────────────────────────────
+           Ostatnie obliczenia nad polem, jak w notatniku: najstarsze u góry, najnowsze tuż nad
+           polem. Dotknięcie działania = wróć do działania, dotknięcie wyniku = użyj wyniku
+           (ta sama logika co w szufladzie Historii). „Zapisz jako notatkę” = nowa notatka
+           z działaniami (notatnik sam je przeliczy). */
+        var CALC_TAPE_MAX = 8;
+        var calcTape = $('#calcTape');
+        function _splitHistEntry(text) {
+            var parts = String(text || '').split(' = ');
+            return { expr: parts[0] || '', result: parts.length > 1 ? parts.slice(1).join(' = ') : '' };
+        }
+        function _reuseHistoryPart(exprPart, resultPart, onExpr) {
+            var reuse = (onExpr && exprPart) ? { text: exprPart, isResult: false } : _historyReusableText(resultPart, exprPart);
+            if (!reuse) return false;
+            calcExpr.value = reuse.text;
+            STATE.calc.justEvaluated = !!reuse.isResult;
+            if (reuse.isResult) {
+                var n = parseFloat(reuse.text);
+                if (/^-?\d+$/.test(reuse.text) && reuse.text.replace('-', '').length > 15) STATE.calc.ans = reuse.text;
+                else if (isFinite(n)) STATE.calc.ans = n;
+            }
+            try { calcExpr.setSelectionRange(calcExpr.value.length, calcExpr.value.length); } catch (e) {}
+            liveEval();
+            return reuse;
+        }
+        function renderCalcTape() {
+            if (!calcTape) return;
+            var on = _calcSentence() && STATE.history && STATE.history.length;
+            if (!on) { calcTape.hidden = true; calcTape.textContent = ''; return; }
+            var recent = STATE.history.slice(0, CALC_TAPE_MAX).reverse(); // chronologicznie
+            var frag = document.createDocumentFragment();
+            var head = document.createElement('div');
+            head.className = 'calc-tape-head';
+            var lab = document.createElement('span');
+            lab.textContent = 'Ostatnie obliczenia';
+            var save = document.createElement('button');
+            save.type = 'button';
+            save.className = 'calc-tape-save no-haptic';
+            save.innerHTML = '<svg class="ui-icon" aria-hidden="true"><use href="#i-save"/></svg><span>Zapisz jako notatkę</span>';
+            save.addEventListener('click', saveTapeAsNote);
+            head.appendChild(lab);
+            head.appendChild(save);
+            frag.appendChild(head);
+            recent.forEach(function(item) {
+                var p = _splitHistEntry(item.text);
+                var row = document.createElement('div');
+                row.className = 'calc-tape-row';
+                var be = document.createElement('button');
+                be.type = 'button';
+                be.className = 'calc-tape-expr';
+                be.textContent = p.expr;
+                be.setAttribute('aria-label', 'Wróć do działania: ' + p.expr);
+                be.addEventListener('click', function() { _reuseHistoryPart(p.expr, p.result, true); });
+                var br = document.createElement('button');
+                br.type = 'button';
+                br.className = 'calc-tape-res';
+                br.textContent = p.result;
+                br.setAttribute('aria-label', 'Użyj wyniku: ' + p.result);
+                br.addEventListener('click', function() { _reuseHistoryPart(p.expr, p.result, false); });
+                row.appendChild(be);
+                row.appendChild(br);
+                frag.appendChild(row);
+            });
+            calcTape.textContent = '';
+            calcTape.appendChild(frag);
+            calcTape.hidden = false;
+            calcTape.scrollTop = calcTape.scrollHeight; // najnowsze przy polu
+        }
+        function saveTapeAsNote() {
+            var recent = STATE.history.slice(0, CALC_TAPE_MAX).reverse();
+            var lines = recent.map(function(it) { return _splitHistEntry(it.text).expr; }).filter(Boolean);
+            if (!lines.length) return;
+            var d = new Date();
+            var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+            // „# …” = nagłówek sekcji → nie liczy się (bez tego „12:58” w tytule dawało wynik „58”)
+            var title = '# Obliczenia ' + d.getDate() + '.' + pad(d.getMonth() + 1) + ', ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+            if (typeof _npStashCurrent === 'function' && document.body.classList.contains('notepad-open')) _npStashCurrent();
+            var note = { id: _npNewId(), text: [title].concat(lines).join('\n'), updatedAt: Date.now() };
+            _npNotes.unshift(note);
+            _npCurrentId = note.id;
+            flushNotepadPersist(true);
+            openNotepad();
+            showToast('Zapisano ' + lines.length + (lines.length === 1 ? ' obliczenie' : (lines.length < 5 ? ' obliczenia' : ' obliczeń')) + ' w notatce', 'success');
+        }
+
+        /* ── Faza 3: dolna nawigacja (telefon) ─────────────────────────────────── */
+        var bottomNav = $('#bottomNav');
+        var toolsSheet = $('#toolsSheet');
+        function _syncBottomNav() {
+            if (!bottomNav) return;
+            var tab = STATE.activeTab || 'calculator';
+            var notesOpen = document.body.classList.contains('notepad-open');
+            var which = notesOpen ? 'notes' : (tab === 'calculator' ? 'calc' : 'tools');
+            // Bez górnych zakładek (telefon) podtytuł nagłówka mówi, gdzie jesteś.
+            var sub = document.querySelector('.app-header .subtitle');
+            if (sub) {
+                if (!sub.dataset.tagline) sub.dataset.tagline = sub.textContent;
+                var names = { komenda: 'Komenda · wykresy i podziały', warsztat: 'Warsztat · przeliczniki', constants: 'Moje stałe · wartości i jednostki' };
+                sub.textContent = (window.innerWidth < 640 && names[tab]) ? names[tab] : sub.dataset.tagline;
+            }
+            bottomNav.querySelectorAll('.bottom-nav-btn').forEach(function(b) {
+                var on = b.getAttribute('data-nav') === which;
+                b.classList.toggle('is-active', on);
+                if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+            });
+        }
+        function closeToolsSheet() {
+            if (!toolsSheet || toolsSheet.hidden) return;
+            toolsSheet.hidden = true;
+            var tb = bottomNav && bottomNav.querySelector('[data-nav="tools"]');
+            if (tb) tb.setAttribute('aria-expanded', 'false');
+        }
+        function openToolsSheet() {
+            if (!toolsSheet) return;
+            toolsSheet.querySelectorAll('.tools-sheet-item').forEach(function(it) {
+                it.classList.toggle('is-active', it.getAttribute('data-tab') === STATE.activeTab);
+            });
+            toolsSheet.hidden = false;
+            var tb = bottomNav && bottomNav.querySelector('[data-nav="tools"]');
+            if (tb) tb.setAttribute('aria-expanded', 'true');
+        }
+        if (bottomNav) {
+            bottomNav.addEventListener('click', function(e) {
+                var b = e.target.closest('.bottom-nav-btn');
+                if (!b) return;
+                var nav = b.getAttribute('data-nav');
+                if (nav === 'tools') {
+                    if (toolsSheet && !toolsSheet.hidden) closeToolsSheet(); else openToolsSheet();
+                    return;
+                }
+                closeToolsSheet();
+                if (nav === 'calc') {
+                    if (document.body.classList.contains('notepad-open')) closeNotepad();
+                    switchTab('calculator');
+                } else if (nav === 'notes') {
+                    openNotepad();
+                }
+                _syncBottomNav();
+            });
+        }
+        if (toolsSheet) {
+            toolsSheet.addEventListener('click', function(e) {
+                var it = e.target.closest('.tools-sheet-item');
+                if (!it) return;
+                closeToolsSheet();
+                switchTab(it.getAttribute('data-tab'));
+                _syncBottomNav();
+            });
+        }
+        document.addEventListener('pointerdown', function(e) {
+            if (!toolsSheet || toolsSheet.hidden) return;
+            if (e.target.closest('#toolsSheet, #bottomNav')) return;
+            closeToolsSheet();
+        }, true);
+        document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeToolsSheet(); });
+        // Klawiatura ekranowa otwarta → chowamy dolny pasek (zjadałby miejsce nad klawiaturą na Androidzie).
+        function _syncKbOpen() {
+            var vv = window.visualViewport;
+            var open = !!vv && (window.innerHeight - vv.height > 120);
+            var ae = document.activeElement;
+            var typing = ae && (ae.tagName === 'TEXTAREA' || (ae.tagName === 'INPUT' && !/^(button|checkbox|radio|range|submit)$/i.test(ae.type)));
+            document.body.classList.toggle('kb-open', !!(open || (typing && window.matchMedia('(pointer: coarse)').matches)));
+        }
+        if (window.visualViewport) window.visualViewport.addEventListener('resize', _syncKbOpen);
+        document.addEventListener('focusin', function() { setTimeout(_syncKbOpen, 0); });
+        document.addEventListener('focusout', function() { setTimeout(_syncKbOpen, 50); });
 
         // Pusty ekran: przykłady w kategoriach — panel „Spróbuj" (≥1024) i pasek w miejscu „0".
         function renderCalcStart() {
@@ -5331,6 +5512,7 @@
                     var expr = chip.getAttribute('data-expr') || '';
                     if (!expr) return;
                     calcExpr.value = expr;
+                    STATE.calc.justEvaluated = false;
                     calcExpr.setSelectionRange(expr.length, expr.length);
                     liveEval();
                     calcExpr.focus();
@@ -8887,6 +9069,7 @@
                 md.className = 'np-mirror-line np-align-' + mctx.align;
                 _npFillMirrorLine(md, line, mctx);
                 var inf = _npLastChrome && _npLastChrome.infos ? _npLastChrome.infos[i] : null; // podkreślenia zmiennych bez „@”
+                if (inf && inf.isHeading && _npLastChrome.lines[i] === line) md.classList.add('np-sec-heading');
                 if (inf && inf.bareVars && inf.bareVars.length && _npLastChrome.lines[i] === line) _npMarkBareVars(md, inf.bareVars, (inf.labelPart || '').length);
             });
         }
@@ -8904,6 +9087,7 @@
         function _npListVars(text) { return _npEngine().listVars(text); }
 
         function _npLineKind(info, lineTrim) {
+            if (info.isHeading) return 'header'; // nagłówek sekcji — wygląda jak tekst, ale zeruje „razem”
             if (info.isSection) return 'section';
             if (info.isSubtotal) return 'subtotal';
             if (info.isTotal) return 'total';
@@ -10113,12 +10297,19 @@
                 // pełny wynik z dniem tygodnia jest w dymku („= 2.11.2026 (poniedziałek)”).
                 var shown = String(info.text).replace(/\s*\((poniedziałek|wtorek|środa|czwartek|piątek|sobota|niedziela)\)/, '');
                 if (shown !== String(info.text)) res.dataset.eqFull = '1';
+                if (info.negated) shown = '− ' + shown; // zaliczka / rabat / zwrot — odejmowane od sumy
                 if (_needsTightMarkup(shown)) _setResultMarkup(res, shown);
                 else res.textContent = shown;
+                if (info.negated) res.classList.add('np-res-minus');
                 res.dataset.eq = info.resolved || info.exprPart || '';
                 if (info.smart) res.classList.add('np-res-smart'); // policzone z „zwykłego zdania” — dymek mówi jak
                 // długi wynik (np. data z dniem tygodnia) jest w kolumnie ucięty „…” — pełny tekst w dymku
                 if (String(info.text).length > 14 || res.dataset.eqFull) res.dataset.eq = (res.dataset.eq ? res.dataset.eq + '/|' : '') + '= ' + info.text;
+                if (info.negated) res.dataset.eq = (res.dataset.eq ? res.dataset.eq + '/|' : '') + 'Odejmuje się od sumy (zaliczka / rabat / zwrot). Chcesz dodać? Napisz „+” przed kwotą.';
+                if (info.isGrand) {
+                    res.classList.add('np-res-grand');
+                    res.dataset.eq = (res.dataset.eq ? res.dataset.eq + '/|' : '') + 'Suma całej notatki (wszystkie sekcje)';
+                }
                 // „razem” pominęło linie bez wyniku — nie udajemy pełnej sumy
                 if (info.sumSkipped && info.sumSkipped.length) {
                     var n = info.sumSkipped.length;
@@ -10312,6 +10503,7 @@
                     fRow.style.minHeight = h + 'px';
                     var labelTxt = (info.labelPart && info.labelPart.replace(/:\s*$/, '').trim()) || lineTrim;
                     if (kind === 'section') labelTxt = '— — —';
+                    if (info.isHeading && info.sectionName) labelTxt = info.sectionName;
                     fRow.textContent = labelTxt || '\u00a0';
                     npFoldLayer.appendChild(fRow);
                 }
@@ -10386,6 +10578,7 @@
                 md.className = 'np-mirror-line np-align-' + mctx.align;
                 _npFillMirrorLine(md, line, mctx);
                 if (infos[i] && infos[i].bareVars && infos[i].bareVars.length) _npMarkBareVars(md, infos[i].bareVars, (infos[i].labelPart || '').length);
+                if (infos[i] && infos[i].isHeading) md.classList.add('np-sec-heading');
                 npMirror.appendChild(md);
             });
             function relayout() { _npLayoutLineChrome(lines, infos); _npObserveMirrorLines(); }
@@ -10546,6 +10739,7 @@
             var first = String(note.text || '').split('\n').map(function(s) { return s.trim(); }).filter(Boolean)[0];
             if (first && _NP_FMT && typeof _NP_FMT.plainDisplayText === 'function') first = _NP_FMT.plainDisplayText(first);
             else if (first && _NP_FMT && typeof _NP_FMT.stripMarkers === 'function') first = _NP_FMT.stripMarkers(first);
+            if (first) first = first.replace(/^#{1,3}\s+/, '').replace(/:\s*$/, ''); // nagłówek sekcji „# …” / „Nazwa:” bez znaczników
             if (!first) return 'Pusta notatka';
             return first.length > 38 ? first.slice(0, 38) + '…' : first;
         }
@@ -10998,6 +11192,7 @@
             if (!notepadModal) return;
             document.body.classList.add('notepad-open');
             notepadModal.setAttribute('aria-hidden', 'false');
+            if (typeof _syncBottomNav === 'function') _syncBottomNav();
             if (npBackdrop) npBackdrop.setAttribute('aria-hidden', 'false');
             npCloseList();
             updateFoldBtn();
@@ -11018,6 +11213,7 @@
             npHideTip();
             _npUnbindViewport();   // przywróć pełną wysokość nakładki
             _npStashCurrent(); flushNotepadPersist();   // zapisz bieżącą treść przy wyjściu
+            setTimeout(function() { if (typeof _syncBottomNav === 'function') _syncBottomNav(); }, 0);
             npCloseList();
             var active = document.activeElement;
             if (notepadBtn && typeof notepadBtn.focus === 'function') notepadBtn.focus();
@@ -12495,7 +12691,12 @@
                 // Tap w tekst oznacza świadomą edycję wyniku po '=', nie nowy kalkulatorowy wpis.
                 STATE.calc.justEvaluated = false;
             });
-            calcExpr.addEventListener('input', liveEval);
+            // Treść pola zmieniona po „=” (klawiatura telefonu, chip, przykład) → to już nowe działanie,
+            // więc kolejne „=” ma zapisać się do historii (wcześniej flaga zostawała i „=” nic nie robiło).
+            calcExpr.addEventListener('input', function() {
+                if (STATE.calc.justEvaluated && calcExpr.value !== STATE.calc._evalText) STATE.calc.justEvaluated = false;
+                liveEval();
+            });
             calcExpr.addEventListener('keydown', function(e) {
                 if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                     e.preventDefault();
@@ -13325,6 +13526,44 @@
                 var pend = evalNotepadLines('100 eur na zł');
                 results.push({ expr: 'notatka: waluta bez kursów → pendingFx', pass: pend[0].pendingFx === true && !pend[0].text, got: JSON.stringify(pend[0].pendingFx) });
                 STATE.fx.rates = savedR; STATE.fx.ts = savedT;
+                // ── Faza 2: sekcje (nagłówki), suma całej notatki, pozycje na minus ──
+                var sec = evalNotepadLines([
+                    'Wyjazd do Zakopanego',                    // 0 zwykły tekst — NIE dzieli sum
+                    '# Transport',                             // 1 nagłówek → sekcja
+                    'Paliwo: 420 km * 7 l/100 km * 6,50 zł',   // 2 191,10
+                    'Bilety: 4 * 45 zł',                       // 3 180
+                    'razem',                                   // 4 371,10 (tylko Transport)
+                    'Noclegi:',                                // 5 etykieta bez wartości → sekcja
+                    'Nocleg: 3 * 180 zł',                      // 6 540
+                    'Zaliczka od Ani 200 zł',                  // 7 −200 w sumie (wartość linii 200)
+                    'razem',                                   // 8 340
+                    'kupić prezent dla Ani',                   // 9 tekst
+                    'suma wszystkiego',                        // 10 711,10
+                    'Na osobę: łącznie / 4',                   // 11 177,78 zł
+                    'Zwrot: +30 zł',                           // 12 jawny „+” → dodatnie
+                    'ogółem'                                   // 13 741,10
+                ].join('\n'));
+                function chk2(i, val, label, extra) {
+                    var r = sec[i] || {};
+                    var ok = r.value != null && Math.abs(r.value - val) < 0.006 && (!extra || extra(r));
+                    results.push({ expr: 'sekcje: ' + label, pass: ok, got: r.text + ' ' + JSON.stringify({ neg: r.negated, grand: r.isGrand, head: r.isHeading }) });
+                }
+                results.push({ expr: 'sekcje: „# Transport” = nagłówek', pass: sec[1].isHeading === true && sec[1].sectionName === 'Transport', got: JSON.stringify(sec[1].sectionName) });
+                results.push({ expr: 'sekcje: „Noclegi:” = nagłówek', pass: sec[5].isHeading === true && sec[5].sectionName === 'Noclegi', got: JSON.stringify(sec[5].sectionName) });
+                results.push({ expr: 'sekcje: zwykły tekst NIE jest nagłówkiem', pass: !sec[0].isHeading && !sec[9].isHeading, got: sec[0].isHeading + ' ' + sec[9].isHeading });
+                chk2(4, 371.1, 'razem Transport = 371,10 zł', function(r) { return /zł/.test(r.text); });
+                chk2(7, 200, 'zaliczka: wartość linii 200, odejmowana', function(r) { return r.negated === true; });
+                chk2(8, 340, 'razem Noclegi = 540 − 200 = 340 zł');
+                chk2(10, 711.1, 'suma wszystkiego = 711,10 zł', function(r) { return r.isGrand === true && /zł/.test(r.text); });
+                chk2(11, 177.78, 'łącznie / 4 = 177,78 zł (niesie zł)', function(r) { return /zł/.test(r.text); });
+                chk2(12, 30, 'jawny „+30 zł” przy „Zwrot” NIE odejmuje', function(r) { return !r.negated; });
+                chk2(13, 741.1, 'ogółem = 741,10 zł');
+                var neg2 = evalNotepadLines('A: 100 zł\nRabat: 20 zł\nZwrot za bilety: 15 zł\nBon 10 zł\nrazem');
+                results.push({ expr: 'minus: rabat/zwrot/bon odejmowane → 55 zł', pass: neg2[4].value === 55, got: neg2[4].text });
+                var dash = evalNotepadLines('A: 10\n---\nB: 5\nrazem\nłącznie');
+                results.push({ expr: 'sekcje: --- zeruje razem, nie łącznie', pass: dash[3].value === 5 && dash[4].value === 15, got: dash[3].text + ' / ' + dash[4].text });
+                var grandSkip = evalNotepadLines('A: 10\nB: 3 * nieznanacena\n# Druga\nC: 5\nłącznie');
+                results.push({ expr: 'łącznie: pominięta linia z innej sekcji → „!”', pass: grandSkip[4].value === 15 && JSON.stringify(grandSkip[4].sumSkipped) === '[2]', got: JSON.stringify(grandSkip[4].sumSkipped) });
                 STATE.settings.notepadSumUnit = savedSU; STATE.settings.notepadUnitMix = savedMix2; STATE.settings.notepadAutoUnit = savedAuto;
             })();
             // …ale nie w zdaniu: „paliwo po 6,50 zł za litr” to 6,50 zł (jedna kwota), nie 100 × 6,50 zł

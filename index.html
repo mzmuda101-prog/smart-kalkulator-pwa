@@ -20,7 +20,7 @@
          jasnym tłem przy wybranym/systemowym dark. Lekki klucz osobny (matm0_theme):
          'dark' | 'light' | brak = auto (śledzi system).
          [EN] External file (not inline) so CSP stays script-src 'self'; sync load before CSS. -->
-    <script src="js/theme-init.js?v=v1.04.29"></script>
+    <script src="js/theme-init.js?v=v1.04.41"></script>
     <meta name="application-name" content="Smart Kalkulator">
     <meta name="format-detection" content="telephone=no">
     <meta name="description" content="Szwajcarski scyzoryk do obliczeń codziennych i technicznych">
@@ -28,8 +28,8 @@
     <link rel="icon" href="assets/img/icon-192.png" type="image/png">
     <link rel="apple-touch-icon" href="assets/img/icon-192.png">
     <title>Smart Kalkulator</title>
-    <link rel="stylesheet" href="styles.css?v=v1.04.29" id="matm0MainCss">
-    <script src="js/cache-bust.js?v=v1.04.29" data-phase="head"></script>
+    <link rel="stylesheet" href="styles.css?v=v1.04.41" id="matm0MainCss">
+    <script src="js/cache-bust.js?v=v1.04.41" data-phase="head"></script>
 </head>
 
 <body>
@@ -61,6 +61,8 @@
             <symbol id="i-share" viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></symbol>
             <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
             <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+            <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 13v8M8 17l4 4 4-4"/><path d="M20 16.6A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.3"/></symbol>
+            <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></symbol>
             <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
             <symbol id="i-coins" viewBox="0 0 24 24"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18M7 6h1v4M16.71 13.88l.7.71-2.82 2.82"/></symbol>
             <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
@@ -139,6 +141,8 @@
                     <button class="calc-layout-toggle no-haptic" type="button" aria-pressed="false"></button>
                 </div>
                 <div class="calc-display is-empty">
+                    <!-- Taśma (tryb „zdanie najpierw”): ostatnie obliczenia nad polem — renderCalcTape() w app.js. -->
+                    <div class="calc-tape" id="calcTape" hidden aria-label="Ostatnie obliczenia"></div>
                     <div class="calc-expr-wrap">
                         <textarea class="calc-expression" id="calcExpr" rows="1"
                             autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
@@ -973,6 +977,37 @@
     </main>
 
     <!-- ============================================================
+    [PL] Dolna nawigacja — tylko telefon (< 640 px). Zastępuje górne zakładki i ikonę
+         notatnika w nagłówku: kciuk sięga dołu ekranu, a notatki przestają być ukrytą ikoną.
+         Chowa się przy otwartej klawiaturze (body.kb-open).
+    ============================================================ -->
+    <nav class="bottom-nav" id="bottomNav" aria-label="Nawigacja główna">
+        <button type="button" class="bottom-nav-btn is-active" data-nav="calc" aria-current="page">
+            <svg class="ui-icon" aria-hidden="true"><use href="#i-calc"/></svg><span>Licz</span>
+        </button>
+        <button type="button" class="bottom-nav-btn" data-nav="notes">
+            <svg class="ui-icon" aria-hidden="true"><use href="#i-notes"/></svg><span>Notatki</span>
+        </button>
+        <button type="button" class="bottom-nav-btn" data-nav="tools" aria-haspopup="true" aria-expanded="false">
+            <svg class="ui-icon" aria-hidden="true"><use href="#i-grid"/></svg><span>Narzędzia</span>
+        </button>
+    </nav>
+    <div class="tools-sheet" id="toolsSheet" hidden role="menu" aria-label="Narzędzia">
+        <button type="button" role="menuitem" class="tools-sheet-item" data-tab="komenda">
+            <svg class="ui-icon" aria-hidden="true"><use href="#i-terminal"/></svg>
+            <span><strong>Komenda</strong><small>wykresy, podziały, geometria</small></span>
+        </button>
+        <button type="button" role="menuitem" class="tools-sheet-item" data-tab="warsztat">
+            <svg class="ui-icon" aria-hidden="true"><use href="#i-wrench"/></svg>
+            <span><strong>Warsztat</strong><small>remont, materiały, prąd</small></span>
+        </button>
+        <button type="button" role="menuitem" class="tools-sheet-item" data-tab="constants">
+            <svg class="ui-icon" aria-hidden="true"><use href="#i-braces"/></svg>
+            <span><strong>Moje stałe</strong><small>własne wartości i jednostki</small></span>
+        </button>
+    </div>
+
+    <!-- ============================================================
     [EN] Slide-up History Drawer
     ============================================================ -->
     <div class="history-backdrop" id="historyBackdrop" aria-hidden="true"></div>
@@ -1046,7 +1081,11 @@
                 <section>
                     <h4>Sumy i sekcje</h4>
                     <p><code>razem</code> / <code>suma</code> — suma wyników od ostatniego <code>---</code>. <code>półsuma</code> / <code>subtotal</code> — podobnie, inny styl.</p>
-                    <p class="help-command" data-command="---"><span class="help-pair"><code>---</code></span> nowa sekcja (zeruje sumę)</p>
+                    <p class="help-command" data-command="# Transport"><span class="help-pair"><code># Nazwa</code><span class="help-sep">·</span><code>Nazwa:</code><span class="help-sep">·</span>nagłówek H1–H3</span> nowa sekcja — <code>razem</code> niżej liczy tylko ją</p>
+                    <p class="help-command" data-command="---"><span class="help-pair"><code>---</code></span> nowa sekcja bez nazwy (zeruje sumę)</p>
+                    <p class="help-command" data-command="suma wszystkiego"><span class="help-pair"><code>suma wszystkiego</code><span class="help-sep">·</span><code>łącznie</code><span class="help-sep">·</span><code>ogółem</code></span> suma całej notatki (wszystkie sekcje)</p>
+                    <p class="help-command" data-command="Zaliczka od Ani 200 zł"><span class="help-pair"><code>Zaliczka / rabat / zwrot / bon …</code></span> odejmuje się od sumy (pokazane jako „− 200 zł”); <code>+</code> przed kwotą = dodaj</p>
+                    <p>Zwykła linia tekstu (np. <code>kupić prezent</code>) <strong>nie</strong> dzieli sum — tylko nagłówek.</p>
                     <p class="help-command" data-command="razem(usd)"><span class="help-pair"><code>razem(jednostka)</code><span class="help-sep">·</span><code>półsuma(jednostka)</code></span> ręczna jednostka sumy → też <code>@razem</code></p>
                     <p><code>razem</code> dziedziczy jednostkę, gdy wszystkie pozycje mają tę samą (zł + zł → <code>720 zł</code>, też w <code>razem / 4</code>). Wyłączysz w ⚙️.</p>
                     <p>Gdy jakaś linia z liczbą nie ma wyniku, <code>razem</code> dostaje <strong>„!”</strong> — dymek mówi, które linie pominęło.</p>
@@ -1311,25 +1350,25 @@
 
     <!-- defer: statyczny UI (nagłówek, wyświetlacz, zakładki) maluje się ZANIM wykona się JS
          (app.js ~525 KB). Kolejność zachowana, DOM gotowy przed wykonaniem. -->
-    <script src="js/cache-bust.js?v=v1.04.29" data-phase="defer"></script>
-    <script defer src="version.js?v=v1.04.29"></script>
-    <script defer src="js/cursor-hint.js?v=v1.04.29"></script>
-    <script defer src="js/vendor/decimal.js?v=v1.04.29"></script>
-    <script defer src="js/money-decimal.js?v=v1.04.29"></script>
-    <script defer src="js/numeric-eval.js?v=v1.04.29"></script>
-    <script defer src="js/data-tables.js?v=v1.04.29"></script>
-    <script defer src="js/format-pl.js?v=v1.04.29"></script>
-    <script defer src="js/pl-fold.js?v=v1.04.29"></script>
-    <script defer src="js/smart-parser.js?v=v1.04.29"></script>
-    <script defer src="js/smart-quantity.js?v=v1.04.29"></script>
-    <script defer src="js/quantity-algebra.js?v=v1.04.29"></script>
-    <script defer src="js/synonyms.js?v=v1.04.29"></script>
-    <script defer src="js/hint-rules.js?v=v1.04.29"></script>
-    <script defer src="js/notepad-format.js?v=v1.04.29"></script>
-    <script defer src="js/notepad-engine.js?v=v1.04.29"></script>
-    <script defer src="command-definitions.js?v=v1.04.29"></script>
-    <script defer src="js/calc-layout-tune.js?v=v1.04.29"></script>
-    <script defer src="app.js?v=v1.04.29"></script>
+    <script src="js/cache-bust.js?v=v1.04.41" data-phase="defer"></script>
+    <script defer src="version.js?v=v1.04.41"></script>
+    <script defer src="js/cursor-hint.js?v=v1.04.41"></script>
+    <script defer src="js/vendor/decimal.js?v=v1.04.41"></script>
+    <script defer src="js/money-decimal.js?v=v1.04.41"></script>
+    <script defer src="js/numeric-eval.js?v=v1.04.41"></script>
+    <script defer src="js/data-tables.js?v=v1.04.41"></script>
+    <script defer src="js/format-pl.js?v=v1.04.41"></script>
+    <script defer src="js/pl-fold.js?v=v1.04.41"></script>
+    <script defer src="js/smart-parser.js?v=v1.04.41"></script>
+    <script defer src="js/smart-quantity.js?v=v1.04.41"></script>
+    <script defer src="js/quantity-algebra.js?v=v1.04.41"></script>
+    <script defer src="js/synonyms.js?v=v1.04.41"></script>
+    <script defer src="js/hint-rules.js?v=v1.04.41"></script>
+    <script defer src="js/notepad-format.js?v=v1.04.41"></script>
+    <script defer src="js/notepad-engine.js?v=v1.04.41"></script>
+    <script defer src="command-definitions.js?v=v1.04.41"></script>
+    <script defer src="js/calc-layout-tune.js?v=v1.04.41"></script>
+    <script defer src="app.js?v=v1.04.41"></script>
 </body>
 
 </html>
