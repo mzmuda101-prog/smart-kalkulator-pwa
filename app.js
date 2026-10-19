@@ -9207,6 +9207,20 @@
             });
             npBody.addEventListener('select', _npOnFmtSelectionLive);
             npBody.addEventListener('keyup', _npOnFmtSelectionEnd);
+            // Skróty jak w Wordzie/Notatkach: ⌘/Ctrl+B, I, U; ⌘/Ctrl+Shift+X = przekreślenie.
+            // e.code (fizyczny klawisz) — działa też na polskim układzie i przy włączonym Caps Lock.
+            npBody.addEventListener('keydown', function(e) {
+                if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
+                var act = null;
+                if (!e.shiftKey && e.code === 'KeyB') act = 'bold';
+                else if (!e.shiftKey && e.code === 'KeyI') act = 'italic';
+                else if (!e.shiftKey && e.code === 'KeyU') act = 'underline';
+                else if (e.shiftKey && e.code === 'KeyX') act = 'strike';
+                if (!act || npBody.selectionStart === npBody.selectionEnd) return;
+                e.preventDefault();
+                _npRunEditorAction(act);
+                _npScheduleSelectionFmtMenu();
+            });
             npBody.addEventListener('keydown', function() {
                 requestAnimationFrame(function() {
                     _npUpdateVisualCaret();
@@ -9323,7 +9337,17 @@
             var val = npBody.value;
             var next = val.slice(0, start) + insert + val.slice(end);
             if (_NP_FMT && typeof _NP_FMT.sanitizeLoadedMarkers === 'function') next = _NP_FMT.sanitizeLoadedMarkers(next);
-            npBody.value = next;
+            // Przez execCommand, nie „value =”: przypisanie value czyściło historię cofania przeglądarki
+            // (⌘Z / Ctrl+Z nie cofało pogrubienia, a do tego przepadało wcześniejsze pisanie).
+            var viaCmd = false;
+            try {
+                if (document.activeElement !== npBody) npBody.focus({ preventScroll: true });
+                npBody.setSelectionRange(start, end);
+                viaCmd = insert
+                    ? document.execCommand('insertText', false, insert)
+                    : (start === end || document.execCommand('delete', false));
+            } catch (_) { viaCmd = false; }
+            if (!viaCmd || npBody.value !== next) npBody.value = next; // brak execCommand / sanitizer coś poprawił
             _npCommit();
         }
         function _npMarkerEnvelope(val, start, end, open, close) {
@@ -9614,8 +9638,16 @@
             _npUpdateVisualCaret();
             return idx;
         }
+        // Podwójne/potrójne kliknięcie i przytrzymanie palcem ZAZNACZAJĄ słowo natywnie — własne
+        // ustawienie kursora po „tapnięciu” zwijało to zaznaczenie (dwuklik nie zaznaczał słowa,
+        // menu formatowania się nie pokazywało). Natywne zaznaczenie zostawiamy w spokoju.
+        function _npKeepNativeSelection(e) {
+            if (e && e.detail >= 2) return true;
+            return !!(npBody && npBody.selectionStart !== npBody.selectionEnd);
+        }
         function _npOnFmtPointerUp(e) { // [EN] tap — kursor z metryk mirror (H/B/I); textarea kłamie przy innym font-size
             var pt = e.changedTouches && e.changedTouches[0] ? e.changedTouches[0] : e;
+            if (_npKeepNativeSelection(e)) { _npCaretTap = null; _npOnFmtSelectionEnd(); return; }
             // [EN] pointerup + mouseup/touchend na tym samym geście — konsumuj down tylko raz
             if (!_npCaretTap) {
                 // [EN] Android bywa: touchend bez pointerdown — i tak ustaw z up coords
@@ -9831,6 +9863,13 @@
             var x = Math.min(Math.max(pad, cx - menuW / 2), vw - menuW - pad);
             var yAbove = rect.top - menuH - gap;
             var yBelow = rect.bottom + gap;
+            if (_npIsCoarsePointer()) {
+                // Dotyk: systemowe menu (Kopiuj/Wklej) iOS i Androida wyskakuje NAD zaznaczeniem —
+                // nasz pasek idzie POD, z zapasem na uchwyty zaznaczenia (wcześniej oba nachodziły).
+                var vvH = window.visualViewport ? window.visualViewport.height : vh;
+                var yBelowTouch = rect.bottom + 30;
+                if (yBelowTouch + menuH <= vvH - pad) return { x: x, y: yBelowTouch };
+            }
             if (yAbove >= pad) return { x: x, y: yAbove };
             if (yBelow + menuH <= vh - pad) return { x: x, y: yBelow };
             if (_npIsCoarsePointer()) { // [EN] obok zaznaczenia — nie koliduje z natywnym callout Kopiuj/Wytnij
@@ -10083,8 +10122,23 @@
             }
             _npCtxMenuMode = opts.mode || 'panel';
             npCtxMenu.classList.toggle('is-selection', _npCtxMenuMode === 'selection');
+            if (_npCtxMenuMode === 'selection') _npSyncCtxActiveStates();
             npCtxMenu.hidden = false;
             _npPositionCtxMenu(x, y);
+        }
+        // Przycisk formatu pokazuje, że format JUŻ obejmuje zaznaczenie (B podświetlone = pogrubione;
+        // kliknięcie zdejmie). Wcześniej przyciski wyglądały zawsze tak samo.
+        function _npSyncCtxActiveStates() {
+            if (!npCtxMenu || !npBody || !_NP_FMT || typeof _NP_FMT.wrapByAct !== 'function') return;
+            var st = npBody.selectionStart, en = npBody.selectionEnd;
+            if (st === en && _npFmtSel) { st = _npFmtSel.start; en = _npFmtSel.end; }
+            npCtxMenu.querySelectorAll('.np-ctx-btn[data-np-act]').forEach(function(btn) {
+                var w = _NP_FMT.wrapByAct(btn.getAttribute('data-np-act'));
+                if (!w) return;
+                var on = st !== en && !!_npMarkerEnvelope(npBody.value, st, en, w.open, w.close).wrapped;
+                btn.classList.toggle('is-on', on);
+                btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+            });
         }
         function _npScheduleSelectionFmtMenu() {
             if (_npSelMenuRaf) cancelAnimationFrame(_npSelMenuRaf);

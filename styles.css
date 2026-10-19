@@ -5161,3 +5161,6 @@ body.kb-open.notepad-open .np-head { padding-top: 8px; padding-bottom: 8px; }
 @media (max-width: 639px) {
     #panel-calculator .calc-tools { padding-bottom: 4px; }
 }
+
+/* Menu formatowania: format już włączony na zaznaczeniu */
+.np-ctx-btn.is-on { background: var(--primary-light); color: var(--primary); box-shadow: inset 0 0 0 1.5px var(--primary); }
