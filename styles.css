@@ -4483,7 +4483,7 @@
            samą hierarchię bez dotykania parsera ani mechaniki PWA.
            ============================================================ */
         :root {
-            --primary: #3974dc;
+            --primary: #3068cf; /* tekst na --primary-light 4,6:1, na białym 5,2:1 (było #3974dc = 3,9 / 4,46) */
             --primary-hover: #275fbf;
             --primary-light: #e9f0ff;
             --bg: #f4f6f9;
@@ -4492,7 +4492,7 @@
             --surface-2: #f7f8fb;
             --text: #181b22;
             --text-secondary: #5d6470;
-            --text-muted: #8c94a3;
+            --text-muted: #687080; /* kontrast ≥4,5 na białym i --surface-2 (WCAG AA; było #8c94a3 = 3,0) */
             --border: #e1e5ec;
             --border-focus: #a9c4f5;
             --calc-number-bg: #f1f3f7;
@@ -4511,9 +4511,9 @@
             --shadow-lg: 0 24px 70px rgba(31, 47, 75, 0.10);
             --shadow-primary: 0 8px 18px rgba(57, 116, 220, 0.22);
             --shadow-accent: 0 5px 12px rgba(45, 57, 76, 0.08);
-            --calc-clear-pink: #cf4978;
+            --calc-clear-pink: #c24676; /* biały napis 4,7:1 (było #cf4978 = 4,3) */
             --calc-clear-pink-hover: #bd3d6a;
-            --calc-clear-pink-halo: 0 7px 20px rgba(207, 73, 120, 0.30), inset 0 1px rgba(255,255,255,.22);
+            --calc-clear-pink-halo: 0 7px 20px rgba(194, 70, 118, 0.30), inset 0 1px rgba(255,255,255,.22);
             --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
             --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
         }
@@ -4527,7 +4527,7 @@
             --surface-2: #151820;
             --text: #f1f3f7;
             --text-secondary: #adb4c0;
-            --text-muted: #777f8d;
+            --text-muted: #868e9c; /* kontrast ≥5 na tłach ciemnego motywu (było #777f8d = 4,2) */
             --border: #303540;
             --border-focus: #5a82c6;
             --calc-number-bg: #22262f;
@@ -4541,9 +4541,9 @@
             --shadow: 0 18px 44px rgba(0, 0, 0, 0.24), 0 2px 8px rgba(0, 0, 0, 0.22);
             --shadow-primary: 0 8px 18px rgba(87, 143, 245, 0.20);
             --shadow-accent: 0 5px 12px rgba(0, 0, 0, 0.18);
-            --calc-clear-pink: #db5d8b;
-            --calc-clear-pink-hover: #ed739d;
-            --calc-clear-pink-halo: 0 8px 23px rgba(219, 93, 139, 0.26), inset 0 1px rgba(255,255,255,.17);
+            --calc-clear-pink: #c24676; /* biały napis 4,7:1 (było #db5d8b = 3,5) */
+            --calc-clear-pink-hover: #cf5584;
+            --calc-clear-pink-halo: 0 8px 23px rgba(194, 70, 118, 0.28), inset 0 1px rgba(255,255,255,.17);
         }
         .app-header {
             padding-top: calc(13px + var(--safe-top));

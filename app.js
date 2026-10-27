@@ -8361,7 +8361,7 @@
             swSoftUpdateVersion = (!swWaitingWorker && remoteVer) ? remoteVer : null;
             if (!updateBanner || (!swWaitingWorker && !swSoftUpdateVersion)) return;
             updateBanner.classList.add('is-visible');
-            updateBanner.setAttribute('aria-hidden', 'false');
+            updateBanner.setAttribute('aria-hidden', 'false'); updateBanner.inert = false;
             var label = updateBanner.querySelector('.update-banner-text');
             var verLabel = remoteVer || swSoftUpdateVersion;
             if (label && verLabel) label.textContent = '🔄 Dostępna wersja ' + verLabel;
@@ -8372,7 +8372,7 @@
         function hideUpdateBanner() {
             if (!updateBanner) return;
             updateBanner.classList.remove('is-visible');
-            updateBanner.setAttribute('aria-hidden', 'true');
+            updateBanner.setAttribute('aria-hidden', 'true'); updateBanner.inert = true; // ukryte = poza Tabem i czytnikiem
             swSoftUpdateVersion = null;
         }
         function purgeAppCaches() { // [EN] wyczyść Cache Storage przed przeładowaniem po update
@@ -8722,14 +8722,14 @@
             updateFxStatusLine();
             if (settingsVersion) settingsVersion.textContent = 'Wersja ' + (window.APP_VERSION || '—');
             document.body.classList.add('settings-open');
-            settingsModal.setAttribute('aria-hidden', 'false');
+            settingsModal.setAttribute('aria-hidden', 'false'); settingsModal.inert = false;
             settingsBackdrop.setAttribute('aria-hidden', 'false');
             // Kursy mogą być stare/niepobrane — odśwież w tle, by status był aktualny.
             ensureFxRates();
         }
         function closeSettings() {
             document.body.classList.remove('settings-open');
-            settingsModal.setAttribute('aria-hidden', 'true');
+            settingsModal.setAttribute('aria-hidden', 'true'); settingsModal.inert = true; // zamknięte = poza Tabem
             settingsBackdrop.setAttribute('aria-hidden', 'true');
         }
 
@@ -11408,7 +11408,7 @@
         function openNotepad() {
             if (!notepadModal) return;
             document.body.classList.add('notepad-open');
-            notepadModal.setAttribute('aria-hidden', 'false');
+            notepadModal.setAttribute('aria-hidden', 'false'); notepadModal.inert = false;
             if (typeof _syncBottomNav === 'function') _syncBottomNav();
             if (npBackdrop) npBackdrop.setAttribute('aria-hidden', 'false');
             npCloseList();
@@ -11449,7 +11449,7 @@
             if (notepadBtn && typeof notepadBtn.focus === 'function') notepadBtn.focus();
             if (active && notepadModal && notepadModal.contains(document.activeElement)) document.activeElement.blur();
             document.body.classList.remove('notepad-open');
-            if (notepadModal) notepadModal.setAttribute('aria-hidden', 'true');
+            if (notepadModal) { notepadModal.setAttribute('aria-hidden', 'true'); notepadModal.inert = true; } // zamknięty = poza Tabem
             if (npBackdrop) npBackdrop.setAttribute('aria-hidden', 'true');
         }
         if (notepadBtn) notepadBtn.addEventListener('click', openNotepad);

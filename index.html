@@ -20,7 +20,7 @@
          jasnym tłem przy wybranym/systemowym dark. Lekki klucz osobny (matm0_theme):
          'dark' | 'light' | brak = auto (śledzi system).
          [EN] External file (not inline) so CSP stays script-src 'self'; sync load before CSS. -->
-    <script src="js/theme-init.js?v=v1.04.54"></script>
+    <script src="js/theme-init.js?v=v1.04.55"></script>
     <meta name="application-name" content="Smart Kalkulator">
     <meta name="format-detection" content="telephone=no">
     <meta name="description" content="Szwajcarski scyzoryk do obliczeń codziennych i technicznych">
@@ -28,8 +28,8 @@
     <link rel="icon" href="assets/img/icon-192.png" type="image/png">
     <link rel="apple-touch-icon" href="assets/img/icon-192.png">
     <title>Smart Kalkulator</title>
-    <link rel="stylesheet" href="styles.css?v=v1.04.54" id="matm0MainCss">
-    <script src="js/cache-bust.js?v=v1.04.54" data-phase="head"></script>
+    <link rel="stylesheet" href="styles.css?v=v1.04.55" id="matm0MainCss">
+    <script src="js/cache-bust.js?v=v1.04.55" data-phase="head"></script>
 </head>
 
 <body>
@@ -163,7 +163,7 @@
                             data-hint-touch="on" data-hint-tap>Rozpisz</button>
                         <div class="calc-result" id="calcResult" aria-live="polite">0</div>
                         <!-- Pusty ekran (< 1024 px): przykłady z kategoriami zamiast samotnego „0”. -->
-                        <div class="calc-start" id="calcStart" aria-label="Przykłady na start"></div>
+                        <div class="calc-start" id="calcStart" role="group" aria-label="Przykłady na start"></div>
                         <button class="calc-copy-btn" id="calcCopyBtn" type="button" title="Kopiuj wynik (⌘ Enter)"
                             aria-label="Kopiuj wynik">⧉ Kopiuj</button>
                     </div>
@@ -1142,7 +1142,7 @@
     ============================================================ -->
     <div class="np-backdrop" id="npBackdrop" aria-hidden="true"></div>
     <div class="notepad-modal" id="notepadModal" role="dialog" aria-modal="true"
-        aria-labelledby="npTitleBtn" aria-hidden="true">
+        aria-labelledby="npTitleBtn" aria-hidden="true" inert>
         <div class="np-head">
             <button class="np-head-btn" id="npListBtn" type="button" aria-label="Lista notatek" title="Notatki"><span class="np-list-btn-icon"><svg class="ui-icon" aria-hidden="true"><use href="#i-list"/></svg></span></button>
             <button type="button" id="npTitleBtn" class="np-title-btn" aria-label="Tytuł notatki — dotknij, by zmienić">📝 Notatnik</button>
@@ -1203,7 +1203,7 @@
         <div class="cursor-hint-scaler"><span>Kliknij</span></div>
     </div>
     <div class="settings-modal" id="settingsModal" role="dialog" aria-modal="true"
-        aria-labelledby="settingsTitle" aria-hidden="true">
+        aria-labelledby="settingsTitle" aria-hidden="true" inert>
         <div class="settings-head">
             <h3 id="settingsTitle">⚙️ Ustawienia</h3>
             <button class="settings-close" id="settingsClose" type="button" aria-label="Zamknij">✕</button>
@@ -1343,7 +1343,7 @@
     <!-- ============================================================
     [EN] Update banner — graceful PWA update prompt
     ============================================================ -->
-    <div class="update-banner" id="updateBanner" role="status" aria-hidden="true">
+    <div class="update-banner" id="updateBanner" role="status" aria-hidden="true" inert>
         <span class="update-banner-text">🔄 Dostępna nowa wersja</span>
         <button class="update-banner-btn" id="updateBannerBtn" type="button">Odśwież</button>
         <button class="update-banner-close" id="updateBannerClose" type="button" aria-label="Zamknij">✕</button>
@@ -1356,25 +1356,25 @@
 
     <!-- defer: statyczny UI (nagłówek, wyświetlacz, zakładki) maluje się ZANIM wykona się JS
          (app.js ~525 KB). Kolejność zachowana, DOM gotowy przed wykonaniem. -->
-    <script src="js/cache-bust.js?v=v1.04.54" data-phase="defer"></script>
-    <script defer src="version.js?v=v1.04.54"></script>
-    <script defer src="js/cursor-hint.js?v=v1.04.54"></script>
-    <script defer src="js/vendor/decimal.js?v=v1.04.54"></script>
-    <script defer src="js/money-decimal.js?v=v1.04.54"></script>
-    <script defer src="js/numeric-eval.js?v=v1.04.54"></script>
-    <script defer src="js/data-tables.js?v=v1.04.54"></script>
-    <script defer src="js/format-pl.js?v=v1.04.54"></script>
-    <script defer src="js/pl-fold.js?v=v1.04.54"></script>
-    <script defer src="js/smart-parser.js?v=v1.04.54"></script>
-    <script defer src="js/smart-quantity.js?v=v1.04.54"></script>
-    <script defer src="js/quantity-algebra.js?v=v1.04.54"></script>
-    <script defer src="js/synonyms.js?v=v1.04.54"></script>
-    <script defer src="js/hint-rules.js?v=v1.04.54"></script>
-    <script defer src="js/notepad-format.js?v=v1.04.54"></script>
-    <script defer src="js/notepad-engine.js?v=v1.04.54"></script>
-    <script defer src="command-definitions.js?v=v1.04.54"></script>
-    <script defer src="js/calc-layout-tune.js?v=v1.04.54"></script>
-    <script defer src="app.js?v=v1.04.54"></script>
+    <script src="js/cache-bust.js?v=v1.04.55" data-phase="defer"></script>
+    <script defer src="version.js?v=v1.04.55"></script>
+    <script defer src="js/cursor-hint.js?v=v1.04.55"></script>
+    <script defer src="js/vendor/decimal.js?v=v1.04.55"></script>
+    <script defer src="js/money-decimal.js?v=v1.04.55"></script>
+    <script defer src="js/numeric-eval.js?v=v1.04.55"></script>
+    <script defer src="js/data-tables.js?v=v1.04.55"></script>
+    <script defer src="js/format-pl.js?v=v1.04.55"></script>
+    <script defer src="js/pl-fold.js?v=v1.04.55"></script>
+    <script defer src="js/smart-parser.js?v=v1.04.55"></script>
+    <script defer src="js/smart-quantity.js?v=v1.04.55"></script>
+    <script defer src="js/quantity-algebra.js?v=v1.04.55"></script>
+    <script defer src="js/synonyms.js?v=v1.04.55"></script>
+    <script defer src="js/hint-rules.js?v=v1.04.55"></script>
+    <script defer src="js/notepad-format.js?v=v1.04.55"></script>
+    <script defer src="js/notepad-engine.js?v=v1.04.55"></script>
+    <script defer src="command-definitions.js?v=v1.04.55"></script>
+    <script defer src="js/calc-layout-tune.js?v=v1.04.55"></script>
+    <script defer src="app.js?v=v1.04.55"></script>
 </body>
 
 </html>
