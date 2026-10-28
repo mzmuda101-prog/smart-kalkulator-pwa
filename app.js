@@ -5448,13 +5448,17 @@
         }, true);
         document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeToolsSheet(); });
         // Klawiatura ekranowa otwarta → chowamy dolny pasek (zjadałby miejsce nad klawiaturą na Androidzie).
+        // iOS: visualViewport kurczy się wiarygodnie, więc liczy się TYLKO on. Sam fokus nie
+        // znaczy, że klawiatura jest (fokus poza gestem, klawiatura sprzętowa iPada) — wtedy
+        // pasek zostaje. Fallback „fokus w polu na dotyku” zostaje dla Androida (resizes-content).
+        var _kbIsIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
         function _syncKbOpen() {
             var vv = window.visualViewport;
             var open = !!vv && (window.innerHeight - vv.height > 120);
             var ae = document.activeElement;
             var typing = ae && (ae.tagName === 'TEXTAREA' || (ae.tagName === 'INPUT' && !/^(button|checkbox|radio|range|submit)$/i.test(ae.type)));
             var was = document.body.classList.contains('kb-open');
-            document.body.classList.toggle('kb-open', !!(open || (typing && window.matchMedia('(pointer: coarse)').matches)));
+            document.body.classList.toggle('kb-open', !!(open || (!_kbIsIOS && typing && window.matchMedia('(pointer: coarse)').matches)));
             if (was !== document.body.classList.contains('kb-open') && typeof _npSyncViewport === 'function') _npSyncViewport(); // pasek znika/wraca → wysokość ekranu Notatek
         }
         if (window.visualViewport) window.visualViewport.addEventListener('resize', _syncKbOpen);
@@ -11420,10 +11424,12 @@
             _npSyncViewport();   // ekran Notatek kończy się nad dolnym paskiem
             var memo = _npCurrentId && _npScrollMemo[_npCurrentId];
             if (memo) requestAnimationFrame(function() { requestAnimationFrame(function() { _npResetEditorScroll(memo); }); });
-            // Ekran Notatek (dotyk) NIE wysuwa klawiatury sam — to przełączenie widoku, nie „pisz”;
-            // pusta notatka i desktop dostają fokus jak dotąd.
+            // Ekran Notatek (dotyk) NIE dostaje fokusu sam — to przełączenie widoku, nie „pisz”.
+            // Dotyczy też PUSTEJ notatki: iOS nie wysuwa klawiatury przy fokusie z setTimeout
+            // (poza gestem), a fokus i tak włączał kb-open → znikał dolny pasek, podpowiedź
+            // i „Przykład: wyjazd”, został pusty ekran bez wyjścia. Desktop dostaje fokus jak dotąd.
             var touchScreen = _npIsScreenMode() && window.matchMedia('(pointer: coarse)').matches;
-            if (touchScreen && npBody && npBody.value.trim()) return;
+            if (touchScreen) return;
             // Fokus odroczony (po animacji). Guard: jeśli zamknięto w międzyczasie — nie fokusuj
             // ukrytego pola (inaczej aria-hidden + fokus = ostrzeżenie a11y).
             setTimeout(function() {
