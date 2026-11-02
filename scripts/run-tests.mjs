@@ -37,6 +37,7 @@ const SUITES = [
     'test/timezone-regression.js',
     'test/hint-rules.js',
     'test/synonyms.js',
+    'test/math-steps.js',
     'test/placeholder-examples.js',
     'test/settings-migration.js',
 ];

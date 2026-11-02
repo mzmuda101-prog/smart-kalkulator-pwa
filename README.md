@@ -9,6 +9,7 @@ PWA do obliczen codziennych i technicznych. Rdzen jest deterministyczny (parser 
 
 ## Funkcje
 
+- **Rozwiazania krok po kroku** — `rozwiaz x^2 - 5x + 6 = 0`, `uprosc`, `rozloz`, `kroki 1/2 + 1/3`: rownania (takze przez delte), rozklad na czynniki i rachunki na dokladnych ulamkach; kazdy wynik rownania jest sprawdzany przez podstawienie.
 - **Parser zdan (PL/EN)** — jednostki i algebra wymiarowa (`5 km * 5 km` → km²), waluty
   (NBP + Frankfurter), VAT/brutto/netto, daty, strefy czasowe, czas roboczy, BigInt na
   duzych liczbach calkowitych.

@@ -179,6 +179,19 @@
                 ],
             },
             {
+                title: 'Równania i algebra — krok po kroku',
+                items: [
+                    { prose: 'Wynik ma przycisk <code>Kroki</code>, a <code>=</code> otwiera całe rozwiązanie. Liczy dokładnie, na ułamkach.' },
+                    { syntax: 'rozwiąż równanie', syntaxAlt: 'solve equation', command: 'rozwiąż 3(x - 2) = x + 4', yields: 'x = 5', description: 'liniowe; samo równanie też działa' },
+                    { syntax: 'rozwiąż kwadratowe', syntaxAlt: 'solve quadratic', command: 'rozwiąż x^2 - 5x + 6 = 0', yields: 'x₁ = 2, x₂ = 3', description: 'przez wyróżnik Δ' },
+                    { syntax: 'rozwiąż wielomian', command: 'rozwiąż x^3 - 6x^2 + 11x - 6 = 0', yields: 'x₁ = 1, x₂ = 2, x₃ = 3', description: 'gdy ma pierwiastek wymierny' },
+                    { syntax: 'uprość wyrażenie', syntaxAlt: ['rozwiń', 'simplify', 'expand'], command: 'uprość (x + 1)^2 + 2x', yields: 'x² + 4x + 1', description: 'nawiasy i wyrazy podobne' },
+                    { syntax: 'rozłóż wyrażenie', syntaxAlt: 'factor', command: 'rozłóż x^2 - 5x + 6', yields: '(x − 2)(x − 3)', description: 'rozkład na czynniki' },
+                    { syntax: 'kroki działanie', syntaxAlt: 'steps', command: 'kroki 1/2 + 1/3', yields: '5/6', description: 'kolejność działań i ułamki' },
+                    { syntax: 'działanie krok po kroku', syntaxAlt: 'step by step', command: '2 * (3 + 4)^2 krok po kroku', yields: '98', description: 'to samo z dopiskiem na końcu' },
+                ],
+            },
+            {
                 title: 'Jednostki — konwersja',
                 items: [
                     { prose: 'Konwersja: <code>na</code> / <code>do</code> / <code>in</code> / <code>to</code> — np. <code>a jedn. na jedn.</code>' },

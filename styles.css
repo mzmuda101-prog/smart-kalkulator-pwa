@@ -888,6 +888,8 @@
             cursor: pointer;
         }
         .calc-explain-tip[hidden] { display: none !important; }
+        /* [EN] „Kroki” są na każdej szerokości: nadpisuje ukrywanie „Rozpisz” od 600 px */
+        #panel-calculator .calc-explain-tip.is-steps:not([hidden]) { display: inline-flex !important; }
         @media (max-width: 599px) {
             .calc-explain { display: none !important; } /* telefon: rozpisanie w dymku „Rozpisz” */
         }
@@ -1957,6 +1959,28 @@
             display: grid;
             gap: 14px;
             padding-right: 4px;
+        }
+        .command-help-drawer.is-steps .help-search,
+        .command-help-drawer.is-steps .help-section { display: none !important; }
+        .steps-view[hidden] { display: none; }
+        .steps-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+        .steps-item {
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md, 12px);
+            min-width: 0;
+        }
+        .steps-item.is-final { border-color: var(--border-focus); background: var(--primary-light); }
+        .steps-label { color: var(--text-muted, var(--text)); font-size: 0.85rem; line-height: 1.35; }
+        .steps-math {
+            margin-top: 4px;
+            color: var(--text);
+            font-size: 1.1rem;
+            font-weight: 600;
+            line-height: 1.45;
+            white-space: pre;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
         }
         .command-help-content h4 {
             color: var(--text);

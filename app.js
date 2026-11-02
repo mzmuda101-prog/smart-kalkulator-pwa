@@ -206,6 +206,7 @@
 
         // Help drawer
         const commandHelpClose = $('#commandHelpClose');
+        const stepsView = $('#stepsView');
         const commandHelpBackdrop = $('#commandHelpBackdrop');
         const commandHelpDrawer = $('#commandHelpDrawer');
         const commandHelpTitle = $('#commandHelpTitle');
@@ -1272,7 +1273,7 @@
                 pendingFx: !!o.pendingFx,
                 big: !!o.big,
                 bigStr: o.bigStr != null ? o.bigStr : null,
-                explain: o.explain || null, // { title, rows: [[etykieta, kwota]] } — rozpisanie pod wynikiem (PIT/pensja)
+                explain: o.explain || null, // { title, rows: [[etykieta, kwota]] } — rozpisanie pod wynikiem (PIT/pensja); { title, steps } — MATM0_STEPS
                 _debugCode: o._debugCode != null ? o._debugCode : null, // [EN] tylko gdy opts.debug w evaluate
                 _debugDetail: o._debugDetail != null ? o._debugDetail : null
             };
@@ -1308,8 +1309,16 @@
         function evalCalcExpression(raw, opts) {
             opts = opts || {};
             var original = String(raw || '').trim();
+            var stepsApi = window.MATM0_STEPS;
+            var stepsRes = stepsApi ? stepsApi.run(original) : null; // [EN] „rozwiąż …”, „uprość …”, „kroki …”
+            if (stepsRes) return makeVal(stepsRes);
             var r = _PARSER.evaluate(original, _parserEvaluateOpts(opts));
             if (!r) return makeVal({});
+            // [EN] gołe „2x + 3 = 7” — tylko gdy parser nic z tego nie zrobił
+            if (stepsApi && r.value == null && r.text == null && !r.pendingFx) {
+                var bareSteps = stepsApi.runBare(original);
+                if (bareSteps) return makeVal(bareSteps);
+            }
             // [EN] opts.preview — ewaluacja tylko na PODGLĄD (B3): nie dotykaj STATE.calc
             // (ans/lastResult), bo user jeszcze nie zaakceptował interpretacji.
             if (!opts.preview) _syncCalcStateFromResult(r);
@@ -2603,7 +2612,8 @@
             // [EN] Godzina to NIE liczba: „20:00" po zdjęciu dwukropka wygląda jak 2000,
             // więc grupowanie tysięcy robiło z niej „2 000" (a z 23:00+2h — „0 100").
             // Dotyczyło każdego wyniku zegarowego bez spacji w tekście.
-            if (s.indexOf(':') !== -1) return s;
+            // [EN] Ułamek z kroków („3800/9009”) to samo: bez kreski byłby „38 009 009”.
+            if (s.indexOf(':') !== -1 || s.indexOf('/') !== -1) return s;
             var core = s.replace(/[^\d-]/g, '');
             if (/^-?\d+$/.test(core) && core.replace('-', '').length >= 4) return groupBigIntStr(core);
             return s;
@@ -3139,11 +3149,26 @@
         // Rozpisanie wyniku (PIT, pensja…) — tytuł „jak to zrozumiałem" + wiersze kwot.
         // Pokazujemy tylko, gdy silnik je dał; zwykłe działania zostają bez zmian.
         var _calcExplainKey = '';
+        var _calcStepsExplain = null;
+        var _stepsHistoryExpr = null;
         function renderCalcExplain(explain) {
             if (!calcExplain) return;
             var key = explain ? JSON.stringify(explain) : '';
             if (key === _calcExplainKey) return;
             _calcExplainKey = key;
+            _calcStepsExplain = explain && explain.steps ? explain : null;
+            if (calcExplainTip) {
+                calcExplainTip.classList.toggle('is-steps', !!_calcStepsExplain);
+                calcExplainTip.textContent = _calcStepsExplain ? 'Kroki' : 'Rozpisz';
+                calcExplainTip.setAttribute('aria-label', _calcStepsExplain ? 'Pokaż rozwiązanie krok po kroku' : 'Rozpisz wynik');
+            }
+            if (_calcStepsExplain) { // [EN] kroki bywają długie — szuflada zamiast dymku
+                calcExplain.hidden = true;
+                calcExplain.textContent = '';
+                if (calcExplainTip) { delete calcExplainTip.dataset.eq; calcExplainTip.hidden = false; }
+                _scheduleAssistLayout(true);
+                return;
+            }
             if (!explain || !explain.rows || !explain.rows.length) {
                 calcExplain.hidden = true;
                 calcExplain.textContent = '';
@@ -3337,6 +3362,18 @@
                 if (!expr.trim()) return;
                 // Nie twórz śmieciowego duplikatu historii przy kolejnym '=' na już zatwierdzonym wyniku.
                 if (STATE.calc.justEvaluated) return;
+                // [EN] Kroki: pole zostaje z zadaniem, „=” otwiera rozwiązanie.
+                if (res.kind === 'steps') {
+                    if (!res.explain) return;
+                    if (_stepsHistoryExpr !== expr) { // historia dzieli wpis po „ = ”, więc znaki w środku bez spacji
+                        var compactEq = function(t) { return String(t).replace(/\s*=\s*/g, '='); };
+                        addHistory(compactEq(expr) + ' = ' + compactEq(res.text));
+                        _stepsHistoryExpr = expr;
+                    }
+                    if (res.value !== null) STATE.calc.ans = res.value;
+                    openStepsView(res.explain);
+                    return;
+                }
                 // Duża liczba całkowita (BigInt) — grouped text w polu (nie surowy bigStr)
                 if (res.big) {
                     addHistory(expr + ' = ' + res.text);
@@ -4788,9 +4825,42 @@
             });
         }
 
+        function renderStepsView(explain) {
+            var list = document.createElement('ol');
+            list.className = 'steps-list';
+            explain.steps.forEach(function(step, i) {
+                var li = document.createElement('li');
+                li.className = 'steps-item' + (step.final ? ' is-final' : '');
+                var label = document.createElement('div');
+                label.className = 'steps-label';
+                label.textContent = (i + 1) + '. ' + step.label;
+                var math = document.createElement('div');
+                math.className = 'steps-math';
+                math.textContent = step.math;
+                li.appendChild(label);
+                li.appendChild(math);
+                list.appendChild(li);
+            });
+            stepsView.textContent = '';
+            stepsView.appendChild(list);
+        }
+        function openStepsView(explain) { // [EN] ta sama szuflada co ściąga: Esc, tło, × i przeciąganie już działają
+            if (!stepsView || !commandHelpDrawer) return;
+            renderStepsView(explain);
+            stepsView.hidden = false;
+            commandHelpDrawer.classList.add('is-steps');
+            if (commandHelpTitle) commandHelpTitle.textContent = explain.title + ' krok po kroku';
+            if (commandHelpClose) commandHelpClose.setAttribute('aria-label', 'Zamknij kroki');
+            document.body.classList.add('help-open');
+            commandHelpDrawer.setAttribute('aria-hidden', 'false');
+        }
+
         function closeCommandHelp() {
             document.body.classList.remove('help-open');
+            if (stepsView) stepsView.hidden = true;
+            if (commandHelpClose) commandHelpClose.setAttribute('aria-label', 'Zamknij ściągę');
             if (commandHelpDrawer) {
+                commandHelpDrawer.classList.remove('is-steps');
                 // Blur focused element inside drawer before hiding — prevents aria-hidden warning
                 var focused = commandHelpDrawer.querySelector(':focus');
                 if (focused) focused.blur();
@@ -5155,6 +5225,9 @@
             });
         }
         if (commandHelpClose) commandHelpClose.addEventListener('click', closeCommandHelp);
+        if (calcExplainTip) calcExplainTip.addEventListener('click', function() {
+            if (_calcStepsExplain) openStepsView(_calcStepsExplain);
+        });
         if (commandHelpBackdrop) commandHelpBackdrop.addEventListener('click', closeCommandHelp);
 
         /* ============================================================
@@ -13366,6 +13439,15 @@
                 // koszt trasy/paliwa (deterministyczny): 300/100·7=21 l · 6,50 = 136,50 zł
                 { expr: 'koszt trasy 300 km 7 l/100km 6,50 zł/l', value: 136.5, tol: 1e-6, unit: 'zł' },
                 { expr: 'paliwo na 100 km 8 l/100 7 zł/l', value: 56, tol: 1e-6, unit: 'zł' },
+                // kroki (MATM0_STEPS): jawna komenda i gołe równanie
+                { expr: 'rozwiąż 2x + 3 = 7', value: 2 },
+                { expr: '3(x - 2) = x + 4', value: 5 },
+                { expr: 'solve x^2 = 0', value: 0 },
+                { expr: 'kroki 1/2 + 1/3', value: 5 / 6, tol: 1e-9 },
+                { expr: 'kroki 2 + 3 * 4', value: 14 },
+                { expr: '2 * (3 + 4)^2 krok po kroku', value: 98 },
+                // parser dalej wygrywa ze zwykłymi działaniami
+                { expr: '2+2', value: 4 },
             ];
             var results = cases.map(function(test) {
                 try {
