@@ -28,6 +28,7 @@
     "test:pl-fold": "node test/pl-fold-regression.js",
     "test:syn": "node test/synonyms.js",
     "test:steps": "node test/math-steps.js",
+    "test:calculus": "node test/math-calculus.js",
     "test:placeholder": "node test/placeholder-examples.js",
     "test:all": "node scripts/run-tests.mjs",
     "test:e2e": "playwright test",

@@ -94,6 +94,9 @@
     }
 
     // ── Tokeny i parser ──────────────────────────────────────
+    var FN_RE = /^(?:arcsin|arccos|arctan|arctg|asin|acos|atan|sin|cos|tan|tg|ctg|cot|ln|log|exp)/;
+    var FN_NAMES = { arcsin: 'asin', arccos: 'acos', arctan: 'atan', arctg: 'atan', tg: 'tan', ctg: 'cot' };
+
     function tokenize(src, opts) {
         var out = [], i = 0, s = src;
         while (i < s.length) {
@@ -104,13 +107,25 @@
             var fn = /^(sqrt|pierwiastek z|pierwiastek)\b/.exec(s.slice(i));
             if (fn) { out.push({ t: 'sqrt' }); i += fn[0].length; continue; }
             if (c === '√') { out.push({ t: 'sqrt' }); i++; continue; }
+            var name = FN_RE.exec(s.slice(i));
+            if (name) { out.push({ t: 'fn', v: FN_NAMES[name[0]] || name[0] }); i += name[0].length; continue; }
+            var pi = /^(?:pi(?![a-z])|π)/.exec(s.slice(i));
+            if (pi) {
+                if (!opts.calculus) throw new NotSupported();
+                out.push({ t: 'const', v: 'pi' }); i += pi[0].length;
+                continue;
+            }
             if (/[a-z]/.test(c)) {
-                if (c === 'e') throw new NotSupported();
+                if (c === 'e') {
+                    if (!opts.calculus) throw new NotSupported();
+                    out.push({ t: 'const', v: 'e' }); i++;
+                    continue;
+                }
                 if (opts.singleLetters && /[a-z]/.test(s.charAt(i + 1))) throw new SyntaxError('word');
                 out.push({ t: 'var', v: c }); i++;
                 continue;
             }
-            if ('²³⁴⁵'.indexOf(c) >= 0) { out.push({ t: 'op', v: '^' }); out.push({ t: 'num', v: String('²³⁴⁵'.indexOf(c) + 2) }); i++; continue; }
+            if ('²³⁴⁵⁶⁷⁸⁹'.indexOf(c) >= 0) { out.push({ t: 'op', v: '^' }); out.push({ t: 'num', v: String('²³⁴⁵⁶⁷⁸⁹'.indexOf(c) + 2) }); i++; continue; }
             if ('+-*/^()='.indexOf(c) >= 0) { out.push({ t: 'op', v: c }); i++; continue; }
             if (c === '−' || c === '–') { out.push({ t: 'op', v: '-' }); i++; continue; }
             if (c === '×' || c === '·' || c === '∙') { out.push({ t: 'op', v: '*' }); i++; continue; }
@@ -126,7 +141,7 @@
         function isOp(v) { var t = tokens[i]; return !!t && t.t === 'op' && t.v === v; }
         function startsFactor() {
             var t = tokens[i];
-            return !!t && (t.t === 'var' || t.t === 'sqrt' || (t.t === 'op' && t.v === '('));
+            return !!t && (t.t === 'var' || t.t === 'sqrt' || t.t === 'fn' || t.t === 'const' || (t.t === 'op' && t.v === '('));
         }
         function sum() {
             var left = isOp('-') ? (i++, { k: 'neg', a: product() }) : (isOp('+') ? (i++, product()) : product());
@@ -154,6 +169,12 @@
             }
             return base;
         }
+        function fnArg() { // [EN] sin 2x = sin(2x), sin(x) y = sin(x)·y
+            if (isOp('(')) { var inner = atom(); inner.paren = false; return inner; }
+            var left = power();
+            while (startsFactor() && tokens[i].t !== 'fn') left = { k: 'mul', a: left, b: power(), implicit: true };
+            return left;
+        }
         function atom() {
             var t = peek();
             if (!t) throw new SyntaxError('end');
@@ -165,6 +186,15 @@
             }
             if (t.t === 'var') return { k: 'var', v: t.v };
             if (t.t === 'sqrt') { return { k: 'sqrt', a: atom() }; }
+            if (t.t === 'const') return { k: 'const', v: t.v };
+            if (t.t === 'fn') {
+                if (isOp('^')) { // [EN] sin²x, sin^2(x)
+                    i++;
+                    var outer = atom();
+                    return { k: 'pow', a: { k: 'fn', f: t.v, a: fnArg() }, b: outer };
+                }
+                return { k: 'fn', f: t.v, a: fnArg() };
+            }
             if (t.t === 'op' && t.v === '(') {
                 var inner = sum();
                 if (!isOp(')')) throw new SyntaxError('paren');
@@ -749,7 +779,7 @@
         var steps = [{ label: 'Działanie', math: show(tree, ctx) }];
         for (var guard = 0; tree.k !== 'num' && guard < 60; guard++) {
             var node = findReducible(tree);
-            if (!node) throw new NotSupported();
+            if (!node || !OP_LABEL[node.k]) throw new NotSupported();
             var label = node.paren ? 'Najpierw nawias: ' + OP_LABEL[node.k].toLowerCase() : OP_LABEL[node.k];
             var value = evalExact(node, {});
             if (!ctx.dec && (node.k === 'add' || node.k === 'sub') && !isInt(node.a.v) && !isInt(node.b.v) && node.a.v.d !== node.b.v.d) {
@@ -845,7 +875,10 @@
         return value;
     }
 
+    var _calculus = null; // [EN] js/math-calculus.js: pochodne i całki
     function run(raw) { // [EN] jawna komenda („rozwiąż …”); null = nie nasza
+        var c = _calculus && _calculus.detect(raw);
+        if (c) return memo('d:' + raw, function () { return _calculus.run(c); });
         var d = detect(raw);
         if (!d) return null;
         return memo('c:' + raw, function () { return runParsed(d, {}); });
@@ -860,7 +893,17 @@
         return res && res.explain ? res : null; // [EN] bez komendy nie obiecujemy rozwiązania
     }
 
-    var API = { detect: detect, run: run, runBare: runBare };
+    var API = {
+        detect: detect, run: run, runBare: runBare,
+        registerCalculus: function (mod) { _calculus = mod; },
+        _core: {
+            NotSupported: NotSupported, R: R, ZERO: ZERO, ONE: ONE, gcd: gcd, add: add, neg: neg, sub: sub,
+            mul: mul, div: div, isZero: isZero, isInt: isInt, eq: eq, toNum: toNum, powR: powR,
+            sqrtExact: sqrtExact, sup: sup, fmt: fmt, fmtApprox: fmtApprox, fold: fold, done: done,
+            MAX_INPUT: MAX_INPUT,
+            parse: function (src) { return parseTokens(tokenize(src, { calculus: true })); }
+        }
+    };
     if (typeof window !== 'undefined') window.MATM0_STEPS = API;
     if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

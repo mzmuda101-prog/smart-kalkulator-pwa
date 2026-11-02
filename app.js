@@ -13446,6 +13446,8 @@
                 { expr: 'kroki 1/2 + 1/3', value: 5 / 6, tol: 1e-9 },
                 { expr: 'kroki 2 + 3 * 4', value: 14 },
                 { expr: '2 * (3 + 4)^2 krok po kroku', value: 98 },
+                { expr: 'całka x^2 od 0 do 3', value: 9, tol: 1e-9 },
+                { expr: 'całka od 0 do pi sin(x)', value: 2, tol: 1e-9 },
                 // parser dalej wygrywa ze zwykłymi działaniami
                 { expr: '2+2', value: 4 },
             ];

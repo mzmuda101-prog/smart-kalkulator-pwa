@@ -38,6 +38,7 @@ const SUITES = [
     'test/hint-rules.js',
     'test/synonyms.js',
     'test/math-steps.js',
+    'test/math-calculus.js',
     'test/placeholder-examples.js',
     'test/settings-migration.js',
 ];

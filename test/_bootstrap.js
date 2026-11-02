@@ -126,6 +126,7 @@ try {
   load('js/quantity-algebra.js'); // algebra wymiarowa (MATM0_QALG) — parytet z index.html
   load('js/synonyms.js'); // warstwa synonimów (MATM0_SYN) — fallback parsera, parytet z index.html
   load('js/math-steps.js'); // rozwiązania krok po kroku (MATM0_STEPS) — parytet z index.html
+  load('js/math-calculus.js'); // pochodne i całki (MATM0_CALC) — parytet z index.html
   load('js/hint-rules.js');
   load('js/notepad-format.js');
   load('js/notepad-engine.js');

@@ -189,6 +189,10 @@
                     { syntax: 'rozłóż wyrażenie', syntaxAlt: 'factor', command: 'rozłóż x^2 - 5x + 6', yields: '(x − 2)(x − 3)', description: 'rozkład na czynniki' },
                     { syntax: 'kroki działanie', syntaxAlt: 'steps', command: 'kroki 1/2 + 1/3', yields: '5/6', description: 'kolejność działań i ułamki' },
                     { syntax: 'działanie krok po kroku', syntaxAlt: 'step by step', command: '2 * (3 + 4)^2 krok po kroku', yields: '98', description: 'to samo z dopiskiem na końcu' },
+                    { syntax: 'pochodna funkcji', syntaxAlt: ['derivative of', 'd/dx'], command: 'pochodna x^3 * sin(x)', yields: 'f′(x)', description: 'iloczyn, iloraz, funkcja złożona' },
+                    { syntax: 'pochodna funkcji po t', command: 'pochodna a * t^2 po t', yields: 'f′(t) = 2at', description: 'inne litery to stałe' },
+                    { syntax: 'całka funkcji', syntaxAlt: ['całka z …', 'integral of'], command: 'całka x * e^x', yields: 'x · e^x − e^x + C', description: 'podstawienie, przez części, ułamki proste' },
+                    { syntax: 'całka funkcji od a do b', syntaxAlt: 'integral … from a to b', command: 'całka x^2 od 0 do 1', yields: '1/3', description: 'całka oznaczona' },
                 ],
             },
             {
