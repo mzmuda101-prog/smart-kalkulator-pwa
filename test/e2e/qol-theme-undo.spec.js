@@ -165,3 +165,89 @@ test('jednostki w wyniku: przełączenie w ⚙️ zmienia wynik w kalkulatorze i
   await NP.setNotepadText(page, 'Bagaż: 10 kg na funty');
   await expect(page.locator('.np-res').first()).toContainText('lb');
 });
+
+// ── K13 — kopiowanie bieżącej notatki z wynikami ──
+test('notatnik: ⋯ → Kopiuj tę notatkę z wynikami daje tekst z wynikami tylko tej notatki', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await NP.waitAppReady(page);
+  await NP.openNotepad(page);
+  await NP.setNotepadText(page, 'Bilety: 2 * 45 zł');
+  await page.locator('#npExportBtn').click();
+  await page.locator('[data-export="copy-current"]').click();
+  await expect(page.locator('#toast.show')).toContainText('Skopiowano');
+  const clip = await page.evaluate(() => navigator.clipboard.readText());
+  expect(clip).toContain('Bilety: 2 * 45 zł');
+  expect(clip).toMatch(/90/);
+  expect(clip).not.toContain('---'); // bez nagłówków innych notatek
+});
+
+// ── K27 — uszkodzony klucz nie kasuje reszty ──
+test('start: uszkodzona historia nie blokuje notatek i ustawień, kopia trafia do _corrupt', async ({ page }) => {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('seeded')) return;
+    sessionStorage.setItem('seeded', '1');
+    localStorage.setItem('matm0_calc_history', '{to nie json');
+    localStorage.setItem('matm0_notepads', JSON.stringify({ notes: [{ id: 'k27', text: 'Zostaję 7 zł', updatedAt: 1 }], currentId: 'k27' }));
+    localStorage.setItem('matm0_settings', JSON.stringify({ unitNames: 'long' }));
+  });
+  await NP.waitAppReady(page);
+  const st = await page.evaluate(() => ({
+    notes: JSON.parse(localStorage.getItem('matm0_notepads')).notes.map((n) => n.text),
+    unitNames: window.__matm0 && window.__matm0.state ? window.__matm0.state.settings.unitNames : null,
+    corrupt: Object.keys(localStorage).filter((k) => k.indexOf('matm0_calc_history_corrupt_') === 0)
+      .map((k) => localStorage.getItem(k)),
+  }));
+  expect(st.notes).toEqual(['Zostaję 7 zł']);
+  expect(st.corrupt).toEqual(['{to nie json']);
+  await page.locator('#settingsBtn').click();
+  await expect(page.locator('#settingUnitNames')).toHaveValue('long');
+});
+
+// ── K14 — kopia zapasowa: zapis i wczytanie ──
+test('kopia zapasowa: zapisany plik wczytany po wyczyszczeniu przywraca notatki', async ({ page }, testInfo) => {
+  await NP.waitAppReady(page);
+  await NP.openNotepad(page);
+  await NP.setNotepadText(page, 'Kopia: 3 * 4');
+  await page.locator('#notepadClose').click();
+  await page.locator('#settingsBtn').click();
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.locator('#settingsBackupSave').click(),
+  ]);
+  const file = testInfo.outputPath('kopia.json');
+  await download.saveAs(file);
+
+  await page.evaluate(() => localStorage.setItem('matm0_notepads', JSON.stringify({ notes: [{ id: 'x', text: 'inne', updatedAt: 1 }], currentId: 'x' })));
+  await page.locator('#settingsBackupFile').setInputFiles(file);
+  await expect(page.locator('#settingsBackupConfirm')).toBeVisible();
+  await expect(page.locator('#settingsBackupConfirmText')).toContainText('notatki: 1');
+  await Promise.all([
+    page.waitForEvent('load'),
+    page.locator('#settingsBackupConfirmYes').click(),
+  ]);
+  await NP.waitAppReady(page);
+  const texts = await page.evaluate(() => JSON.parse(localStorage.getItem('matm0_notepads')).notes.map((n) => n.text));
+  expect(texts).toEqual(['Kopia: 3 * 4']);
+});
+
+test('kopia zapasowa: obcy plik daje czytelny błąd, nic nie zmienia', async ({ page }, testInfo) => {
+  await NP.waitAppReady(page);
+  await page.locator('#settingsBtn').click();
+  const file = testInfo.outputPath('obcy.json');
+  require('fs').writeFileSync(file, JSON.stringify({ hello: 1 }));
+  await page.locator('#settingsBackupFile').setInputFiles(file);
+  await expect(page.locator('#toast.show')).toContainText('To nie jest kopia');
+  await expect(page.locator('#settingsBackupConfirm')).toBeHidden();
+});
+
+// ── K15 — po ubiciu apki wraca wyrażenie i ostatni widok ──
+test('sesja: po przeładowaniu wraca wpisane wyrażenie i otwarty notatnik', async ({ page }) => {
+  await NP.waitAppReady(page);
+  await page.locator('#calcExpr').fill('12 * 7');
+  await NP.openNotepad(page);
+  await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
+  await page.reload();
+  await NP.waitAppReady(page);
+  await expect(page.locator('#calcExpr')).toHaveValue('12 * 7');
+  await expect(page.locator('body')).toHaveClass(/notepad-open/);
+});

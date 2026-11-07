@@ -256,114 +256,134 @@
             notepad: 'matm0_notepad',     // (legacy: pojedyncza notatka — migrowana do notepads)
             notepads: 'matm0_notepads',   // wiele notatek: { notes:[{id,text,updatedAt}], currentId }
             notepadGlobals: 'matm0_notepad_globals', // zmienne DZIELONE między notatkami (@nazwa)
+            session: 'matm0_session',     // K15: wyrażenie w polu + ostatni widok (iOS ubija PWA w tle)
         };
 
         // [EN] Ustawiane przez loadFromStorage, gdy jednorazowa migracja domyślnych podniosła opcję.
         //      Musi zostać ZAPISANE, inaczej migracja odpali się znowu i cofnie świadome wyłączenie.
         var _settingsNeedMigrationSave = false;
 
-        function loadFromStorage() {
+        // K27 — każdy klucz wczytywany osobno: uszkodzony JSON jednego (np. historii) nie
+        // przerywa wczytania notatek i ustawień. Surową wartość odkładamy do
+        // „<klucz>_corrupt_<czas>”, bo kolejny zapis nadpisałby ją wartością domyślną.
+        var _storageCorruptKeys = [];
+        function _loadStoredJSON(key, apply, onFail) {
+            var raw = null;
+            try { raw = localStorage.getItem(key); } catch (e) { return; }
+            if (raw == null || raw === '') return;
             try {
-                const h = localStorage.getItem(STORAGE_KEYS.history);
-                if (h) STATE.history = JSON.parse(h).map(_histNormalize).filter(function(it) { return it.text; });
-                const c = localStorage.getItem(STORAGE_KEYS.constants);
-                if (c) STATE.constants = JSON.parse(c);
-                const r = localStorage.getItem(STORAGE_KEYS.recentCommands);
-                if (r) STATE.recentCommands = JSON.parse(r);
-                // Migrate old engineering+graph split into unified graph list
-                if (!STATE.recentCommands) STATE.recentCommands = {};
-                if (!Array.isArray(STATE.recentCommands.graph)) {
-                    var old = [].concat(STATE.recentCommands.engineering || [], STATE.recentCommands.graph || []);
-                    STATE.recentCommands.graph = old.slice(0, 6);
-                }
-                if (Object.prototype.hasOwnProperty.call(STATE.recentCommands, 'engineering')) delete STATE.recentCommands.engineering;
-                const fx = localStorage.getItem(STORAGE_KEYS.fxRates);
-                if (fx) {
-                    const fxObj = JSON.parse(fx);
-                    if (fxObj && fxObj.rates) { STATE.fx.rates = fxObj.rates; STATE.fx.ts = fxObj.ts; STATE.fx.date = fxObj.date; STATE.fx.source = fxObj.source || 'cache'; }
-                }
-                const nps = localStorage.getItem(STORAGE_KEYS.notepads);
-                if (nps) {
-                    const npObj = JSON.parse(nps);
-                    if (npObj && Array.isArray(npObj.notes)) {
-                        _npNotes = npObj.notes.filter(function(n) { return n && typeof n.id === 'string'; });
-                        _npCurrentId = npObj.currentId || (_npNotes[0] && _npNotes[0].id) || null;
-                    }
-                }
-                if (!_npNotes.length) {
-                    // Migracja starej pojedynczej notatki (matm0_notepad) → pierwsza notatka tablicy.
-                    const npOld = localStorage.getItem(STORAGE_KEYS.notepad);
-                    _npNotes = [{ id: _npNewId(), text: npOld != null ? npOld : '', updatedAt: Date.now() }];
-                    _npCurrentId = _npNotes[0].id;
-                }
-                var _npSeenIds = {};
-                _npNotes = _npNotes.filter(function(n) {
-                    if (!n || typeof n.id !== 'string' || _npSeenIds[n.id]) return false;
-                    _npSeenIds[n.id] = 1;
-                    return true;
-                });
-                if (!_npNotes.length) {
-                    _npNotes = [{ id: _npNewId(), text: '', updatedAt: Date.now() }];
-                    _npCurrentId = _npNotes[0].id;
-                }
-                const npg = localStorage.getItem(STORAGE_KEYS.notepadGlobals);
-                if (npg) { const go = JSON.parse(npg); if (go && typeof go === 'object') _npGlobals = go; }
-                const st = localStorage.getItem(STORAGE_KEYS.settings);
-                if (st) {
-                    const stObj = JSON.parse(st);
-                    if (stObj && typeof stObj === 'object') {
-                        if (stObj.defaultCurrency) STATE.settings.defaultCurrency = String(stObj.defaultCurrency).toUpperCase();
-                        if (stObj.fxEngine) STATE.settings.fxEngine = stObj.fxEngine;
-                        if (typeof stObj.fxBackup === 'boolean') STATE.settings.fxBackup = stObj.fxBackup;
-                        if (typeof stObj.notepadFold === 'boolean') STATE.settings.notepadFold = stObj.notepadFold;
-                        if (stObj.notepadAutoUnit === 'safe' || stObj.notepadAutoUnit === 'full') STATE.settings.notepadAutoUnit = stObj.notepadAutoUnit;
-                        if (stObj.notepadUnitMix === 'strict' || stObj.notepadUnitMix === 'first') STATE.settings.notepadUnitMix = stObj.notepadUnitMix;
-                        if (stObj.notepadSumUnit === 'off' || stObj.notepadSumUnit === 'inherit') STATE.settings.notepadSumUnit = stObj.notepadSumUnit;
-                        // Migracja (v1.04.24): „razem” dziedziczy jednostkę pozycji („720 zł”, nie „720”).
-                        // Stare „off” zapisywało się u każdego, kto ruszył ⚙️ — podnosimy raz; późniejszy wybór zostaje.
-                        if (stObj.notepadSumUnitDefaultV2 !== true) {
-                            STATE.settings.notepadSumUnit = 'inherit';
-                            _settingsNeedMigrationSave = true;
-                        }
-                        if (typeof stObj.notepadGutterHidden === 'boolean') STATE.settings.notepadGutterHidden = stObj.notepadGutterHidden;
-                        if (typeof stObj.notepadFontSize === 'number' && isFinite(stObj.notepadFontSize)) STATE.settings.notepadFontSize = stObj.notepadFontSize;
-                        if (typeof stObj.notepadFontMono === 'boolean') STATE.settings.notepadFontMono = stObj.notepadFontMono;
-                        if (stObj.defaultUnits && typeof stObj.defaultUnits === 'object') {
-                            Object.keys(STATE.settings.defaultUnits).forEach(function(cat) {
-                                if (typeof stObj.defaultUnits[cat] === 'string') STATE.settings.defaultUnits[cat] = stObj.defaultUnits[cat];
-                            });
-                        }
-                        if (stObj.unitProfile === 'default' || stObj.unitProfile === 'build' || stObj.unitProfile === 'it' || stObj.unitProfile === 'travel' || stObj.unitProfile === 'custom') {
-                            STATE.settings.unitProfile = stObj.unitProfile;
-                        }
-                        if (typeof stObj.standardLiveHint === 'boolean') STATE.settings.standardLiveHint = stObj.standardLiveHint;
-                        if (typeof stObj.standardAutocomplete === 'boolean') STATE.settings.standardAutocomplete = stObj.standardAutocomplete;
-                        if (typeof stObj.suggestOnEmpty === 'boolean') STATE.settings.suggestOnEmpty = stObj.suggestOnEmpty;
-                        // [EN] Migracja T4-19 (v1.02.81): do v1.02.80 opcja była domyślnie OFF i zapisywała się
-                        //      jako false u KAŻDEGO, kto ruszył cokolwiek w ⚙️ — sama zmiana domyślnej by ich ominęła.
-                        //      Podnosimy ją raz; świadome wyłączenie PO migracji zostaje (znacznik już zapisany).
-                        if (stObj.suggestOnEmptyDefaultV2 !== true) {
-                            STATE.settings.suggestOnEmpty = true;
-                            _settingsNeedMigrationSave = true;
-                        }
-                        // [EN] Migracja T4-17 (v1.04.19): chipy pod polem domyślnie ON — jak wyżej, raz;
-                        //      świadome wyłączenie po migracji zostaje.
-                        if (stObj.standardLiveHintDefaultV2 !== true) {
-                            STATE.settings.standardLiveHint = true;
-                            _settingsNeedMigrationSave = true;
-                        }
-                        if (typeof stObj.currencyCompactSymbols === 'boolean') STATE.settings.currencyCompactSymbols = stObj.currencyCompactSymbols;
-                        if (stObj.unitNames === 'typed' || stObj.unitNames === 'short' || stObj.unitNames === 'long') STATE.settings.unitNames = stObj.unitNames;
-                        STATE.settings.calcLayout = stObj.calcLayout === 'sentence' ? 'sentence' : 'keypad'; // nieznane → klawisze
-                    }
-                }
+                apply(JSON.parse(raw));
             } catch (e) {
-                STATE.history = [];
-                STATE.constants = [];
-                STATE.recentCommands = { graph: [] };
+                try { localStorage.setItem(key + '_corrupt_' + Date.now(), raw); } catch (e2) {}
+                _storageCorruptKeys.push(key);
+                if (onFail) onFail();
             }
-            // [EN] Utrwal znacznik migracji od razu — poza try/catch parsowania, żeby błąd
-            //      w JSON-ie innego klucza nie zostawił migracji „wiszącej" na kolejny start.
+        }
+        function _requireArray(v) {
+            if (!Array.isArray(v)) throw new TypeError('expected array');
+            return v;
+        }
+        function loadFromStorage() {
+            _loadStoredJSON(STORAGE_KEYS.history, function(h) {
+                STATE.history = _requireArray(h).map(_histNormalize).filter(function(it) { return it.text; });
+            }, function() { STATE.history = []; });
+            _loadStoredJSON(STORAGE_KEYS.constants, function(c) {
+                STATE.constants = _requireArray(c);
+            }, function() { STATE.constants = []; });
+            _loadStoredJSON(STORAGE_KEYS.recentCommands, function(r) {
+                if (!r || typeof r !== 'object') throw new TypeError('expected object');
+                STATE.recentCommands = r;
+            }, function() { STATE.recentCommands = { graph: [] }; });
+            // Migrate old engineering+graph split into unified graph list
+            if (!STATE.recentCommands) STATE.recentCommands = {};
+            if (!Array.isArray(STATE.recentCommands.graph)) {
+                var old = [].concat(STATE.recentCommands.engineering || [], STATE.recentCommands.graph || []);
+                STATE.recentCommands.graph = old.slice(0, 6);
+            }
+            if (Object.prototype.hasOwnProperty.call(STATE.recentCommands, 'engineering')) delete STATE.recentCommands.engineering;
+            _loadStoredJSON(STORAGE_KEYS.fxRates, function(fxObj) {
+                if (fxObj && fxObj.rates) { STATE.fx.rates = fxObj.rates; STATE.fx.ts = fxObj.ts; STATE.fx.date = fxObj.date; STATE.fx.source = fxObj.source || 'cache'; }
+            });
+            _loadStoredJSON(STORAGE_KEYS.notepads, function(npObj) {
+                if (npObj && Array.isArray(npObj.notes)) {
+                    _npNotes = npObj.notes.filter(function(n) { return n && typeof n.id === 'string'; });
+                    _npCurrentId = npObj.currentId || (_npNotes[0] && _npNotes[0].id) || null;
+                }
+            }, function() { _npNotes = []; });
+            if (!_npNotes.length) {
+                // Migracja starej pojedynczej notatki (matm0_notepad) → pierwsza notatka tablicy.
+                const npOld = localStorage.getItem(STORAGE_KEYS.notepad);
+                _npNotes = [{ id: _npNewId(), text: npOld != null ? npOld : '', updatedAt: Date.now() }];
+                _npCurrentId = _npNotes[0].id;
+            }
+            var _npSeenIds = {};
+            _npNotes = _npNotes.filter(function(n) {
+                if (!n || typeof n.id !== 'string' || _npSeenIds[n.id]) return false;
+                _npSeenIds[n.id] = 1;
+                return true;
+            });
+            if (!_npNotes.length) {
+                _npNotes = [{ id: _npNewId(), text: '', updatedAt: Date.now() }];
+                _npCurrentId = _npNotes[0].id;
+            }
+            _loadStoredJSON(STORAGE_KEYS.notepadGlobals, function(go) {
+                if (go && typeof go === 'object') _npGlobals = go;
+            });
+            _loadStoredJSON(STORAGE_KEYS.settings, function(stObj) {
+                if (stObj && typeof stObj === 'object') {
+                    if (stObj.defaultCurrency) STATE.settings.defaultCurrency = String(stObj.defaultCurrency).toUpperCase();
+                    if (stObj.fxEngine) STATE.settings.fxEngine = stObj.fxEngine;
+                    if (typeof stObj.fxBackup === 'boolean') STATE.settings.fxBackup = stObj.fxBackup;
+                    if (typeof stObj.notepadFold === 'boolean') STATE.settings.notepadFold = stObj.notepadFold;
+                    if (stObj.notepadAutoUnit === 'safe' || stObj.notepadAutoUnit === 'full') STATE.settings.notepadAutoUnit = stObj.notepadAutoUnit;
+                    if (stObj.notepadUnitMix === 'strict' || stObj.notepadUnitMix === 'first') STATE.settings.notepadUnitMix = stObj.notepadUnitMix;
+                    if (stObj.notepadSumUnit === 'off' || stObj.notepadSumUnit === 'inherit') STATE.settings.notepadSumUnit = stObj.notepadSumUnit;
+                    // Migracja (v1.04.24): „razem” dziedziczy jednostkę pozycji („720 zł”, nie „720”).
+                    // Stare „off” zapisywało się u każdego, kto ruszył ⚙️ — podnosimy raz; późniejszy wybór zostaje.
+                    if (stObj.notepadSumUnitDefaultV2 !== true) {
+                        STATE.settings.notepadSumUnit = 'inherit';
+                        _settingsNeedMigrationSave = true;
+                    }
+                    if (typeof stObj.notepadGutterHidden === 'boolean') STATE.settings.notepadGutterHidden = stObj.notepadGutterHidden;
+                    if (typeof stObj.notepadFontSize === 'number' && isFinite(stObj.notepadFontSize)) STATE.settings.notepadFontSize = stObj.notepadFontSize;
+                    if (typeof stObj.notepadFontMono === 'boolean') STATE.settings.notepadFontMono = stObj.notepadFontMono;
+                    if (stObj.defaultUnits && typeof stObj.defaultUnits === 'object') {
+                        Object.keys(STATE.settings.defaultUnits).forEach(function(cat) {
+                            if (typeof stObj.defaultUnits[cat] === 'string') STATE.settings.defaultUnits[cat] = stObj.defaultUnits[cat];
+                        });
+                    }
+                    if (stObj.unitProfile === 'default' || stObj.unitProfile === 'build' || stObj.unitProfile === 'it' || stObj.unitProfile === 'travel' || stObj.unitProfile === 'custom') {
+                        STATE.settings.unitProfile = stObj.unitProfile;
+                    }
+                    if (typeof stObj.standardLiveHint === 'boolean') STATE.settings.standardLiveHint = stObj.standardLiveHint;
+                    if (typeof stObj.standardAutocomplete === 'boolean') STATE.settings.standardAutocomplete = stObj.standardAutocomplete;
+                    if (typeof stObj.suggestOnEmpty === 'boolean') STATE.settings.suggestOnEmpty = stObj.suggestOnEmpty;
+                    // [EN] Migracja T4-19 (v1.02.81): do v1.02.80 opcja była domyślnie OFF i zapisywała się
+                    //      jako false u KAŻDEGO, kto ruszył cokolwiek w ⚙️ — sama zmiana domyślnej by ich ominęła.
+                    //      Podnosimy ją raz; świadome wyłączenie PO migracji zostaje (znacznik już zapisany).
+                    if (stObj.suggestOnEmptyDefaultV2 !== true) {
+                        STATE.settings.suggestOnEmpty = true;
+                        _settingsNeedMigrationSave = true;
+                    }
+                    // [EN] Migracja T4-17 (v1.04.19): chipy pod polem domyślnie ON — jak wyżej, raz;
+                    //      świadome wyłączenie po migracji zostaje.
+                    if (stObj.standardLiveHintDefaultV2 !== true) {
+                        STATE.settings.standardLiveHint = true;
+                        _settingsNeedMigrationSave = true;
+                    }
+                    if (typeof stObj.currencyCompactSymbols === 'boolean') STATE.settings.currencyCompactSymbols = stObj.currencyCompactSymbols;
+                    if (stObj.unitNames === 'typed' || stObj.unitNames === 'short' || stObj.unitNames === 'long') STATE.settings.unitNames = stObj.unitNames;
+                    STATE.settings.calcLayout = stObj.calcLayout === 'sentence' ? 'sentence' : 'keypad'; // nieznane → klawisze
+                }
+            });
+            if (_storageCorruptKeys.length) {
+                // Po splashu, żeby dymek był widoczny. Dane nie przepadły — leżą w kopii _corrupt.
+                setTimeout(function() {
+                    showToast('⚠️ Część zapisanych danych była uszkodzona — zachowano kopię, reszta wczytana', 'error');
+                }, 1800);
+            }
+            // [EN] Utrwal znacznik migracji od razu — także gdy inny klucz był uszkodzony,
+            //      żeby migracja nie została „wisząca" na kolejny start.
             if (_settingsNeedMigrationSave) {
                 _settingsNeedMigrationSave = false;
                 saveSettings();
@@ -8855,6 +8875,139 @@
         }
 
         // [EN] Cache Refresh Button — pełne czyszczenie SW + Cache Storage + bust assetów
+        /* ── K15 — sesja: iOS często ubija PWA w tle, a po powrocie pole było puste
+           i widok wracał do kalkulatora. Zapis przy ukryciu strony, odczyt przy starcie;
+           starsza niż doba sesja jest pomijana (wczorajsze działanie już nikomu nie pomaga). */
+        var SESSION_MAX_AGE = 24 * 3600 * 1000;
+        function saveSession() {
+            try {
+                localStorage.setItem(STORAGE_KEYS.session, JSON.stringify({
+                    expr: calcExpr ? calcExpr.value : '',
+                    tab: STATE.activeTab || 'calculator',
+                    notes: document.body.classList.contains('notepad-open'),
+                    ts: Date.now(),
+                }));
+            } catch (e) {}
+        }
+        function restoreSession() {
+            var ses = null;
+            try { ses = JSON.parse(localStorage.getItem(STORAGE_KEYS.session) || 'null'); } catch (e) {}
+            if (!ses || typeof ses !== 'object' || !(Date.now() - (ses.ts || 0) < SESSION_MAX_AGE)) return;
+            if (typeof ses.expr === 'string' && ses.expr && calcExpr && !calcExpr.value) {
+                calcExpr.value = ses.expr.slice(0, 2000);
+                liveEval();
+            }
+            if (ses.tab && ses.tab !== 'calculator' && panels[ses.tab]) switchTab(ses.tab);
+            if (ses.notes) setTimeout(function() { if (!document.body.classList.contains('notepad-open')) openNotepad(); }, 0);
+        }
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'hidden') saveSession();
+        });
+        window.addEventListener('pagehide', saveSession);
+
+        /* ── K14 — kopia zapasowa danych (.json) + trwała pamięć ──────────────────
+           Safari potrafi skasować localStorage strony nieużywanej przez 7 dni (także
+           gdy apkę otwiera się w przeglądarce, a nie z ekranu głównego). persist()
+           prosi o wyłączenie tego sprzątania; kopia w pliku to druga linia obrony.
+           Kopia trzyma SUROWE wartości kluczy — przy wczytaniu nic nie trzeba
+           przeliczać, a loadFromStorage po przeładowaniu robi zwykłe migracje. */
+        var BACKUP_KEYS = [STORAGE_KEYS.notepads, STORAGE_KEYS.notepadGlobals, STORAGE_KEYS.history,
+            STORAGE_KEYS.constants, STORAGE_KEYS.settings, STORAGE_KEYS.recentCommands, THEME_PREF_KEY];
+        var BACKUP_APP = 'smart-kalkulator';
+        function _requestPersistentStorage() {
+            try {
+                if (navigator.storage && navigator.storage.persisted && navigator.storage.persist) {
+                    navigator.storage.persisted().then(function(on) { if (!on) return navigator.storage.persist(); })
+                        .catch(function() {});
+                }
+            } catch (e) {}
+        }
+        function buildBackup() {
+            flushNotepadPersist();
+            var data = {};
+            BACKUP_KEYS.forEach(function(k) {
+                try { var v = localStorage.getItem(k); if (v != null) data[k] = v; } catch (e) {}
+            });
+            return { app: BACKUP_APP, version: window.APP_VERSION || '', createdAt: new Date().toISOString(), data: data };
+        }
+        // Zwraca { backup, summary } albo rzuca Error z komunikatem dla użytkownika.
+        function parseBackup(text) {
+            var obj;
+            try { obj = JSON.parse(text); } catch (e) { throw new Error('To nie jest plik kopii (zły JSON).'); }
+            if (!obj || obj.app !== BACKUP_APP || !obj.data || typeof obj.data !== 'object') {
+                throw new Error('To nie jest kopia Smart Kalkulatora.');
+            }
+            var notes = 0, hist = 0;
+            Object.keys(obj.data).forEach(function(k) {
+                if (BACKUP_KEYS.indexOf(k) === -1) delete obj.data[k];   // obce klucze pomijamy
+                else if (typeof obj.data[k] !== 'string') delete obj.data[k];
+            });
+            try { notes = (JSON.parse(obj.data[STORAGE_KEYS.notepads] || '{}').notes || []).length; } catch (e) {}
+            try { hist = JSON.parse(obj.data[STORAGE_KEYS.history] || '[]').length; } catch (e) {}
+            return { backup: obj, notes: notes, history: hist };
+        }
+        function restoreBackup(backup) {
+            _npPersistFrozen = true;
+            BACKUP_KEYS.forEach(function(k) {
+                try {
+                    if (Object.prototype.hasOwnProperty.call(backup.data, k)) localStorage.setItem(k, backup.data[k]);
+                    else localStorage.removeItem(k);
+                } catch (e) {}
+            });
+        }
+        function _backupFilename() {
+            var d = new Date();
+            var pad = function(n) { return n < 10 ? '0' + n : '' + n; };
+            return 'smart-kalkulator-kopia-' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '.json';
+        }
+        (function initBackupUI() {
+            var saveBtn = $('#settingsBackupSave');
+            var loadBtn = $('#settingsBackupLoad');
+            var fileIn = $('#settingsBackupFile');
+            var confirmBox = $('#settingsBackupConfirm');
+            var confirmText = $('#settingsBackupConfirmText');
+            var pending = null;
+            function hideConfirm() { pending = null; if (confirmBox) confirmBox.hidden = true; }
+            if (saveBtn) saveBtn.addEventListener('click', function() {
+                try {
+                    var blob = new Blob([JSON.stringify(buildBackup(), null, 1)], { type: 'application/json' });
+                    var url = URL.createObjectURL(blob);
+                    var a = document.createElement('a');
+                    a.href = url; a.download = _backupFilename(); a.rel = 'noopener';
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                    setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+                    showToast('⬇ Zapisano kopię danych', 'success');
+                } catch (e) { showToast('⚠️ Nie udało się zapisać kopii', 'error'); }
+            });
+            if (loadBtn && fileIn) loadBtn.addEventListener('click', function() { fileIn.value = ''; fileIn.click(); });
+            if (fileIn) fileIn.addEventListener('change', function() {
+                var f = fileIn.files && fileIn.files[0];
+                if (!f) return;
+                f.text().then(function(text) {
+                    var parsed = parseBackup(text);
+                    pending = parsed.backup;
+                    var when = '';
+                    try { when = new Date(parsed.backup.createdAt).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' }); } catch (e) {}
+                    if (confirmText) confirmText.textContent = 'Kopia' + (when ? ' z ' + when : '') + ' — notatki: ' +
+                        parsed.notes + ', wpisy historii: ' + parsed.history + '. Zastąpi obecne dane na tym urządzeniu.';
+                    if (confirmBox) confirmBox.hidden = false;
+                }).catch(function(err) {
+                    hideConfirm();
+                    showToast('⚠️ ' + ((err && err.message) || 'Nie udało się wczytać pliku'), 'error');
+                });
+            });
+            var yes = $('#settingsBackupConfirmYes'), no = $('#settingsBackupConfirmNo');
+            if (no) no.addEventListener('click', hideConfirm);
+            if (yes) yes.addEventListener('click', function() {
+                if (!pending) return;
+                restoreBackup(pending);
+                hideConfirm();
+                showToast('✅ Wczytano kopię — przeładowuję', 'success');
+                setTimeout(function() { location.reload(); }, 600);
+            });
+        })();
+        _requestPersistentStorage();
+
         if (cacheRefreshBtn) {
             cacheRefreshBtn.addEventListener('click', function() {
                 forceHardCacheRefresh();
@@ -9138,7 +9291,33 @@
             var tag = withResults ? '-wyniki' : '';
             return 'notatnik-' + stamp + tag + (format === 'md' ? '.md' : '.txt');
         }
+        // K13 — bieżąca notatka jako TEKST z wynikami (nie plik, nie wszystkie notatki):
+        // w Wiadomościach/Mailu ląduje jako treść, a nie załącznik.
+        function _npCurrentNoteWithResults() {
+            _npStashCurrent();
+            _npRebuildGlobals();
+            var cur = _npCurrentNote();
+            return cur ? _npExportNoteContent(cur.text || '', 'txt', true) : '';
+        }
+        function npCopyCurrentNote() {
+            var body = _npCurrentNoteWithResults();
+            if (!body.trim()) { showToast('⚠️ Notatka jest pusta', 'error'); return; }
+            copyText(body).then(function() {
+                showToast('📋 Skopiowano notatkę z wynikami', 'success');
+            }).catch(function() { showToast('⚠️ Nie udało się skopiować', 'error'); });
+        }
+        function npShareCurrentNote() {
+            var body = _npCurrentNoteWithResults();
+            if (!body.trim()) { showToast('⚠️ Notatka jest pusta', 'error'); return; }
+            if (typeof navigator.share !== 'function') { npCopyCurrentNote(); return; } // komputer bez share → schowek
+            var cur = _npCurrentNote();
+            navigator.share({ title: cur ? _npTitleFull(cur) : 'Notatka', text: body }).catch(function(err) {
+                if (err && err.name !== 'AbortError') npCopyCurrentNote();
+            });
+        }
         function npExport(format) { // T3-14 — .txt / .md / share (+ warianty z wynikami)
+            if (format === 'copy-current') { npCopyCurrentNote(); return; }
+            if (format === 'share-current') { npShareCurrentNote(); return; }
             var withResults = String(format || '').indexOf('-computed') >= 0;
             var fmt = format === 'md' || format === 'md-computed' ? 'md' : 'txt';
             var body = _npExportBody(fmt, withResults);
@@ -11261,8 +11440,10 @@
                 saveNotepad();
             }, 450);
         }
+        var _npPersistFrozen = false; // K14: po wczytaniu kopii — pagehide nie może nadpisać przywróconych notatek
         function flushNotepadPersist(skipStash) { // [EN] skipStash=true after _npCurrentId change — editor still shows previous note
             _npCancelPersistTimer();
+            if (_npPersistFrozen) return;
             if (!skipStash) _npStashCurrent();
             saveGlobals();
             saveNotepad();
@@ -13343,6 +13524,7 @@
             });
             setupPlaceholderMarquee();
             initCalcAutocomplete(calcExpr, calcExprAC);
+            restoreSession();
             function _onCalcAssistViewport() { // [EN] przełącz mobile bubble ↔ desktop chips przy resize
                 if (_calcAssistWide()) _hideCalcAssistBubble();
                 else if (calcExprAC) calcExprAC.classList.remove('open');

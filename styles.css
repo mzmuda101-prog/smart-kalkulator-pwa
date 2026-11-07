@@ -2777,6 +2777,10 @@
             background: var(--surface, #fff);
             border: 1px solid var(--border, #e2e8f0);
             box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+            /* Na niskim ekranie (telefon poziomo, otwarta klawiatura) menu przewija się w sobie. */
+            max-height: calc(100dvh - 96px);
+            overflow-y: auto;
+            overscroll-behavior: contain;
         }
         .np-export-menu[hidden] { display: none; }
         .np-export-menu [role="menuitem"] {
@@ -2791,10 +2795,12 @@
             color: var(--text, #0f172a);
             cursor: pointer;
         }
-        .np-export-menu [role="menuitem"]:hover,
         .np-export-menu [role="menuitem"]:focus-visible {
             background: color-mix(in srgb, var(--primary) 10%, transparent);
             outline: none;
+        }
+        @media (hover: hover) {
+            .np-export-menu [role="menuitem"]:hover { background: color-mix(in srgb, var(--primary) 10%, transparent); }
         }
         .np-export-sep { height: 1px; margin: 4px 8px; background: var(--border, #e2e8f0); }
         .np-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1 1 auto; }
@@ -3851,6 +3857,16 @@
             font-size: 0.82rem;
             color: var(--text-muted);
         }
+        .settings-backup-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+        .settings-backup-confirm {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border: 1.5px solid var(--danger);
+            border-radius: var(--radius-sm);
+            font-size: 0.82rem;
+        }
+        .settings-backup-confirm p { margin: 0 0 6px; }
+        .settings-version-btn.is-danger { border-color: var(--danger); color: var(--danger); }
         .settings-version-btn {
             border: 1.5px solid var(--border);
             background: var(--bg);
@@ -5355,8 +5371,10 @@ body.kb-open.notepad-open .np-head { padding-top: 8px; padding-bottom: 8px; }
     background: var(--primary);
     box-shadow: none;
 }
-.np-export-menu [role="menuitemcheckbox"]:hover,
 .np-export-menu [role="menuitemcheckbox"]:focus-visible { background: color-mix(in srgb, var(--primary) 10%, transparent); outline: none; }
+@media (hover: hover) {
+    .np-export-menu [role="menuitemcheckbox"]:hover { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+}
 
 /* Zmienne — popover w prawym górnym rogu treści (nie zabiera wiersza nad edytorem) */
 .np-vars-panel {

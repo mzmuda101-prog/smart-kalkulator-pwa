@@ -20,7 +20,7 @@
          jasnym tłem przy wybranym/systemowym dark. Lekki klucz osobny (matm0_theme):
          'dark' | 'light' | brak = auto (śledzi system).
          [EN] External file (not inline) so CSP stays script-src 'self'; sync load before CSS. -->
-    <script src="js/theme-init.js?v=v1.04.61"></script>
+    <script src="js/theme-init.js?v=v1.04.62"></script>
     <meta name="application-name" content="Smart Kalkulator">
     <meta name="format-detection" content="telephone=no">
     <meta name="description" content="Szwajcarski scyzoryk do obliczeń codziennych i technicznych">
@@ -28,8 +28,8 @@
     <link rel="icon" href="assets/img/icon-192.png" type="image/png">
     <link rel="apple-touch-icon" href="assets/img/icon-192.png">
     <title>Smart Kalkulator</title>
-    <link rel="stylesheet" href="styles.css?v=v1.04.61" id="matm0MainCss">
-    <script src="js/cache-bust.js?v=v1.04.61" data-phase="head"></script>
+    <link rel="stylesheet" href="styles.css?v=v1.04.62" id="matm0MainCss">
+    <script src="js/cache-bust.js?v=v1.04.62" data-phase="head"></script>
 </head>
 
 <body>
@@ -1158,12 +1158,14 @@
                 <button type="button" role="menuitem" data-np-action="example">Wstaw przykład: wyjazd</button>
                 <button type="button" role="menuitem" data-np-action="help">Ściąga notatnika</button>
                 <div class="np-export-sep" role="separator" aria-hidden="true"></div>
-                <button type="button" role="menuitem" data-export="txt">Eksport .txt</button>
-                <button type="button" role="menuitem" data-export="txt-computed">Eksport .txt z wynikami</button>
-                <button type="button" role="menuitem" data-export="md">Eksport .md</button>
-                <button type="button" role="menuitem" data-export="md-computed">Eksport .md z wynikami</button>
+                <button type="button" role="menuitem" data-export="copy-current">Kopiuj tę notatkę z wynikami</button>
+                <button type="button" role="menuitem" data-export="share-current">Udostępnij tę notatkę…</button>
                 <div class="np-export-sep" role="separator" aria-hidden="true"></div>
-                <button type="button" role="menuitem" data-export="share">Udostępnij…</button>
+                <button type="button" role="menuitem" data-export="txt">Eksport wszystkich .txt</button>
+                <button type="button" role="menuitem" data-export="txt-computed">Eksport wszystkich .txt z wynikami</button>
+                <button type="button" role="menuitem" data-export="md">Eksport wszystkich .md</button>
+                <button type="button" role="menuitem" data-export="md-computed">Eksport wszystkich .md z wynikami</button>
+                <button type="button" role="menuitem" data-export="share">Udostępnij wszystkie (plik)…</button>
             </div>
         </div>
         <div class="np-body">
@@ -1348,6 +1350,22 @@
                 </select>
                 <p class="settings-hint" style="margin-top:8px">Ręcznie zawsze działa: <code>razem(zł)</code>, <code>razem (usd)</code>, <code>półsuma(cm)</code></p>
             </div>
+            <div class="settings-field">
+                <label>Kopia zapasowa</label>
+                <p class="settings-hint">Notatki, zmienne @, historia, stałe i ustawienia w jednym pliku .json. Przyda się przy zmianie telefonu albo gdy przeglądarka wyczyści dane strony.</p>
+                <div class="settings-backup-row">
+                    <button type="button" class="settings-version-btn" id="settingsBackupSave">Zapisz kopię (.json)</button>
+                    <button type="button" class="settings-version-btn" id="settingsBackupLoad">Wczytaj kopię…</button>
+                    <input type="file" id="settingsBackupFile" accept=".json,application/json" hidden>
+                </div>
+                <div class="settings-backup-confirm" id="settingsBackupConfirm" role="alert" hidden>
+                    <p id="settingsBackupConfirmText"></p>
+                    <div class="settings-backup-row">
+                        <button type="button" class="settings-version-btn is-danger" id="settingsBackupConfirmYes">Wczytaj i zastąp</button>
+                        <button type="button" class="settings-version-btn" id="settingsBackupConfirmNo">Anuluj</button>
+                    </div>
+                </div>
+            </div>
             <div class="settings-version">
                 <span id="settingsVersion">Wersja —</span>
                 <button class="settings-version-btn" id="settingsCheckUpdate" type="button">Sprawdź aktualizacje</button>
@@ -1375,27 +1393,27 @@
 
     <!-- defer: statyczny UI (nagłówek, wyświetlacz, zakładki) maluje się ZANIM wykona się JS
          (app.js ~525 KB). Kolejność zachowana, DOM gotowy przed wykonaniem. -->
-    <script src="js/cache-bust.js?v=v1.04.61" data-phase="defer"></script>
-    <script defer src="version.js?v=v1.04.61"></script>
-    <script defer src="js/cursor-hint.js?v=v1.04.61"></script>
-    <script defer src="js/vendor/decimal.js?v=v1.04.61"></script>
-    <script defer src="js/money-decimal.js?v=v1.04.61"></script>
-    <script defer src="js/numeric-eval.js?v=v1.04.61"></script>
-    <script defer src="js/data-tables.js?v=v1.04.61"></script>
-    <script defer src="js/format-pl.js?v=v1.04.61"></script>
-    <script defer src="js/pl-fold.js?v=v1.04.61"></script>
-    <script defer src="js/smart-parser.js?v=v1.04.61"></script>
-    <script defer src="js/smart-quantity.js?v=v1.04.61"></script>
-    <script defer src="js/quantity-algebra.js?v=v1.04.61"></script>
-    <script defer src="js/synonyms.js?v=v1.04.61"></script>
-    <script defer src="js/math-steps.js?v=v1.04.61"></script>
-    <script defer src="js/math-calculus.js?v=v1.04.61"></script>
-    <script defer src="js/hint-rules.js?v=v1.04.61"></script>
-    <script defer src="js/notepad-format.js?v=v1.04.61"></script>
-    <script defer src="js/notepad-engine.js?v=v1.04.61"></script>
-    <script defer src="command-definitions.js?v=v1.04.61"></script>
-    <script defer src="js/calc-layout-tune.js?v=v1.04.61"></script>
-    <script defer src="app.js?v=v1.04.61"></script>
+    <script src="js/cache-bust.js?v=v1.04.62" data-phase="defer"></script>
+    <script defer src="version.js?v=v1.04.62"></script>
+    <script defer src="js/cursor-hint.js?v=v1.04.62"></script>
+    <script defer src="js/vendor/decimal.js?v=v1.04.62"></script>
+    <script defer src="js/money-decimal.js?v=v1.04.62"></script>
+    <script defer src="js/numeric-eval.js?v=v1.04.62"></script>
+    <script defer src="js/data-tables.js?v=v1.04.62"></script>
+    <script defer src="js/format-pl.js?v=v1.04.62"></script>
+    <script defer src="js/pl-fold.js?v=v1.04.62"></script>
+    <script defer src="js/smart-parser.js?v=v1.04.62"></script>
+    <script defer src="js/smart-quantity.js?v=v1.04.62"></script>
+    <script defer src="js/quantity-algebra.js?v=v1.04.62"></script>
+    <script defer src="js/synonyms.js?v=v1.04.62"></script>
+    <script defer src="js/math-steps.js?v=v1.04.62"></script>
+    <script defer src="js/math-calculus.js?v=v1.04.62"></script>
+    <script defer src="js/hint-rules.js?v=v1.04.62"></script>
+    <script defer src="js/notepad-format.js?v=v1.04.62"></script>
+    <script defer src="js/notepad-engine.js?v=v1.04.62"></script>
+    <script defer src="command-definitions.js?v=v1.04.62"></script>
+    <script defer src="js/calc-layout-tune.js?v=v1.04.62"></script>
+    <script defer src="app.js?v=v1.04.62"></script>
 </body>
 
 </html>
