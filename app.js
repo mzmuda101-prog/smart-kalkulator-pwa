@@ -433,10 +433,32 @@
         function _queueToastPosition() { requestAnimationFrame(_positionToast); }
         window.addEventListener('resize', _queueToastPosition);
         if (window.visualViewport) window.visualViewport.addEventListener('resize', _queueToastPosition);
-        function showToast(message, type) {
+        // opts.action + opts.onAction → przycisk w dymku (np. „Cofnij"). Dymek z akcją
+        // przyjmuje dotyk i wisi dłużej (5 s), żeby dało się zdążyć. Nowy dymek zastępuje
+        // poprzedni — jego akcja po prostu wygasa (usunięcie zostaje).
+        function showToast(message, type, opts) {
             if (toastTimer) clearTimeout(toastTimer);
             toast.textContent = message;
             toast.className = 'toast ' + (type || '');
+            var hasAction = !!(opts && opts.action && typeof opts.onAction === 'function');
+            if (hasAction) {
+                var msgSpan = document.createElement('span');
+                msgSpan.className = 'toast-msg';
+                msgSpan.textContent = message;
+                toast.replaceChildren(msgSpan);
+                var actBtn = document.createElement('button');
+                actBtn.type = 'button';
+                actBtn.className = 'toast-action';
+                actBtn.textContent = opts.action;
+                actBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+                    toast.classList.remove('show');
+                    opts.onAction();
+                }, { once: true });
+                toast.appendChild(actBtn);
+                toast.classList.add('has-action');
+            }
             // [EN] Force reflow to restart animation
             void toast.offsetWidth;
             toast.classList.add('show');
@@ -444,7 +466,7 @@
             toastTimer = setTimeout(function() {
                 toast.classList.remove('show');
                 toastTimer = null;
-            }, 2000);
+            }, (opts && opts.duration) || (hasAction ? 5000 : 2000));
             // Haptyka TYLKO przy znaczących zdarzeniach: potwierdzenie (sukces) i błąd.
             // Neutralne info ('') nie wibruje — żeby nie była natrętna. Cyfry/operatory
             // mają już natywny feedback systemu, więc tu ich celowo nie dublujemy.
@@ -490,21 +512,57 @@
                 try { localStorage.setItem(THEME_PREF_KEY, dark ? 'dark' : 'light'); } catch (e) {}
             }
         }
+        // 'auto' | 'light' | 'dark' — 'auto' = brak klucza (śledzi system).
+        function getThemePref() {
+            var pref = null;
+            try { pref = localStorage.getItem(THEME_PREF_KEY); } catch (e) {}
+            return pref === 'dark' || pref === 'light' ? pref : 'auto';
+        }
+        function systemPrefersDark() {
+            return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        }
+        // Segment „Motyw" w ⚙️ pokazuje ZAPISANY wybór, nie bieżący wygląd —
+        // przy „Systemowy" w ciemnym systemie aktywny zostaje „Systemowy".
+        function syncThemeSetting() {
+            var seg = $('#settingTheme');
+            if (!seg) return;
+            var pref = getThemePref();
+            seg.querySelectorAll('.settings-seg-btn').forEach(function(b) {
+                var sel = b.dataset.val === pref;
+                b.classList.toggle('active', sel);
+                b.setAttribute('aria-pressed', sel ? 'true' : 'false');
+            });
+        }
+        function setThemePref(pref) {
+            if (pref === 'light' || pref === 'dark') {
+                applyTheme(pref === 'dark', true);
+            } else {
+                try { localStorage.removeItem(THEME_PREF_KEY); } catch (e) {}
+                applyTheme(systemPrefersDark(), false);
+            }
+            syncThemeSetting();
+        }
         function initTheme() {
             // Inline-skrypt już ustawił atrybut; tu dociągamy ikonę/meta do realnego stanu.
             applyTheme(isDarkTheme(), false);
+            syncThemeSetting();
             var btn = $('#themeToggleBtn');
             if (btn) btn.addEventListener('click', function() {
-                applyTheme(!isDarkTheme(), true);   // ręczny wybór = zapamiętaj
+                setThemePref(isDarkTheme() ? 'light' : 'dark');   // ręczny wybór = zapamiętaj
+                hapticTap(12);
+            });
+            var seg = $('#settingTheme');
+            if (seg) seg.addEventListener('click', function(e) {
+                var b = e.target.closest('.settings-seg-btn');
+                if (!b) return;
+                setThemePref(b.dataset.val);
                 hapticTap(12);
             });
             // Bez ręcznego wyboru śledź zmianę motywu systemu na żywo.
             if (window.matchMedia) {
                 var mq = window.matchMedia('(prefers-color-scheme: dark)');
                 var onSys = function(e) {
-                    var pref = null;
-                    try { pref = localStorage.getItem(THEME_PREF_KEY); } catch (e2) {}
-                    if (pref !== 'dark' && pref !== 'light') applyTheme(e.matches, false);
+                    if (getThemePref() === 'auto') applyTheme(e.matches, false);
                 };
                 if (mq.addEventListener) mq.addEventListener('change', onSys);
                 else if (mq.addListener) mq.addListener(onSys);
@@ -3602,6 +3660,8 @@
         function renderHistory() {
             if (typeof renderCalcTape === 'function') renderCalcTape();
             if (historyCount) historyCount.textContent = String(STATE.history.length);
+            // „Wyczyść" nieaktywne, gdy nie ma czego czyścić (puste albo same przypięte).
+            if (clearHistoryBtn) clearHistoryBtn.disabled = !STATE.history.some(function(it) { return !it.pinned; });
             historyList.replaceChildren();
             if (STATE.history.length === 0) {
                 historyList.appendChild(_histEmptyState('📝', 'Brak historii — zacznij liczyć!'));
@@ -3785,7 +3845,16 @@
                     if (idx !== -1) { STATE.history.splice(idx, 1); saveHistory(); }
                     hapticTap(30);
                     renderHistory();
-                    showToast('🗑️ Usunięto wpis', '');
+                    showToast('🗑️ Usunięto wpis', '', idx === -1 ? null : {
+                        action: 'Cofnij',
+                        onAction: function() {
+                            if (STATE.history.indexOf(item) !== -1) return;
+                            STATE.history.splice(Math.min(idx, STATE.history.length), 0, item);
+                            saveHistory();
+                            renderHistory();
+                            showToast('↩️ Przywrócono wpis', 'success');
+                        }
+                    });
                 });
                 _bindHistorySwipe(li, content);
                 historyList.appendChild(li);
@@ -3896,11 +3965,23 @@
         }
 
         clearHistoryBtn.addEventListener('click', function() {
-            var hadPins = STATE.history.some(function(it) { return it.pinned; });
+            var before = STATE.history.slice();
+            if (!before.some(function(it) { return !it.pinned; })) return; // nic do czyszczenia
+            var hadPins = before.some(function(it) { return it.pinned; });
             STATE.history = STATE.history.filter(function(it) { return it.pinned; }); // przypięte zostają
             saveHistory();
             renderHistory();
-            showToast(hadPins ? '🗑️ Wyczyszczono (przypięte zostają)' : '🗑️ Historia wyczyszczona', '');
+            showToast(hadPins ? '🗑️ Wyczyszczono (przypięte zostają)' : '🗑️ Historia wyczyszczona', '', {
+                action: 'Cofnij',
+                onAction: function() {
+                    // Wpisy dodane po wyczyszczeniu zostają na górze, reszta wraca w starej kolejności.
+                    var added = STATE.history.filter(function(it) { return before.indexOf(it) === -1; });
+                    STATE.history = added.concat(before);
+                    saveHistory();
+                    renderHistory();
+                    showToast('↩️ Przywrócono historię', 'success');
+                }
+            });
         });
         if (historySearch) {
             historySearch.addEventListener('input', function() {
@@ -8247,12 +8328,23 @@
                     var delBtn = e.target.closest('.del-const');
                     if (delBtn) {
                         var idx = parseInt(delBtn.getAttribute('data-idx'), 10);
-                        var name = STATE.constants[idx] ? STATE.constants[idx].name : '';
+                        var removedConst = STATE.constants[idx];
+                        var name = removedConst ? removedConst.name : '';
                         STATE.constants.splice(idx, 1);
                         saveConstants();
                         registerCustomUnits(); // gdy to była własna jednostka — wycofaj z silnika
                         renderConstants();
-                        showToast('🗑️ Usunięto: ' + (name || 'stałą'), '');
+                        showToast('🗑️ Usunięto: ' + (name || 'stałą'), '', !removedConst ? null : {
+                            action: 'Cofnij',
+                            onAction: function() {
+                                if (STATE.constants.indexOf(removedConst) !== -1) return;
+                                STATE.constants.splice(Math.min(idx, STATE.constants.length), 0, removedConst);
+                                saveConstants();
+                                registerCustomUnits();
+                                renderConstants();
+                                showToast('↩️ Przywrócono: ' + (name || 'stałą'), 'success');
+                            }
+                        });
                         return;
                     }
 
@@ -11207,12 +11299,40 @@
             npCloseList();
             if (npBody) npBody.focus();
         }
+        // Zwraca dane do npRestoreNote (Cofnij) albo null, gdy notatki nie było.
         function npDeleteNote(id) {
             var wasCurrent = id === _npCurrentId;
+            var idx = -1;
+            _npNotes.forEach(function(x, i) { if (x.id === id) idx = i; });
+            if (idx === -1) return null;
+            var removed = _npNotes[idx];
+            var placeholderId = null;
             _npNotes = _npNotes.filter(function(x) { return x.id !== id; });
-            if (!_npNotes.length) _npNotes = [{ id: _npNewId(), text: '', updatedAt: Date.now() }];
+            if (!_npNotes.length) {
+                placeholderId = _npNewId();
+                _npNotes = [{ id: placeholderId, text: '', updatedAt: Date.now() }];
+            }
             if (wasCurrent) {
                 _npCurrentId = _npNotes[0].id;
+                flushNotepadPersist(true);
+                _npLoadCurrent();
+            } else {
+                flushNotepadPersist();
+            }
+            npRenderList();
+            return { note: removed, index: idx, wasCurrent: wasCurrent, placeholderId: placeholderId };
+        }
+        function npRestoreNote(info) {
+            if (!info || _npNotes.some(function(x) { return x.id === info.note.id; })) return;
+            // Pusta notatka-zastępstwo (po usunięciu ostatniej) znika, jeśli nikt w niej nie pisał.
+            if (info.placeholderId) {
+                _npNotes = _npNotes.filter(function(x) { return x.id !== info.placeholderId || (x.text || '').trim(); });
+            }
+            _npNotes.splice(Math.min(info.index, _npNotes.length), 0, info.note);
+            var placeholderGone = info.placeholderId && _npCurrentId === info.placeholderId &&
+                !_npNotes.some(function(x) { return x.id === info.placeholderId; });
+            if (info.wasCurrent || placeholderGone) {
+                _npCurrentId = info.note.id;
                 flushNotepadPersist(true);
                 _npLoadCurrent();
             } else {
@@ -11280,8 +11400,14 @@
             if (yesBtn) yesBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
                 hapticTap(30);
-                npDeleteNote(note.id);
-                showToast('🗑️ Usunięto notatkę', '');
+                var delInfo = npDeleteNote(note.id);
+                showToast('🗑️ Usunięto notatkę', '', !delInfo ? null : {
+                    action: 'Cofnij',
+                    onAction: function() {
+                        npRestoreNote(delInfo);
+                        showToast('↩️ Przywrócono notatkę', 'success');
+                    }
+                });
             });
             content.addEventListener('click', function() {
                 if (li._swipeHandled) return;

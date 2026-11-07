@@ -1398,7 +1398,8 @@
             font-family: var(--font);
             transition: all var(--transition);
         }
-        .history-clear-btn:active { background: #fee2e2; color: var(--danger); border-color: var(--danger); }
+        .history-clear-btn:not(:disabled):active { background: #fee2e2; color: var(--danger); border-color: var(--danger); }
+        .history-clear-btn:disabled { opacity: 0.45; cursor: default; }
         .history-close-btn {
             width: 34px;
             height: 34px;
@@ -1995,6 +1996,15 @@
             font-weight: 800;
             color: var(--primary);
             overflow-wrap: anywhere;
+        }
+        .command-help-content kbd {
+            padding: 0 4px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--surface-2);
+            color: var(--text-secondary);
+            font: 0.85em var(--font-mono);
+            white-space: nowrap;
         }
         .command-help-content .help-yields {
             display: block;
@@ -3802,6 +3812,9 @@
             padding: 3px;
             flex-shrink: 0;
         }
+        .settings-seg-3 { grid-template-columns: repeat(3, auto); }
+        .settings-seg-3 .settings-seg-btn { padding: 7px 12px; }
+        .settings-theme-row { flex-wrap: wrap; margin-top: 0; }
         .settings-seg-btn {
             min-height: 36px;
             padding: 7px 18px;
@@ -3901,6 +3914,33 @@
         }
 
         .toast.show { transform: translateX(-50%) translateY(0); }
+        /* Dymek z akcją (np. „Cofnij"): przyjmuje dotyk, tekst + przycisk w jednym wierszu. */
+        .toast.has-action {
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 6px 6px 6px 20px;
+            text-align: left;
+            width: max-content;
+        }
+        .toast-msg { min-width: 0; overflow-wrap: normal; }
+        .toast.has-action:not(.show) { pointer-events: none; }
+        .toast-action {
+            flex-shrink: 0;
+            min-height: 36px;
+            padding: 6px 14px;
+            border: none;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.18);
+            color: inherit;
+            font: inherit;
+            font-weight: 800;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .toast-action:active { background: rgba(255, 255, 255, 0.3); }
+        @media (hover: hover) { .toast-action:hover { background: rgba(255, 255, 255, 0.26); } }
         .toast.success { background: var(--success); }
         .toast.error { background: var(--danger); }
 

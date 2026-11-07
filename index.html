@@ -20,7 +20,7 @@
          jasnym tłem przy wybranym/systemowym dark. Lekki klucz osobny (matm0_theme):
          'dark' | 'light' | brak = auto (śledzi system).
          [EN] External file (not inline) so CSP stays script-src 'self'; sync load before CSS. -->
-    <script src="js/theme-init.js?v=v1.04.58"></script>
+    <script src="js/theme-init.js?v=v1.04.59"></script>
     <meta name="application-name" content="Smart Kalkulator">
     <meta name="format-detection" content="telephone=no">
     <meta name="description" content="Szwajcarski scyzoryk do obliczeń codziennych i technicznych">
@@ -28,8 +28,8 @@
     <link rel="icon" href="assets/img/icon-192.png" type="image/png">
     <link rel="apple-touch-icon" href="assets/img/icon-192.png">
     <title>Smart Kalkulator</title>
-    <link rel="stylesheet" href="styles.css?v=v1.04.58" id="matm0MainCss">
-    <script src="js/cache-bust.js?v=v1.04.58" data-phase="head"></script>
+    <link rel="stylesheet" href="styles.css?v=v1.04.59" id="matm0MainCss">
+    <script src="js/cache-bust.js?v=v1.04.59" data-phase="head"></script>
 </head>
 
 <body>
@@ -1069,7 +1069,7 @@
                     <p>Każda linia = osobne działanie; wynik na końcu wiersza. <strong>Dotknij wynik</strong> — dymek z rozpisanym równaniem (np. <code>razem</code> → <code>a + b</code>).</p>
                     <p class="help-command" data-command="Nocleg: {nocleg} * {cena}"><span class="help-pair"><code>Etykieta: a × b</code></span> etykieta przed <code>:</code> pomijana w liczeniu</p>
                     <p class="help-command" data-command="Wyjazd w góry"><span class="help-pair"><code>Nagłówek tekstowy</code></span> linia bez działania = czysty tekst (nagłówek)</p>
-                    <p><strong>Wiele notatek:</strong> <strong>+</strong> nowa · ikona listy (tytuł = pierwsza linia) · kosz usuwa · <strong>⋯</strong> = same wyniki, przykład, eksport. <strong>{ }</strong> — zmienne tej notatki (dotknij, by wstawić).</p>
+                    <p><strong>Wiele notatek:</strong> <strong>+</strong> nowa · ikona listy (tytuł = pierwsza linia) · w liście <strong>przesuń notatkę w lewo</strong> (myszą: przeciągnij) → <strong>Usuń</strong> · <strong>⋯</strong> = same wyniki, przykład, ściąga, eksport, udostępnij. <strong>{ }</strong> — zmienne tej notatki (dotknij, by wstawić).</p>
                     <p><strong>Łącznie</strong> pod notatką — suma wszystkich pozycji (gdy mają tę samą jednostkę); dotknij, by zobaczyć sumy sekcji.</p>
                 </section>
                 <section>
@@ -1110,10 +1110,11 @@
                     <p>Nieznane słowa (<code>os</code>, <code>szt</code>) = liczniki bezwymiarowe. W ⚙️: <strong>zachowawczo</strong> (proza bez wyniku) lub <strong>pełne auto</strong>.</p>
                 </section>
                 <section>
-                    <h4>Edycja i fold</h4>
+                    <h4>Edycja i widok</h4>
                     <p>Zaznaczanie wielu linii jak w zwykłym edytorze. Zaznacz tekst — pasek formatowania (B/I/U…). Przytrzymaj — systemowe Kopiuj/Wytnij.</p>
-                    <p>Przycisk <strong>⊟</strong> — fold: wiersz pokazuje sam wynik (kliknij, by edytować). Tytuł notatki: dotknij nagłówka.</p>
-                    <p>Pod edytorem: <strong>Przykład: wyjazd</strong> — gotowy szablon do nauki (jednostki, <code>razem(usd)</code>, <code>@razem</code>).</p>
+                    <p><strong>Skróty:</strong> <kbd>⌘/Ctrl</kbd>+<kbd>B</kbd> pogrubienie · <kbd>⌘/Ctrl</kbd>+<kbd>I</kbd> kursywa · <kbd>⌘/Ctrl</kbd>+<kbd>U</kbd> podkreślenie · <kbd>⌘/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd> przekreślenie (na zaznaczonym tekście).</p>
+                    <p><strong>⋯</strong> → <strong>Same wyniki (zwiń działania)</strong>: wiersz pokazuje sam wynik (kliknij, by edytować). Na stałe — w ⚙️. Tytuł notatki: dotknij nagłówka.</p>
+                    <p><strong>Przykład: wyjazd</strong> — gotowy szablon do nauki (jednostki, <code>razem(usd)</code>, <code>@razem</code>): przycisk pod pustą notatką albo <strong>⋯</strong> → <strong>Wstaw przykład: wyjazd</strong>.</p>
                 </section>
                 <section>
                     <h4>Przykład wyjazdu (konkretne liczby — klik = wstaw)</h4>
@@ -1262,6 +1263,16 @@
             </div>
             <p class="settings-fxstatus" id="settingsFxStatus"></p>
             <div class="settings-field">
+                <div class="settings-toggle-row settings-theme-row">
+                    <span class="settings-toggle-text"><strong>Motyw</strong><br><small>Systemowy podąża za ustawieniem telefonu/komputera. Przycisk księżyca w nagłówku wybiera jasny lub ciemny na stałe.</small></span>
+                    <div class="settings-seg settings-seg-3" id="settingTheme" role="group" aria-label="Motyw">
+                        <button type="button" class="settings-seg-btn" data-val="auto">Systemowy</button>
+                        <button type="button" class="settings-seg-btn" data-val="light">Jasny</button>
+                        <button type="button" class="settings-seg-btn" data-val="dark">Ciemny</button>
+                    </div>
+                </div>
+            </div>
+            <div class="settings-field">
                 <label for="settingCalcLayout">Układ kalkulatora</label>
                 <select id="settingCalcLayout">
                     <option value="keypad">Klawisze — klasyczny kalkulator z polem nad klawiaturą</option>
@@ -1357,27 +1368,27 @@
 
     <!-- defer: statyczny UI (nagłówek, wyświetlacz, zakładki) maluje się ZANIM wykona się JS
          (app.js ~525 KB). Kolejność zachowana, DOM gotowy przed wykonaniem. -->
-    <script src="js/cache-bust.js?v=v1.04.58" data-phase="defer"></script>
-    <script defer src="version.js?v=v1.04.58"></script>
-    <script defer src="js/cursor-hint.js?v=v1.04.58"></script>
-    <script defer src="js/vendor/decimal.js?v=v1.04.58"></script>
-    <script defer src="js/money-decimal.js?v=v1.04.58"></script>
-    <script defer src="js/numeric-eval.js?v=v1.04.58"></script>
-    <script defer src="js/data-tables.js?v=v1.04.58"></script>
-    <script defer src="js/format-pl.js?v=v1.04.58"></script>
-    <script defer src="js/pl-fold.js?v=v1.04.58"></script>
-    <script defer src="js/smart-parser.js?v=v1.04.58"></script>
-    <script defer src="js/smart-quantity.js?v=v1.04.58"></script>
-    <script defer src="js/quantity-algebra.js?v=v1.04.58"></script>
-    <script defer src="js/synonyms.js?v=v1.04.58"></script>
-    <script defer src="js/math-steps.js?v=v1.04.58"></script>
-    <script defer src="js/math-calculus.js?v=v1.04.58"></script>
-    <script defer src="js/hint-rules.js?v=v1.04.58"></script>
-    <script defer src="js/notepad-format.js?v=v1.04.58"></script>
-    <script defer src="js/notepad-engine.js?v=v1.04.58"></script>
-    <script defer src="command-definitions.js?v=v1.04.58"></script>
-    <script defer src="js/calc-layout-tune.js?v=v1.04.58"></script>
-    <script defer src="app.js?v=v1.04.58"></script>
+    <script src="js/cache-bust.js?v=v1.04.59" data-phase="defer"></script>
+    <script defer src="version.js?v=v1.04.59"></script>
+    <script defer src="js/cursor-hint.js?v=v1.04.59"></script>
+    <script defer src="js/vendor/decimal.js?v=v1.04.59"></script>
+    <script defer src="js/money-decimal.js?v=v1.04.59"></script>
+    <script defer src="js/numeric-eval.js?v=v1.04.59"></script>
+    <script defer src="js/data-tables.js?v=v1.04.59"></script>
+    <script defer src="js/format-pl.js?v=v1.04.59"></script>
+    <script defer src="js/pl-fold.js?v=v1.04.59"></script>
+    <script defer src="js/smart-parser.js?v=v1.04.59"></script>
+    <script defer src="js/smart-quantity.js?v=v1.04.59"></script>
+    <script defer src="js/quantity-algebra.js?v=v1.04.59"></script>
+    <script defer src="js/synonyms.js?v=v1.04.59"></script>
+    <script defer src="js/math-steps.js?v=v1.04.59"></script>
+    <script defer src="js/math-calculus.js?v=v1.04.59"></script>
+    <script defer src="js/hint-rules.js?v=v1.04.59"></script>
+    <script defer src="js/notepad-format.js?v=v1.04.59"></script>
+    <script defer src="js/notepad-engine.js?v=v1.04.59"></script>
+    <script defer src="command-definitions.js?v=v1.04.59"></script>
+    <script defer src="js/calc-layout-tune.js?v=v1.04.59"></script>
+    <script defer src="app.js?v=v1.04.59"></script>
 </body>
 
 </html>
