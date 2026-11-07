@@ -1828,13 +1828,20 @@
             return pre + head + groups.replace(/[   ]/g, '');
         });
     }
+    // W notatkach i w szybkich obliczeniach ludzie często wpisują „2x 45 eur”
+    // zamiast „2 × 45 eur”. Między dwiema liczbami `x` nie może być nazwą
+    // zmiennej — jest jednoznacznym mnożeniem. Nie ruszamy „2x^2” ani „x 45”,
+    // gdzie x nadal ma sens algebraiczny.
+    function _normalizeCompactMultiplier(s) {
+        return String(s).replace(/(\d)\s*[xX]\s*(?=\d)/g, '$1 × ');
+    }
     function _evaluateCore(raw, options) {
         var opts = options || {};
         var firstUnitWins = !!opts.firstUnitWins;
         var tolerated = _tolerateInput(raw);
         if (!tolerated) return _dbgFail(opts, 'empty_input');
         // Agregaty („suma z 100 200 300”) to LISTY liczb — tam spacja rozdziela pozycje.
-        var original = _joinThousandGroups(tolerated);
+        var original = _normalizeCompactMultiplier(_joinThousandGroups(tolerated));
         var fxRates = opts.fxRates || {};
         var currencyOpts = {
             fxRates: fxRates,
@@ -1969,9 +1976,20 @@
             if (!curRes.hasCurrency && unitResult.displayFactor) value = value / unitResult.displayFactor;
             var _QTY = (typeof window !== 'undefined' && window.MATM0_QTY) ||
                 (typeof self !== 'undefined' && self.MATM0_QTY) || null;
+            // Po „=” aplikacja wkłada wynik z powrotem do pola. Gdy wynik był
+            // jawną konwersją, zachowujemy jej jednostkę w tym jednym odczycie;
+            // w przeciwnym razie auto-dobór zmieniał np. „4,409245 pounds” na mg.
+            var _readbackKey = opts.readbackUnit ? String(opts.readbackUnit).toLowerCase() : '';
+            var _readbackDef = _readbackKey && unitOpts.unitDefs[_readbackKey];
+            var _keepReadbackUnit = !curRes.hasCurrency && _readbackDef &&
+                _readbackDef.cat === unitResult.cat && isFinite(valueBase);
+            if (_keepReadbackUnit) {
+                value = valueBase / _readbackDef.factor;
+                unit = (opts.unitDisplay || {})[_readbackKey] || _readbackKey;
+            }
             var _autoMode = (opts.defaultUnits || {})[unitResult.cat] === '__auto__';
             if (!curRes.hasCurrency && unitResult.cat && isFinite(valueBase) && _QTY &&
-                _autoMode && unitResult.cat !== 'time' && !unitResult.explicitConvert &&
+                _autoMode && !_keepReadbackUnit && unitResult.cat !== 'time' && !unitResult.explicitConvert &&
                 Math.abs(valueBase) > 0) {
                 var _autoU = _QTY.chooseUnit(unitResult.cat, valueBase);
                 var _autoInfo = _autoU && _QTY.unitInfo ? _QTY.unitInfo(_autoU) : null;

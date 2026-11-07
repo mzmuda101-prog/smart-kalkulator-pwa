@@ -16,6 +16,13 @@
 
     function chip(label, insert) { return { label: label, insert: insert }; }
 
+    // Konwersja albo przedział jest już pełnym poleceniem. Doklejanie następnej
+    // akcji („na lb”, „+ 10%”, „w Tokio”) daje zaskakujący, często bezsensowny ciąg.
+    function hasCompleteTransform(n) {
+        return /\b(?:na|to|in)\s+[^\s]+/.test(n)
+            || /\bod\s+\d{1,2}:\d{2}\s+do\s+\d{1,2}:\d{2}/.test(n);
+    }
+
     // Kontekstowe podpowiedzi (T4-17) — chipy doklejają fragment do bieżącego wyrażenia.
     var LIVE_RULES = [
         {
@@ -105,6 +112,7 @@
         var raw = String(expr || '').trim();
         if (!raw) return [];
         var n = norm(raw);
+        if (hasCompleteTransform(n)) return [];
         for (var i = 0; i < LIVE_RULES.length; i++) {
             if (LIVE_RULES[i].test(n, raw)) return LIVE_RULES[i].chips(raw) || [];
         }

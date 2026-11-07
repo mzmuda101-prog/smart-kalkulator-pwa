@@ -90,6 +90,8 @@ gold('sekcja reset', 'A: 10\nB: 20\n---\nC: 5\nrazem', 4, 5);
 gold('nagłówek prozy bez wyniku', 'Wyjazd w góry\nA: 1', 0, null, { empty: true });
 gold('@zmienna lokalna', 'Budżet: 5000\nKoszt: 100 + 194\nZostało: @budżet - @koszt', 2, 4706);
 gold('@def nie wlicza do razem', '@stawka: 50\nKoszt: @stawka * 3\nrazem', 2, 150);
+gold('kompaktowe x = mnożenie', 'Bilety 2x 45 eur', 0, 90);
+gold('x ze spacjami = mnożenie', 'Bilety 2 x 45 eur', 0, 90);
 
 // waluty + razem(zł) / inherit
 const savedSum = api.state.settings.notepadSumUnit;

@@ -399,6 +399,40 @@
            [EN] Toast Notification
            ============================================================ */
         let toastTimer = null;
+        function _positionToast() {
+            if (!toast) return;
+            var vv = window.visualViewport;
+            var viewportWidth = vv ? vv.width : window.innerWidth;
+            if (viewportWidth >= 640) {
+                toast.style.top = '';
+                toast.style.bottom = '';
+                return;
+            }
+            var nav = document.getElementById('bottomNav');
+            var keyboardOpen = document.body.classList.contains('kb-open');
+            // Stan kb-open może zmienić się klatkę przed regułą CSS. Kierujemy się
+            // tym, czy pasek FAKTYCZNIE zajmuje miejsce, nie samą klasą na body.
+            if (nav && getComputedStyle(nav).display !== 'none' && nav.getBoundingClientRect().height > 0) {
+                var navTop = nav.getBoundingClientRect().top;
+                toast.style.top = '';
+                // iOS potrafi inaczej mapować visual i layout viewport. Mierzymy
+                // wynikowy prostokąt, więc dymek kończy się zawsze 16 px nad paskiem.
+                toast.style.bottom = '16px';
+                var overlap = toast.getBoundingClientRect().bottom - (navTop - 16);
+                toast.style.bottom = Math.max(16, 16 + overlap) + 'px';
+                return;
+            }
+            if (keyboardOpen && vv) {
+                toast.style.bottom = 'auto';
+                toast.style.top = Math.max(12, vv.offsetTop + vv.height - toast.offsetHeight - 16) + 'px';
+                return;
+            }
+            toast.style.top = '';
+            toast.style.bottom = '';
+        }
+        function _queueToastPosition() { requestAnimationFrame(_positionToast); }
+        window.addEventListener('resize', _queueToastPosition);
+        if (window.visualViewport) window.visualViewport.addEventListener('resize', _queueToastPosition);
         function showToast(message, type) {
             if (toastTimer) clearTimeout(toastTimer);
             toast.textContent = message;
@@ -406,6 +440,7 @@
             // [EN] Force reflow to restart animation
             void toast.offsetWidth;
             toast.classList.add('show');
+            _positionToast();
             toastTimer = setTimeout(function() {
                 toast.classList.remove('show');
                 toastTimer = null;
@@ -1294,6 +1329,7 @@
                 unitDisplay: CALC_UNIT_DISPLAY,
                 unitNamesRe: _UNIT_NAMES_RE,
                 defaultUnits: (STATE.settings && STATE.settings.defaultUnits) || {},
+                readbackUnit: extra.readbackUnit || null,
                 debug: !!extra.debug,
             };
         }
@@ -3114,7 +3150,12 @@
                 calcExpr.value = clamped;
                 if (atEnd) { try { calcExpr.setSelectionRange(clamped.length, clamped.length); } catch (e) {} }
             }
-            var res = evalCalcExpression(calcExpr.value);
+            // Po „=” wynik wraca do pola jako normalny, edytowalny tekst. Przez
+            // pierwsze przeliczenie zachowujemy jednostkę wybraną przez jawną
+            // konwersję; następna zmiana użytkownika wraca do zwykłego auto-trybu.
+            var readbackUnit = STATE.calc.justEvaluated && calcExpr.value === STATE.calc._evalText
+                ? STATE.calc._evalUnit : null;
+            var res = evalCalcExpression(calcExpr.value, readbackUnit ? { readbackUnit: readbackUnit } : null);
             // Waluty: kursów brak/przeterminowane — pobierz i pokaż status zamiast wyniku.
             if (res.pendingFx) {
                 ensureFxRates();
@@ -3382,6 +3423,7 @@
                     calcExpr.setSelectionRange(calcExpr.value.length, calcExpr.value.length);
                     STATE.calc.justEvaluated = true;
                     STATE.calc._evalText = calcExpr.value;
+                    STATE.calc._evalUnit = null;
                     liveEval();
                     return;
                 }
@@ -3396,6 +3438,7 @@
                     }
                     STATE.calc.justEvaluated = true;
                     STATE.calc._evalText = calcExpr.value;
+                    STATE.calc._evalUnit = null;
                     liveEval();
                     return;
                 }
@@ -3409,6 +3452,7 @@
                     }
                     STATE.calc.justEvaluated = true;
                     STATE.calc._evalText = calcExpr.value;
+                    STATE.calc._evalUnit = res.kind === 'physical' || res.kind === 'duration' ? res.unit : null;
                     liveEval();
                 }
                 return;
@@ -11054,6 +11098,12 @@
             saveGlobals();
             saveNotepad();
         }
+        // localStorage jest synchroniczne, więc możemy bezpiecznie opróżnić debounce
+        // zanim karta przejdzie w tło albo zostanie odłożona przez system.
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'hidden') flushNotepadPersist();
+        });
+        window.addEventListener('pagehide', function() { flushNotepadPersist(); });
         function _npStashToNote(noteId) { // [EN] explicit id — safe before _npCurrentId changes
             var n = noteId ? _npNoteById(noteId) : _npCurrentNote();
             if (!n || !npEditor) return;
@@ -13038,11 +13088,15 @@
             calcExpr.addEventListener('pointerdown', function() {
                 // Tap w tekst oznacza świadomą edycję wyniku po '=', nie nowy kalkulatorowy wpis.
                 STATE.calc.justEvaluated = false;
+                STATE.calc._evalUnit = null;
             });
             // Treść pola zmieniona po „=” (klawiatura telefonu, chip, przykład) → to już nowe działanie,
             // więc kolejne „=” ma zapisać się do historii (wcześniej flaga zostawała i „=” nic nie robiło).
             calcExpr.addEventListener('input', function() {
-                if (STATE.calc.justEvaluated && calcExpr.value !== STATE.calc._evalText) STATE.calc.justEvaluated = false;
+                if (STATE.calc.justEvaluated && calcExpr.value !== STATE.calc._evalText) {
+                    STATE.calc.justEvaluated = false;
+                    STATE.calc._evalUnit = null;
+                }
                 liveEval();
             });
             calcExpr.addEventListener('keydown', function(e) {

@@ -85,6 +85,23 @@ EXTRA.forEach(function (pair) {
     else { fail++; fails.push({ expr: pair[0], why: got ? 'miało NIE liczyć' : 'miało się policzyć' }); }
 });
 
+// Jawną jednostkę konwersji zachowujemy w pierwszym odczycie wyniku po „=”.
+// Bez tego `2 kg na lb` wracało jako „4,409245 pounds”, po czym auto-dobór
+// przeliczał je ponownie do mg; `1 mila na km` kończyła jako cm.
+[
+    '2 kg na lb',
+    '1 mila na km',
+].forEach(function (expr) {
+    const first = api.evalCalcExpression(expr);
+    const shown = api.calcEqualsExprText(first);
+    const back = shown ? api.evalCalcExpression(shown, { readbackUnit: first.unit }) : null;
+    // Tekst po „=” ma maks. 6 miejsc po przecinku, więc porównujemy do
+    // precyzji, którą użytkownik faktycznie widzi i ponownie odczytuje.
+    const ok = back && back.unit === first.unit && Math.abs(back.value - first.value) <= 0.0000005;
+    if (ok) pass++;
+    else fail++, fails.push({ expr, why: 'po = gubi jednostkę jawnej konwersji', shown, first: { value: first.value, unit: first.unit }, back: back && { value: back.value, unit: back.unit } });
+});
+
 console.log('');
 if (fail) {
     console.error('=== READBACK: ' + pass + '/' + (pass + fail) + ' PASS ===');

@@ -194,7 +194,10 @@
             var re = /(\d[\d.,]*)\s*([\p{L}][\p{L}.]*)/gu, m, added = [];
             while ((m = re.exec(text)) !== null) {
                 var w = m[2], k = w.toLowerCase();
-                if (CALC_UNITS[k] || _npTokenKnown(w) || (exclude && exclude[k])) continue; // pomiń też zmienne-etykiety
+                // `x` po liczbie to skrócony znak mnożenia („2x 45 eur”), nie
+                // tymczasowa jednostka notatnika. Rejestracja go jako jednostki
+                // sklejała liczby do błędnego 245 €.
+                if (k === 'x' || CALC_UNITS[k] || _npTokenKnown(w) || (exclude && exclude[k])) continue; // pomiń też zmienne-etykiety
                 CALC_UNITS[k] = { cat: 'custom:' + k, factor: 1, base: w, custom: true, dimensionless: true, _auto: true };
                 CALC_UNIT_DISPLAY[k] = w;
                 added.push(k);

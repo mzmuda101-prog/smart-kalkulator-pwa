@@ -2570,7 +2570,7 @@
            ============================================================ */
         .toast {
             position: fixed;
-            bottom: 24px;
+            bottom: calc(16px + var(--safe-bottom));
             left: 50%;
             transform: translateX(-50%) translateY(100px);
             background: var(--text);
@@ -2578,11 +2578,15 @@
             padding: 12px 24px;
             border-radius: 999px;
             font-size: 0.875rem;
+            line-height: 1.35;
             font-weight: 600;
             z-index: 1000;
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             pointer-events: none;
-            white-space: nowrap;
+            max-width: min(32rem, calc(100vw - 32px - var(--safe-left) - var(--safe-right)));
+            text-align: center;
+            white-space: normal;
+            overflow-wrap: anywhere;
             box-shadow: var(--shadow-lg);
         }
         /* ── Notatnik (pełnoekranowa nakładka) ────────────────────── */

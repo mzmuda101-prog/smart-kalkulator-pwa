@@ -14,6 +14,9 @@ function ok(name, cond) {
 var hints = H.getLiveHints('dziś');
 ok('dziś → + 90 dni', hints.some(function (c) { return (c.label || c).indexOf('90 dni') >= 0; }));
 ok('ile dni → do 1.09', H.getLiveHints('ile dni').some(function (c) { return (c.label || c).indexOf('1.09') >= 0; }));
+ok('konwersja kg → lb nie dostaje kolejnego czipa', H.getLiveHints('2 kg na lb').length === 0);
+ok('konwersja waluty nie dostaje kolejnego czipa', H.getLiveHints('20 eur na zł').length === 0);
+ok('przedział czasu nie dostaje stref i działań', H.getLiveHints('od 8:00 do 16:30').length === 0);
 ok('fuzzy czas w tokjo', H.fuzzySuggest('czas w tokjo') === 'czas w Tokio');
 ok('fuzzy brak dla 12', H.fuzzySuggest('12') === null);
 
