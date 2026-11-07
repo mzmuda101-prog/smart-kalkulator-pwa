@@ -251,3 +251,65 @@ test('sesja: po przeładowaniu wraca wpisane wyrażenie i otwarty notatnik', asy
   await expect(page.locator('#calcExpr')).toHaveValue('12 * 7');
   await expect(page.locator('body')).toHaveClass(/notepad-open/);
 });
+
+// ── K20 — wyszukiwanie bez polskich znaków ──
+test('szukanie: „zl” w historii i „zywnosc” na liście notatek trafiają mimo ogonków', async ({ page }) => {
+  await NP.waitAppReady(page);
+  await page.locator('#calcExpr').fill('100 zł + 50 zł');
+  await page.locator('#calcExpr').press('Enter');
+  await openHistory(page);
+  await page.locator('#historySearch').fill('zl');
+  await expect(page.locator('#historyList .history-item')).toHaveCount(1);
+
+  await NP.openNotepad(page);
+  await NP.setNotepadText(page, 'Żywność na wyjazd: 3 * 40 zł');
+  await page.locator('#npListBtn').click();
+  await page.locator('#npListSearch').fill('zywnosc');
+  await expect(page.locator('.np-note-item')).toHaveCount(1);
+});
+
+// ── K18 — obcięcie wklejki nie jest ciche ──
+test('pole: za długa liczba zostaje skrócona z dymkiem', async ({ page }) => {
+  await NP.waitAppReady(page);
+  await page.locator('#calcExpr').fill('1234567890123456789 zł');
+  await expect(page.locator('#toast.show')).toContainText('najwyżej 15 cyfr');
+  await expect(page.locator('#calcExpr')).toHaveValue('123456789012345 zł');
+});
+
+// ── K12 — menu pozycji i klawiatura na listach ──
+test('historia: prawy klik → Usuń usuwa wpis (z Cofnij)', async ({ page }) => {
+  await NP.waitAppReady(page);
+  for (const expr of ['6 + 6', '8 + 8']) {
+    await page.locator('#calcExpr').fill(expr);
+    await page.locator('#calcExpr').press('Enter');
+  }
+  await openHistory(page);
+  await page.locator('.history-item .history-item-content').first().click({ button: 'right' });
+  const menu = page.locator('.item-ctx-menu:not([hidden])');
+  await expect(menu).toContainText('Przypnij');
+  await menu.getByRole('menuitem', { name: 'Usuń' }).click();
+  await expect(page.locator('#historyList .history-item')).toHaveCount(1);
+  await expect(page.locator('#toast.show .toast-action')).toHaveText('Cofnij');
+});
+
+test('lista notatek: klawiatura otwiera (Enter), duplikuje (menu) i usuwa (Delete)', async ({ page }) => {
+  await NP.waitAppReady(page);
+  await NP.openNotepad(page);
+  await NP.setNotepadText(page, 'Remont: 12 m2 * 80 zł');
+  await page.locator('#npListBtn').click();
+  const row = page.locator('.np-note-item .np-note-content').first();
+  await row.focus();
+  await page.keyboard.press('Shift+F10');
+  await page.locator('.item-ctx-menu:not([hidden])').getByRole('menuitem', { name: 'Duplikuj' }).click();
+  await expect(page.locator('.np-note-item')).toHaveCount(2);
+  await expect(page.locator('.np-note-item').filter({ hasText: '(kopia)' })).toHaveCount(1);
+
+  const copyRow = page.locator('.np-note-item').filter({ hasText: '(kopia)' }).locator('.np-note-content');
+  await copyRow.focus();
+  await page.keyboard.press('Delete');
+  await expect(page.locator('.np-note-item')).toHaveCount(1);
+
+  await page.locator('.np-note-item .np-note-content').first().focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#npListPanel')).not.toHaveClass(/open/);
+});

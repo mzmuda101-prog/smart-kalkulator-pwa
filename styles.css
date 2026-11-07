@@ -2832,6 +2832,7 @@
             transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .np-note-content:active { background: var(--primary-light, rgba(37, 99, 235, 0.08)); }
+        .np-note-content:focus-visible { outline: 2px solid var(--border-focus); outline-offset: -2px; }
         .np-note-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1rem; color: var(--text); }
         .np-note-when { flex: 0 0 auto; font-size: 0.75rem; color: var(--text-muted); }
         .np-note-delete {
@@ -3545,6 +3546,9 @@
             text-align: left;
             font-weight: 600;
         }
+        /* K12 — menu pozycji historii / notatek */
+        .item-ctx-menu .is-danger { color: var(--danger); }
+        .item-ctx-menu .np-ctx-btn:focus-visible { outline: 2px solid var(--border-focus); outline-offset: -2px; }
         .np-ctx-btn {
             border: none;
             border-radius: var(--radius-sm);

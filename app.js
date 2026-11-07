@@ -1365,6 +1365,22 @@
             if (out.length > CALC_MAX_EXPR_CHARS) out = out.slice(0, CALC_MAX_EXPR_CHARS);
             return out;
         }
+        // K18 — obcięcie nie może być ciche: wklejka „traciła” cyfry bez słowa, a cyfra z padu
+        // po prostu nie wchodziła. Dymek mówi dlaczego; najwyżej raz na 3 s, żeby
+        // przytrzymane „9” nie zasypało ekranu komunikatami.
+        var _calcLimitNoticeAt = 0;
+        function _calcLimitNotice(val, kind) {
+            var now = Date.now();
+            if (now - _calcLimitNoticeAt < 3000) return;
+            _calcLimitNoticeAt = now;
+            if (kind === 'chars') showToast('✂️ Działanie skrócone do ' + CALC_MAX_EXPR_CHARS + ' znaków', '');
+            else showToast('✂️ Liczba może mieć najwyżej ' + _calcMaxDigitsPerRun(val) + ' cyfr — dalej tracimy dokładność', '');
+        }
+        function _calcClampReason(val) {
+            if (!val) return null;
+            if (new RegExp('\\d{' + (_calcMaxDigitsPerRun(val) + 1) + ',}').test(val)) return 'digits';
+            return val.length > CALC_MAX_EXPR_CHARS ? 'chars' : null;
+        }
         function _calcWouldExceedDigitLimit(val, start, end, ch) {
             if (!/^\d$/.test(ch)) return false;
             var next = val.slice(0, start) + ch + val.slice(end);
@@ -3292,6 +3308,7 @@
             var rawVal = calcExpr.value;
             var clamped = clampCalcExprInput(rawVal);
             if (clamped !== calcExpr.value) {
+                _calcLimitNotice(rawVal, _calcClampReason(rawVal));
                 var atEnd = calcExpr.selectionStart >= calcExpr.value.length;
                 calcExpr.value = clamped;
                 if (atEnd) { try { calcExpr.setSelectionRange(clamped.length, clamped.length); } catch (e) {} }
@@ -3481,7 +3498,11 @@
                     var focusedD = document.activeElement === calcExpr;
                     var sd = focusedD && calcExpr.selectionStart != null ? calcExpr.selectionStart : calcExpr.value.length;
                     var ed = focusedD && calcExpr.selectionEnd != null ? calcExpr.selectionEnd : calcExpr.value.length;
-                    if (_calcWouldExceedDigitLimit(calcExpr.value, sd, ed, action)) return;
+                    if (_calcWouldExceedDigitLimit(calcExpr.value, sd, ed, action)) {
+                        var nextVal = calcExpr.value.slice(0, sd) + action + calcExpr.value.slice(ed);
+                        _calcLimitNotice(nextVal, nextVal.length > CALC_MAX_EXPR_CHARS ? 'chars' : 'digits');
+                        return;
+                    }
                 }
                 _insertCalcExprText(action);
                 return;
@@ -3623,6 +3644,95 @@
             liveEval();
         }
 
+        /* ── K12 — menu pozycji (historia, lista notatek) pod prawym klawiszem i z klawiatury
+           (klawisz menu / Shift+F10, Delete). Dotyk zostaje przy własnych gestach
+           (przytrzymanie = kopiuj, przesunięcie = usuń), więc contextmenu z palca
+           (Android) tylko tłumimy. Wygląd i zamykanie jak menu formatów kopiowania. */
+        var _itemMenu = null, _itemMenuReturn = null;
+        function _hideItemMenu(restoreFocus) {
+            if (!_itemMenu || _itemMenu.hidden) return;
+            _itemMenu.hidden = true;
+            if (restoreFocus && _itemMenuReturn && _itemMenuReturn.isConnected) _itemMenuReturn.focus();
+            _itemMenuReturn = null;
+        }
+        function _ensureItemMenu() {
+            if (_itemMenu) return;
+            _itemMenu = document.createElement('div');
+            _itemMenu.className = 'np-ctx-menu calc-copy-menu item-ctx-menu';
+            _itemMenu.hidden = true;
+            _itemMenu.setAttribute('role', 'menu');
+            document.body.appendChild(_itemMenu);
+            document.addEventListener('pointerdown', function(e) {
+                if (_itemMenu && !_itemMenu.hidden && !_itemMenu.contains(e.target)) _hideItemMenu(false);
+            });
+            _itemMenu.addEventListener('keydown', function(e) {
+                var btns = Array.prototype.slice.call(_itemMenu.querySelectorAll('button'));
+                var i = btns.indexOf(document.activeElement);
+                if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); _hideItemMenu(true); }
+                else if (e.key === 'ArrowDown') { e.preventDefault(); btns[(i + 1) % btns.length].focus(); }
+                else if (e.key === 'ArrowUp') { e.preventDefault(); btns[(i - 1 + btns.length) % btns.length].focus(); }
+                else if (e.key === 'Tab') _hideItemMenu(false);
+            });
+        }
+        // items: [{ label, run, danger }]
+        function _showItemMenu(x, y, items, opts) {
+            _ensureItemMenu();
+            opts = opts || {};
+            if (!items || !items.length) return;
+            _itemMenu.replaceChildren();
+            _itemMenu.setAttribute('aria-label', opts.label || 'Akcje');
+            items.forEach(function(it) {
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'np-ctx-btn calc-copy-menu-btn' + (it.danger ? ' is-danger' : '');
+                btn.setAttribute('role', 'menuitem');
+                btn.textContent = it.label;
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    _hideItemMenu(false);
+                    it.run();
+                });
+                _itemMenu.appendChild(btn);
+            });
+            _itemMenu.hidden = false;
+            _itemMenu.style.left = '0';
+            _itemMenu.style.top = '0';
+            var rect = _itemMenu.getBoundingClientRect();
+            _itemMenu.style.left = Math.min(Math.max(8, x), window.innerWidth - rect.width - 8) + 'px';
+            _itemMenu.style.top = Math.min(Math.max(8, y), window.innerHeight - rect.height - 8) + 'px';
+            _itemMenuReturn = opts.returnFocus || null;
+            if (opts.focusFirst) _itemMenu.querySelector('button').focus();
+        }
+        function _bindItemContextMenu(el, getItems, label) {
+            var kbOpenedAt = 0;
+            function open(kb, x, y) {
+                var from = document.activeElement && el.contains(document.activeElement) ? document.activeElement : el;
+                if (kb) { var r = from.getBoundingClientRect(); x = r.left + 12; y = r.bottom + 4; }
+                _showItemMenu(x, y, getItems(), { label: label, focusFirst: kb, returnFocus: from });
+            }
+            el.addEventListener('pointerdown', function(e) { el._ctxPtr = e.pointerType; });
+            // Shift+F10 / klawisz menu obsługujemy sami — Mac nie ma klawisza menu, a natywne
+            // contextmenu z klawiatury nie wszędzie przychodzi. F10 to tylko alias (tablety).
+            el.addEventListener('keydown', function(e) {
+                el._ctxPtr = 'keyboard';
+                if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) {
+                    e.preventDefault();
+                    kbOpenedAt = Date.now();
+                    open(true);
+                }
+            });
+            el.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+                if (el._ctxPtr === 'touch' || el._ctxPtr === 'pen') return;
+                if (Date.now() - kbOpenedAt < 400) return; // już otwarte z keydown
+                open(el._ctxPtr === 'keyboard' || (e.clientX === 0 && e.clientY === 0), e.clientX, e.clientY);
+            });
+        }
+        function _isDeleteKey(e) {
+            return (e.key === 'Delete' || e.key === 'Backspace') && !e.metaKey && !e.ctrlKey && !e.altKey;
+        }
+
         function bindLongPressCopy(el, getText) {
             if (!el) return;
             var timer = null;
@@ -3739,6 +3849,28 @@
             invalidateStdACSuggestions();
         }
 
+        // focusNext: usunięcie z klawiatury przenosi fokus na sąsiedni wpis (lista się przerysowuje).
+        function _histDeleteWithUndo(item, focusNext) {
+            var idx = STATE.history.indexOf(item);
+            if (idx !== -1) { STATE.history.splice(idx, 1); saveHistory(); }
+            hapticTap(30);
+            renderHistory();
+            if (focusNext) {
+                var halves = historyList.querySelectorAll('.history-item .expr[tabindex], .history-item .result[tabindex]');
+                var target = halves[Math.min(idx * 2, halves.length - 1)];
+                if (target) target.focus();
+            }
+            showToast('🗑️ Usunięto wpis', '', idx === -1 ? null : {
+                action: 'Cofnij',
+                onAction: function() {
+                    if (STATE.history.indexOf(item) !== -1) return;
+                    STATE.history.splice(Math.min(idx, STATE.history.length), 0, item);
+                    saveHistory();
+                    renderHistory();
+                    showToast('↩️ Przywrócono wpis', 'success');
+                }
+            });
+        }
         var _historyQuery = '';
         function _histEmptyState(icon, msg) {
             var li = document.createElement('li');
@@ -3767,8 +3899,9 @@
             var pinned = STATE.history.filter(function(it) { return it.pinned; });
             var rest = STATE.history.filter(function(it) { return !it.pinned; });
             var ordered = pinned.concat(rest);
-            var q = _historyQuery || '';
-            if (q) ordered = ordered.filter(function(it) { return it.text.toLowerCase().indexOf(q) !== -1; });
+            // „zlot” znajduje „złoty” — porównanie bez polskich znaków (K20).
+            var q = _plFold(_historyQuery || '');
+            if (q) ordered = ordered.filter(function(it) { return _plFold(it.text).indexOf(q) !== -1; });
             if (ordered.length === 0) {
                 historyList.appendChild(_histEmptyState('🔍', 'Brak wyników dla „' + _historyQuery + '"'));
                 return;
@@ -3795,16 +3928,16 @@
                 // jeszcze raz); dotkniesz wyniku - wraca WYNIK (liczysz dalej).
                 // Wczesniej caly wiersz dawal tylko wynik i nie dalo sie odzyskac wejscia.
                 if (exprPart) {
-                    spanExpr.setAttribute('data-hint', 'Wroc do tego dzialania');
+                    spanExpr.setAttribute('data-hint', 'Wróć do tego działania');
                     spanExpr.setAttribute('role', 'button');
                     spanExpr.setAttribute('tabindex', '0');
-                    spanExpr.setAttribute('aria-label', 'Przywroc dzialanie: ' + exprPart);
+                    spanExpr.setAttribute('aria-label', 'Przywróć działanie: ' + exprPart);
                 }
                 if (resultPart) {
                     spanResult.setAttribute('data-hint', 'Licz dalej na tym wyniku');
                     spanResult.setAttribute('role', 'button');
                     spanResult.setAttribute('tabindex', '0');
-                    spanResult.setAttribute('aria-label', 'Uzyj wyniku: ' + resultPart);
+                    spanResult.setAttribute('aria-label', 'Użyj wyniku: ' + resultPart);
                 }
 
                 // Akcje pozycji: przypnij + kopiuj. stopPropagation, by nie odpalić reuse na klik wiersza.
@@ -3937,20 +4070,21 @@
                 });
                 yesBtn.addEventListener('click', function(e) {
                     e.stopPropagation();
-                    var idx = STATE.history.indexOf(item);
-                    if (idx !== -1) { STATE.history.splice(idx, 1); saveHistory(); }
-                    hapticTap(30);
-                    renderHistory();
-                    showToast('🗑️ Usunięto wpis', '', idx === -1 ? null : {
-                        action: 'Cofnij',
-                        onAction: function() {
-                            if (STATE.history.indexOf(item) !== -1) return;
-                            STATE.history.splice(Math.min(idx, STATE.history.length), 0, item);
-                            saveHistory();
-                            renderHistory();
-                            showToast('↩️ Przywrócono wpis', 'success');
-                        }
-                    });
+                    _histDeleteWithUndo(item);
+                });
+                _bindItemContextMenu(content, function() {
+                    return [
+                        { label: item.pinned ? 'Odepnij' : 'Przypnij', run: function() { pinBtn.click(); } },
+                        { label: 'Kopiuj', run: function() { copyBtn.click(); } },
+                        { label: 'Do notatnika', run: function() { npBtn.click(); } },
+                        { label: 'Usuń', danger: true, run: function() { _histDeleteWithUndo(item); } },
+                    ];
+                }, 'Wpis historii');
+                // Połówki mają role=button — Enter/spacja działa jak klik; Delete usuwa wpis.
+                content.addEventListener('keydown', function(e) {
+                    var half = e.target.closest && e.target.closest('.expr, .result');
+                    if (half && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); half.click(); }
+                    else if (_isDeleteKey(e)) { e.preventDefault(); _histDeleteWithUndo(item, true); }
                 });
                 _bindHistorySwipe(li, content);
                 historyList.appendChild(li);
@@ -11580,6 +11714,27 @@
             npRenderList();
             return { note: removed, index: idx, wasCurrent: wasCurrent, placeholderId: placeholderId };
         }
+        function _npDeleteNoteWithUndo(id) {
+            hapticTap(30);
+            var delInfo = npDeleteNote(id);
+            showToast('🗑️ Usunięto notatkę', '', !delInfo ? null : {
+                action: 'Cofnij',
+                onAction: function() {
+                    npRestoreNote(delInfo);
+                    showToast('↩️ Przywrócono notatkę', 'success');
+                }
+            });
+        }
+        function npDuplicateNote(id) {
+            _npStashCurrent();
+            var src = _npNoteById(id);
+            if (!src) return;
+            var copy = { id: _npNewId(), text: src.text || '', title: _npTitleFull(src) + ' (kopia)', updatedAt: Date.now() };
+            _npNotes.splice(_npNotes.indexOf(src) + 1, 0, copy);
+            flushNotepadPersist();
+            npRenderList();
+            showToast('📝 Zduplikowano notatkę', 'success');
+        }
         function npRestoreNote(info) {
             if (!info || _npNotes.some(function(x) { return x.id === info.note.id; })) return;
             // Pusta notatka-zastępstwo (po usunięciu ostatniej) znika, jeśli nikt w niej nie pisał.
@@ -11657,15 +11812,7 @@
             });
             if (yesBtn) yesBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
-                hapticTap(30);
-                var delInfo = npDeleteNote(note.id);
-                showToast('🗑️ Usunięto notatkę', '', !delInfo ? null : {
-                    action: 'Cofnij',
-                    onAction: function() {
-                        npRestoreNote(delInfo);
-                        showToast('↩️ Przywrócono notatkę', 'success');
-                    }
-                });
+                _npDeleteNoteWithUndo(note.id);
             });
             content.addEventListener('click', function() {
                 if (li._swipeHandled) return;
@@ -11730,11 +11877,11 @@
         function npRenderList() {
             if (!npListUl) return;
             npListUl.replaceChildren();
-            var q = (_npListQuery || '').trim().toLowerCase();
+            var q = _plFold((_npListQuery || '').trim());
             var sorted = _npNotes.slice().sort(function(a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
             if (q) {
                 sorted = sorted.filter(function(note) {
-                    var hay = (_npTitleFull(note) + '\n' + String(note.text || '')).toLowerCase();
+                    var hay = _plFold(_npTitleFull(note) + '\n' + String(note.text || ''));
                     return hay.indexOf(q) !== -1;
                 });
             }
@@ -11766,6 +11913,22 @@
                 when.textContent = _npFmtWhen(note.updatedAt);
                 content.appendChild(t);
                 content.appendChild(when);
+                // Fokus z klawiatury: Enter/spacja otwiera, Delete usuwa, klawisz menu / prawy klik = akcje.
+                content.setAttribute('role', 'button');
+                content.tabIndex = 0;
+                content.setAttribute('aria-label', 'Otwórz notatkę: ' + _npTitleFull(note));
+                content.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); content.click(); }
+                    else if (_isDeleteKey(e)) { e.preventDefault(); _npDeleteNoteWithUndo(note.id); }
+                });
+                _bindItemContextMenu(content, function() {
+                    return [
+                        { label: 'Otwórz', run: function() { npSwitchNote(note.id); } },
+                        { label: 'Zmień tytuł', run: function() { npSwitchNote(note.id); _npBeginTitleEdit(); } },
+                        { label: 'Duplikuj', run: function() { npDuplicateNote(note.id); } },
+                        { label: 'Usuń', danger: true, run: function() { _npDeleteNoteWithUndo(note.id); } },
+                    ];
+                }, 'Notatka');
                 var confirm = document.createElement('div');
                 confirm.className = 'np-note-confirm';
                 var confirmMsg = document.createElement('span');
