@@ -1580,6 +1580,14 @@
         raw = raw.replace(/\b([\d.,]+)\s+(?:czwarta|fourth)\b/gi, '($1/4)');
         raw = raw.replace(/(?:square\s+root\s+of|pierwiastek\s+(?:kwadratowy\s+)?z)\s+([\d.,]+)/gi,
             function(_, n) { return 'sqrt(' + n.replace(',', '.') + ')'; });
+        // „sqrt 16”, „√16”, „√ 16” → sqrt(16); „√(9+7)” → sqrt(9+7). Działało tylko sqrt(…).
+        raw = raw.replace(/√\s*\(/g, 'sqrt(');
+        raw = raw.replace(/(?:\bsqrt|√)\s*([\d.,]+)/gi,
+            function(_, n) { return 'sqrt(' + n.replace(',', '.') + ')'; });
+        // Zapis naukowy „1e3”, „2e-3”, „1,5E6” — tylko bez spacji wokół „e”, więc
+        // „2e - 3” dalej znaczy 2·e − 3 (liczba Eulera), a „2e” = 2·e.
+        raw = raw.replace(/(^|[^\w.,])(\d+(?:[.,]\d+)?)e([+-]?\d+)(?![\w.,])/gi,
+            function(_, pre, m, ex) { return pre + '(' + m.replace(',', '.') + '*10^(' + ex + '))'; });
         raw = raw.replace(/(?:cube\s+root\s+of|pierwiastek\s+sze[sś]cienny\s+z)\s+([\d.,]+)/gi,
             function(_, n) { return '(' + n.replace(',', '.') + '^(1/3))'; });
         raw = raw.replace(/([\d.,]+)\s+(?:power|do\s+pot[eę]gi|podniesiony\s+do\s+pot[eę]gi)\s+([\d.,]+)/gi,

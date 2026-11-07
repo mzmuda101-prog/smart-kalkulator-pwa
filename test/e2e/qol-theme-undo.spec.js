@@ -313,3 +313,83 @@ test('lista notatek: klawiatura otwiera (Enter), duplikuje (menu) i usuwa (Delet
   await page.keyboard.press('Enter');
   await expect(page.locator('#npListPanel')).not.toHaveClass(/open/);
 });
+
+// ── K19 — historia: bez powtórek, z nagłówkami dni ──
+test('historia: to samo działanie drugi raz wraca na górę zamiast się dublować', async ({ page }) => {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('seeded19')) return;
+    sessionStorage.setItem('seeded19', '1');
+    localStorage.setItem('matm0_calc_history', JSON.stringify([{ text: 'stary wpis = 1', pinned: false }]));
+  });
+  await NP.waitAppReady(page);
+  for (const expr of ['2 + 3', '4 + 4', '2 + 3']) {
+    await page.locator('#calcExpr').fill(expr);
+    await page.locator('#calcExpr').press('Enter');
+  }
+  const hist = await page.evaluate(() => JSON.parse(localStorage.getItem('matm0_calc_history')));
+  expect(hist.map((h) => h.text.split(' = ')[0])).toEqual(['2 + 3', '4 + 4', 'stary wpis']);
+  expect(typeof hist[0].ts).toBe('number');
+  await openHistory(page);
+  await expect(page.locator('#historyList .history-day')).toHaveText(['Dziś', 'Wcześniej']);
+});
+
+// ── K21 — dymki: ikona wg typu zamiast emoji, kopiowanie mówi co ──
+test('dymek: sukces ma ikonę SVG, tekst bez emoji, kopiowanie podaje wartość', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await NP.waitAppReady(page);
+  await page.locator('#calcExpr').fill('20 + 22');
+  await page.locator('#calcExpr').press('ControlOrMeta+Enter');
+  const toast = page.locator('#toast.show');
+  await expect(toast).toContainText('Skopiowano: 42');
+  await expect(toast.locator('svg.toast-icon')).toHaveCount(1);
+  await expect(page.locator('#toast')).toHaveAttribute('aria-live', 'polite');
+  await page.evaluate(() => window.__matm0 && document.dispatchEvent(new Event('noop')));
+});
+
+// ── K23 — ustawienia: fold jako checkbox, odśwież kursy ──
+test('ustawienia: „Same wyniki” to checkbox zsynchronizowany z menu notatnika', async ({ page }) => {
+  await NP.waitAppReady(page);
+  await page.locator('#settingsBtn').click();
+  const fold = page.locator('#settingNotepadFold');
+  await expect(fold).not.toBeChecked();
+  await fold.check();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('matm0_settings')).notepadFold)).toBe(true);
+  await expect(page.locator('#npFoldBtn')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('#settingsFxRefresh')).toBeVisible();
+});
+
+// ── K24 — fokus w oknach z klawiatury ──
+test('⚙️ z klawiatury: fokus w oknie, Tab krąży w środku, Esc wraca na przycisk', async ({ page }) => {
+  await NP.waitAppReady(page);
+  await page.locator('#settingsBtn').focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#settingsClose')).toBeFocused();
+  for (let i = 0; i < 60; i++) await page.keyboard.press('Tab');
+  expect(await page.evaluate(() => document.getElementById('settingsModal').contains(document.activeElement))).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#settingsBtn')).toBeFocused();
+});
+
+// ── K26 — wynik: prawy klik = menu formatów, „Kopiuj” znika przy „—” ──
+test('wynik: prawy klik otwiera menu formatów; przy braku wyniku nie ma „Kopiuj”', async ({ page }) => {
+  await NP.waitAppReady(page);
+  await page.locator('#calcExpr').fill('2 kg na g');
+  await page.locator('#calcResult').click({ button: 'right' });
+  await expect(page.locator('.calc-copy-menu:not(.item-ctx-menu):not([hidden])')).toContainText('Z jednostką');
+  await page.keyboard.press('Escape');
+  await page.locator('#calcExpr').fill('qwerty zyx');
+  await expect(page.locator('#calcCopyBtn')).toHaveClass(/is-unavailable/);
+});
+
+// Klawiatura kalkulatora nie może działać „pod” oknem ani przy skrótach z modyfikatorem.
+test('klawiatura: Esc w ⚙️ nie czyści działania, ⌘/Ctrl+C nie robi AC', async ({ page }) => {
+  await NP.waitAppReady(page);
+  await page.locator('#calcExpr').fill('7 * 6');
+  await page.locator('#calcExpr').blur();
+  await page.keyboard.press('ControlOrMeta+c');
+  await expect(page.locator('#calcExpr')).toHaveValue('7 * 6');
+  await page.locator('#settingsBtn').click();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('body')).not.toHaveClass(/settings-open/);
+  await expect(page.locator('#calcExpr')).toHaveValue('7 * 6');
+});

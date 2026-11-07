@@ -20,7 +20,7 @@
          jasnym tłem przy wybranym/systemowym dark. Lekki klucz osobny (matm0_theme):
          'dark' | 'light' | brak = auto (śledzi system).
          [EN] External file (not inline) so CSP stays script-src 'self'; sync load before CSS. -->
-    <script src="js/theme-init.js?v=v1.04.63"></script>
+    <script src="js/theme-init.js?v=v1.04.70"></script>
     <meta name="application-name" content="Smart Kalkulator">
     <meta name="format-detection" content="telephone=no">
     <meta name="description" content="Szwajcarski scyzoryk do obliczeń codziennych i technicznych">
@@ -28,8 +28,8 @@
     <link rel="icon" href="assets/img/icon-192.png" type="image/png">
     <link rel="apple-touch-icon" href="assets/img/icon-192.png">
     <title>Smart Kalkulator</title>
-    <link rel="stylesheet" href="styles.css?v=v1.04.63" id="matm0MainCss">
-    <script src="js/cache-bust.js?v=v1.04.63" data-phase="head"></script>
+    <link rel="stylesheet" href="styles.css?v=v1.04.70" id="matm0MainCss">
+    <script src="js/cache-bust.js?v=v1.04.70" data-phase="head"></script>
 </head>
 
 <body>
@@ -62,6 +62,10 @@
             <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
             <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
             <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+            <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></symbol>
+            <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+            <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+            <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></symbol>
             <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 13v8M8 17l4 4 4-4"/><path d="M20 16.6A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.3"/></symbol>
             <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></symbol>
             <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
@@ -1015,7 +1019,7 @@
     <aside class="history-drawer" id="historyDrawer" aria-hidden="true" aria-labelledby="historyDrawerTitle">
         <div class="drawer-handle" aria-hidden="true"></div>
         <div class="history-header">
-            <h3 id="historyDrawerTitle">📋 Historia obliczeń</h3>
+            <h3 id="historyDrawerTitle"><svg class="ui-icon" aria-hidden="true"><use href="#i-history"/></svg> Historia obliczeń</h3>
             <div class="history-actions">
                 <button class="history-clear-btn" id="clearHistory" type="button">Wyczyść</button>
                 <button class="history-close-btn" id="closeHistory" type="button"
@@ -1209,8 +1213,8 @@
     <div class="settings-modal" id="settingsModal" role="dialog" aria-modal="true"
         aria-labelledby="settingsTitle" aria-hidden="true" inert>
         <div class="settings-head">
-            <h3 id="settingsTitle">⚙️ Ustawienia</h3>
-            <button class="settings-close" id="settingsClose" type="button" aria-label="Zamknij">✕</button>
+            <h3 id="settingsTitle"><svg class="ui-icon" aria-hidden="true"><use href="#i-settings"/></svg> Ustawienia</h3>
+            <button class="settings-close" id="settingsClose" type="button" aria-label="Zamknij"><svg class="ui-icon" aria-hidden="true"><use href="#i-x"/></svg></button>
         </div>
         <div class="settings-body">
             <div class="settings-field">
@@ -1270,7 +1274,10 @@
                     <span><strong>Zapasowe źródło kursów</strong><br><small>Gdy wybrany silnik zawiedzie, dobierz kursy z drugiego (NBP ↔ Frankfurter).</small></span>
                 </label>
             </div>
-            <p class="settings-fxstatus" id="settingsFxStatus"></p>
+            <div class="settings-fx-row">
+                <p class="settings-fxstatus" id="settingsFxStatus"></p>
+                <button type="button" class="settings-version-btn" id="settingsFxRefresh">Odśwież kursy</button>
+            </div>
             <div class="settings-field">
                 <div class="settings-toggle-row settings-theme-row">
                     <span class="settings-toggle-text"><strong>Motyw</strong><br><small>Systemowy podąża za ustawieniem telefonu/komputera. Przycisk księżyca w nagłówku wybiera jasny lub ciemny na stałe.</small></span>
@@ -1294,11 +1301,11 @@
                 <p class="settings-hint">Nie zmieniają wyników, tylko ułatwiają pisanie. Chipy pod polem są domyślnie włączone.</p>
                 <label class="settings-check">
                     <input type="checkbox" id="settingStandardLiveHint">
-                    <span><strong>Live hint pod polem</strong><br><small>Kontekstowe chipy (np. po <code>dziś</code> → <code>+ 90 dni</code>).</small></span>
+                    <span><strong>Podpowiedzi pod polem</strong><br><small>Kontekstowe chipy (np. po <code>dziś</code> → <code>+ 90 dni</code>).</small></span>
                 </label>
                 <label class="settings-check">
                     <input type="checkbox" id="settingStandardAutocomplete">
-                    <span><strong>Autocomplete w Standard</strong><br><small>Lista podpowiedzi z historii i znanych komend.</small></span>
+                    <span><strong>Lista podpowiedzi przy pisaniu</strong><br><small>Lista podpowiedzi z historii i znanych komend.</small></span>
                 </label>
                 <label class="settings-check">
                     <input type="checkbox" id="settingSuggestOnEmpty">
@@ -1310,14 +1317,11 @@
                 </label>
             </div>
             <div class="settings-field">
-                <label>Notatnik 📝</label>
-                <div class="settings-toggle-row">
-                    <span class="settings-toggle-text"><strong>Zwijaj wyrażenia do wyników (fold)</strong><br><small>Linia pokazuje sam wynik zamiast działania; kliknij wiersz, by edytować, a najedź/dotknij wynik, by zobaczyć równanie. Domyślnie wyłączone (wynik na końcu linii).</small></span>
-                    <div class="settings-seg" id="settingNotepadFold" role="group" aria-label="Zwijaj wyrażenia do wyników (fold)">
-                        <button type="button" class="settings-seg-btn" data-val="off">Wył</button>
-                        <button type="button" class="settings-seg-btn" data-val="on">Wł</button>
-                    </div>
-                </div>
+                <label>Notatnik</label>
+                <label class="settings-check">
+                    <input type="checkbox" id="settingNotepadFold">
+                    <span><strong>Same wyniki (zwiń działania)</strong><br><small>Linia pokazuje sam wynik zamiast działania; dotknij wiersza, by edytować, a wyniku, by zobaczyć równanie. To samo co ⋯ → Same wyniki.</small></span>
+                </label>
                 <div class="settings-toggle-row">
                     <span class="settings-toggle-text"><strong>Krój tekstu</strong><br><small>Zwykły mieści więcej słów w linii. Stała szerokość równa kolumny wpisane spacjami.</small></span>
                     <div class="settings-seg" id="settingNotepadFontFace" role="group" aria-label="Krój tekstu notatnika">
@@ -1389,31 +1393,31 @@
     <!-- ============================================================
     [EN] Toast Notification
     ============================================================ -->
-    <div class="toast" id="toast" aria-live="assertive"></div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
     <!-- defer: statyczny UI (nagłówek, wyświetlacz, zakładki) maluje się ZANIM wykona się JS
          (app.js ~525 KB). Kolejność zachowana, DOM gotowy przed wykonaniem. -->
-    <script src="js/cache-bust.js?v=v1.04.63" data-phase="defer"></script>
-    <script defer src="version.js?v=v1.04.63"></script>
-    <script defer src="js/cursor-hint.js?v=v1.04.63"></script>
-    <script defer src="js/vendor/decimal.js?v=v1.04.63"></script>
-    <script defer src="js/money-decimal.js?v=v1.04.63"></script>
-    <script defer src="js/numeric-eval.js?v=v1.04.63"></script>
-    <script defer src="js/data-tables.js?v=v1.04.63"></script>
-    <script defer src="js/format-pl.js?v=v1.04.63"></script>
-    <script defer src="js/pl-fold.js?v=v1.04.63"></script>
-    <script defer src="js/smart-parser.js?v=v1.04.63"></script>
-    <script defer src="js/smart-quantity.js?v=v1.04.63"></script>
-    <script defer src="js/quantity-algebra.js?v=v1.04.63"></script>
-    <script defer src="js/synonyms.js?v=v1.04.63"></script>
-    <script defer src="js/math-steps.js?v=v1.04.63"></script>
-    <script defer src="js/math-calculus.js?v=v1.04.63"></script>
-    <script defer src="js/hint-rules.js?v=v1.04.63"></script>
-    <script defer src="js/notepad-format.js?v=v1.04.63"></script>
-    <script defer src="js/notepad-engine.js?v=v1.04.63"></script>
-    <script defer src="command-definitions.js?v=v1.04.63"></script>
-    <script defer src="js/calc-layout-tune.js?v=v1.04.63"></script>
-    <script defer src="app.js?v=v1.04.63"></script>
+    <script src="js/cache-bust.js?v=v1.04.70" data-phase="defer"></script>
+    <script defer src="version.js?v=v1.04.70"></script>
+    <script defer src="js/cursor-hint.js?v=v1.04.70"></script>
+    <script defer src="js/vendor/decimal.js?v=v1.04.70"></script>
+    <script defer src="js/money-decimal.js?v=v1.04.70"></script>
+    <script defer src="js/numeric-eval.js?v=v1.04.70"></script>
+    <script defer src="js/data-tables.js?v=v1.04.70"></script>
+    <script defer src="js/format-pl.js?v=v1.04.70"></script>
+    <script defer src="js/pl-fold.js?v=v1.04.70"></script>
+    <script defer src="js/smart-parser.js?v=v1.04.70"></script>
+    <script defer src="js/smart-quantity.js?v=v1.04.70"></script>
+    <script defer src="js/quantity-algebra.js?v=v1.04.70"></script>
+    <script defer src="js/synonyms.js?v=v1.04.70"></script>
+    <script defer src="js/math-steps.js?v=v1.04.70"></script>
+    <script defer src="js/math-calculus.js?v=v1.04.70"></script>
+    <script defer src="js/hint-rules.js?v=v1.04.70"></script>
+    <script defer src="js/notepad-format.js?v=v1.04.70"></script>
+    <script defer src="js/notepad-engine.js?v=v1.04.70"></script>
+    <script defer src="command-definitions.js?v=v1.04.70"></script>
+    <script defer src="js/calc-layout-tune.js?v=v1.04.70"></script>
+    <script defer src="app.js?v=v1.04.70"></script>
 </body>
 
 </html>

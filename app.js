@@ -459,16 +459,34 @@
         // opts.action + opts.onAction → przycisk w dymku (np. „Cofnij"). Dymek z akcją
         // przyjmuje dotyk i wisi dłużej (5 s), żeby dało się zdążyć. Nowy dymek zastępuje
         // poprzedni — jego akcja po prostu wygasa (usunięcie zostaje).
+        // K21 — jeden wygląd dymków: emoji z początku tekstu (⚠️, ✅, 🗑️…) zdejmujemy,
+        // a ikonę dobiera TYP (sukces ✓, błąd ⚠ jako SVG ze sprite'u, info bez ikony).
+        // Wywołania mogą zostać z emoji — to wygląd, a nie treść.
+        var TOAST_ICON = { success: 'i-check', error: 'i-alert' };
+        var _toastLeadEmoji = null;
+        try { _toastLeadEmoji = new RegExp('^\\p{Extended_Pictographic}[\\uFE0F\\u20E3]?\\s*', 'u'); } catch (e) {}
+        function _toastPlainText(message) {
+            var t = String(message == null ? '' : message);
+            return _toastLeadEmoji ? t.replace(_toastLeadEmoji, '') : t;
+        }
+        function _toastCopied(text) {
+            var t = String(text || '').replace(/\s+/g, ' ').trim();
+            showToast('Skopiowano: ' + (t.length > 40 ? t.slice(0, 39) + '…' : t), 'success');
+        }
         function showToast(message, type, opts) {
             if (toastTimer) clearTimeout(toastTimer);
-            toast.textContent = message;
             toast.className = 'toast ' + (type || '');
+            var msgSpan = document.createElement('span');
+            msgSpan.className = 'toast-msg';
+            msgSpan.textContent = _toastPlainText(message);
+            toast.replaceChildren(msgSpan);
+            if (TOAST_ICON[type]) {
+                var ic = _uiIcon(TOAST_ICON[type]);
+                ic.classList.add('toast-icon');
+                toast.insertBefore(ic, msgSpan);
+            }
             var hasAction = !!(opts && opts.action && typeof opts.onAction === 'function');
             if (hasAction) {
-                var msgSpan = document.createElement('span');
-                msgSpan.className = 'toast-msg';
-                msgSpan.textContent = message;
-                toast.replaceChildren(msgSpan);
                 var actBtn = document.createElement('button');
                 actBtn.type = 'button';
                 actBtn.className = 'toast-action';
@@ -913,11 +931,13 @@
                 if (wide && drawer.parentElement !== panel) {
                     _historyHome = { parent: drawer.parentElement, next: drawer.nextSibling };
                     document.body.classList.remove('history-open');
+                    dialogClosed(drawer);
                     panel.appendChild(drawer);
                     drawer.setAttribute('aria-hidden', 'false');
                 } else if (!wide && _historyHome && drawer.parentElement === panel) {
                     _historyHome.parent.insertBefore(drawer, _historyHome.next);
                     document.body.classList.remove('history-open');
+                    dialogClosed(drawer);
                     drawer.setAttribute('aria-hidden', 'true');
                 }
             }
@@ -1572,6 +1592,10 @@
                 items.push({ key: 'expression', label: 'Wyrażenie = wynik', text: fm.expression });
             }
             if (!items.length) return;
+            // K26 — na telefonie wynik często idzie dalej (Wiadomości, mail): „Udostępnij…”.
+            if (typeof navigator.share === 'function') {
+                items.push({ key: 'share', label: 'Udostępnij…', text: fm.expression || fm.withUnit || fm.plain, share: true });
+            }
             _calcCopyMenu.replaceChildren();
             items.forEach(function(it) {
                 var btn = document.createElement('button');
@@ -1584,7 +1608,11 @@
                     e.preventDefault();
                     e.stopPropagation();
                     _hideCalcCopyMenu();
-                    copyText(it.text).then(function() { showToast('Skopiowano', 'success'); })
+                    if (it.share) {
+                        navigator.share({ text: it.text }).catch(function() {});
+                        return;
+                    }
+                    copyText(it.text).then(function() { _toastCopied(it.text); })
                         .catch(function() { showToast('Nie udało się skopiować', 'error'); });
                 });
                 _calcCopyMenu.appendChild(btn);
@@ -1601,9 +1629,17 @@
         }
         function bindCalcResultCopy(el) { // [EN] tap = withUnit; long-press = menu formatów (T1-3)
             if (!el) return;
-            var timer = null, longFired = false;
+            var timer = null, longFired = false, lastPtr = 'mouse';
             function clearTimer() { if (timer) clearTimeout(timer); timer = null; }
+            // K26 — prawy klawisz otwiera to samo menu formatów (palcem: przytrzymanie niżej).
+            el.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+                if (lastPtr === 'touch' || lastPtr === 'pen') return;
+                var fm = _calcCopyFormatsNow();
+                if (fm) _showCalcCopyMenu(e.clientX, e.clientY, fm);
+            });
             el.addEventListener('pointerdown', function(e) {
+                lastPtr = e.pointerType;
                 if (e.button !== 0) return;
                 longFired = false;
                 clearTimer();
@@ -1628,7 +1664,7 @@
                 var fm = _calcCopyFormatsNow();
                 if (!fm || !fm.withUnit) return;
                 e.preventDefault();
-                copyText(fm.withUnit).then(function() { showToast('Skopiowano', 'success'); })
+                copyText(fm.withUnit).then(function() { _toastCopied(fm.withUnit); })
                     .catch(function() { showToast('Nie udało się skopiować', 'error'); });
             });
         }
@@ -3326,6 +3362,7 @@
                 calcResult.classList.remove('small', 'xsmall', 'xxsmall');
                 calcResult.classList.add('small');
                 _lastCopyFormats = null;
+                if (calcCopyBtn) calcCopyBtn.classList.add('is-unavailable');
                 fitCalcDisplay();
                 _setApproxMark(false, null, null);
                 renderCalcExplain(null);
@@ -3344,6 +3381,8 @@
             _calcResultTargetDisplay = display;
             var fxMeta = _fxMetaForResult(res, calcExpr.value);
             _lastCopyFormats = buildCopyFormats(res, calcExpr.value);
+            // K26 — „Kopiuj” przy „—” nie ma czego kopiować; przycisk znika (miejsce zostaje).
+            if (calcCopyBtn) calcCopyBtn.classList.toggle('is-unavailable', !hasResult);
             _setApproxMark(hasResult && (res.exact === false || fxMeta), res, fxMeta);
             renderCalcExplain(hasResult ? res.explain : null);
             fitCalcDisplay();
@@ -3751,7 +3790,7 @@
                     el.dataset.longPressed = 'true';
                     hapticTap(35);
                     copyText(text).then(function() {
-                        showToast('Skopiowano', 'success');
+                        _toastCopied(text);
                     }).catch(function() {
                         showToast('Nie udało się skopiować', 'error');
                     });
@@ -3778,7 +3817,7 @@
         function copyCurrentCalcResult() {
             var fm = _calcCopyFormatsNow();
             if (!fm || !fm.withUnit) return;
-            copyText(fm.withUnit).then(function() { showToast('Skopiowano', 'success'); })
+            copyText(fm.withUnit).then(function() { _toastCopied(fm.withUnit); })
                 .catch(function() { showToast('Nie udało się skopiować', 'error'); });
         }
         if (calcCopyBtn) calcCopyBtn.addEventListener('click', copyCurrentCalcResult);
@@ -3802,18 +3841,40 @@
            [EN] Calculator History
            ============================================================ */
         // Pozycja historii to obiekt {text, pinned}. Stare wpisy (czyste stringi) migrują w locie.
+        // ts: czas ostatniego policzenia (K19); 0 = wpis sprzed wersji z datami → „Wcześniej”.
         function _histNormalize(item) {
-            if (typeof item === 'string') return { text: item, pinned: false };
-            return { text: (item && item.text) || '', pinned: !!(item && item.pinned) };
+            if (typeof item === 'string') return { text: item, pinned: false, ts: 0 };
+            var ts = item && typeof item.ts === 'number' && isFinite(item.ts) ? item.ts : 0;
+            return { text: (item && item.text) || '', pinned: !!(item && item.pinned), ts: ts };
         }
         // Przypięte NIE liczą się do limitu i nigdy nie wypadają; trzymamy 50 najnowszych nieprzypiętych.
+        var HISTORY_CAP = 50;
         function _histEnforceCap() {
             var kept = 0;
             STATE.history = STATE.history.filter(function(it) {
                 if (it.pinned) return true;
                 kept++;
-                return kept <= 50;
+                return kept <= HISTORY_CAP;
             });
+        }
+        // Nagłówek grupy dnia: Dziś / Wczoraj / „5 lis” (inny rok: „5 lis 2025”).
+        function _histDayLabel(ts) {
+            if (!ts) return 'Wcześniej';
+            var d = new Date(ts), now = new Date();
+            var day0 = function(x) { return new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime(); };
+            var diff = Math.round((day0(now) - day0(d)) / 86400000);
+            if (diff === 0) return 'Dziś';
+            if (diff === 1) return 'Wczoraj';
+            var opts = { day: 'numeric', month: 'short' };
+            if (d.getFullYear() !== now.getFullYear()) opts.year = 'numeric';
+            return d.toLocaleDateString('pl-PL', opts);
+        }
+        function _histGroupHeader(label) {
+            var li = document.createElement('li');
+            li.className = 'history-day';
+            li.setAttribute('role', 'presentation');
+            li.textContent = label;
+            return li;
         }
         /* [EN] Klik w historię = „użyj tego dalej". Wstawiany tekst MUSI być czymś,
            co silnik umie policzyć — inaczej w polu lądował śmieć. Realny przypadek:
@@ -3841,8 +3902,18 @@
             }
             return exprPart ? { text: exprPart, isResult: false } : null;
         }
+        // Powtórka tego samego działania nie dubluje wpisu: nieprzypięty wraca na górę,
+        // przypięty zostaje na swoim miejscu (tylko odświeża czas).
         function addHistory(entry) {
-            STATE.history.unshift({ text: entry, pinned: false });
+            var now = Date.now();
+            var dup = null;
+            STATE.history.forEach(function(it) { if (!dup && it.text === entry) dup = it; });
+            if (dup && dup.pinned) {
+                dup.ts = now;
+            } else {
+                if (dup) STATE.history.splice(STATE.history.indexOf(dup), 1);
+                STATE.history.unshift({ text: entry, pinned: false, ts: now });
+            }
             _histEnforceCap();
             saveHistory();
             renderHistory();
@@ -3872,12 +3943,22 @@
             });
         }
         var _historyQuery = '';
-        function _histEmptyState(icon, msg) {
+        // Ikona UI ze sprite'u (jak w nagłówku) — zamiast emoji, które każdy system rysuje inaczej.
+        function _uiIcon(id) {
+            var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('class', 'ui-icon');
+            svg.setAttribute('aria-hidden', 'true');
+            var use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+            use.setAttribute('href', '#' + id);
+            svg.appendChild(use);
+            return svg;
+        }
+        function _histEmptyState(iconId, msg) {
             var li = document.createElement('li');
             li.className = 'empty-state';
             var iconDiv = document.createElement('div');
             iconDiv.className = 'icon';
-            iconDiv.textContent = icon;
+            iconDiv.appendChild(_uiIcon(iconId));
             var p = document.createElement('p');
             p.textContent = msg;
             li.appendChild(iconDiv);
@@ -3892,7 +3973,7 @@
             if (clearHistoryBtn) clearHistoryBtn.disabled = !STATE.history.some(function(it) { return !it.pinned; });
             historyList.replaceChildren();
             if (STATE.history.length === 0) {
-                historyList.appendChild(_histEmptyState('📝', 'Brak historii — zacznij liczyć!'));
+                historyList.appendChild(_histEmptyState('i-history', 'Brak historii — zacznij liczyć!'));
                 return;
             }
             // Przypięte na górze (zachowując kolejność), reszta poniżej; potem filtr szukania.
@@ -3903,10 +3984,18 @@
             var q = _plFold(_historyQuery || '');
             if (q) ordered = ordered.filter(function(it) { return _plFold(it.text).indexOf(q) !== -1; });
             if (ordered.length === 0) {
-                historyList.appendChild(_histEmptyState('🔍', 'Brak wyników dla „' + _historyQuery + '"'));
+                historyList.appendChild(_histEmptyState('i-search', 'Brak wyników dla „' + _historyQuery + '"'));
                 return;
             }
+            var lastGroup = null;
             ordered.forEach(function(item) {
+                var group = item.pinned ? 'Przypięte' : _histDayLabel(item.ts);
+                if (group !== lastGroup) {
+                    // Jedna grupa „Dziś” bez przypiętych — nagłówek nic nie mówi, pomijamy.
+                    var only = !pinned.length && lastGroup === null && rest.every(function(it) { return _histDayLabel(it.ts) === group; });
+                    if (!only) historyList.appendChild(_histGroupHeader(group));
+                    lastGroup = group;
+                }
                 var li = document.createElement('li');
                 li.className = 'history-item' + (item.pinned ? ' is-pinned' : '');
                 var parts = item.text.split(' = ');
@@ -3946,7 +4035,7 @@
                 var pinBtn = document.createElement('button');
                 pinBtn.type = 'button';
                 pinBtn.className = 'history-item-btn hist-pin';
-                pinBtn.textContent = '📌';
+                pinBtn.appendChild(_uiIcon('i-pin'));
                 pinBtn.title = item.pinned ? 'Odepnij' : 'Przypnij';
                 pinBtn.setAttribute('aria-label', item.pinned ? 'Odepnij' : 'Przypnij');
                 pinBtn.setAttribute('aria-pressed', item.pinned ? 'true' : 'false');
@@ -3960,18 +4049,18 @@
                 var copyBtn = document.createElement('button');
                 copyBtn.type = 'button';
                 copyBtn.className = 'history-item-btn hist-copy';
-                copyBtn.textContent = '⧉';
+                copyBtn.appendChild(_uiIcon('i-copy'));
                 copyBtn.title = 'Kopiuj';
                 copyBtn.setAttribute('aria-label', 'Kopiuj pozycję');
                 copyBtn.addEventListener('click', function(e) {
                     e.stopPropagation();
-                    copyText(item.text).then(function() { showToast('Skopiowano', 'success'); })
+                    copyText(item.text).then(function() { _toastCopied(item.text); })
                         .catch(function() { showToast('Nie udało się skopiować', 'error'); });
                 });
                 var npBtn = document.createElement('button');
                 npBtn.type = 'button';
                 npBtn.className = 'history-item-btn hist-notepad';
-                npBtn.textContent = '📝';
+                npBtn.appendChild(_uiIcon('i-notes'));
                 npBtn.title = 'Do notatnika';
                 npBtn.setAttribute('aria-label', 'Wyślij do notatnika');
                 npBtn.addEventListener('click', function(e) {
@@ -4089,6 +4178,13 @@
                 _bindHistorySwipe(li, content);
                 historyList.appendChild(li);
             });
+            // Limit ucinał starsze wpisy po cichu — przy pełnej liście mówimy o nim wprost.
+            if (!q && rest.length >= HISTORY_CAP) {
+                var cap = document.createElement('li');
+                cap.className = 'history-cap-note';
+                cap.textContent = 'Pokazano ' + HISTORY_CAP + ' ostatnich obliczeń — przypnij wpis, by zachować go na stałe.';
+                historyList.appendChild(cap);
+            }
         }
 
         // ── Swipe-to-delete dla wpisu historii ──────────────────────────────
@@ -4182,14 +4278,62 @@
             });
         }
 
+        /* ── K24 — fokus w oknach (⚙️, historia, ściąga) ─────────────────────────
+           Z klawiatury: po otwarciu fokus idzie na przycisk zamknięcia, Tab krąży w oknie,
+           po zamknięciu wraca tam, skąd okno otwarto. Przy dotyku/myszy nic nie ruszamy:
+           iOS zostawia fokus w polu kalkulatora, a oddanie go wysunęłoby klawiaturę. */
+        var _inputModality = 'pointer';
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab' || e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') _inputModality = 'keyboard';
+        }, true);
+        document.addEventListener('pointerdown', function() { _inputModality = 'pointer'; }, true);
+        // Tablica może być jeszcze nieprzypisana: układ historii (dok/szuflada) liczy się przy
+        // starcie, zanim wykonanie dojdzie do tej linii — stąd `|| []` w obu funkcjach niżej.
+        var _dialogStack = [];
+        function _dialogFocusables(el) {
+            return Array.prototype.filter.call(el.querySelectorAll(
+                'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+            ), function(x) { return !x.hidden && x.getClientRects().length > 0; });
+        }
+        function dialogOpened(el, initial) {
+            if (!el) return;
+            _dialogStack = (_dialogStack || []).filter(function(d) { return d.el !== el; });
+            _dialogStack.push({ el: el, ret: document.activeElement });
+            if (_inputModality !== 'keyboard') return;
+            requestAnimationFrame(function() {
+                var t = initial || _dialogFocusables(el)[0];
+                if (t) t.focus({ preventScroll: true });
+            });
+        }
+        function dialogClosed(el) {
+            var entry = null;
+            _dialogStack = (_dialogStack || []).filter(function(d) { if (d.el === el) { entry = d; return false; } return true; });
+            if (entry && _inputModality === 'keyboard' && entry.ret && entry.ret.isConnected && entry.ret.focus) {
+                entry.ret.focus({ preventScroll: true });
+            }
+        }
+        document.addEventListener('keydown', function(e) {
+            if (e.key !== 'Tab' || !_dialogStack || !_dialogStack.length) return;
+            var top = _dialogStack[_dialogStack.length - 1].el;
+            var list = _dialogFocusables(top);
+            if (!list.length) return;
+            var first = list[0], last = list[list.length - 1];
+            if (!top.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+            else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+        });
+
         function openHistoryDrawer() {
             document.body.classList.add('history-open');
+            dialogOpened(historyDrawer, closeHistoryBtn);
             if (historyDrawer) historyDrawer.setAttribute('aria-hidden', 'false');
             if (openHistoryBtn) openHistoryBtn.setAttribute('aria-expanded', 'true');
         }
 
         function closeHistoryDrawer() {
+            if (!document.body.classList.contains('history-open')) return;
             document.body.classList.remove('history-open');
+            dialogClosed(historyDrawer);
             if (historyDrawer) historyDrawer.setAttribute('aria-hidden', 'true');
             if (openHistoryBtn) openHistoryBtn.setAttribute('aria-expanded', 'false');
         }
@@ -5164,6 +5308,7 @@
 
         function openCommandHelp() {
             document.body.classList.add('help-open');
+            dialogOpened(commandHelpDrawer, commandHelpClose);
             if (commandHelpDrawer) commandHelpDrawer.setAttribute('aria-hidden', 'false');
             if (commandHelpTitle) commandHelpTitle.textContent = _HELP_DRAWER_TITLES[activeCommandTarget] || 'Ściąga komend';
 
@@ -5207,10 +5352,12 @@
             if (commandHelpTitle) commandHelpTitle.textContent = explain.title + ' krok po kroku';
             if (commandHelpClose) commandHelpClose.setAttribute('aria-label', 'Zamknij kroki');
             document.body.classList.add('help-open');
+            dialogOpened(commandHelpDrawer, commandHelpClose);
             commandHelpDrawer.setAttribute('aria-hidden', 'false');
         }
 
         function closeCommandHelp() {
+            var wasOpen = document.body.classList.contains('help-open');
             document.body.classList.remove('help-open');
             if (stepsView) stepsView.hidden = true;
             if (commandHelpClose) commandHelpClose.setAttribute('aria-label', 'Zamknij ściągę');
@@ -5221,6 +5368,7 @@
                 if (focused) focused.blur();
                 commandHelpDrawer.setAttribute('aria-hidden', 'true');
             }
+            if (wasOpen) dialogClosed(commandHelpDrawer);
             if (helpSearch) {
                 helpSearch.value = '';
 
@@ -5360,6 +5508,18 @@
             return row;
         }
 
+        // K25 — klawisz modyfikatora wg platformy: „⌘” na Macu/iOS, „Ctrl” gdzie indziej.
+        // Teksty w HTML i w command-definitions.js piszą „⌘/Ctrl” albo „⌘” — tu je zawężamy.
+        var IS_APPLE_KBD = /Mac|iPhone|iPad|iPod/.test(navigator.platform || '') || /Mac OS X/.test(navigator.userAgent || '');
+        function localizeModKeys(root) {
+            var mod = IS_APPLE_KBD ? '⌘' : 'Ctrl';
+            (root || document).querySelectorAll('kbd').forEach(function(k) {
+                var t = k.textContent;
+                if (t === '⌘/Ctrl' || t === '⌘') k.textContent = mod;
+            });
+            var copyBtn = document.getElementById('calcCopyBtn');
+            if (copyBtn && copyBtn.title) copyBtn.title = copyBtn.title.replace('⌘', mod);
+        }
         function renderCommandHelpDefinitions() {
             var definitions = window.MATM0_COMMAND_DEFINITIONS;
             if (!definitions) return;
@@ -5421,6 +5581,7 @@
                 });
                 lastGapSection.appendChild(missingSection);
             }
+            localizeModKeys(document.querySelector('.command-help-content'));
         }
 
         function escapeRegExp(text) {
@@ -8695,6 +8856,18 @@
             if (STATE.activeTab !== 'calculator') return;
             // [EN] Ignore if user is typing in an input
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+            // Skróty z modyfikatorem (⌘C, Ctrl+R…) nie są klawiszami kalkulatora — „c” z ⌘ robiło AC.
+            if (e.metaKey || e.ctrlKey || e.altKey) return;
+            // Otwarte okno (⚙️, ściąga, historia, notatnik, menu) ma własne klawisze;
+            // Esc zamykał okno i jednocześnie czyścił działanie.
+            var bc = document.body.classList;
+            if (bc.contains('settings-open') || bc.contains('help-open') || bc.contains('history-open') || bc.contains('notepad-open') ||
+                (_itemMenu && !_itemMenu.hidden) || (_calcCopyMenu && !_calcCopyMenu.hidden)) return;
+            // Enter/spacja na przycisku poza padem (⚙️, Historia, Ściąga…) mają go nacisnąć,
+            // a nie liczyć „=”. Przycisk padu z fokusem dalej działa jak klawiatura kalkulatora.
+            if ((e.key === 'Enter' || e.key === ' ') && e.target.closest &&
+                e.target.closest('button, a[href], [role="button"], [role="menuitem"], [role="tab"]') &&
+                !e.target.closest('#calcGrid')) return;
 
             var key = e.key;
             if (key >= '0' && key <= '9') { handleCalcAction(key); return; }
@@ -9259,12 +9432,34 @@
             });
         }
 
+        // K23 — ręczne odświeżenie kursów (wcześniej tylko przy starcie / po czasie).
+        (function initFxRefreshBtn() {
+            var btn = $('#settingsFxRefresh');
+            if (!btn) return;
+            btn.addEventListener('click', function() {
+                if (STATE.fx.loading) return;
+                STATE.fx.error = null;
+                document.addEventListener('matm0-fx-updated', function onFx() {
+                    document.removeEventListener('matm0-fx-updated', onFx);
+                    btn.disabled = false;
+                    updateFxStatusLine();
+                    if (STATE.fx.error && !_fxReady()) showToast('Nie udało się pobrać kursów — sprawdź połączenie', 'error');
+                    else showToast('Kursy odświeżone' + (STATE.fx.date ? ' (' + _formatFxDatePl(STATE.fx.date) + ')' : ''), 'success');
+                });
+                btn.disabled = true;
+                loadFxRates();
+                updateFxStatusLine();
+                if (!STATE.fx.loading) { // loadFxRates wyszedł od razu (np. brak fetch) — „done” nie przyjdzie
+                    document.dispatchEvent(new CustomEvent('matm0-fx-updated'));
+                }
+            });
+        })();
         function updateFxStatusLine() {
             if (!settingsFxStatus) return;
             var msg;
             if (STATE.fx.loading) msg = 'Pobieram kursy…';
             else if (!_fxReady()) msg = STATE.fx.error ? 'Kursy: brak połączenia (offline)' : 'Kursy jeszcze niepobrane';
-            else msg = 'Źródło kursów: ' + fxSourceLabel(STATE.fx.source) + (STATE.fx.date ? ' · ' + STATE.fx.date : '');
+            else msg = 'Źródło kursów: ' + fxSourceLabel(STATE.fx.source) + (STATE.fx.date ? ' · ' + _formatFxDatePl(STATE.fx.date) : '');
             settingsFxStatus.textContent = msg;
         }
 
@@ -9288,7 +9483,7 @@
             syncFoldSetting(STATE.settings.notepadFold);
             if (settingNotepadAutoUnit) settingNotepadAutoUnit.value = STATE.settings.notepadAutoUnit || 'safe';
             if (settingNotepadUnitMix) settingNotepadUnitMix.value = STATE.settings.notepadUnitMix || 'strict';
-            if (settingNotepadSumUnit) settingNotepadSumUnit.value = STATE.settings.notepadSumUnit || 'off';
+            if (settingNotepadSumUnit) settingNotepadSumUnit.value = STATE.settings.notepadSumUnit || 'inherit'; // domyślne od v1.04.24
             if (settingCalcLayout) settingCalcLayout.value = STATE.settings.calcLayout === 'sentence' ? 'sentence' : 'keypad';
             if (settingStandardLiveHint) settingStandardLiveHint.checked = !!STATE.settings.standardLiveHint;
             if (settingStandardAutocomplete) settingStandardAutocomplete.checked = !!STATE.settings.standardAutocomplete;
@@ -9300,14 +9495,17 @@
             if (settingsVersion) settingsVersion.textContent = 'Wersja ' + (window.APP_VERSION || '—');
             document.body.classList.add('settings-open');
             settingsModal.setAttribute('aria-hidden', 'false'); settingsModal.inert = false;
+            dialogOpened(settingsModal, settingsClose);
             settingsBackdrop.setAttribute('aria-hidden', 'false');
             // Kursy mogą być stare/niepobrane — odśwież w tle, by status był aktualny.
             ensureFxRates();
         }
         function closeSettings() {
+            if (!document.body.classList.contains('settings-open')) return;
             document.body.classList.remove('settings-open');
             settingsModal.setAttribute('aria-hidden', 'true'); settingsModal.inert = true; // zamknięte = poza Tabem
             settingsBackdrop.setAttribute('aria-hidden', 'true');
+            dialogClosed(settingsModal);
         }
 
         if (settingsBtn) settingsBtn.addEventListener('click', openSettings);
@@ -11988,13 +12186,7 @@
         // do ⚙️. Działa od razu (npRecompute przerysowuje), zsynchronizowany z ustawieniem.
         // Odbij stan fold na segmentowym przełączniku w ⚙️ (Wył/Wł).
         function syncFoldSetting(on) {
-            if (!settingNotepadFold) return;
-            var btns = settingNotepadFold.querySelectorAll('.settings-seg-btn');
-            btns.forEach(function(b) {
-                var sel = (b.dataset.val === 'on') === !!on;
-                b.classList.toggle('active', sel);
-                b.setAttribute('aria-pressed', sel ? 'true' : 'false');
-            });
+            if (settingNotepadFold) settingNotepadFold.checked = !!on;
         }
         function updateFoldBtn() {
             if (!npFoldBtn) return;
@@ -12355,10 +12547,8 @@
         }
 
         if (settingNotepadFold) {
-            settingNotepadFold.addEventListener('click', function(e) {
-                var btn = e.target.closest('.settings-seg-btn');
-                if (!btn) return;
-                STATE.settings.notepadFold = btn.dataset.val === 'on';
+            settingNotepadFold.addEventListener('change', function() {
+                STATE.settings.notepadFold = settingNotepadFold.checked;
                 saveSettings();
                 syncFoldSetting(STATE.settings.notepadFold);
                 updateFoldBtn(); // zsynchronizuj też przycisk ⊟/⊞ w nagłówku notatnika
@@ -13588,7 +13778,7 @@
                     if (el.dataset.longPressed === 'true') { delete el.dataset.longPressed; return; }
                     var t = el.textContent.trim();
                     if (!t || t.indexOf('Podaj') === 0) return;
-                    copyText(t).then(function() { showToast('📋 Skopiowano', 'success'); }).catch(function() {});
+                    copyText(t).then(function() { _toastCopied(t); }).catch(function() {});
                 });
                 bindLongPressNotepad(el, function() {
                     var t = el.textContent.trim();
@@ -13688,6 +13878,7 @@
             setupPlaceholderMarquee();
             initCalcAutocomplete(calcExpr, calcExprAC);
             restoreSession();
+            localizeModKeys(document);
             function _onCalcAssistViewport() { // [EN] przełącz mobile bubble ↔ desktop chips przy resize
                 if (_calcAssistWide()) _hideCalcAssistBubble();
                 else if (calcExprAC) calcExprAC.classList.remove('open');

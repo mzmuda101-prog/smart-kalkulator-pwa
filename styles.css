@@ -1378,6 +1378,9 @@
             margin-bottom: 10px;
         }
         .history-header h3 {
+            display: flex;
+            align-items: center;
+            gap: 6px;
             font-size: 1rem;
             font-weight: 800;
             color: var(--text);
@@ -1386,6 +1389,23 @@
             display: flex;
             align-items: center;
             gap: 8px;
+        }
+        .history-day {
+            list-style: none;
+            margin: 10px 4px 4px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+        .history-day:first-child { margin-top: 2px; }
+        .history-cap-note {
+            list-style: none;
+            margin: 10px 4px 4px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-align: center;
         }
         .history-clear-btn {
             background: none;
@@ -1567,8 +1587,10 @@
             -webkit-tap-highlight-color: transparent;
             transition: opacity var(--transition), background var(--transition);
         }
-        .history-item-btn:hover,
+        .history-item-btn { display: inline-flex; align-items: center; justify-content: center; }
+        .history-item-btn .ui-icon { width: 1.05em; height: 1.05em; }
         .history-item-btn:active { opacity: 1; background: var(--primary-light); }
+        @media (hover: hover) { .history-item-btn:hover { opacity: 1; background: var(--primary-light); } }
         .history-item-btn.hist-pin[aria-pressed="true"] { opacity: 1; }
 
         /* ============================================================
@@ -3695,7 +3717,7 @@
             padding: 16px 18px;
             border-bottom: 1px solid var(--border);
         }
-        .settings-head h3 { margin: 0; font-size: 1.15rem; }
+        .settings-head h3 { margin: 0; font-size: 1.15rem; display: flex; align-items: center; gap: 8px; }
         .settings-close {
             border: none;
             background: transparent;
@@ -3800,7 +3822,6 @@
             border-radius: var(--radius-sm);
             transition: all var(--transition);
         }
-        .settings-toggle-row:has(.settings-seg-btn[data-val="on"].active) { border-color: var(--border-focus); }
         .settings-toggle-text { line-height: 1.3; }
         .settings-toggle-text small { color: var(--text-muted); font-size: 0.78rem; line-height: 1.3; }
         .np-font-settings-row { flex-wrap: wrap; }
@@ -3861,6 +3882,8 @@
             font-size: 0.82rem;
             color: var(--text-muted);
         }
+        .settings-fx-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+        .settings-fx-row .settings-fxstatus { flex: 1 1 12rem; }
         .settings-backup-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
         .settings-backup-confirm {
             margin-top: 10px;
@@ -3934,6 +3957,8 @@
         }
 
         .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast { display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .toast-icon { width: 1.1em; height: 1.1em; flex-shrink: 0; }
         /* Dymek z akcją (np. „Cofnij"): przyjmuje dotyk, tekst + przycisk w jednym wierszu. */
         .toast.has-action {
             pointer-events: auto;
@@ -3972,7 +3997,7 @@
             padding: 32px 16px;
             color: var(--text-muted);
         }
-        .empty-state .icon { font-size: 2.5rem; margin-bottom: 8px; }
+        .empty-state .icon { font-size: 2.5rem; margin-bottom: 8px; color: var(--text-muted); }
         .empty-state p { font-size: 0.875rem; }
         
         /* Wskaźnik trybu — szybka komenda aktywna */
@@ -4701,9 +4726,10 @@
             font: 600 .73rem/1 var(--font);
             transition: color var(--transition), background var(--transition), transform var(--transition);
         }
-        .calc-copy-btn:hover,
         .calc-copy-btn:focus-visible { background: var(--primary-light); color: var(--primary); outline: none; }
+        @media (hover: hover) { .calc-copy-btn:hover { background: var(--primary-light); color: var(--primary); } }
         .calc-copy-btn:active { transform: scale(.96); }
+        .calc-copy-btn.is-unavailable { visibility: hidden; }
         .history-open-btn,
         .calc-help-btn { border-radius: 9px; box-shadow: none; }
         .calc-help-btn { border-color: transparent; }

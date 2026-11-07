@@ -76,7 +76,27 @@ const WORKS = [
     ['maksimum 8 2 5', 8],
     ['mediana 9 1 5', 5],
     ['median of 1 9 3 7', 5],
+    // pytanie wokół działania (K17)
+    ['ile to 15% z 200', 30],
+    ['ile jest 2+2?', 4],
+    ['oblicz 3*4', 12],
+    ['what is 5 km in m', 5000, 'm'],
+    // zapis naukowy i pierwiastek jako znak (K17, parseNaturalShortcuts)
+    ['1e3', 1000],
+    ['2e-3', 0.002],
+    ['1,5e6', 1500000],
+    ['3e5 zł', 300000, 'zł'],
+    ['sqrt 16', 4],
+    ['√16', 4],
+    ['√(9+7)', 4],
 ];
+
+// Liczba Eulera zostaje: „2e” = 2·e, „2e - 3” ze spacjami ≠ zapis naukowy.
+for (const [expr, want] of [['2e', 2 * Math.E], ['2e - 3', 2 * Math.E - 3]]) {
+    const r = val(expr);
+    if (!r || !near(r.value, want)) { fail++; fails.push(`${expr} — oczekiwano ${want} (got ${r && r.value})`); }
+    else pass++;
+}
 
 for (const [expr, want, unit] of WORKS) {
     const r = val(expr);

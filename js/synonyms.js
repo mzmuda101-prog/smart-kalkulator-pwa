@@ -179,6 +179,16 @@
             re: /^(suma|sum|min(?:imum)?|max(?:imum)?|maksimum|mediana|median)\s+(?!(?:z|of)\s)(.+)$/i,
             build: function (m) { return { expr: m[1] + ' z ' + m[2] }; },
         },
+
+        /* ── 6. Pytanie wokół działania ───────────────────────────────────────
+           „ile to 15% z 200", „ile jest 2+2?", „oblicz 3*4", „what is 5 km in m".
+           Sam wypełniacz zdania gubił całą komendę, choć „Czy chodziło o…”
+           rozumiał ją bez kłopotu. Gołe „ile …” zostaje dla reguł 1–2 (ile godzin…). */
+        {
+            id: 'question-filler',
+            re: /^(?:ile\s+(?:to|jest|wynosi|będzie|bedzie)|oblicz|policz|wylicz|what\s+is|what's|whats|calculate|compute)\s+(.+?)\s*[?=]?$/i,
+            build: function (m) { return { expr: m[1] }; },
+        },
     ];
 
     /* Dopasowanie → lista kandydatów do policzenia (w kolejności reguł).
