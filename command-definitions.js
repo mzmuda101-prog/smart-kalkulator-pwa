@@ -330,6 +330,14 @@
                     { syntax: 'b usd na eur', syntaxAlt: 'b usd to eur', command: '{usdAmt} usd na eur', yields: 'b × kurs usd→eur', description: 'między walutami' },
                 ],
             },
+            {
+                title: 'Klawiatura i edycja',
+                items: [
+                    { prose: '<kbd>Enter</kbd> — oblicz · <kbd>Shift</kbd>+<kbd>Enter</kbd> — nowa linia w polu · <kbd>⌘/Ctrl</kbd>+<kbd>Enter</kbd> — kopiuj wynik.' },
+                    { prose: '<kbd>↑</kbd> / <kbd>↓</kbd> w polu — poprzednie / następne działanie z historii (↓ za najnowszym wraca do tego, co było wpisane).' },
+                    { prose: '<kbd>Esc</kbd> — wyczyść pole; <kbd>⌘/Ctrl</kbd>+<kbd>Z</kbd> przywraca tekst. <strong>AC</strong> na padzie przy dłuższym działaniu pokazuje w dymku <strong>Cofnij</strong>.' },
+                ],
+            },
         ],
         engineering: [
             {

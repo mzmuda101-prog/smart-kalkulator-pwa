@@ -81,3 +81,61 @@ test('notatnik: usunięcie jedynej notatki → Cofnij przywraca ją bez pustej z
   const current = saved.notes.find((n) => n.id === saved.currentId);
   expect(current && current.text).toBe('Notatka do przywrócenia: 2 + 2');
 });
+
+// ── K8 — AC/Esc nie kasują bezpowrotnie wpisanego działania ──
+const LONG_EXPR = '1250 zł + 23% vat - 120 zł';
+
+test('pole: Esc czyści, a ⌘/Ctrl+Z przywraca tekst', async ({ page }) => {
+  await NP.waitAppReady(page);
+  const field = page.locator('#calcExpr');
+  await field.click();
+  await page.keyboard.type(LONG_EXPR);
+  await page.keyboard.press('Escape');
+  await expect(field).toHaveValue('');
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(field).toHaveValue(LONG_EXPR);
+});
+
+test('pad: AC przy dłuższym działaniu → Cofnij w dymku, krótkie czyści po cichu', async ({ page }) => {
+  await NP.waitAppReady(page);
+  const field = page.locator('#calcExpr');
+  const setUnfocused = (v) => page.evaluate((val) => {
+    const el = document.getElementById('calcExpr');
+    el.value = val;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.blur();
+  }, v);
+  const ac = page.locator('#calcGrid [data-action="AC"]');
+
+  await setUnfocused(LONG_EXPR);
+  await ac.click();
+  await expect(field).toHaveValue('');
+  await page.locator('#toast.show .toast-action').click();
+  await expect(field).toHaveValue(LONG_EXPR);
+
+  await setUnfocused('2 + 2');
+  await page.evaluate(() => document.getElementById('toast').classList.remove('show'));
+  await ac.click();
+  await expect(field).toHaveValue('');
+  await expect(page.locator('#toast.show')).toHaveCount(0);
+});
+
+// ── K9 — ↑/↓ przeglądają historię jak w terminalu ──
+test('pole: ↑/↓ przywołują poprzednie działania i wracają do szkicu', async ({ page }) => {
+  await NP.waitAppReady(page);
+  const field = page.locator('#calcExpr');
+  for (const expr of ['7 + 1', '9 + 1']) {
+    await field.fill(expr);
+    await field.press('Enter');
+  }
+  await field.press('Escape');
+  await page.keyboard.type('12');
+  await field.press('ArrowUp');
+  await expect(field).toHaveValue('9 + 1');
+  await field.press('ArrowUp');
+  await expect(field).toHaveValue('7 + 1');
+  await field.press('ArrowDown');
+  await expect(field).toHaveValue('9 + 1');
+  await field.press('ArrowDown');
+  await expect(field).toHaveValue('12');
+});

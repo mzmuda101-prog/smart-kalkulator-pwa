@@ -1920,6 +1920,65 @@
             liveEval();
         }
 
+        // Zamiana fragmentu pola. Przy fokusie przez execCommand, nie „value =”: przypisanie
+        // value kasuje natywną historię cofania, więc ⌘/Ctrl+Z nie przywróciłoby tekstu
+        // (ta sama zasada co w notatniku). Bez fokusu (pad na telefonie) — zwykłe przypisanie.
+        function _calcEditRange(start, end, text) {
+            var cur = calcExpr.value;
+            var next = cur.slice(0, start) + text + cur.slice(end);
+            var viaCmd = false;
+            if (document.activeElement === calcExpr && (start !== end || text)) {
+                try {
+                    calcExpr.setSelectionRange(start, end);
+                    viaCmd = text
+                        ? document.execCommand('insertText', false, text)
+                        : document.execCommand('delete', false);
+                } catch (e) { viaCmd = false; }
+            }
+            if (!viaCmd || calcExpr.value !== next) calcExpr.value = next;
+            try { calcExpr.setSelectionRange(start + text.length, start + text.length); } catch (e) {}
+        }
+        // AC z padu kasuje bez fokusu, więc ⌘Z nie pomoże — przy dłuższym wyrażeniu dymek „Cofnij”.
+        // Krótkie wpisy (do 12 znaków) i sam wynik po „=” czyścimy po cichu, jak zwykły kalkulator.
+        var _CALC_AC_UNDO_MIN = 12;
+
+        // ↑/↓ w polu = poprzednie/następne działanie z historii (jak w terminalu).
+        // ↑ działa w pierwszej linii pola, ↓ w ostatniej — wielolinijkowe wyrażenie
+        // dalej da się przechodzić strzałkami. Własna edycja pola kończy przeglądanie,
+        // a ↓ za najnowszym wpisem oddaje to, co było wpisane przed pierwszym ↑.
+        var _calcHistNav = { idx: -1, draft: '', shown: null };
+        function _calcHistoryExprs() {
+            var out = [];
+            STATE.history.forEach(function(it) {
+                var ex = String(it && it.text || '').split(' = ')[0].trim();
+                if (ex && out[out.length - 1] !== ex) out.push(ex);
+            });
+            return out;
+        }
+        function _calcHistoryStep(dir) {
+            var val = calcExpr.value;
+            var s0 = calcExpr.selectionStart, s1 = calcExpr.selectionEnd;
+            if (s0 !== s1) return false;
+            if (dir > 0 && val.slice(0, s0).indexOf('\n') !== -1) return false;
+            if (dir < 0 && val.slice(s0).indexOf('\n') !== -1) return false;
+            if (_calcHistNav.shown !== val) _calcHistNav.idx = -1; // pole zmienione ręcznie
+            var list = _calcHistoryExprs();
+            var next = _calcHistNav.idx + dir;
+            if (dir > 0 && next >= list.length) return list.length > 0 && _calcHistNav.idx >= 0; // koniec listy: zostań
+            if (dir < 0 && _calcHistNav.idx < 0) return false;
+            if (_calcHistNav.idx < 0) _calcHistNav.draft = val;
+            _calcHistNav.idx = next;
+            var text = next < 0 ? _calcHistNav.draft : list[next];
+            _calcEditRange(0, val.length, text);
+            // execCommand wywołuje „input”, a ten otwiera autouzupełnianie — kolejne ↑
+            // trafiłoby w listę zamiast w historię.
+            if (calcExprAC) calcExprAC.classList.remove('open');
+            _calcHistNav.shown = calcExpr.value;
+            STATE.calc.justEvaluated = false;
+            liveEval();
+            return true;
+        }
+
         // Po '=' pole zawiera już wynik (np. „123,00 zł”). Dopisanie do niego cyfry z pada
         // dawało tekst typu „123,00 zł5”, który parser odczytywał jako 123,005 zł. Zachowanie
         // zgodne ze zwykłym kalkulatorem: liczba zaczyna kolejne działanie, operator używa wyniku.
@@ -3429,19 +3488,27 @@
                 var focused = document.activeElement === calcExpr;
                 var s = focused ? calcExpr.selectionStart : expr.length;
                 var eb = focused ? calcExpr.selectionEnd : expr.length;
-                if (s !== eb) {
-                    calcExpr.value = expr.slice(0, s) + expr.slice(eb);
-                    try { calcExpr.setSelectionRange(s, s); } catch(e) {}
-                } else if (s > 0) {
-                    calcExpr.value = expr.slice(0, s - 1) + expr.slice(s);
-                    try { calcExpr.setSelectionRange(s - 1, s - 1); } catch(e) {}
-                }
+                if (s !== eb) _calcEditRange(s, eb, '');
+                else if (s > 0) _calcEditRange(s - 1, s, '');
                 liveEval();
                 return;
             }
 
             if (action === 'AC') {
-                calcExpr.value = '';
+                var clearedExpr = calcExpr.value;
+                var wasResult = STATE.calc.justEvaluated;
+                var acFocused = document.activeElement === calcExpr;
+                if (clearedExpr) _calcEditRange(0, clearedExpr.length, '');
+                if (!acFocused && !wasResult && clearedExpr.trim().length >= _CALC_AC_UNDO_MIN) {
+                    showToast('Wyczyszczono działanie', '', {
+                        action: 'Cofnij',
+                        onAction: function() {
+                            if (calcExpr.value) return; // użytkownik zaczął już nowe działanie
+                            calcExpr.value = clearedExpr;
+                            liveEval();
+                        }
+                    });
+                }
                 STATE.calc.lastResult = null;
                 STATE.calc.lastUnit = null;
                 STATE.calc.ans = null;
@@ -13242,6 +13309,10 @@
                     } else if (e.key === 'Backspace' || e.key === 'Delete') {
                         STATE.calc.justEvaluated = false;
                     }
+                }
+                if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && !e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey &&
+                    !(calcExprAC && calcExprAC.classList.contains('open'))) {
+                    if (_calcHistoryStep(e.key === 'ArrowUp' ? 1 : -1)) { e.preventDefault(); return; }
                 }
                 if (e.key === 'Enter' && e.shiftKey) return; // [EN] Shift+Enter — nowa linia w wyrażeniu
                 if (calcExprAC && calcExprAC.classList.contains('open') && (e.key === 'Enter' || e.key === 'Tab')) return; // [EN] AC wybiera sugestię

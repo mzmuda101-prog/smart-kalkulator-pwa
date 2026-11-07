@@ -4019,9 +4019,12 @@
             transition: 0.2s;
         }
 
-        .help-command:hover {
-            transform: translateX(4px);
-            opacity: 0.85;
+        /* Tylko z myszą — na dotyku :hover zostaje po stuknięciu i przykład wygląda na „wciśnięty”. */
+        @media (hover: hover) {
+            .help-command:hover {
+                transform: translateX(4px);
+                opacity: 0.85;
+            }
         }
         .help-lang-note {
             font-size: 0.9em;
