@@ -14,10 +14,16 @@ module.exports = defineConfig({
     // stąd przebiegi kończące się po 1.5 min / 3 min bez żadnej diagnozy.
     actionTimeout: 20_000,
     navigationTimeout: 45_000,
-    fullyParallel: false,
+    // Testy są niezależne (każdy ma świeży kontekst przeglądarki i pusty localStorage),
+    // więc lecą równolegle: 4 workery ≈ 4× szybciej niż dawne workers: 1 (~11 min).
+    // CALC_E2E_WORKERS=1 przywraca tryb szeregowy (np. do śledzenia flaka).
+    fullyParallel: true,
     forbidOnly: !!process.env.CI,
     retries: process.env.CI ? 1 : 0,
-    workers: 1,
+    workers: Number(process.env.CALC_E2E_WORKERS) || 4,
+    // Gdy apka w ogóle nie startuje, każdy test czekał 90 s → przebieg 25–30 min.
+    // Po 10 porażkach przerywamy: diagnoza jest w pierwszych, reszta to ten sam błąd.
+    maxFailures: process.env.CI ? 0 : 10,
     reporter: [
         ['list'],
         ['html', { open: 'never', outputFolder: 'test-results/playwright-report' }],
