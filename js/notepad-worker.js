@@ -138,7 +138,11 @@ self.onmessage = function (e) {
     var msg = e.data || {};
     if (msg.type !== 'eval') return;
     try {
-        var engine = self.MATM0_NP_ENGINE.createEngine(createDeps(msg.ctx || {}));
+        var wctx = msg.ctx || {};
+        if (self.MATM0_DATA && self.MATM0_DATA.setUnitNameMode) {
+            self.MATM0_DATA.setUnitNameMode(wctx.settings && wctx.settings.unitNames);
+        }
+        var engine = self.MATM0_NP_ENGINE.createEngine(createDeps(wctx));
         var infos = engine.evalLines(msg.text || '');
         self.postMessage({ type: 'eval', id: msg.id, ok: true, infos: infos });
     } catch (err) {

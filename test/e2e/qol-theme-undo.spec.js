@@ -139,3 +139,29 @@ test('pole: ↑/↓ przywołują poprzednie działania i wracają do szkicu', as
   await field.press('ArrowDown');
   await expect(field).toHaveValue('12');
 });
+
+// ── K10 — ⚙️ „Jednostki w wyniku”: jak wpisano / skróty / pełne nazwy ──
+test('jednostki w wyniku: przełączenie w ⚙️ zmienia wynik w kalkulatorze i notatniku', async ({ page }) => {
+  await NP.waitAppReady(page);
+  const field = page.locator('#calcExpr');
+  const result = page.locator('#calcResult');
+  await field.fill('2 kg na lb');
+  await expect(result).toContainText('lb');           // domyślnie: jak wpisano
+
+  const pick = async (mode) => {
+    await page.locator('#settingsBtn').click();
+    await page.locator('#settingUnitNames').selectOption(mode);
+    await page.locator('#settingsClose').click(); // nie Esc — w polu Esc = AC
+  };
+  await pick('long');
+  await expect(result).toContainText('funta');         // 4,41 → dopełniacz lp.
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('matm0_settings')).unitNames)).toBe('long');
+
+  await pick('short');
+  await field.fill('10 kg na funty');
+  await expect(result).toContainText('lb');
+
+  await NP.openNotepad(page);
+  await NP.setNotepadText(page, 'Bagaż: 10 kg na funty');
+  await expect(page.locator('.np-res').first()).toContainText('lb');
+});

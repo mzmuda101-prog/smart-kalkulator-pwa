@@ -88,10 +88,17 @@ EXTRA.forEach(function (pair) {
 // Jawną jednostkę konwersji zachowujemy w pierwszym odczycie wyniku po „=”.
 // Bez tego `2 kg na lb` wracało jako „4,409245 pounds”, po czym auto-dobór
 // przeliczał je ponownie do mg; `1 mila na km` kończyła jako cm.
+// K10: ten sam kontrakt w każdym trybie ⚙️ „Jednostki w wyniku” (lb / funta / funtów).
+const _readbackModes = ['typed', 'short', 'long'];
+const _readbackData = (typeof window !== 'undefined' && window.MATM0_DATA) || global.MATM0_DATA;
 [
     '2 kg na lb',
     '1 mila na km',
-].forEach(function (expr) {
+    '10 kg na funty',
+    '3 m na stopy',
+    '2 h na minuty',
+].forEach(function (expr) { _readbackModes.forEach(function (mode) {
+    _readbackData.setUnitNameMode(mode);
     const first = api.evalCalcExpression(expr);
     const shown = api.calcEqualsExprText(first);
     const back = shown ? api.evalCalcExpression(shown, { readbackUnit: first.unit }) : null;
@@ -99,8 +106,9 @@ EXTRA.forEach(function (pair) {
     // precyzji, którą użytkownik faktycznie widzi i ponownie odczytuje.
     const ok = back && back.unit === first.unit && Math.abs(back.value - first.value) <= 0.0000005;
     if (ok) pass++;
-    else fail++, fails.push({ expr, why: 'po = gubi jednostkę jawnej konwersji', shown, first: { value: first.value, unit: first.unit }, back: back && { value: back.value, unit: back.unit } });
-});
+    else fail++, fails.push({ expr: expr + ' [' + mode + ']', why: 'po = gubi jednostkę jawnej konwersji', shown, first: { value: first.value, unit: first.unit }, back: back && { value: back.value, unit: back.unit } });
+}); });
+_readbackData.setUnitNameMode('typed');
 
 console.log('');
 if (fail) {

@@ -202,6 +202,7 @@
                     { syntax: 'L jedn. na jedn.', syntaxAlt: 'L unit to unit', command: '{lenVal}{lenUnit} na mm', yields: 'L w docelowej jednostce', description: 'np. cm → mm' },
                     { syntax: 'a jedn. + b jedn.', command: '{mixA}m + {mixB}cm', yields: 'suma w jednostce roboczej', description: 'pierwsza wpisana jednostka wygrywa' },
                     { syntax: 'a ft + b in na cm', syntaxAlt: 'a ft + b in to cm', command: '10ft + 6in na cm', yields: 'suma w cm', description: 'stopy + cale → centymetry' },
+                    { prose: 'Nazwa jednostki w wyniku: domyślnie <strong>jak wpisano</strong> (<code>2 kg na lb</code> → lb, <code>na funty</code> → funta). W ⚙️ → <strong>Nazwy jednostek w wyniku</strong>: zawsze skróty (lb, ft, h) albo pełne polskie nazwy (funtów, stóp).' },
                 ],
             },
             {

@@ -223,43 +223,48 @@
          forms: [1, 2–4, 5+] — trzy formy wg standardowej reguły PL
                   (1 stopa · 2 stopy · 5 stóp · 11 stóp · 22 stopy)
          parse: dodatkowe aliasy WEJŚCIA (dopełniacz itd.) — mergowane do UNIT_CATEGORIES
+         frac:  forma przy ułamku (dopełniacz lp.: 1,5 godziny · 4,41 funta · 2,5 roku);
+                (też alias wejścia — wynik po „=” jest czytany ponownie)
+         short: symbol w trybie „Skróty” (⚙️ Jednostki w wyniku); brak = słowo zostaje
+                (mila: „mi” to też polskie słowo, więc parser go nie zna)
        Symbole (kg, km, mm, h…) NIE są tu — zostają bez odmiany.
        Współczynniki konwersji zostają w UNIT_CATEGORIES; tutaj TYLKO język. */
     var PL_UNIT_GRAMMAR = {
-        stopa:   { forms: ['stopa', 'stopy', 'stóp'],   parse: ['stóp', 'stop', 'stope', 'stopę'] },
-        cal:     { forms: ['cal', 'cale', 'cali'],       parse: ['cala', 'calu'] },
-        mila:    { forms: ['mila', 'mile', 'mil'],       parse: ['mili'] },
-        jard:    { forms: ['jard', 'jardy', 'jardów'],  parse: ['jardow'] },
-        funt:    { forms: ['funt', 'funty', 'funtów'],   parse: ['funtow'] },
-        uncja:   { forms: ['uncja', 'uncje', 'uncji'] },
-        tona:    { forms: ['tona', 'tony', 'ton'],       parse: ['tonę'] },
-        sekunda: { forms: ['sekunda', 'sekundy', 'sekund'] },
-        minuta:  { forms: ['minuta', 'minuty', 'minut'] },
-        godzina: { forms: ['godzina', 'godziny', 'godzin'] },
-        doba:    { forms: ['doba', 'doby', 'dób'],       parse: ['dzień', 'dzien'] },
-        tydzien: { forms: ['tydzień', 'tygodnie', 'tygodni'], parse: ['tygodnie', 'tygodni'] },
-        rok:     { forms: ['rok', 'lata', 'lat'] },
-        litr:    { forms: ['litr', 'litry', 'litrów'],   parse: ['litrow'] },
-        galon:   { forms: ['galon', 'galony', 'galonów'] },
-        stopien: { forms: ['stopień', 'stopnie', 'stopni'], parse: ['stopnia'] },
-        radian:  { forms: ['radian', 'radiany', 'radianów'] },
-        wezel:   { forms: ['węzeł', 'węzły', 'węzłów'] },
+        stopa:   { forms: ['stopa', 'stopy', 'stóp'], frac: 'stopy', short: 'ft',   parse: ['stóp', 'stop', 'stope', 'stopę'] },
+        cal:     { forms: ['cal', 'cale', 'cali'], frac: 'cala', short: 'in',       parse: ['cala', 'calu'] },
+        mila:    { forms: ['mila', 'mile', 'mil'], frac: 'mili',       parse: ['mili'] },
+        jard:    { forms: ['jard', 'jardy', 'jardów'], frac: 'jarda', short: 'yd',  parse: ['jardow'] },
+        funt:    { forms: ['funt', 'funty', 'funtów'], frac: 'funta', short: 'lb',   parse: ['funtow'] },
+        uncja:   { forms: ['uncja', 'uncje', 'uncji'], frac: 'uncji', short: 'oz' },
+        tona:    { forms: ['tona', 'tony', 'ton'], frac: 'tony', short: 't',       parse: ['tonę'] },
+        sekunda: { forms: ['sekunda', 'sekundy', 'sekund'], frac: 'sekundy', short: 's' },
+        minuta:  { forms: ['minuta', 'minuty', 'minut'], frac: 'minuty', short: 'min' },
+        godzina: { forms: ['godzina', 'godziny', 'godzin'], frac: 'godziny', short: 'h' },
+        doba:    { forms: ['doba', 'doby', 'dób'], frac: 'doby',       parse: ['dzień', 'dzien'] },
+        tydzien: { forms: ['tydzień', 'tygodnie', 'tygodni'], frac: 'tygodnia', parse: ['tygodnie', 'tygodni'] },
+        rok:     { forms: ['rok', 'lata', 'lat'], frac: 'roku' },
+        litr:    { forms: ['litr', 'litry', 'litrów'], frac: 'litra', short: 'l',   parse: ['litrow'] },
+        galon:   { forms: ['galon', 'galony', 'galonów'], frac: 'galonu', short: 'gal' },
+        stopien: { forms: ['stopień', 'stopnie', 'stopni'], frac: 'stopnia', short: '°', parse: ['stopnia'] },
+        radian:  { forms: ['radian', 'radiany', 'radianów'], frac: 'radiana', short: 'rad' },
+        wezel:   { forms: ['węzeł', 'węzły', 'węzłów'], frac: 'węzła', short: 'kn' },
     };
 
     /* ── EN_UNIT_GRAMMAR — odmiana jednostek słownych (angielski) ──────────────
        Na razie mało wpisów (głównie nieregularne lm.). Struktura jak PL:
          forms: [1, 2+] — liczba pojedyncza / mnoga (1 foot · 5 feet)
          parse: dodatkowe aliasy WEJŚCIA — mergowane do UNIT_CATEGORIES
+         pl:    klucz polskiego odpowiednika w PL_UNIT_GRAMMAR (tryby „Skróty” / „Pełne nazwy”)
        Nie dodawaj tu symboli (ft, lb…) bez forms — chyba że parse ma je mapować na słowo.
        Unikaj kolizji z PL (np. „mile" jest formą PL „mila" — zostaje tylko w PL). */
     var EN_UNIT_GRAMMAR = {
-        foot:   { forms: ['foot', 'feet'],     parse: ['ft'] },
-        inch:   { forms: ['inch', 'inches'],    parse: ['in'] },
-        yard:   { forms: ['yard', 'yards'] },
-        pound:  { forms: ['pound', 'pounds'],  parse: ['lb', 'lbs'] },
-        ounce:  { forms: ['ounce', 'ounces'],  parse: ['oz'] },
-        gallon: { forms: ['gallon', 'gallons'], parse: ['gal'] },
-        ton:    { forms: ['ton', 'tons'] },
+        foot:   { forms: ['foot', 'feet'],     parse: ['ft'], pl: 'stopa' },
+        inch:   { forms: ['inch', 'inches'],    parse: ['in'], pl: 'cal' },
+        yard:   { forms: ['yard', 'yards'], pl: 'jard' },
+        pound:  { forms: ['pound', 'pounds'],  parse: ['lb', 'lbs'], pl: 'funt' },
+        ounce:  { forms: ['ounce', 'ounces'],  parse: ['oz'], pl: 'uncja' },
+        gallon: { forms: ['gallon', 'gallons'], parse: ['gal'], pl: 'galon' },
+        ton:    { forms: ['ton', 'tons'], pl: 'tona' },
         // przyszłość: stone, fluid ounce, … — ten sam wzorzec
         // UWAGA: jednostki CZASU po angielsku są w UNIT_CATEGORIES.time, NIE tutaj.
         // Wpis gramatyczny z parse:['min'] sprawiał, że odmieniacz brał „min" za
@@ -267,12 +272,15 @@
     };
 
     // [EN] PL cardinal rule: 1 / 2–4 (bez 12–14) / reszta.
-    function plPickUnitForm(value, forms) {
+    function plPickUnitForm(value, forms, fracForm) {
         if (!forms || !forms.length) return '';
         if (forms.length === 1) return forms[0];
         var abs = Math.abs(Number(value));
         if (!isFinite(abs)) return forms[forms.length - 1];
+        // Do precyzji wyświetlania (6 miejsc) — 2,0000000001 pokazane jako „2” to nie ułamek.
+        abs = Math.round(abs * 1e6) / 1e6;
         var i = Math.floor(abs), frac = abs - i;
+        if (frac !== 0 && fracForm) return fracForm;
         var mod10 = i % 10, mod100 = i % 100;
         if (i === 1 && frac === 0) return forms[0];
         if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return forms[1];
@@ -289,35 +297,70 @@
         return forms.length > 1 ? forms[1] : forms[0];
     }
 
-    function _grammarLookup(label, table) {
+    // Zwraca klucz wpisu (np. 'funt') albo null. via: 'key' | 'form' | 'parse' — czym trafiono.
+    function _grammarMatch(label, table) {
         if (label == null || label === '' || !table) return null;
         var low = String(label).toLowerCase();
         var key, g, i, f, p;
         for (key in table) {
             g = table[key];
-            if (low === key) return g;
+            if (low === key) return { key: key, via: 'key' };
             if (g.forms) {
                 for (i = 0; i < g.forms.length; i++) {
                     f = g.forms[i];
-                    if (f && f.toLowerCase() === low) return g;
+                    if (f && f.toLowerCase() === low) return { key: key, via: 'form' };
                 }
             }
             if (g.parse) {
                 for (i = 0; i < g.parse.length; i++) {
                     p = g.parse[i];
-                    if (p && p.toLowerCase() === low) return g;
+                    if (p && p.toLowerCase() === low) return { key: key, via: 'parse' };
                 }
             }
         }
         return null;
     }
+    function _grammarLookup(label, table) {
+        var m = _grammarMatch(label, table);
+        return m ? table[m.key] : null;
+    }
 
-    // Etykieta jednostki → poprawna forma po liczbie (PL lub EN, wg dopasowania etykiety).
-    function inflectUnit(value, unitLabel) {
-        var gEn = _grammarLookup(unitLabel, EN_UNIT_GRAMMAR);
-        if (gEn && gEn.forms) return enPickUnitForm(value, gEn.forms);
-        var gPl = _grammarLookup(unitLabel, PL_UNIT_GRAMMAR);
-        if (gPl && gPl.forms) return plPickUnitForm(value, gPl.forms);
+    // Imperialne symbole bez wpisu w EN.parse — w trybie „Pełne nazwy” też dostają słowo.
+    // Metryczne (t, l, h, min…) zostają symbolami w każdym trybie, poza „Skróty” dla słów.
+    var LONG_FROM_SYMBOL = { yd: 'jard' };
+
+    /* Tryb nazw jednostek w wyniku (⚙️ „Jednostki w wyniku”):
+         'typed' — jak wpisano: symbol zostaje symbolem (lb → lb), słowo jest odmieniane
+                   w swoim języku (funt → funtów, foot → feet). Domyślny.
+         'short' — zawsze symbol, gdy jednostka go ma (funtów → lb, godzin → h).
+         'long'  — zawsze polskie słowo dla jednostek odmienianych (lb → funtów, feet → stóp).
+       Ustawiane przez app.js i worker notatnika; trzeci argument inflectUnit wygrywa. */
+    var _unitNameMode = 'typed';
+    function setUnitNameMode(mode) {
+        _unitNameMode = mode === 'short' || mode === 'long' ? mode : 'typed';
+    }
+    function getUnitNameMode() { return _unitNameMode; }
+
+    // Etykieta jednostki → forma do wyświetlenia po liczbie, wg trybu nazw.
+    function inflectUnit(value, unitLabel, mode) {
+        mode = mode || _unitNameMode;
+        var mEn = _grammarMatch(unitLabel, EN_UNIT_GRAMMAR);
+        var mPl = _grammarMatch(unitLabel, PL_UNIT_GRAMMAR);
+        var low = unitLabel == null ? '' : String(unitLabel).toLowerCase();
+        if (mode !== 'typed') {
+            var plKey = mPl ? mPl.key
+                : (mEn && EN_UNIT_GRAMMAR[mEn.key].pl) || LONG_FROM_SYMBOL[low] || null;
+            var gPlMode = plKey && PL_UNIT_GRAMMAR[plKey];
+            if (gPlMode) {
+                if (mode === 'short' && gPlMode.short) return gPlMode.short;
+                if (mode === 'long') return plPickUnitForm(value, gPlMode.forms, gPlMode.frac);
+            }
+        }
+        if (mEn) {
+            if (mEn.via === 'parse') return unitLabel; // symbol (lb, ft…) zostaje, jak wpisano
+            return enPickUnitForm(value, EN_UNIT_GRAMMAR[mEn.key].forms);
+        }
+        if (mPl) return plPickUnitForm(value, PL_UNIT_GRAMMAR[mPl.key].forms, PL_UNIT_GRAMMAR[mPl.key].frac);
         return unitLabel;
     }
     function plInflectUnit(value, unitLabel) { return inflectUnit(value, unitLabel); } // [EN] backward compat
@@ -326,7 +369,7 @@
     function _mergeUnitParseAliases(categories, grammar) {
         Object.keys(grammar).forEach(function (gkey) {
             var g = grammar[gkey];
-            var names = [gkey].concat(g.forms || [], g.parse || []);
+            var names = [gkey].concat(g.forms || [], g.parse || [], g.frac ? [g.frac] : []); // frac: „4,41 funta” po „=” wraca do pola
             var hit = null, anchor = null, cat, units, n, i;
             for (cat in categories) {
                 units = categories[cat].units;
@@ -364,6 +407,8 @@
         plPickUnitForm: plPickUnitForm,
         enPickUnitForm: enPickUnitForm,
         inflectUnit: inflectUnit,
+        setUnitNameMode: setUnitNameMode,
+        getUnitNameMode: getUnitNameMode,
         plInflectUnit: plInflectUnit,
     };
 

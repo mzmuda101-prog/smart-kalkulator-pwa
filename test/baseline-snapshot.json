@@ -352,7 +352,7 @@
   {
     "expr": "5 km na mile",
     "value": 3.10685596118667,
-    "unit": "mile",
+    "unit": "mili",
     "text": null,
     "kind": "physical",
     "exact": false,

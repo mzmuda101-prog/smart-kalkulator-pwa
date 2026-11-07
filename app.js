@@ -75,6 +75,7 @@
                         suggestOnEmpty: true, // T4-19: fuzzy gdy brak wyniku — domyślnie ON od v1.02.81
                         suggestOnEmptyDefaultV2: true, // znacznik jednorazowej migracji domyślnej (patrz loadState)
                         currencyCompactSymbols: true, // T4-20: $ € zamiast kodów ISO
+                        unitNames: 'typed', // K10: nazwy jednostek w wyniku: typed (jak wpisano) / short / long
                         calcLayout: 'keypad' }, // układ Standard: 'keypad' (klawisze) | 'sentence' („zdanie najpierw”)
             // Komenda tab (merged Engineering + Graph)
             eng: { unit: 'cm', axis: 'X', mode: 'between' }, // used by drawEngineeringCanvas
@@ -171,6 +172,7 @@
         const settingStandardAutocomplete = $('#settingStandardAutocomplete');
         const settingSuggestOnEmpty = $('#settingSuggestOnEmpty');
         const settingCurrencyCompactSymbols = $('#settingCurrencyCompactSymbols');
+        const settingUnitNames = $('#settingUnitNames');
         const settingUnitSelects = Array.prototype.slice.call(document.querySelectorAll('#settingDefaultUnits select[data-unit-cat]'));
         const settingFxBackup = $('#settingFxBackup');
         const settingFxBackupRow = $('#settingFxBackupRow');
@@ -351,6 +353,7 @@
                             _settingsNeedMigrationSave = true;
                         }
                         if (typeof stObj.currencyCompactSymbols === 'boolean') STATE.settings.currencyCompactSymbols = stObj.currencyCompactSymbols;
+                        if (stObj.unitNames === 'typed' || stObj.unitNames === 'short' || stObj.unitNames === 'long') STATE.settings.unitNames = stObj.unitNames;
                         STATE.settings.calcLayout = stObj.calcLayout === 'sentence' ? 'sentence' : 'keypad'; // nieznane → klawisze
                     }
                 }
@@ -1056,6 +1059,12 @@
         var CALC_UNIT_DISPLAY = _unitRegistry.display || {}; // lowercase → oryginalna pisownia (np. „mb" → „MB")
 
         // PL: odmiana jednostek słownych w wyniku (1 stopa · 2 stopy · 5 stóp).
+        // ⚙️ „Jednostki w wyniku” → silnik odmiany (data-tables.js). Worker notatnika
+        // dostaje tryb w ctx.settings i ustawia go u siebie (osobny zakres globalny).
+        function applyUnitNameMode() {
+            var D = window.MATM0_DATA;
+            if (D && D.setUnitNameMode) D.setUnitNameMode(STATE.settings && STATE.settings.unitNames);
+        }
         function inflectDisplayUnit(value, unit) {
             var F = (typeof window !== 'undefined' && window.MATM0_FMT) || {};
             if (F.inflectDisplayUnit) return F.inflectDisplayUnit(value, unit);
@@ -8998,6 +9007,7 @@
             if (settingStandardAutocomplete) settingStandardAutocomplete.checked = !!STATE.settings.standardAutocomplete;
             if (settingSuggestOnEmpty) settingSuggestOnEmpty.checked = !!STATE.settings.suggestOnEmpty;
             if (settingCurrencyCompactSymbols) settingCurrencyCompactSymbols.checked = STATE.settings.currencyCompactSymbols !== false;
+            if (settingUnitNames) settingUnitNames.value = STATE.settings.unitNames || 'typed';
             _npSyncFontSize(true);
             updateFxStatusLine();
             if (settingsVersion) settingsVersion.textContent = 'Wersja ' + (window.APP_VERSION || '—');
@@ -11989,6 +11999,16 @@
         _bindAssistSetting(settingStandardAutocomplete, 'standardAutocomplete');
         _bindAssistSetting(settingSuggestOnEmpty, 'suggestOnEmpty', function () { liveEval(); });
         _bindAssistSetting(settingCurrencyCompactSymbols, 'currencyCompactSymbols', function () { liveEval(); });
+        if (settingUnitNames) {
+            settingUnitNames.addEventListener('change', function() {
+                var v = settingUnitNames.value;
+                STATE.settings.unitNames = v === 'short' || v === 'long' ? v : 'typed';
+                saveSettings();
+                applyUnitNameMode();
+                liveEval();
+                if (document.body.classList.contains('notepad-open')) npRecompute();
+            });
+        }
 
         if (settingNotepadFold) {
             settingNotepadFold.addEventListener('click', function(e) {
@@ -13268,6 +13288,7 @@
             if (graphFsExitEl && graphContainer) graphContainer.appendChild(graphFsExitEl);
 
             loadFromStorage();
+            applyUnitNameMode();
             if (STATE.settings.unitProfile !== 'custom') STATE.settings.unitProfile = _detectUnitProfile(); // T2-10 — sync etykiety z defaultUnits
             initTheme(); // tryb ciemny: synchronizuj ikonę przełącznika + podłącz reakcje
             registerCustomUnits(); // własne jednostki użytkownika rozpoznawalne od razu w kalkulatorze
@@ -13567,7 +13588,7 @@
             var cases = [
                 // długość — domyślnie __auto__ (czytelny autodobór); Raycast-style konwersje jawne
                 { expr: '2 cm + 5 mm', value: 2.5, unit: 'cm' },
-                { expr: '5 km na mile', value: 3.106856, unit: 'mile', tol: 1e-3 },
+                { expr: '5 km na mile', value: 3.106856, unit: 'mili', tol: 1e-3 }, // ułamek → dopełniacz lp. (3,1 mili)
                 { expr: "5' + 6\"", value: 167.64, unit: 'cm' }, // 5 ft 6 in → 1676,4 mm → 167,64 cm
                 { expr: '6 cali na mm', value: 152.4, unit: 'mm' },   // PL formy cala: cal/cale/cali
                 // masa
@@ -13750,7 +13771,7 @@
             var rAuto = evalCalcExpression('36 km/h');
             results.push({ expr: '36 km/h @auto (robocza)', pass: rAuto.unit === 'km/h' && Math.abs(rAuto.value - 36) < 1e-9, got: rAuto.value + ' ' + rAuto.unit });
             var rFtIn = evalCalcExpression("5' + 6\"");
-            results.push({ expr: "5' + 6\" @robocza (feet)", pass: rFtIn.unit === 'feet' && Math.abs(rFtIn.value - 5.5) < 1e-9, got: rFtIn.value + ' ' + rFtIn.unit });
+            results.push({ expr: "5' + 6\" @robocza (ft)", pass: rFtIn.unit === 'ft' && Math.abs(rFtIn.value - 5.5) < 1e-9, got: rFtIn.value + ' ' + rFtIn.unit });
             var rTimeAuto = evalCalcExpression('5h');
             results.push({ expr: '5h @time:robocza (h)', pass: rTimeAuto.unit === 'h' && rTimeAuto.value === 5, got: rTimeAuto.value + ' ' + rTimeAuto.unit });
             // Niepasująca jednostka w ustawieniu (np. speed='kg') → ignorowana, jednostka robocza.

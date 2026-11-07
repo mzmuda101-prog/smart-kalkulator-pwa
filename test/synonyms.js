@@ -60,7 +60,7 @@ const WORKS = [
     ['ile godzin do 25.12', DAYS_TO_XMAS * 24],
     // procent z WIELKOŚCI (jednostka musi przeżyć)
     ['20% z 5 km', 1, 'km'],
-    ['60% z 2 godzin', 1.2, 'godzin'],   // jednostka echem słowa z wejścia
+    ['60% z 2 godzin', 1.2, 'godziny'],  // jednostka echem słowa z wejścia, odmiana po wartości (1,2 godziny)
     // dzielenie opisowe
     ['podziel 250 zł na 4', 62.5],
     ['250 zł na 4 osoby', 62.5],
