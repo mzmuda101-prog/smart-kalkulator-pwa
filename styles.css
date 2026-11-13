@@ -3986,7 +3986,10 @@
             -webkit-tap-highlight-color: transparent;
         }
 
-        .toast.show { transform: translateX(-50%) translateY(0); }
+        /* Schowany dymek nie może być widoczny nigdzie (pomiar pozycji, pusta treść).
+           visibility czeka na koniec wysuwania, żeby wyjście dalej było animowane. */
+        .toast { visibility: hidden; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 0.3s; }
+        .toast.show { transform: translateX(-50%) translateY(0); visibility: visible; transition-delay: 0s; }
         .toast { display: flex; align-items: center; justify-content: center; gap: 8px; }
         .toast-icon { width: 1.1em; height: 1.1em; flex-shrink: 0; }
         /* Dymek z akcją (np. „Cofnij"): przyjmuje dotyk, tekst + przycisk w jednym wierszu. */

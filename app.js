@@ -441,7 +441,10 @@
                 // iOS potrafi inaczej mapować visual i layout viewport. Mierzymy
                 // wynikowy prostokąt, więc dymek kończy się zawsze 16 px nad paskiem.
                 toast.style.bottom = '16px';
-                var overlap = toast.getBoundingClientRect().bottom - (navTop - 16);
+                // Prostokąt zawiera translateY chowania (100 px) — odejmujemy go, inaczej
+                // schowany dymek ląduje tuż nad paskiem jako pusta czarna pigułka.
+                var shiftY = new DOMMatrix(getComputedStyle(toast).transform).m42 || 0;
+                var overlap = toast.getBoundingClientRect().bottom - shiftY - (navTop - 16);
                 toast.style.bottom = Math.max(16, 16 + overlap) + 'px';
                 return;
             }
@@ -736,49 +739,75 @@
             }
             _markResultAnim();
         }
-        // [EN] Toczące się cyfry (po swojemu wg number-flow): wynik o tym samym kształcie (cyfry na tych
-        // samych pozycjach) — każda zmieniona cyfra przewija się jak licznik przez kolejne cyfry
-        // (z zawinięciem 9→0) w kierunku zmiany wartości. textContent = dokładnie `next` (kopiowanie,
-        // pomiary fit), kolumnę pośrednich cyfr rysuje ::before z data-seq. CSS: .calc-roll w styles.css.
+        // [EN] Toczące się cyfry (po swojemu wg number-flow): poprzedni i nowy wynik dzielimy (bez spacji
+        // i łamań) na ciągi cyfr i resztę. Ten sam układ ciągów → cyfry parujemy jak number-flow:
+        // część całkowita od prawej, cyfry po przecinku od lewej. Zmieniona cyfra toczy się kolumną
+        // (zawinięcie 9→0), cyfra bez pary (999→1 000) wjeżdża, zmieniony tekst (dzień tygodnia) też.
+        // textContent = dokładnie `next` (kopiowanie, fit); kolumnę rysuje ::before z data-seq (styles.css .calc-roll).
         var _ROLL_MS = 300;
-        function _rollTrend(prev, next) { // [EN] +1 rośnie / −1 maleje — pierwsza różna cyfra, minus odwraca
-            var neg = /^[\s]*[−-]/.test(next);
-            for (var i = 0; i < next.length; i++) {
-                if (prev.charAt(i) !== next.charAt(i)) return (next.charAt(i) > prev.charAt(i)) !== neg ? 1 : -1;
-            }
-            return 1;
-        }
         function _rollSeq(from, to, dir) { // [EN] cyfry mijane po drodze, góra→dół kolumny
             var steps = [], d = from;
             while (d !== to && steps.length < 10) { steps.push(d); d = (d + dir + 10) % 10; }
             return dir > 0 ? steps : steps.reverse();
         }
-        function _renderRollingDigits(el, prev, next) {
-            var dir = _rollTrend(prev, next);
-            el.textContent = '';
-            var lines = next.split('\n'), off = 0;
-            lines.forEach(function(line, li) {
-                if (li > 0) el.appendChild(document.createTextNode('\n'));
-                var plain = '';
-                for (var i = 0; i < line.length; i++) {
-                    var ch = line.charAt(i), was = prev.charAt(off + i);
-                    if (!/\d/.test(ch) || ch === was) { plain += ch; continue; }
-                    if (plain) { _appendResultMarkup(el, plain); plain = ''; }
-                    var seq = _rollSeq(+was, +ch, dir);
-                    var outer = document.createElement('span');
-                    outer.className = 'calc-result-new calc-roll' + (dir > 0 ? ' calc-roll--up' : ' calc-roll--down');
-                    var col = document.createElement('span');
-                    col.className = 'calc-roll-col';
-                    col.dataset.seq = seq.join('\n');
-                    col.style.setProperty('--k', String(seq.length));
-                    col.textContent = ch;
-                    outer.appendChild(col);
-                    el.appendChild(outer);
+        function _flowNum(core) { // [EN] wartość wiodącej liczby (kierunek toczenia) albo NaN
+            var m = /^[−-]?\d+(?:,\d+)?/.exec(core);
+            return m ? parseFloat(m[0].replace('−', '-').replace(',', '.')) : NaN;
+        }
+        // [EN] ops[i] dla i-tego znaku `next` bez białych: 'keep' | 'new' | cyfra startowa (toczenie). null = inny układ.
+        function _flowOps(prev, next) {
+            var pc = String(prev).replace(/\s/g, ''), nc = String(next).replace(/\s/g, '');
+            var pt = pc.match(/\d+|\D+/g) || [], nt = nc.match(/\d+|\D+/g) || [];
+            if (!pt.length || pt.length !== nt.length) return null;
+            var ops = [], firstRoll = null;
+            for (var t = 0; t < nt.length; t++) {
+                var a = pt[t], b = nt[t], isNum = /\d/.test(b.charAt(0));
+                if (isNum !== /\d/.test(a.charAt(0))) return null;
+                var leftAlign = isNum && t > 0 && /,$/.test(nt[t - 1]); // [EN] cyfry po przecinku
+                for (var j = 0; j < b.length; j++) {
+                    if (!isNum) { ops.push(a === b || (j < a.length && a.slice(0, j + 1) === b.slice(0, j + 1)) ? 'keep' : 'new'); continue; }
+                    var i = leftAlign ? j : j - (b.length - a.length);
+                    if (i < 0 || i >= a.length) ops.push('new');
+                    else if (a.charAt(i) === b.charAt(j)) ops.push('keep');
+                    else { ops.push(+a.charAt(i)); if (firstRoll === null) firstRoll = [+a.charAt(i), +b.charAt(j)]; }
                 }
-                if (plain) _appendResultMarkup(el, plain);
-                off += line.length + 1;
-            });
-            _markResultAnim(_ROLL_MS + 40);
+            }
+            var vp = _flowNum(pc), vn = _flowNum(nc), dir;
+            if (vp === vp && vn === vn && vp !== vn) dir = vn > vp ? 1 : -1;
+            else dir = firstRoll && (firstRoll[1] < firstRoll[0]) !== /^[−-]/.test(nc) ? -1 : 1;
+            return { ops: ops, dir: dir };
+        }
+        function _renderFlow(el, prev, next) {
+            var f = _flowOps(prev, next);
+            if (!f) return false;
+            el.textContent = '';
+            var plain = '', fresh = '', ci = 0, rolled = false;
+            function flush() {
+                if (plain) { _appendResultMarkup(el, plain); plain = ''; }
+                if (fresh) { _appendAnimatedDigits(el, fresh); fresh = ''; }
+            }
+            for (var k = 0; k < next.length; k++) {
+                var ch = next.charAt(k);
+                if (/\s/.test(ch)) { if (fresh) fresh += ch; else plain += ch; continue; }
+                var op = f.ops[ci++];
+                if (op === 'keep') { if (fresh) flush(); plain += ch; continue; }
+                if (op === 'new') { if (plain) flush(); fresh += ch; continue; }
+                flush();
+                var seq = _rollSeq(op, +ch, f.dir);
+                var outer = document.createElement('span');
+                outer.className = 'calc-result-new calc-roll' + (f.dir > 0 ? ' calc-roll--up' : ' calc-roll--down');
+                var col = document.createElement('span');
+                col.className = 'calc-roll-col';
+                col.dataset.seq = seq.join('\n');
+                col.style.setProperty('--k', String(seq.length));
+                col.textContent = ch;
+                outer.appendChild(col);
+                el.appendChild(outer);
+                rolled = true;
+            }
+            flush();
+            if (rolled) _markResultAnim(_ROLL_MS + 40);
+            return true;
         }
 
         /* ============================================================
@@ -3527,16 +3556,24 @@
             if (next === '' || next === prev) return;
             renderCalcResult(prev, next);
         }
+        var _flowBase = null; // [EN] wynik sprzed ostatniego toczenia (ponowny render po zawinięciu)
         function renderCalcResult(prev, next) {
             if (next === '') {
                 _setResultMarkup(calcResult, next);
                 return;
             }
             if (next === prev) return; // [EN] drugi fit — nie kasuj świeżych spanów animacji
-            if (prev.replace(/\d/g, '#') === next.replace(/\d/g, '#')) { // [EN] ten sam kształt → toczenie cyfr (reduced-motion: CSS wyłącza)
-                _renderRollingDigits(calcResult, prev, next);
+            // [EN] Toczenie (reduced-motion: CSS wyłącza). Dopisywanie na końcu (wpisywanie cyfr) zostaje
+            // „Samsung-style” niżej. Samo przełamanie wiersza w trakcie toczenia → rysujemy toczenie
+            // jeszcze raz z tej samej bazy, inaczej drugi fit uciąłby animację.
+            var pFlow = prev.replace(/\s/g, ''), nFlow = next.replace(/\s/g, '');
+            if (pFlow === nFlow) {
+                if (_flowBase !== null && _resultAnimActive() && _renderFlow(calcResult, _flowBase, next)) return;
+            } else if (!(pFlow && nFlow.indexOf(pFlow) === 0) && _renderFlow(calcResult, prev, next)) {
+                _flowBase = prev;
                 return;
             }
+            _flowBase = null;
             var prevNL = prev.indexOf('\n') >= 0;
             var nextNL = next.indexOf('\n') >= 0;
             if (nextNL && !prevNL) { // [EN] wrap 1→2 linie — diff końcówki by zignorował \n (np. 12→13 cyfr)
@@ -15430,7 +15467,7 @@
                 saveSettings: saveSettings,
                 fitCalcLayout: fitCalcLayout,
                 fitCalcDisplay: fitCalcDisplay,
-                rollSeq: _rollSeq, rollTrend: _rollTrend, // [EN] test/result-roll.js
+                rollSeq: _rollSeq, flowOps: _flowOps, // [EN] test/result-roll.js
                 calcLayoutTune: function() { return window.CALC_LAYOUT_TUNE; },
                 getCalcLayoutTune: getCalcLayoutTune,
                 reapplyCalcTune: window.reapplyCalcLayoutTune,
