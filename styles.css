@@ -1125,8 +1125,38 @@
             75%  { opacity: 0.85; transform: translateY(-0.04em); }
             to   { opacity: 1; transform: translateY(0); }
         }
+        /* [EN] Toczenie cyfr (licznik, wg number-flow): .calc-roll = okno z maską (wygaszone brzegi
+           w pustym leadingu wiersza), .calc-roll-col = cyfra
+           docelowa + ::before z mijanymi cyframi (data-seq, po jednej na linię). Kolumna startuje
+           przesunięta o --k linii i dojeżdża do 0. JS: _renderRollingDigits w app.js. */
+        .calc-result .calc-result-new.calc-roll { /* (0,3,0) — wygrywa z .calc-result-wrap .calc-result-new */
+            animation: none;
+            /* [EN] wygaszenie wewnątrz wiersza — .calc-result ma overflow:hidden, więc maska poza nim by nie zadziałała */
+            -webkit-mask-image: linear-gradient(to bottom, transparent, #000 0.14em, #000 calc(100% - 0.12em), transparent);
+            mask-image: linear-gradient(to bottom, transparent, #000 0.14em, #000 calc(100% - 0.12em), transparent);
+        }
+        .calc-roll-col {
+            display: inline-block;
+            position: relative;
+            animation: calcRollUp 0.3s cubic-bezier(0.2, 1.15, 0.4, 1) both;
+        }
+        .calc-roll--down .calc-roll-col { animation-name: calcRollDown; }
+        .calc-result-new .calc-roll-col::before {
+            content: attr(data-seq);
+            position: absolute;
+            left: 0;
+            right: 0;
+            white-space: pre;
+            text-align: center;
+        }
+        .calc-roll--up .calc-roll-col::before { bottom: 100%; }
+        .calc-roll--down .calc-roll-col::before { top: 100%; }
+        @keyframes calcRollUp { from { transform: translateY(calc(var(--k, 1) * 100%)); } }
+        @keyframes calcRollDown { from { transform: translateY(calc(var(--k, 1) * -100%)); } }
         @media (prefers-reduced-motion: reduce) {
             .calc-result-new { animation: none; }
+            .calc-roll-col { animation: none; }
+            .calc-result-new .calc-roll-col::before { content: none; }
         }
         /* *----------------------------------------------------------- */
         .calc-grid {

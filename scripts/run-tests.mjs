@@ -41,6 +41,7 @@ const SUITES = [
     'test/math-calculus.js',
     'test/placeholder-examples.js',
     'test/settings-migration.js',
+    'test/result-roll.js',
 ];
 
 const failures = [];

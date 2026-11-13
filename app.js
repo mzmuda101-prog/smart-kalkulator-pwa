@@ -736,6 +736,50 @@
             }
             _markResultAnim();
         }
+        // [EN] Toczące się cyfry (po swojemu wg number-flow): wynik o tym samym kształcie (cyfry na tych
+        // samych pozycjach) — każda zmieniona cyfra przewija się jak licznik przez kolejne cyfry
+        // (z zawinięciem 9→0) w kierunku zmiany wartości. textContent = dokładnie `next` (kopiowanie,
+        // pomiary fit), kolumnę pośrednich cyfr rysuje ::before z data-seq. CSS: .calc-roll w styles.css.
+        var _ROLL_MS = 300;
+        function _rollTrend(prev, next) { // [EN] +1 rośnie / −1 maleje — pierwsza różna cyfra, minus odwraca
+            var neg = /^[\s]*[−-]/.test(next);
+            for (var i = 0; i < next.length; i++) {
+                if (prev.charAt(i) !== next.charAt(i)) return (next.charAt(i) > prev.charAt(i)) !== neg ? 1 : -1;
+            }
+            return 1;
+        }
+        function _rollSeq(from, to, dir) { // [EN] cyfry mijane po drodze, góra→dół kolumny
+            var steps = [], d = from;
+            while (d !== to && steps.length < 10) { steps.push(d); d = (d + dir + 10) % 10; }
+            return dir > 0 ? steps : steps.reverse();
+        }
+        function _renderRollingDigits(el, prev, next) {
+            var dir = _rollTrend(prev, next);
+            el.textContent = '';
+            var lines = next.split('\n'), off = 0;
+            lines.forEach(function(line, li) {
+                if (li > 0) el.appendChild(document.createTextNode('\n'));
+                var plain = '';
+                for (var i = 0; i < line.length; i++) {
+                    var ch = line.charAt(i), was = prev.charAt(off + i);
+                    if (!/\d/.test(ch) || ch === was) { plain += ch; continue; }
+                    if (plain) { _appendResultMarkup(el, plain); plain = ''; }
+                    var seq = _rollSeq(+was, +ch, dir);
+                    var outer = document.createElement('span');
+                    outer.className = 'calc-result-new calc-roll' + (dir > 0 ? ' calc-roll--up' : ' calc-roll--down');
+                    var col = document.createElement('span');
+                    col.className = 'calc-roll-col';
+                    col.dataset.seq = seq.join('\n');
+                    col.style.setProperty('--k', String(seq.length));
+                    col.textContent = ch;
+                    outer.appendChild(col);
+                    el.appendChild(outer);
+                }
+                if (plain) _appendResultMarkup(el, plain);
+                off += line.length + 1;
+            });
+            _markResultAnim(_ROLL_MS + 40);
+        }
 
         /* ============================================================
            [EN] Haptic'stics — Selective Vibration on Interactions
@@ -2521,14 +2565,14 @@
         var _resultFitFinalizeTimer = null;
         var _RESULT_FIT_SLACK = 4; // [EN] safety px — probe/tight-seps underestimate vs live DOM clip
         var _RESULT_PROBE_FUDGE = 3; // [EN] tight-sep spans są szersze w DOM niż w probe — wcześniejszy shrink/wrap
-        function _markResultAnim() { _resultAnimUntil = Date.now() + 240; } // [EN] margines ponad anim 200ms w CSS
+        function _markResultAnim(ms) { _resultAnimUntil = Date.now() + (ms || 240); } // [EN] margines ponad anim 200ms (toczenie 300ms) w CSS
         function _resultAnimActive() { return Date.now() < _resultAnimUntil; }
         function _scheduleResultFinalize(row, flat, floorPx, basePx) {
             clearTimeout(_resultFitFinalizeTimer);
             _resultFitFinalizeTimer = setTimeout(function() {
                 _resultFitFinalizeTimer = null;
                 _finalizeResultFit(row, flat, floorPx, basePx, _calcResultFullText());
-            }, 240);
+            }, Math.max(240, _resultAnimUntil - Date.now()));
         }
         function _resultCoreLen(flat) { // [EN] cyfry/znaki bez separatorów — decyzja wrap vs 1 linia
             return String(flat || '').replace(/[\s\u00a0\u202f\n]/g, '').length;
@@ -3319,7 +3363,7 @@
             requestAnimationFrame(function() {
                 _syncKeypadFontScale(card, availH);
                 if (_resultAnimActive()) { // [EN] po wrap — layout refit po animacji, nie w trakcie
-                    setTimeout(function() { fitCalcDisplay(); }, 280);
+                    setTimeout(function() { fitCalcDisplay(); }, Math.max(280, _resultAnimUntil - Date.now() + 40));
                 } else fitCalcDisplay();
             });
         }
@@ -3489,6 +3533,10 @@
                 return;
             }
             if (next === prev) return; // [EN] drugi fit — nie kasuj świeżych spanów animacji
+            if (prev.replace(/\d/g, '#') === next.replace(/\d/g, '#')) { // [EN] ten sam kształt → toczenie cyfr (reduced-motion: CSS wyłącza)
+                _renderRollingDigits(calcResult, prev, next);
+                return;
+            }
             var prevNL = prev.indexOf('\n') >= 0;
             var nextNL = next.indexOf('\n') >= 0;
             if (nextNL && !prevNL) { // [EN] wrap 1→2 linie — diff końcówki by zignorował \n (np. 12→13 cyfr)
@@ -15382,6 +15430,7 @@
                 saveSettings: saveSettings,
                 fitCalcLayout: fitCalcLayout,
                 fitCalcDisplay: fitCalcDisplay,
+                rollSeq: _rollSeq, rollTrend: _rollTrend, // [EN] test/result-roll.js
                 calcLayoutTune: function() { return window.CALC_LAYOUT_TUNE; },
                 getCalcLayoutTune: getCalcLayoutTune,
                 reapplyCalcTune: window.reapplyCalcLayoutTune,
