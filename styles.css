@@ -1129,7 +1129,8 @@
            w pustym leadingu wiersza), .calc-roll-col = cyfra
            docelowa + ::before z mijanymi cyframi (data-seq, po jednej na linię). Kolumna startuje
            przesunięta o --k linii i dojeżdża do 0. JS: _renderRollingDigits w app.js. */
-        .calc-result .calc-result-new.calc-roll { /* (0,3,0) — wygrywa z .calc-result-wrap .calc-result-new */
+        .calc-result .calc-result-new.calc-roll, /* (0,3,0) — wygrywa z .calc-result-wrap .calc-result-new */
+        .calc-result-new.calc-roll { /* [EN] numberFlow() poza wynikiem (licznik historii, „Łącznie”) */
             animation: none;
             /* [EN] wygaszenie wewnątrz wiersza — .calc-result ma overflow:hidden, więc maska poza nim by nie zadziałała */
             -webkit-mask-image: linear-gradient(to bottom, transparent, #000 0.14em, #000 calc(100% - 0.12em), transparent);
@@ -1153,10 +1154,34 @@
         .calc-roll--down .calc-roll-col::before { top: 100%; }
         @keyframes calcRollUp { from { transform: translateY(calc(var(--k, 1) * 100%)); } }
         @keyframes calcRollDown { from { transform: translateY(calc(var(--k, 1) * -100%)); } }
+        /* [EN] Wychodzące znaki (1 000 → 999, kasowanie): span o zerowej szerokości, tekst w ::before
+           (poza textContent — kopiowanie i fit go nie widzą) gaśnie. --lead wystaje w lewo (rtl). */
+        .nf-ghost {
+            display: inline-block;
+            width: 0;
+            white-space: pre;
+            pointer-events: none;
+        }
+        .nf-ghost--lead { direction: rtl; }
+        .nf-ghost--trail::before { animation-duration: 0.12s; } /* [EN] przy kasowaniu jedzie z resztą ku krawędzi — gaśnie zanim ją dotknie */
+        .nf-ghost::before {
+            content: attr(data-ghost);
+            display: inline-block;
+            animation: nfGhostOut 0.18s cubic-bezier(0.4, 0, 1, 1) forwards;
+        }
+        @keyframes nfGhostOut { to { opacity: 0; transform: translateY(-0.25em) scale(0.9); } }
+        /* [EN] Fuzja przy wpisywaniu/kasowaniu: reszta wyniku dojeżdża z poprzedniego miejsca (FLIP, em). */
+        .nf-shift {
+            display: inline-block;
+            animation: nfShift 0.22s cubic-bezier(0.2, 0, 0, 1);
+        }
+        @keyframes nfShift { from { transform: translateX(var(--nf-dx, 0)); } }
         @media (prefers-reduced-motion: reduce) {
             .calc-result-new { animation: none; }
             .calc-roll-col { animation: none; }
             .calc-result-new .calc-roll-col::before { content: none; }
+            .nf-ghost::before { content: none; }
+            .nf-shift { animation: none; }
         }
         /* *----------------------------------------------------------- */
         .calc-grid {

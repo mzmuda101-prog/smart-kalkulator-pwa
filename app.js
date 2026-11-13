@@ -759,11 +759,15 @@
             var pc = String(prev).replace(/\s/g, ''), nc = String(next).replace(/\s/g, '');
             var pt = pc.match(/\d+|\D+/g) || [], nt = nc.match(/\d+|\D+/g) || [];
             if (!pt.length || pt.length !== nt.length) return null;
-            var ops = [], firstRoll = null;
+            var ops = [], ghosts = [], firstRoll = null;
             for (var t = 0; t < nt.length; t++) {
                 var a = pt[t], b = nt[t], isNum = /\d/.test(b.charAt(0));
                 if (isNum !== /\d/.test(a.charAt(0))) return null;
                 var leftAlign = isNum && t > 0 && /,$/.test(nt[t - 1]); // [EN] cyfry po przecinku
+                if (isNum && a.length > b.length) { // [EN] cyfry bez pary w nowym wyniku gasną (1 000 → 999)
+                    ghosts.push(leftAlign ? { at: ops.length + b.length, text: a.slice(b.length), side: 'trail' }
+                        : { at: ops.length, text: a.slice(0, a.length - b.length), side: 'lead' });
+                }
                 for (var j = 0; j < b.length; j++) {
                     if (!isNum) { ops.push(a === b || (j < a.length && a.slice(0, j + 1) === b.slice(0, j + 1)) ? 'keep' : 'new'); continue; }
                     var i = leftAlign ? j : j - (b.length - a.length);
@@ -775,20 +779,34 @@
             var vp = _flowNum(pc), vn = _flowNum(nc), dir;
             if (vp === vp && vn === vn && vp !== vn) dir = vn > vp ? 1 : -1;
             else dir = firstRoll && (firstRoll[1] < firstRoll[0]) !== /^[−-]/.test(nc) ? -1 : 1;
-            return { ops: ops, dir: dir };
+            return { ops: ops, dir: dir, ghosts: ghosts };
         }
-        function _renderFlow(el, prev, next) {
+        // [EN] Wychodzący znak: pusty span (nie zmienia textContent), tekst rysuje ::before i gaśnie.
+        function _flowGhost(parent, text, side) {
+            var g = document.createElement('span');
+            g.className = 'nf-ghost nf-ghost--' + side;
+            g.setAttribute('aria-hidden', 'true');
+            g.dataset.ghost = text;
+            parent.appendChild(g);
+        }
+        function _flowAppendText(el, plain) { el.appendChild(document.createTextNode(plain)); }
+        function _renderFlow(el, prev, next, markup) {
             var f = _flowOps(prev, next);
             if (!f) return false;
+            markup = markup || _appendResultMarkup;
             el.textContent = '';
-            var plain = '', fresh = '', ci = 0, rolled = false;
+            var plain = '', fresh = '', ci = 0, rolled = false, gi = 0;
             function flush() {
-                if (plain) { _appendResultMarkup(el, plain); plain = ''; }
+                if (plain) { markup(el, plain); plain = ''; }
                 if (fresh) { _appendAnimatedDigits(el, fresh); fresh = ''; }
+            }
+            function ghostsAt(at) {
+                while (gi < f.ghosts.length && f.ghosts[gi].at === at) { flush(); _flowGhost(el, f.ghosts[gi].text, f.ghosts[gi].side); gi++; }
             }
             for (var k = 0; k < next.length; k++) {
                 var ch = next.charAt(k);
                 if (/\s/.test(ch)) { if (fresh) fresh += ch; else plain += ch; continue; }
+                ghostsAt(ci);
                 var op = f.ops[ci++];
                 if (op === 'keep') { if (fresh) flush(); plain += ch; continue; }
                 if (op === 'new') { if (plain) flush(); fresh += ch; continue; }
@@ -805,9 +823,38 @@
                 el.appendChild(outer);
                 rolled = true;
             }
+            ghostsAt(ci);
             flush();
-            if (rolled) _markResultAnim(_ROLL_MS + 40);
+            if (rolled && el === calcResult) _markResultAnim(_ROLL_MS + 40);
             return true;
+        }
+        // [EN] number-flow dla dowolnego elementu z liczbą (licznik, suma): pierwsze ustawienie bez
+        // animacji, potem toczenie tylko zmienionych cyfr. textContent zawsze = `next`.
+        function numberFlow(el, next, markup) {
+            if (!el) return;
+            next = String(next == null ? '' : next);
+            var prev = el.textContent;
+            var first = !el.hasAttribute('data-nf');
+            el.setAttribute('data-nf', '');
+            if (prev === next && !first) return;
+            if (first || !prev || !_renderFlow(el, prev, next, markup || _flowAppendText)) {
+                el.textContent = '';
+                (markup || _flowAppendText)(el, next);
+            }
+        }
+        // [EN] Fuzja przy wpisywaniu/kasowaniu: nowa cyfra pojawia się jak dotąd, a reszta wyniku
+        // (wyrównana do prawej) nie skacze o szerokość cyfry, tylko dojeżdża (FLIP w em — fit może zmienić font).
+        function _contentWidth(el) {
+            var r = document.createRange();
+            r.selectNodeContents(el);
+            return r.getBoundingClientRect().width;
+        }
+        function _flowShiftFrom(el, wrap, oldW) {
+            var fs = parseFloat(getComputedStyle(el).fontSize) || 16;
+            var dx = (_contentWidth(el) - oldW) / fs;
+            if (Math.abs(dx) < 0.02) return;
+            wrap.style.setProperty('--nf-dx', dx.toFixed(3) + 'em');
+            wrap.classList.add('nf-shift');
         }
 
         /* ============================================================
@@ -3557,6 +3604,7 @@
             renderCalcResult(prev, next);
         }
         var _flowBase = null; // [EN] wynik sprzed ostatniego toczenia (ponowny render po zawinięciu)
+        var _flowLastReal = ''; // [EN] ostatni wynik inny niż „—”/„0” (baza toczenia po „—”)
         function renderCalcResult(prev, next) {
             if (next === '') {
                 _setResultMarkup(calcResult, next);
@@ -3566,10 +3614,20 @@
             // [EN] Toczenie (reduced-motion: CSS wyłącza). Dopisywanie na końcu (wpisywanie cyfr) zostaje
             // „Samsung-style” niżej. Samo przełamanie wiersza w trakcie toczenia → rysujemy toczenie
             // jeszcze raz z tej samej bazy, inaczej drugi fit uciąłby animację.
+            // [EN] Komendy w trakcie pisania („dziś + 3 d…” → „—”): po powrocie wyniku toczymy od
+            // ostatniego prawdziwego wyniku, a nie rysujemy wszystkiego od nowa.
+            if (prev === '—' && _flowLastReal) {
+                var base = _flowLastReal;
+                _flowLastReal = next;
+                if (base.replace(/\s/g, '') === next.replace(/\s/g, '')) { _setResultMarkup(calcResult, next); return; } // [EN] ten sam wynik wraca bez animacji
+                if (_renderFlow(calcResult, base, next)) { _flowBase = base; return; }
+            }
+            _flowLastReal = (next === '—') ? _flowLastReal : (next === '0' ? '' : next);
             var pFlow = prev.replace(/\s/g, ''), nFlow = next.replace(/\s/g, '');
             if (pFlow === nFlow) {
                 if (_flowBase !== null && _resultAnimActive() && _renderFlow(calcResult, _flowBase, next)) return;
-            } else if (!(pFlow && nFlow.indexOf(pFlow) === 0) && _renderFlow(calcResult, prev, next)) {
+            } else if (!(pFlow && (nFlow.indexOf(pFlow) === 0 || pFlow.indexOf(nFlow) === 0)) && _renderFlow(calcResult, prev, next)) {
+                // [EN] dopisanie/skasowanie na końcu (wpisywanie) → fuzja niżej, nie toczenie całej liczby
                 _flowBase = prev;
                 return;
             }
@@ -3601,15 +3659,30 @@
                     _appendAnimatedDigits(calcResult, next.slice(nlIdx + 1));
                     return;
                 }
+                if (pCore.length > nCore.length && !prevNL && !nextNL) { // [EN] kasowanie: ostatnie znaki gasną, reszta dojeżdża
+                    var oldWd = _contentWidth(calcResult);
+                    calcResult.textContent = '';
+                    var wrapD = document.createElement('span');
+                    _appendResultMarkup(wrapD, next);
+                    _flowGhost(wrapD, pCore.slice(nCore.length), 'trail');
+                    calcResult.appendChild(wrapD);
+                    _flowShiftFrom(calcResult, wrapD, oldWd);
+                    _markResultAnim();
+                    return;
+                }
                 _setResultMarkup(calcResult, next);
                 return;
             }
             var splitIdx = _formattedIdxForCoreCount(next, c);
             var prefix = next.slice(0, splitIdx);
             var suffix = next.slice(splitIdx);
+            var oldW = (prefix && !prevNL && !nextNL) ? _contentWidth(calcResult) : -1;
             calcResult.textContent = '';
-            _appendResultMarkup(calcResult, prefix);
+            var wrapP = calcResult;
+            if (oldW >= 0) { wrapP = document.createElement('span'); calcResult.appendChild(wrapP); }
+            _appendResultMarkup(wrapP, prefix);
             _appendAnimatedDigits(calcResult, suffix);
+            if (oldW >= 0) _flowShiftFrom(calcResult, wrapP, oldW);
         }
         // *---------------------------------------------------------------------------------*
         function handleCalcAction(action) {
@@ -4053,7 +4126,7 @@
 
         function renderHistory() {
             if (typeof renderCalcTape === 'function') renderCalcTape();
-            if (historyCount) historyCount.textContent = String(STATE.history.length);
+            numberFlow(historyCount, String(STATE.history.length));
             // „Wyczyść" nieaktywne, gdy nie ma czego czyścić (puste albo same przypięte).
             if (clearHistoryBtn) clearHistoryBtn.disabled = !STATE.history.some(function(it) { return !it.pinned; });
             historyList.replaceChildren();
@@ -11708,8 +11781,7 @@
             var sum = eng && eng.summarize ? eng.summarize(infos || []) : null;
             npTotalBar.hidden = !sum;
             if (!sum) return;
-            if (_needsTightMarkup(sum.text)) _setResultMarkup(npTotalVal, sum.text);
-            else npTotalVal.textContent = sum.text;
+            numberFlow(npTotalVal, sum.text, _appendResultMarkup); // [EN] suma toczy się przy pisaniu notatki
             var parts = ['Suma ' + sum.count + ' pozycji z całej notatki'];
             if (sum.sections.length > 1) sum.sections.forEach(function(sct) { parts.push(sct.name + ': ' + sct.text); });
             var partial = sum.skipped && sum.skipped.length;
@@ -15467,7 +15539,7 @@
                 saveSettings: saveSettings,
                 fitCalcLayout: fitCalcLayout,
                 fitCalcDisplay: fitCalcDisplay,
-                rollSeq: _rollSeq, flowOps: _flowOps, // [EN] test/result-roll.js
+                rollSeq: _rollSeq, flowOps: _flowOps, numberFlow: numberFlow, // [EN] test/result-roll.js
                 calcLayoutTune: function() { return window.CALC_LAYOUT_TUNE; },
                 getCalcLayoutTune: getCalcLayoutTune,
                 reapplyCalcTune: window.reapplyCalcLayoutTune,
