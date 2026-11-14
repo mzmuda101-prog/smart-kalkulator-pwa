@@ -2674,6 +2674,10 @@
                 if (pos === 'absolute' || pos === 'fixed') continue;
                 maxW -= c.offsetWidth + gap;
             }
+            if (calcResult) { // [EN] własny padding wyniku (margines na ostatnią cyfrę) też zabiera miejsce
+                var rcs = getComputedStyle(calcResult);
+                maxW -= (parseFloat(rcs.paddingLeft) || 0) + (parseFloat(rcs.paddingRight) || 0);
+            }
             return Math.max(0, maxW - _RESULT_FIT_SLACK);
         }
         // [EN] Measure one result line width (probe — bez skracania fontu).
@@ -3704,7 +3708,9 @@
             if (prev === '—' && _flowLastReal) {
                 var base = _flowLastReal;
                 _flowLastReal = next;
-                if (base.replace(/\s/g, '') === next.replace(/\s/g, '')) { _setResultMarkup(calcResult, next); return; } // [EN] ten sam wynik wraca bez animacji
+                // [EN] Ten sam wynik po „—” (dzi → dzis) wjeżdża jak przy pierwszym pokazaniu — bez animacji wyglądało,
+                // jakby komenda nie zadziałała. Inny wynik toczy się od poprzedniego prawdziwego.
+                if (base.replace(/\s/g, '') === next.replace(/\s/g, '')) { calcResult.textContent = ''; _appendAnimatedDigits(calcResult, next); return; }
                 if (_renderFlow(calcResult, base, next)) { _flowBase = base; return; }
             }
             _flowLastReal = (next === '—') ? _flowLastReal : (next === '0' ? '' : next);
@@ -13378,6 +13384,21 @@
             return results.slice(0, 7);
         }
 
+        // [EN] Lista podpowiedzi kończy się nad pływającym paskiem skrótów („Zdanie”) albo nad klawiaturą — wcześniej
+        // sięgała pod nie i dolne pozycje były zasłonięte (iPhone). Rect-y na iOS są względem widocznego obszaru
+        // (0 … vv.height), więc granica w tym samym układzie. Reszta przewija się w liście.
+        function _fitAcToViewport(dropdownEl) {
+            if (!dropdownEl) return;
+            dropdownEl.style.maxHeight = '';
+            var top = dropdownEl.getBoundingClientRect().top;
+            var vv = window.visualViewport;
+            var limit = vv ? vv.height : window.innerHeight;
+            var kb = document.getElementById('calcKeyBar');
+            if (kb && kb.classList.contains('is-floating')) limit = Math.min(limit, kb.getBoundingClientRect().top);
+            var room = Math.floor(limit - top - 8);
+            var cssMax = parseFloat(getComputedStyle(dropdownEl).maxHeight) || 260;
+            if (room < cssMax) dropdownEl.style.maxHeight = Math.max(88, room) + 'px';
+        }
         function initCalcAutocomplete(inputEl, dropdownEl) {
             if (!inputEl || !dropdownEl) return;
             var activeIdx = -1;
@@ -13414,6 +13435,12 @@
                     dropdownEl.appendChild(row);
                 });
                 dropdownEl.classList.add('open');
+                _fitAcToViewport(dropdownEl);
+            }
+            if (window.visualViewport) { // [EN] klawiatura wjeżdża / strona się przesuwa — lista dalej kończy się nad paskiem
+                var refit = function() { if (dropdownEl.classList.contains('open')) _fitAcToViewport(dropdownEl); };
+                window.visualViewport.addEventListener('resize', refit);
+                window.visualViewport.addEventListener('scroll', refit);
             }
             function setActiveItem(idx) {
                 var rows = dropdownEl.querySelectorAll('.autocomplete-item');
@@ -13500,6 +13527,12 @@
                     dropdownEl.appendChild(row);
                 });
                 dropdownEl.classList.add('open');
+                _fitAcToViewport(dropdownEl);
+            }
+            if (window.visualViewport) { // [EN] klawiatura wjeżdża / strona się przesuwa — lista dalej kończy się nad paskiem
+                var refit = function() { if (dropdownEl.classList.contains('open')) _fitAcToViewport(dropdownEl); };
+                window.visualViewport.addEventListener('resize', refit);
+                window.visualViewport.addEventListener('scroll', refit);
             }
 
             function insertACSuggestion(item) {

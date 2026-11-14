@@ -97,4 +97,24 @@ test.describe('panel wyniku na telefonie', () => {
     expect(st.sh).toBeLessThanOrEqual(st.ch + 1);
     expect(st.top).toBe(0);
   });
+
+  test('komenda dokończona ponownie (dzi → dzis) pokazuje wynik z animacją', async ({ page }) => {
+    const ex = page.locator('#calcExpr');
+    await ex.pressSequentially('dzis', { delay: 120 });
+    await page.waitForTimeout(500);
+    await ex.press('Backspace');
+    await page.waitForTimeout(400);
+    await expect(page.locator('#calcResult')).toHaveText('—');
+    const anim = page.evaluate(() => new Promise((res) => {
+      const r = document.getElementById('calcResult');
+      const mo = new MutationObserver(() => {
+        if (r.textContent !== '—') { mo.disconnect(); res(r.querySelectorAll('.calc-result-new').length); }
+      });
+      mo.observe(r, { childList: true, subtree: true });
+    }));
+    await ex.press('s');
+    expect(await anim, 'wynik po „—” wraca bez animacji').toBeGreaterThan(0);
+  });
 });
+// TODO (2026-11-15): test „lista podpowiedzi kończy się nad paskiem skrótów” — w Playwright lista się nie otwierała
+// (waitForSelector #calcExprAC.open), do dopracowania przygotowanie (fokus/klawiatura wymuszona).

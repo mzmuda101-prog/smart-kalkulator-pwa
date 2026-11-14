@@ -1056,6 +1056,9 @@
         }
         .calc-result-row .calc-result {
             flex: 0 1 auto; /* [EN] szerokość treści — ≈ przy liczbie; miejsce liczy _calcResultMaxWidth */
+            /* [EN] letter-spacing −0.06em działa też za ostatnim znakiem, więc prawy brzeg ostatniej cyfry
+               wychodził poza pudełko i overflow:hidden ścinał np. brzuszek „6”. Margines > |letter-spacing|. */
+            padding-inline-end: 0.08em;
             min-width: 0;
             width: auto;
             max-width: 100%;
