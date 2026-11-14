@@ -28,7 +28,12 @@ test('cyfry po kolei (22×9) — max 2 linie wyniku, bez clipu ekranika', async 
     H.assertWrapUsesPre(log.filter((e) => e.hasWrapClass), '22×9');
 
     const last = log[log.length - 1];
-    expect(last.hasWrapClass || last.logicalLines >= 2).toBeTruthy();
+    // [PL] Od 2026-11-14 łamanie tylko, gdy dwie linie dają wyraźnie większe cyfry (≥12%). Na szerokiej
+    // karcie (658 px) 22 cyfry mieszczą się w jednej linii przy ~43 px — to lepiej niż 2 linie mniejszym krojem.
+    if (!(last.hasWrapClass || last.logicalLines >= 2)) {
+        const fs = await page.evaluate(() => parseFloat(getComputedStyle(document.getElementById('calcResult')).fontSize));
+        expect(fs, '1 linia tylko przy dużym foncie').toBeGreaterThan(30);
+    }
     expect(last.expr.replace(/\s/g, '').length).toBe(22);
 });
 
@@ -47,6 +52,14 @@ test('wrap — stabilny font po wejściu w 2 linie (kolejne cyfry)', async ({ pa
     // wrap od 13. cyfry na telefonie/tablecie, od 19. na 1280 px; +3 kroki zapasu na pomiar fontu.
     const log = await H.typeDigitsSequentially(page, '9'.repeat(24), 55);
     const wrapStart = log.findIndex((e) => e.phase === 'after' && (e.hasWrapClass || e.logicalLines > 1));
+    // [PL] Od 2026-11-14 łamanie dopiero, gdy 2 linie dają wyraźnie większe cyfry. Na szerokiej karcie
+    // (≥1024 px, ~650 px na wynik) nawet 30 cyfr (limit wpisywania) mieści się w 1 linii przy ~32 px,
+    // więc wrapu z klawiatury nie ma — sprawdzamy wtedy tylko czytelny font jednej linii.
+    if (wrapStart === -1 && (page.viewportSize() || { width: 0 }).width >= 1024) {
+        const fs = await page.evaluate(() => parseFloat(getComputedStyle(document.getElementById('calcResult')).fontSize));
+        expect(fs, '24 cyfry w 1 linii na szerokiej karcie — font czytelny').toBeGreaterThan(30);
+        return;
+    }
     expect(wrapStart, 'powinien wejść w wrap przy długim wyniku').toBeGreaterThan(-1);
     const wrapStep = log[wrapStart].step;
     const fonts = H.uniqueFontSizesAfterWrap(log, wrapStep + 3);

@@ -844,14 +844,16 @@
         }
         // [EN] Fuzja przy wpisywaniu/kasowaniu: nowa cyfra pojawia się jak dotąd, a reszta wyniku
         // (wyrównana do prawej) nie skacze o szerokość cyfry, tylko dojeżdża (FLIP w em — fit może zmienić font).
-        function _contentWidth(el) {
+        // [EN] FLIP po pozycji początku treści, nie po szerokości — działa przy wyrównaniu do prawej
+        // (klawisze) i do lewej („Zdanie”, tam prefiks stoi w miejscu i nic nie jedzie).
+        function _contentLeft(el) {
             var r = document.createRange();
             r.selectNodeContents(el);
-            return r.getBoundingClientRect().width;
+            return r.getBoundingClientRect().left;
         }
-        function _flowShiftFrom(el, wrap, oldW) {
+        function _flowShiftFrom(el, wrap, oldLeft) {
             var fs = parseFloat(getComputedStyle(el).fontSize) || 16;
-            var dx = (_contentWidth(el) - oldW) / fs;
+            var dx = (oldLeft - wrap.getBoundingClientRect().left) / fs;
             if (Math.abs(dx) < 0.02) return;
             wrap.style.setProperty('--nf-dx', dx.toFixed(3) + 'em');
             wrap.classList.add('nf-shift');
@@ -2550,7 +2552,7 @@
         }
         // [EN] Last resort: wynik wyszedł poza .calc-display — zmniejsz textarea.
         function _clampResultInDisplay() {
-            if (!calcExpr || !calcResult) return false;
+            if (!calcExpr || !calcResult || _calcSentence()) return false; // [EN] „Zdanie”: panel rośnie, nic nie przycinamy
             var display = calcExpr.closest('.calc-display');
             var resultRow = display && display.querySelector('.calc-result-row');
             if (!display || !resultRow) return false;
@@ -2575,6 +2577,8 @@
             if (_calcSentence()) { // pole rośnie w pionie (CSS), nie zmniejszamy fontu
                 calcExpr.style.fontSize = '';
                 calcExpr.style.maxHeight = '';
+                calcExpr.style.height = ''; // [EN] po trybie klawiszy zostawało height:100% + max-height 48 px na opakowaniu → 1. linia ucięta
+                if (calcExpr.parentElement) calcExpr.parentElement.style.maxHeight = '';
                 if (_calcPh) _calcPh.style.fontSize = '';
                 calcExpr.classList.remove('is-clipped');
                 return;
@@ -2658,10 +2662,18 @@
         }
         function _calcResultMaxWidth(row) {
             if (!row) return 0;
+            // [EN] Wynik ma szerokość treści (≈ stoi tuż przy liczbie, nie na lewym brzegu), więc miejsce
+            // liczymy jawnie: wiersz minus widoczni sąsiedzi w przepływie (≈, Rozpisz, Kopiuj) i odstępy.
             var maxW = row.clientWidth;
-            var gap = 6;
-            if (calcApprox && !calcApprox.hidden) maxW -= calcApprox.offsetWidth + gap;
-            if (calcResult && calcResult.clientWidth > 0) maxW = Math.min(maxW, calcResult.clientWidth);
+            var gap = parseFloat(getComputedStyle(row).columnGap) || 6;
+            var kids = row.children, nKids = +kids.length || 0; // [EN] indeks, nie nextElementSibling — skończona pętla także w atrapie DOM testów
+            for (var ki = 0; ki < nKids; ki++) {
+                var c = kids[ki];
+                if (!c || c === calcResult || c.hidden || !c.offsetWidth) continue;
+                var pos = getComputedStyle(c).position;
+                if (pos === 'absolute' || pos === 'fixed') continue;
+                maxW -= c.offsetWidth + gap;
+            }
             return Math.max(0, maxW - _RESULT_FIT_SLACK);
         }
         // [EN] Measure one result line width (probe — bez skracania fontu).
@@ -2700,9 +2712,23 @@
                 }
                 probeEl = _calcFitProbe;
             }
-            probeEl.style.font = cs.font;
-            probeEl.style.fontSize = fontSizePx != null ? (fontSizePx + 'px') : cs.fontSize;
-            probeEl.style.letterSpacing = cs.letterSpacing;
+            // [EN] Kopia longhandów, nie `cs.font`: przy tabular-nums skrót `font` jest PUSTY (Chrome i Safari),
+            // więc sonda mierzyła zwykłym krojem strony i zaniżała szerokość o ~15% — stąd wynik za szeroki
+            // przez pierwsze klatki i skok fontu po animacji. letter-spacing w em (CSS: -0.06em), nie w px
+            // z bieżącego rozmiaru — inaczej sonda przy innym rozmiarze liczy zły odstęp.
+            var curFs = parseFloat(cs.fontSize) || 16;
+            var probeFs = fontSizePx != null ? fontSizePx : curFs;
+            probeEl.style.fontFamily = cs.fontFamily;
+            probeEl.style.fontWeight = cs.fontWeight;
+            probeEl.style.fontStyle = cs.fontStyle;
+            probeEl.style.fontStretch = cs.fontStretch;
+            probeEl.style.fontVariantNumeric = cs.fontVariantNumeric;
+            probeEl.style.fontFeatureSettings = cs.fontFeatureSettings;
+            probeEl.style.fontKerning = cs.fontKerning;
+            probeEl.style.fontSize = probeFs + 'px';
+            var ls = parseFloat(cs.letterSpacing);
+            probeEl.style.letterSpacing = isFinite(ls) ? ((ls / curFs) + 'em') : cs.letterSpacing;
+            probeEl.style.wordSpacing = cs.wordSpacing;
             if (_needsTightMarkup(text)) probeEl.innerHTML = _htmlTightResult(text);
             else probeEl.textContent = text;
             return probeEl.offsetWidth;
@@ -2794,8 +2820,11 @@
             var stablePx = _getWrapStableFontPx(display);
             var curFs = parseFloat(calcResult.style.fontSize);
             if (!isFinite(curFs) || curFs <= 0) curFs = _calcResultBaseFontPx();
-            if (Math.abs(curFs - stablePx) > 0.4) _applyResultFontPx(stablePx);
-            else if (Math.abs(stablePx - _calcResultBaseFontPx()) < 0.5) calcResult.style.removeProperty('font-size');
+            // [EN] Sufit, nie wartość docelowa: obniża za duży font, ale nie podnosi mniejszego, który layout
+            // policzył dla za szerokich linii (2^100: 25,5 px → wracało 31,8 px i druga linia wystawała 67 px).
+            var lineFit = calcResult.style.fontSize && curFs < stablePx - 0.4 && !_resultHorizOverflows(calcResult.closest('.calc-result-row'));
+            if (!lineFit && Math.abs(curFs - stablePx) > 0.4) _applyResultFontPx(stablePx);
+            else if (!lineFit && Math.abs(stablePx - _calcResultBaseFontPx()) < 0.5) calcResult.style.removeProperty('font-size');
             _syncResultRowStable(display);
             return stablePx;
         }
@@ -2804,7 +2833,9 @@
             var wrapLines = layout.wrapLines != null ? layout.wrapLines : (_calcResultWrapLines || 1);
             if (wrapLines > 1) {
                 var disp = calcResult.closest('.calc-display');
-                if (disp) _applyWrapStableFont(disp);
+                var stable = disp ? _applyWrapStableFont(disp) : 0;
+                // [EN] font wysokości to sufit; gdy linie są za szerokie, layout policzył mniejszy — bierzemy go od razu
+                if (layout.fontPx > 0 && (!stable || layout.fontPx < stable - 0.25)) _applyResultFontPx(layout.fontPx);
                 return;
             }
             if (layout.fontPx >= basePx - 0.5) calcResult.style.removeProperty('font-size');
@@ -2987,21 +3018,44 @@
             }
             return false;
         }
-        // [EN] Largest font in [floor, base] — probe (scrollWidth lies when overflow:hidden).
+        // [EN] Largest font in [floor, base] — probe (scrollWidth lies when overflow:hidden). Bez stosowania.
+        // [EN] Zawsze sonda JEDNEJ linii i ten sam margines co decyzja w _resolveResultLayout — inaczej
+        // stan „złamany” mierzy szerzej (pełne spacje) i decyzja przełącza się 1↔2 co przebieg (pętla fit).
+        function _largestLineFitPx(maxW, floorPx, basePx, line, row) {
+            if (!_calcResultOverflows(maxW, row, line, basePx, true, false)) return basePx;
+            var lo = floorPx, hi = basePx, best = floorPx;
+            while (hi - lo > 0.1) { // [EN] 0,1 px — późniejszy sync (+0,5 px) nie ma czego „dopompować” (skok po 250 ms)
+                var mid = (lo + hi) / 2;
+                if (_calcResultOverflows(maxW, row, line, mid, true, false)) hi = mid;
+                else { best = mid; lo = mid; }
+            }
+            return Math.round(best * 100) / 100;
+        }
         function _largestResultFontForLine(maxW, floorPx, basePx, line, row) {
-            if (!_calcResultOverflows(maxW, row, line, basePx)) {
+            var best = _largestLineFitPx(maxW, floorPx, basePx, line, row);
+            if (best >= basePx) {
                 calcResult.style.removeProperty('font-size');
                 calcResult.style.removeProperty('min-height');
                 return basePx;
             }
-            var lo = floorPx, hi = basePx, best = floorPx;
-            while (hi - lo > 0.35) {
-                var mid = (lo + hi) / 2;
-                if (_calcResultOverflows(maxW, row, line, mid)) hi = mid;
-                else { best = mid; lo = mid; }
-            }
             _applyResultFontPx(best);
             return best;
+        }
+        // [EN] Font, jaki dostałyby 2 linie w tej wysokości panelu (bez cache — liczone jak przy wrap).
+        function _wrapFontCapPx() {
+            var disp = calcResult && calcResult.closest('.calc-display');
+            if (!disp) return 0;
+            if ((_calcResultWrapLines || 1) > 1) return _getWrapStableFontPx(disp);
+            // [EN] Poza trybem 2 linii panel ma większy dolny padding niż w nim (resultWrapPadBottom) — doliczamy różnicę,
+            // inaczej decyzja liczy niższy sufit (23 px) niż ten, który potem dostaje wynik (26 px).
+            var t = getCalcLayoutTune();
+            var padNow = parseFloat(getComputedStyle(disp).paddingBottom) || 0;
+            var padWrap = t.resultWrapPadBottom != null ? t.resultWrapPadBottom : 6;
+            var keep = _calcResultWrapLines;
+            _calcResultWrapLines = 2;
+            var cap = _computeWrapStableFontPx(disp, _wrapMaxResultPx(disp) + Math.max(0, padNow - padWrap), _calcResultFloorPx(), _calcResultBaseFontPx());
+            _calcResultWrapLines = keep;
+            return cap;
         }
         function _largestResultFontForLines(maxW, floorPx, basePx, lines, row) {
             if (!_linesOverflow(maxW, row, lines, basePx)) {
@@ -3062,18 +3116,34 @@
                 var fsOnly = _largestResultFontForLine(maxW, floorPx, basePx, line, row);
                 return { targetMarkup: line, wrapLines: 1, fontPx: fsOnly };
             }
-            var eqSplit = _trySplitResultAtEquals(flat, maxW, row, basePx);
-            var wrapped = eqSplit || _wrapCalcResultLines(flat, maxW, row, maxLines, basePx);
-            if (wrapped.length <= 1) wrapped = _splitChunkTwoLines(line, maxW, row, basePx); // [EN] ostatnia szansa na 2 linie @ base
+            // [EN] Jedna linia, dopóki jej font nie spadnie poniżej fontu dwóch linii: łamanie ma dawać
+            // WIĘKSZE cyfry, nie dwie krótkie linie mniejszym krojem (1 234 / 567,89 przy 26 px zamiast
+            // 1 234 567,89 przy 36 px). Mały zapas przy już złamanym wyniku — bez migotania 1↔2 przy kasowaniu.
+            var fsLine = _largestLineFitPx(maxW, floorPx, basePx, line, row);
+            var wrapCap = _wrapFontCapPx();
+            if (fsLine >= wrapCap * (liveWrap ? 0.94 : 0.88) && !_calcResultOverflows(maxW, row, line, fsLine, true, false)) { // [EN] łam tylko za wyraźny zysk (≥12%), inaczej 1 234 / 567,891011
+                if (!_resultAnimActive()) { _calcResultWrapLines = 1; _syncResultWhiteSpace(); }
+                return { targetMarkup: line, wrapLines: 1, fontPx: fsLine };
+            }
+            // [EN] Podział liczony przy foncie, który NAPRAWDĘ będzie widać (font dwóch linii), a nie przy
+            // bazowym — przy 40 px podział nie pasował do 26 px i druga linia wystawała, aż poprawił ją fit po animacji.
+            var fsWrap = Math.max(floorPx, Math.min(basePx, wrapCap || basePx));
+            var eqSplit = _trySplitResultAtEquals(flat, maxW, row, fsWrap);
+            var wrapped = eqSplit || _wrapCalcResultLines(flat, maxW, row, maxLines, fsWrap);
+            if (wrapped.length <= 1) wrapped = _splitChunkTwoLines(line, maxW, row, fsWrap);
             if (wrapped.length <= 1) {
                 var fsFallback = _largestResultFontForLine(maxW, floorPx, basePx, line, row);
                 return { targetMarkup: line, wrapLines: 1, fontPx: fsFallback };
             }
-            if (!_linesOverflow(maxW, row, wrapped, basePx)) {
-                return { targetMarkup: wrapped.join('\n'), wrapLines: wrapped.length, fontPx: basePx };
+            var fsMulti = fsWrap;
+            if (_linesOverflow(maxW, row, wrapped, fsWrap)) { // [EN] obie linie za szerokie nawet przy foncie wysokości → mniejszy, PRZED malowaniem
+                var lo = floorPx, hi = fsWrap; fsMulti = floorPx;
+                while (hi - lo > 0.1) {
+                    var mid = (lo + hi) / 2;
+                    if (_linesOverflow(maxW, row, wrapped, mid)) hi = mid; else { fsMulti = mid; lo = mid; }
+                }
+                fsMulti = Math.round(fsMulti * 100) / 100;
             }
-            calcResult.style.removeProperty('font-size');
-            var fsMulti = _largestResultFontForLines(maxW, floorPx, basePx, wrapped, row); // [EN] 2 linie @ base overflow → shrink (nigdy 3. linia)
             return { targetMarkup: wrapped.join('\n'), wrapLines: wrapped.length, fontPx: fsMulti };
         }
         function _clearResultAnimClasses() {
@@ -3162,6 +3232,9 @@
                 if (_resultHorizOverflows(row)) {
                     var maxWPre = _calcResultMaxWidth(row);
                     var layoutPre = _resolveResultLayout(flat, maxWPre, row, floorPx, basePx);
+                    // [EN] 1 linia: od razu font z layoutu — inaczej zostawał bazowy (zdjęty wyżej), a strażnik DOM
+                    // zjeżdżał krokami 0,5 px do innej wartości niż layout (29,36 → 30 → 29,36 px po animacji).
+                    if (layoutPre.wrapLines <= 1) _applyResultFontFromLayout(layoutPre, basePx);
                     if (layoutPre.wrapLines > 1) {
                         _calcResultWrapLines = layoutPre.wrapLines;
                         _syncResultWhiteSpace();
@@ -3220,6 +3293,18 @@
             var flatSrcEarly = _calcResultTargetDisplay ?? _calcResultFullText();
             var fitKeyEarly = String(flatSrcEarly) + '|' + (_calcResultWrapLines || 1);
             if (_resultAnimActive() && fitKeyEarly === _calcFitTargetKey) return; // [EN] fitCalcLayout rAF — nie resetuj wrap/nowrap
+            // [EN] „0” / pusto nie potrzebuje szerokości — a na pustym ekranie wiersz zajmują przykłady (#calcStart),
+            // więc maxW = 0 i fit czekał 12 klatek (~300 ms), zanim AC pokazało „0”.
+            if (_isDefaultResultFlat(_normalizeResultFlat(String(flatSrcEarly).replace(/\n/g, ' ').trim()))) {
+                _resetCalcResultFont();
+                _calcResultWrapLines = 1;
+                _syncResultWhiteSpace();
+                _setResultMarkup(calcResult, '0');
+                var dispZ = calcResult.closest('.calc-display');
+                if (dispZ) _syncResultWrapLayout(dispZ);
+                _calcFitTargetKey = '0|1';
+                return;
+            }
             var maxW = _calcResultMaxWidth(row);
             if (maxW <= 0) {
                 if (_calcResultFitPending < 12) {
@@ -3660,7 +3745,7 @@
                     return;
                 }
                 if (pCore.length > nCore.length && !prevNL && !nextNL) { // [EN] kasowanie: ostatnie znaki gasną, reszta dojeżdża
-                    var oldWd = _contentWidth(calcResult);
+                    var oldWd = _contentLeft(calcResult);
                     calcResult.textContent = '';
                     var wrapD = document.createElement('span');
                     _appendResultMarkup(wrapD, next);
@@ -3676,13 +3761,13 @@
             var splitIdx = _formattedIdxForCoreCount(next, c);
             var prefix = next.slice(0, splitIdx);
             var suffix = next.slice(splitIdx);
-            var oldW = (prefix && !prevNL && !nextNL) ? _contentWidth(calcResult) : -1;
+            var oldW = (prefix && !prevNL && !nextNL) ? _contentLeft(calcResult) : null;
             calcResult.textContent = '';
             var wrapP = calcResult;
-            if (oldW >= 0) { wrapP = document.createElement('span'); calcResult.appendChild(wrapP); }
+            if (oldW !== null) { wrapP = document.createElement('span'); calcResult.appendChild(wrapP); }
             _appendResultMarkup(wrapP, prefix);
             _appendAnimatedDigits(calcResult, suffix);
-            if (oldW >= 0) _flowShiftFrom(calcResult, wrapP, oldW);
+            if (oldW !== null) _flowShiftFrom(calcResult, wrapP, oldW);
         }
         // *---------------------------------------------------------------------------------*
         function handleCalcAction(action) {

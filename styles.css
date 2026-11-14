@@ -1003,12 +1003,11 @@
             max-width: 100%;
             width: 100%;
             overflow: hidden; /* [EN] clip — max 2 linie; bez widocznego owijania w 3. wiersz */
-            transition: font-size 0.12s ease-out;
+            /* [EN] Bez transition font-size: JS dobiera rozmiar w tej samej klatce co tekst; przejście
+               rozjeżdżało font po zdjęciu inline (39,5 → 40 px) i przez chwilę wynik wystawał. */
             cursor: pointer;
             box-sizing: border-box;
         }
-        /* [EN] JS fit sets inline font-size — transition fights binary search and clips mid-frame */
-        .calc-result[style*="font-size"] { transition: none; }
         /* Zapasowe klasy — JS nie stosuje ich prewencyjnie; tylko gdy brak inline font-size. */
         .calc-result.small { font-size: 2.1rem; }
         .calc-result.xsmall { font-size: 1.75rem; }
@@ -1020,12 +1019,9 @@
             overflow: hidden;
             vertical-align: baseline;
         }
-        /* [EN] 2 linie — sep inline (inline-block rozpycha 2. linię); probe w wrap kontekście — szerokość */
-        .calc-display.calc-result-wrap .num-grp-sep {
-            display: inline;
-            width: auto;
-            overflow: visible;
-        }
+        /* [EN] 2 linie — ten sam wąski odstęp tysięcy co w 1 linii (wcześniej pełna spacja: ta sama liczba
+           wyglądała inaczej po złamaniu). height:1em — inline-block nie podbija wysokości linii (line-height 1). */
+        .calc-display.calc-result-wrap .num-grp-sep { height: 1em; }
         .calc-display.calc-result-wrap .txt-sep,
         .calc-display.calc-result-wrap .eq-sep {
             display: inline;
@@ -1059,7 +1055,7 @@
             min-height: var(--calc-result-row-min, calc(var(--calc-result-font, 2.5rem) * 1.1));
         }
         .calc-result-row .calc-result {
-            flex: 1 1 auto;
+            flex: 0 1 auto; /* [EN] szerokość treści — ≈ przy liczbie; miejsce liczy _calcResultMaxWidth */
             min-width: 0;
             width: auto;
             max-width: 100%;
@@ -5093,6 +5089,10 @@ body.calc-sentence .calc-expression {
     field-sizing: content;
     overflow-y: auto;
 }
+/* [EN] Limit wysokości wyrażenia przy 2-liniowym wyniku (--calc-expr-max-h) jest dla małego ekranika nad
+   klawiaturą; tu panel rośnie, więc pole też — inaczej długie wyrażenie przewijało się w 44 px z uciętą 1. linią. */
+body.calc-sentence #panel-calculator .calc-display .calc-expr-wrap { max-height: none !important; overflow: visible; }
+body.calc-sentence #panel-calculator .calc-display .calc-expression { max-height: 40vh !important; }
 body.calc-sentence .calc-ph { text-align: left; justify-content: flex-start; font-family: var(--font); font-size: 1.35rem !important; }
 body.calc-sentence .calc-result { text-align: left; }
 body.calc-sentence .calc-explain-title,
