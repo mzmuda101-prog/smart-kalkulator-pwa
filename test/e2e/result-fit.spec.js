@@ -116,5 +116,53 @@ test.describe('panel wyniku na telefonie', () => {
     expect(await anim, 'wynik po „—” wraca bez animacji').toBeGreaterThan(0);
   });
 });
-// TODO (2026-11-15): test „lista podpowiedzi kończy się nad paskiem skrótów” — w Playwright lista się nie otwierała
-// (waitForSelector #calcExprAC.open), do dopracowania przygotowanie (fokus/klawiatura wymuszona).
+
+test('tryb „Zdanie” z klawiaturą: lista podpowiedzi kończy się nad paskiem skrótów', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile', 'pasek skrótów pływa tylko na telefonie');
+  await NP.waitAppReady(page);
+  await page.evaluate(() => {
+    const cb = document.getElementById('settingStandardAutocomplete'); // lista jest domyślnie wyłączona
+    cb.checked = true; cb.dispatchEvent(new Event('change', { bubbles: true }));
+    window.__calcKeyBarForce = true;
+    document.querySelector('.calc-layout-toggle').click();
+  });
+  // niski widoczny obszar jak przy klawiaturze iPhone'a: pasek skrótów ląduje wysoko
+  await page.setViewportSize({ width: 390, height: 420 });
+  await page.locator('#calcExpr').focus();
+  await page.locator('#calcExpr').pressSequentially('dzi', { delay: 60 });
+  await page.waitForSelector('#calcExprAC.open');
+  await page.waitForTimeout(250);
+  const st = await page.evaluate(() => {
+    const dd = document.getElementById('calcExprAC');
+    const kb = document.getElementById('calcKeyBar');
+    return { ddBottom: dd.getBoundingClientRect().bottom, kbTop: kb.getBoundingClientRect().top,
+             floating: kb.classList.contains('is-floating'), scrolls: dd.scrollHeight > dd.clientHeight };
+  });
+  expect(st.floating).toBe(true);
+  expect(st.ddBottom).toBeLessThanOrEqual(st.kbTop);
+});
+
+test('telefon, klawisze: podpowiedzi to klikalne chipy w panelu, nie dymek nad kartą', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile', 'kontrakt dotyczy ekranika nad klawiaturą');
+  await NP.waitAppReady(page);
+  await page.locator('#calcExpr').fill('dzis');
+  await page.waitForTimeout(700);
+  const st = await page.evaluate(() => {
+    const h = document.getElementById('calcLiveHint');
+    const hb = h.getBoundingClientRect();
+    const d = h.closest('.calc-display').getBoundingClientRect();
+    const rg = document.createRange(); rg.selectNodeContents(document.getElementById('calcResult'));
+    const rb = rg.getBoundingClientRect();
+    const overlapsResult = !(hb.bottom <= rb.top || hb.top >= rb.bottom || hb.right <= rb.left || hb.left >= rb.right);
+    return { visible: !h.hidden && getComputedStyle(h).visibility !== 'hidden', chips: h.querySelectorAll('button').length,
+             inPanel: hb.top >= d.top && hb.bottom <= d.bottom, overlapsResult, bubble: !!document.querySelector('.cursor-hint.is-visible') };
+  });
+  expect(st.visible).toBe(true);
+  expect(st.chips).toBeGreaterThan(0);
+  expect(st.inPanel).toBe(true);
+  expect(st.overlapsResult).toBe(false);
+  expect(st.bubble).toBe(false);
+  // stuknięcie chipa dopisuje fragment do wyrażenia
+  await page.locator('#calcLiveHint button').first().click();
+  await expect(page.locator('#calcExpr')).not.toHaveValue('dzis');
+});

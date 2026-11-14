@@ -960,6 +960,41 @@
         @media (max-width: 599px) {
             .calc-live-hint, .calc-empty-suggest { display: none !important; } /* T4-17/19 — mobile: cursor-hint */
         }
+        /* [EN] Telefon, klawisze: chipy podpowiedzi W panelu (JS: _placeInlineHint) — rząd pod wyrażeniem albo
+           obok krótkiego wyrażenia. Absolutnie, więc nie zmieniają dopasowania wyniku. (0,3,1) + !important
+           wygrywa z ukryciem z media query wyżej. */
+        .calc-display.has-inline-hint { position: relative; }
+        .calc-display .calc-live-hint.is-inline:not([hidden]) {
+            display: flex !important;
+            position: absolute;
+            grid-area: auto !important; /* [EN] dziecko siatki z grid-row liczy top/left od TEGO wiersza, nie od panelu */
+            z-index: 3;
+            top: var(--lh-top, 0);
+            left: var(--lh-left, 0);
+            width: var(--lh-w, 100%);
+            height: 28px;
+            margin: 0;
+            align-items: center;
+            gap: 6px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: none;
+            animation: calcInlineHintIn 0.15s ease-out;
+        }
+        .calc-display .calc-live-hint.is-inline::-webkit-scrollbar { display: none; }
+        .calc-display .calc-live-hint.is-inline.is-noroom { visibility: hidden; }
+        .calc-live-hint.is-inline.can-scroll { /* widoczny sygnał, że jest więcej chipów */
+            -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+            mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+        }
+        /* [EN] Chipy leżą na polu wyrażenia — puste miejsca muszą przepuszczać stuknięcie do pola (kursor/klawiatura). */
+        .calc-display .calc-live-hint.is-inline { pointer-events: none; }
+        .calc-display .calc-live-hint.is-inline .calc-hint-chip { pointer-events: auto; }
+        .calc-live-hint.is-inline .calc-hint-chip { min-height: 26px; display: inline-flex; align-items: center; white-space: nowrap; }
+        .calc-live-hint.is-inline .calc-hint-chip--suggest { flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-family: var(--font); }
+        .calc-live-hint.is-inline .calc-hint-chip--suggest.is-unknown { color: var(--text-muted); }
+        @keyframes calcInlineHintIn { from { opacity: 0; } }
+        @media (prefers-reduced-motion: reduce) { .calc-display .calc-live-hint.is-inline:not([hidden]) { animation: none; } }
         @media (min-width: 600px) {
             .calc-display { grid-template-rows: minmax(0, 1fr) auto var(--calc-result-row-min, calc(var(--calc-result-font, 2.5rem) * 1.1)) auto; }
         }

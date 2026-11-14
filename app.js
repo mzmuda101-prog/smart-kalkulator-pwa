@@ -1838,6 +1838,71 @@
             _liveHintBubbleTimer = null;
         }
 
+        // [EN] Telefon (tryb z klawiaturą): podpowiedzi W panelu zamiast dymka — dymek kotwiczył nad polem
+        // wyrażenia, czyli nad kartą, i zasłaniał nagłówek, a „+ 90 dni” nie dało się stuknąć.
+        // Miejsce: rząd pod wyrażeniem, gdy jest wolny pas; inaczej obok krótkiego wyrażenia (z lewej);
+        // gdy nie ma ani tego, ani tego — ukryte. Absolutnie, więc nie rusza dopasowania wyniku.
+        var _inlineHintKind = null; // 'live' | rodzaj podpowiedzi „Czy chodziło o…” | null
+        var _inlineHintCtx = null;
+        var _INLINE_CHIP_H = 28;
+        function _showInlineHint(kind, fill) {
+            if (!calcLiveHint) return;
+            calcLiveHint.replaceChildren();
+            fill(calcLiveHint);
+            calcLiveHint.classList.add('is-inline');
+            calcLiveHint.hidden = false;
+            _inlineHintKind = kind;
+            var disp = calcLiveHint.closest('.calc-display');
+            if (disp) disp.classList.add('has-inline-hint');
+            _placeInlineHint();
+        }
+        function _hideInlineHint() {
+            _inlineHintKind = null;
+            if (!calcLiveHint || !calcLiveHint.classList.contains('is-inline')) return;
+            calcLiveHint.hidden = true;
+            calcLiveHint.replaceChildren();
+            calcLiveHint.classList.remove('is-inline', 'is-noroom', 'is-beside', 'can-scroll');
+            var disp = calcLiveHint.closest('.calc-display');
+            if (disp) disp.classList.remove('has-inline-hint');
+        }
+        function _placeInlineHint() {
+            if (!calcLiveHint || calcLiveHint.hidden || !calcLiveHint.classList.contains('is-inline') || !calcExpr || !calcResult) return;
+            var disp = calcLiveHint.closest('.calc-display'), wrap = calcExpr.parentElement, row = calcResult.closest('.calc-result-row');
+            if (!disp || !wrap || !row) return;
+            calcLiveHint.classList.remove('is-noroom', 'is-beside');
+            var d = disp.getBoundingClientRect(), w = wrap.getBoundingClientRect(), r = row.getBoundingClientRect();
+            var cs = getComputedStyle(calcExpr);
+            var fs = parseFloat(cs.fontSize) || 16;
+            var lh = parseFloat(cs.lineHeight) || fs * 1.3;
+            var padT = parseFloat(cs.paddingTop) || 0;
+            var padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+            // [EN] Linie z szerokości tekstu, nie ze scrollHeight — pole ma min-height 44 px, więc 1 linia „wyglądała” na 2.
+            if (!_inlineHintCtx) _inlineHintCtx = document.createElement('canvas').getContext('2d');
+            _inlineHintCtx.font = cs.fontStyle + ' ' + cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+            var tw = _inlineHintCtx.measureText(calcExpr.value).width + (parseFloat(cs.letterSpacing) || 0) * calcExpr.value.length;
+            var lines = Math.max(1, Math.ceil(tw / Math.max(1, w.width - padX)));
+            var textBottom = w.top + Math.min(padT + lines * lh, w.height);
+            var set = function(top, left, width) { // top/left od krawędzi wewnętrznej panelu (bez ramki)
+                calcLiveHint.style.setProperty('--lh-top', Math.round(top - disp.clientTop) + 'px');
+                calcLiveHint.style.setProperty('--lh-left', Math.round(left - disp.clientLeft) + 'px');
+                calcLiveHint.style.setProperty('--lh-w', Math.max(0, Math.round(width)) + 'px');
+                calcLiveHint.classList.toggle('can-scroll', calcLiveHint.scrollWidth > calcLiveHint.clientWidth + 1);
+            };
+            if (r.top - textBottom >= _INLINE_CHIP_H + 4) { // wolny pas pod wyrażeniem → pełny rząd
+                set(textBottom - d.top + 2, w.left - d.left, w.width);
+                return;
+            }
+            if (lines === 1 && calcExpr.value) { // obok wyrażenia: lewa, wolna część wiersza (wyrażenie stoi z prawej)
+                var free = w.width - tw - padX - 12;
+                if (free >= 96) {
+                    calcLiveHint.classList.add('is-beside');
+                    set(w.top - d.top + padT + (lh - _INLINE_CHIP_H) / 2, w.left - d.left, free);
+                    return;
+                }
+            }
+            calcLiveHint.classList.add('is-noroom');
+        }
+
         function _calcAssistExtraPx() { // T4-17/19 — dodatkowa wysokość display przy hint/suggest (tylko desktop)
             if (!_calcAssistWide()) return 0;
             var px = 0;
@@ -1858,6 +1923,19 @@
             });
         }
 
+        function _makeLiveHintChip(c) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'calc-hint-chip';
+            btn.textContent = c.label || c;
+            btn.addEventListener('mousedown', function (e) { e.preventDefault(); }); // fokus zostaje w polu
+            btn.addEventListener('click', function () {
+                if (!calcExpr) return;
+                insertAtCursor(calcExpr, c.insert != null ? c.insert : (' ' + c));
+                liveEval();
+            });
+            return btn;
+        }
         function updateCalcLiveHint() {
             _cancelLiveHintBubble();
             if (!calcLiveHint) return;
@@ -1876,55 +1954,19 @@
             }
             var chips = HINT.getLiveHints(calcExpr ? calcExpr.value : '');
 
-            if (!_calcAssistWide()) { // T4-17 mobile — dymek cursor-hint zamiast chipów w gridzie
-                calcLiveHint.hidden = true;
-                calcLiveHint.replaceChildren();
-                _scheduleAssistLayout();
-                if (!chips.length || _calcAssistBubbleKind === 'fuzzy') {
-                    if (_calcAssistBubbleKind === 'live') _hideCalcAssistBubble();
-                    return;
-                }
-                var anchor = _calcAssistAnchor();
-                var exprSnap = calcExpr ? calcExpr.value : '';
-                _liveHintBubbleTimer = setTimeout(function () {
-                    _liveHintBubbleTimer = null;
-                    if (_calcAssistWide()) return;
-                    if (!(STATE.settings && STATE.settings.standardLiveHint)) return;
-                    if (!calcExpr || calcExpr.value !== exprSnap) return;
-                    if (_calcAssistBubbleKind === 'fuzzy') return;
-                    var chipsNow = HINT.getLiveHints(calcExpr.value);
-                    if (!chipsNow.length) return;
-                    if (typeof _npHintCtl === 'undefined' || !_npHintCtl || !_npHintCtl.showProgrammatic || !anchor) return;
-                    var txt = chipsNow.map(function (c) { return c.label || c; }).join(' · ');
-                    _calcAssistBubbleKind = 'live';
-                    _npHintCtl.showProgrammatic({
-                        anchorEl: anchor,
-                        text: txt,
-                        hintClass: 'calc-assist-hint',
-                        durationMs: 5000,
-                        autoHide: true,
-                        fade: true
-                    });
-                }, 400);
+            if (!_calcAssistWide()) { // telefon, klawisze — chipy w panelu (_showInlineHint), nie dymek nad kartą
+                if (_calcAssistBubbleKind === 'live') _hideCalcAssistBubble();
+                if (_inlineHintKind && _inlineHintKind !== 'live') return; // „Czy chodziło o…” ma pierwszeństwo
+                if (!chips.length) { if (_inlineHintKind === 'live') _hideInlineHint(); return; }
+                _showInlineHint('live', function(box) { chips.forEach(function(c) { box.appendChild(_makeLiveHintChip(c)); }); });
                 return;
             }
+            _hideInlineHint();
 
             if (_calcAssistBubbleKind) _hideCalcAssistBubble();
             if (!chips.length) { calcLiveHint.hidden = true; calcLiveHint.replaceChildren(); _scheduleAssistLayout(); return; }
             calcLiveHint.replaceChildren();
-            chips.forEach(function (c) {
-                var btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'calc-hint-chip';
-                btn.textContent = c.label || c;
-                btn.addEventListener('mousedown', function (e) { e.preventDefault(); });
-                btn.addEventListener('click', function () {
-                    if (!calcExpr) return;
-                    insertAtCursor(calcExpr, c.insert != null ? c.insert : (' ' + c));
-                    liveEval();
-                });
-                calcLiveHint.appendChild(btn);
-            });
+            chips.forEach(function (c) { calcLiveHint.appendChild(_makeLiveHintChip(c)); });
             calcLiveHint.hidden = false;
             _scheduleAssistLayout();
         }
@@ -2027,6 +2069,7 @@
 
         function _hideEmptySuggest() {
             if (calcEmptySuggest) calcEmptySuggest.hidden = true;
+            if (_inlineHintKind && _inlineHintKind !== 'live') _hideInlineHint();
             if (_isEmptySuggestBubble(_calcAssistBubbleKind)) _hideCalcAssistBubble();
             _scheduleAssistLayout();
         }
@@ -2073,22 +2116,19 @@
                 liveEval();
             };
 
-            if (!_calcAssistWide()) { // mobile — kotwiczony dymek zamiast wiersza w gridzie
+            if (!_calcAssistWide()) { // telefon — jeden klikalny chip w panelu (to samo miejsce co chipy na żywo)
                 calcEmptySuggest.hidden = true;
-                _scheduleAssistLayout();
-                _cancelLiveHintBubble(); // [EN] suggestion wins — cancel pending live-hint debounce
-                var anchor = _calcAssistAnchor();
-                if (typeof _npHintCtl === 'undefined' || !_npHintCtl || !_npHintCtl.showProgrammatic || !anchor) return;
-                if (_calcAssistBubbleKind === 'live') _hideCalcAssistBubble();
-                _calcAssistBubbleKind = kind;
-                _npHintCtl.showProgrammatic({
-                    anchorEl: anchor,
-                    text: label,
-                    hintClass: 'calc-assist-hint is-' + kind,
-                    durationMs: 6000,
-                    autoHide: true,
-                    fade: true,
-                    onTap: apply
+                _cancelLiveHintBubble();
+                if (_calcAssistBubbleKind) _hideCalcAssistBubble();
+                _showInlineHint(kind, function(box) {
+                    var btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'calc-hint-chip calc-hint-chip--suggest is-' + kind;
+                    btn.textContent = label;
+                    btn.title = label;
+                    btn.addEventListener('mousedown', function (e) { e.preventDefault(); });
+                    btn.addEventListener('click', function() { _hideInlineHint(); apply(); });
+                    box.appendChild(btn);
                 });
                 return;
             }
@@ -3382,6 +3422,7 @@
             }
             updatePlaceholderMarquee();
             _clampResultInDisplay();
+            _placeInlineHint(); // [EN] chipy w panelu idą za wyrażeniem/wynikiem po każdym dopasowaniu
         }
         // [EN] Mobile layout — values in js/calc-layout-tune.js (CALC_LAYOUT_TUNE.mobile).
         var _calcBtnScale = 1;

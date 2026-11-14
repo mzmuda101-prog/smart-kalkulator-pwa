@@ -115,7 +115,8 @@ async function typeDigitsSequentially(page, digits, delayMs = 70) {
 
 async function setExpression(page, expr) {
     const field = page.locator('#calcExpr');
-    await field.click();
+    // [PL] focus, nie click w środek: na telefonie lewą część pola zajmują chipy podpowiedzi (od v1.04.82).
+    await field.focus();
     await field.fill(expr);
     await field.dispatchEvent('input', { bubbles: true });
     await waitResultStable(page);
