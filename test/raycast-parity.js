@@ -169,6 +169,8 @@ eq('molar mass of Ca(OH)2', '74,092 g/mol');
     eq('ile dni do końca tygodnia', '1 dzień');
     eq('ile godzin do końca dnia', '7 h');
     eq('hours left in today', '7 h');
+    matches('godziny do konca roku', /^1[\s\u00a0\u202f]135 h$/);   // 47 dni + 7 h, w godzinach (nie „6 tyg 5 dni”)
+    eq('minutes left in today', '420 min');
     eq('days since march', '258 dni');
     eq('dni od marca', '258 dni');
     eq('week 44 2026', '26.10.2026 (poniedziałek) – 1.11.2026 (niedziela)');

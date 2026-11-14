@@ -14,6 +14,10 @@ PWA do obliczen codziennych i technicznych. Rdzen jest deterministyczny (parser 
 - **Parser zdan (PL/EN)** — jednostki i algebra wymiarowa (`5 km * 5 km` → km²), waluty
   (NBP + Frankfurter), VAT/brutto/netto, daty, strefy czasowe, czas roboczy, BigInt na
   duzych liczbach calkowitych.
+- **Codzienne pytania (jak w Raycaście)** — `15% napiwku od 80 zł`, `23% vat w 123 zł`, `25% rabatu od 60 zł na 3 osoby`,
+  `ile dni do końca miesiąca`, `tydzień 44 2026`, `ile do 17:00`, `czas w Tokio + 4`, `16:00 CET na UTC`,
+  `round(23,456; 1)`, `max(2 h 30 min; 200 min)`, `3,3 do najbliższej ćwiartki`, `1,75 jako ułamek`, `255 na hex`,
+  `5:00 min/km na km/h`, `1 TB przy 100 Mbps`, `prędkość światła w km/s`, `a4 na hz`, `masa molowa C6H12O6`.
 - **Notatnik obliczeniowy** (Soulver-like) — zmienne, etykiety, szablony, eksport.
 - Standardowy kalkulator z historia, procentami w stylu kalkulatorow mobilnych i
   kopiowaniem przez przytrzymanie wyniku.

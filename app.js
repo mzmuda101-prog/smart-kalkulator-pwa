@@ -1979,6 +1979,7 @@
         var _calcKnownWordsCache = null;
         var _CALC_FUNC_WORDS = ['sin','cos','tan','asin','acos','atan','sinh','cosh','tanh',
             'cot','csc','sqrt','abs','log','ln','exp','floor','ceil','round','pi','e','x',
+            'sum','suma','min','max','avg','mean',
             'sind','cosd','tand','asind','acosd','atand'];
         var _CALC_KEYWORDS = [
             // łączniki i przyimki, na których stoi składnia PL/EN
@@ -1999,7 +2000,15 @@
             'godzin','godzinach','godzinami','minut','minutach','sekund','sekundach',
             'tygodni','tygodniach','miesiac','miesiace','miesiecy','miesiacach',
             'lat','lata','latach','roku','rocznie','roczny',
-            'spalanie','paliwo','trasa','koszt','cena','km'
+            'spalanie','paliwo','trasa','koszt','cena','km',
+            // parytet z Raycast 2.12 — słowa nowych komend (inaczej „Nie rozumiem” wini poprawne słowo)
+            'napiwku','napiwkiem','split','podziel','osoby','osob','mniej','wiecej','decrease','increase','less','more',
+            'konca','zostalo','pozostalo','left','remaining','until','since','tydzien','tygodnia','numer','week',
+            'zaokraglij','najblizszej','nearest','cwiartki','polowki','dziesiatek','setek','tysiecy','miejsca','miejsc',
+            'jako','as','ulamek','liczba','mieszana','improper','fraction','mixed',
+            'hex','bin','oct','dec','systemie','system','base','binarnie','szesnastkowo',
+            'tempo','tempie','pace','transfer','mbps','gbps','kbps','predkosc','swiatla','dzwieku','light','sound','speed',
+            'stala','avogadra','plancka','boltzmanna','hz','nute','note','masa','molowa','molar','mass'
         ];
         function _calcKnownWords() {
             if (_calcKnownWordsCache) return _calcKnownWordsCache;
@@ -2339,6 +2348,10 @@
             '5 km * 5 km',
             'mediana 12 4 18 8',
             '145 min czytelnie',
+            '15% napiwku od 80 zł',
+            'ile dni do końca roku',
+            '5:00 min/km na km/h',
+            '255 na hex',
         ];
         var CALC_PH_INTERVAL_MS = 4500;
         var _phExIdx = 0, _phExTimer = 0;

@@ -105,7 +105,15 @@
         'podziel 250 zł na 4', 'średnia 2 4 6', 'mediana 2 4 8', 'suma z 12 15 18',
         // rozwiązania krok po kroku (js/math-steps.js)
         'rozwiąż 2x + 3 = 7', 'rozwiąż x^2 - 5x + 6 = 0', 'uprość (x + 1)^2', 'rozłóż x^2 - 4', 'kroki 1/2 + 1/3',
-        'pochodna x^3 * sin(x)', 'całka x * e^x', 'całka x^2 od 0 do 1'
+        'pochodna x^3 * sin(x)', 'całka x * e^x', 'całka x^2 od 0 do 1',
+        // parytet z Raycast 2.12 (v1.04.85)
+        '15% napiwku od 80 zł', '23% vat w 123 zł', '25% rabatu od 60 zł na 3 osoby', '15% mniej od 813',
+        'ile dni do końca miesiąca', 'ile godzin do końca dnia', 'dni od marca', 'tydzień 44 2026',
+        'który tydzień', 'ile do 17:00', 'ile dni do piątku', 'czas w Tokio + 4', '16:00 CET na UTC',
+        'round(23,456; 1)', 'max(3; 7; 2)', 'zaokrąglij 1234 do setek', '3,3 do najbliższej ćwiartki',
+        '1,75 jako ułamek', '255 na hex', '255 na bin',
+        '5:00 min/km na km/h', '12 km/h na tempo', '10 km w tempie 5:00', '1 TB przy 100 Mbps',
+        'prędkość światła w km/s', 'a4 na hz', 'masa molowa H2O'
     ];
 
     function getLiveHints(expr) {

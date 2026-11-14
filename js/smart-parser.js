@@ -1010,7 +1010,11 @@
             var mn = Math.floor(sec / 60);
             return { value: mn, unit: 'min', kind: 'duration', text: _formatLocaleNumber(mn, 0) + ' min' };
         }
-        return { value: sec / 3600, unit: null, kind: 'duration', text: formatDurationSeconds(sec) };
+        // [EN] pytanie o GODZINY → wynik w godzinach („1 158 h 38 min”), nie w tygodniach
+        var hh = Math.floor(sec / 3600), mm = Math.floor((sec % 3600) / 60);
+        var hTxt = sec < 3600 ? formatDurationSeconds(sec)
+            : _formatLocaleNumber(hh, 0) + ' h' + (mm ? ' ' + mm + ' min' : '');
+        return { value: sec / 3600, unit: null, kind: 'duration', text: hTxt };
     }
     function evalPeriodRemaining(raw) {
         var s = _plFold(raw).trim().replace(/\s+/g, ' ').replace(/[?!.]+$/, '');
