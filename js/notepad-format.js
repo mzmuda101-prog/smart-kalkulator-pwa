@@ -182,6 +182,10 @@
         t = t.replace(/~~([^~\n]+)~~/g, '$1');
         t = t.replace(/::([^:\n]+)::/g, '$1');
         t = _stripLegacyItalic(t);
+        // [EN] Formatowanie przez kilka linii (np. pogrubienie całej notatki) zostawia w linii znacznik BEZ pary
+        // (otwarcie w 1., zamknięcie w ostatniej). Pary zdjęte wyżej; samotne też — inaczej „na usd\uE001”
+        // gubiło przeliczenie i linia liczyła się w zł.
+        t = t.replace(/[\uE000-\uE018]/g, '');
         return t.replace(/\u200B/g, '');
     }
 

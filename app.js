@@ -10966,6 +10966,7 @@
             var menuW = (npCtxMenu && !npCtxMenu.hidden) ? npCtxMenu.offsetWidth : 220;
             var menuH = (npCtxMenu && !npCtxMenu.hidden) ? npCtxMenu.offsetHeight : 44;
             var vw = window.innerWidth, vh = window.innerHeight, pad = 8, gap = 10;
+            var topLimit = _npMenuTopLimit();
             var cx = (rect.left + rect.right) / 2;
             var x = Math.min(Math.max(pad, cx - menuW / 2), vw - menuW - pad);
             var yAbove = rect.top - menuH - gap;
@@ -10977,16 +10978,23 @@
                 var yBelowTouch = rect.bottom + 30;
                 if (yBelowTouch + menuH <= vvH - pad) return { x: x, y: yBelowTouch };
             }
-            if (yAbove >= pad) return { x: x, y: yAbove };
+            if (yAbove >= topLimit) return { x: x, y: yAbove };
             if (yBelow + menuH <= vh - pad) return { x: x, y: yBelow };
             if (_npIsCoarsePointer()) { // [EN] obok zaznaczenia — nie koliduje z natywnym callout Kopiuj/Wytnij
-                var ySide = Math.min(Math.max(pad, rect.top), vh - menuH - pad);
+                var ySide = Math.min(Math.max(topLimit, rect.top), vh - menuH - pad);
                 var xRight = rect.right + gap;
                 if (xRight + menuW <= vw - pad) return { x: xRight, y: ySide };
                 var xLeft = rect.left - menuW - gap;
                 if (xLeft >= pad) return { x: xLeft, y: ySide };
             }
-            return { x: x, y: Math.min(Math.max(pad, yBelow), vh - menuH - pad) };
+            return { x: x, y: Math.min(Math.max(topLimit, yBelow), vh - menuH - pad) };
+        }
+        // [EN] Pasek przy zaznaczeniu nie wchodzi na nagłówek notatki (tytuł, przyciski) — „nad zaznaczeniem”
+        // liczone od dolnej krawędzi .np-head, nie od góry okna (zaznacz wszystko → pasek przykrywał tytuł).
+        function _npMenuTopLimit() {
+            var head = document.querySelector('.np-head');
+            var hb = head && head.offsetParent ? head.getBoundingClientRect().bottom : 0;
+            return Math.max(8, hb + 4);
         }
         function _npCtxPointForPanel(fallbackX, fallbackY) {
             if (_npIsCoarsePointer()) return { x: fallbackX, y: fallbackY + 12 };
@@ -11171,7 +11179,7 @@
             var rect = npCtxMenu.getBoundingClientRect();
             var vw = window.innerWidth, vh = window.innerHeight;
             var left = Math.min(Math.max(8, x), vw - rect.width - 8);
-            var top = Math.min(Math.max(8, y), vh - rect.height - 8);
+            var top = Math.min(Math.max(_npCtxMenuMode === 'selection' ? _npMenuTopLimit() : 8, y), vh - rect.height - 8);
             npCtxMenu.style.left = left + 'px';
             npCtxMenu.style.top = top + 'px';
         }
@@ -15217,6 +15225,9 @@
             results.push({ expr: 'T6-5 underline eval', pass: t65u[0] && t65u[0].value === 15, got: t65u[0] && t65u[0].value });
             var t65m = evalNotepadLines('> ' + _BO + 'Nocleg:' + _BC + ' 3 * 180');
             results.push({ expr: 'T6-5 align+bold eval', pass: t65m[0] && t65m[0].value === 540, got: t65m[0] && t65m[0].value });
+            // T6-5b — pogrubienie przez kilka linii: samotny znacznik zamknięcia w ostatniej linii nie psuje przeliczenia
+            var t65ml = evalNotepadLines(_BO + '2+2\n1 km na m' + _BC);
+            results.push({ expr: 'T6-5b multi-line bold keeps conversion', pass: !!(t65ml[1] && /1\s?000\s*m/.test(String(t65ml[1].text || '').replace(/\u00a0|\u202f/g, ' '))), got: t65ml[1] && t65ml[1].text });
             var t66s = evalNotepadLines(_SO + '2+2' + _SC);
             results.push({ expr: 'T6-6 strike eval', pass: t66s[0] && t66s[0].value === 4, got: t66s[0] && t66s[0].value });
             var t66a = evalNotepadLines(_AO + '10+5' + _AC);
