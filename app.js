@@ -13436,17 +13436,40 @@
         // [EN] Lista podpowiedzi kończy się nad pływającym paskiem skrótów („Zdanie”) albo nad klawiaturą — wcześniej
         // sięgała pod nie i dolne pozycje były zasłonięte (iPhone). Rect-y na iOS są względem widocznego obszaru
         // (0 … vv.height), więc granica w tym samym układzie. Reszta przewija się w liście.
+        function _acRestoreHome(dropdownEl) {
+            dropdownEl.classList.remove('is-above');
+            dropdownEl.style.maxHeight = dropdownEl.style.top = dropdownEl.style.left = dropdownEl.style.width = '';
+            if (dropdownEl._acHome && dropdownEl.parentNode !== dropdownEl._acHome) dropdownEl._acHome.appendChild(dropdownEl);
+        }
         function _fitAcToViewport(dropdownEl) {
             if (!dropdownEl) return;
-            dropdownEl.style.maxHeight = '';
-            var top = dropdownEl.getBoundingClientRect().top;
+            if (!dropdownEl._acHome) dropdownEl._acHome = dropdownEl.parentNode;
+            _acRestoreHome(dropdownEl);
+            var anchor = dropdownEl._acHome;
+            if (!anchor || !anchor.getBoundingClientRect) return;
+            var a = anchor.getBoundingClientRect();
             var vv = window.visualViewport;
-            var limit = vv ? vv.height : window.innerHeight;
+            var limit = vv ? vv.height : window.innerHeight; // rect-y na iOS: względem widocznego obszaru (0 … vv.height)
             var kb = document.getElementById('calcKeyBar');
             if (kb && kb.classList.contains('is-floating')) limit = Math.min(limit, kb.getBoundingClientRect().top);
-            var room = Math.floor(limit - top - 8);
             var cssMax = parseFloat(getComputedStyle(dropdownEl).maxHeight) || 260;
-            if (room < cssMax) dropdownEl.style.maxHeight = Math.max(88, room) + 'px';
+            var want = Math.min(cssMax, dropdownEl.scrollHeight || cssMax);
+            var below = Math.floor(limit - a.bottom - 12);
+            var above = Math.floor(a.top - 12);
+            // [EN] Pole tuż nad paskiem skrótów (iPhone, historia nad polem): pod spodem brak miejsca — lista NAD polem.
+            // Nad polem wychodzi poza przewijany panel, który ją przycinał, więc na czas otwarcia mieszka w <body>
+            // jako position:fixed (jak pływający pasek skrótów); fixed liczy od layout viewportu → + vv.offsetTop.
+            if (below < Math.min(want, 160) && above > below) {
+                var h = Math.min(want, above);
+                document.body.appendChild(dropdownEl);
+                dropdownEl.classList.add('is-above');
+                dropdownEl.style.maxHeight = h + 'px';
+                dropdownEl.style.width = a.width + 'px';
+                dropdownEl.style.left = (a.left + (vv ? vv.offsetLeft : 0)) + 'px';
+                dropdownEl.style.top = (a.top - 4 - h + (vv ? vv.offsetTop : 0)) + 'px';
+                return;
+            }
+            if (below < want) dropdownEl.style.maxHeight = Math.max(0, below) + 'px';
         }
         function initCalcAutocomplete(inputEl, dropdownEl) {
             if (!inputEl || !dropdownEl) return;
@@ -13486,11 +13509,13 @@
                 dropdownEl.classList.add('open');
                 _fitAcToViewport(dropdownEl);
             }
-            if (window.visualViewport) { // [EN] klawiatura wjeżdża / strona się przesuwa — lista dalej kończy się nad paskiem
-                var refit = function() { if (dropdownEl.classList.contains('open')) _fitAcToViewport(dropdownEl); };
+            // [EN] klawiatura wjeżdża / strona się przesuwa (iOS dosuwa pole) — lista dalej mieści się w widoku
+            var refit = function() { if (dropdownEl.classList.contains('open')) _fitAcToViewport(dropdownEl); };
+            if (window.visualViewport) {
                 window.visualViewport.addEventListener('resize', refit);
                 window.visualViewport.addEventListener('scroll', refit);
             }
+            document.addEventListener('scroll', refit, { capture: true, passive: true }); // scroll nie bąbelkuje
             function setActiveItem(idx) {
                 var rows = dropdownEl.querySelectorAll('.autocomplete-item');
                 rows.forEach(function (r) { r.classList.remove('active'); });
@@ -13578,11 +13603,13 @@
                 dropdownEl.classList.add('open');
                 _fitAcToViewport(dropdownEl);
             }
-            if (window.visualViewport) { // [EN] klawiatura wjeżdża / strona się przesuwa — lista dalej kończy się nad paskiem
-                var refit = function() { if (dropdownEl.classList.contains('open')) _fitAcToViewport(dropdownEl); };
+            // [EN] klawiatura wjeżdża / strona się przesuwa (iOS dosuwa pole) — lista dalej mieści się w widoku
+            var refit = function() { if (dropdownEl.classList.contains('open')) _fitAcToViewport(dropdownEl); };
+            if (window.visualViewport) {
                 window.visualViewport.addEventListener('resize', refit);
                 window.visualViewport.addEventListener('scroll', refit);
             }
+            document.addEventListener('scroll', refit, { capture: true, passive: true }); // scroll nie bąbelkuje
 
             function insertACSuggestion(item) {
                 var val = inputEl.value;

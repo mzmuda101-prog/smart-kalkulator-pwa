@@ -4240,6 +4240,14 @@
         .autocomplete-dropdown.open {
             display: block;
         }
+        /* [EN] Za mało miejsca pod polem (pasek skrótów + klawiatura na iPhonie) — lista nad polem (_fitAcToViewport). */
+        .autocomplete-dropdown.is-above { /* w <body>, pozycję ustawia JS */
+            position: fixed;
+            right: auto;
+            bottom: auto;
+            margin: 0;
+            z-index: 1001;
+        }
         .autocomplete-item {
             display: flex;
             align-items: baseline;

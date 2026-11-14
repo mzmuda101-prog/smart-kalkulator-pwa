@@ -166,3 +166,48 @@ test('telefon, klawisze: podpowiedzi to klikalne chipy w panelu, nie dymek nad k
   await page.locator('#calcLiveHint button').first().click();
   await expect(page.locator('#calcExpr')).not.toHaveValue('dzis');
 });
+
+// [PL] Zgłoszenie z iPhone'a (kilka razy): w trybie „Zdanie” pole stoi tuż nad paskiem skrótów (historia nad nim),
+// pod polem nie ma miejsca — lista podpowiedzi lądowała pod paskiem i klawiaturą. Ma się otworzyć NAD polem.
+test('tryb „Zdanie”: pole tuż nad paskiem skrótów — lista podpowiedzi otwiera się nad polem', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile', 'pasek skrótów pływa tylko na telefonie');
+  await NP.waitAppReady(page);
+  await page.evaluate(() => {
+    const cb = document.getElementById('settingStandardAutocomplete');
+    cb.checked = true; cb.dispatchEvent(new Event('change', { bubbles: true }));
+    window.__calcKeyBarForce = true;
+    document.querySelector('.calc-layout-toggle').click();
+  });
+  await page.locator('#calcExpr').focus();
+  await page.evaluate(() => { document.body.style.paddingTop = '200px'; }); // „historia obliczeń” nad polem
+  await page.waitForTimeout(300); // pasek skrótów ustawia się w rAF
+  // „klawiatura” zabiera dół ekranu tak, że pasek skrótów staje tuż pod polem (jak na zrzucie z iPhone'a)
+  const geo = await page.evaluate(() => ({
+    wrapBottom: document.getElementById('calcExpr').parentElement.getBoundingClientRect().bottom,
+    kbH: document.getElementById('calcKeyBar').offsetHeight || 52,
+  }));
+  await page.setViewportSize({ width: 390, height: Math.round(geo.wrapBottom + 6 + geo.kbH) });
+  await page.waitForTimeout(300);
+  await page.locator('#calcExpr').pressSequentially('dzi', { delay: 60 });
+  await page.waitForSelector('#calcExprAC.open');
+  await page.waitForTimeout(250);
+  const st = await page.evaluate(() => {
+    const dd = document.getElementById('calcExprAC').getBoundingClientRect();
+    const wrap = document.getElementById('calcExpr').parentElement.getBoundingClientRect();
+    const kb = document.getElementById('calcKeyBar').getBoundingClientRect();
+    const hit = document.elementFromPoint(dd.left + dd.width / 2, dd.top + Math.min(30, dd.height / 2));
+    return { ddTop: dd.top, ddBottom: dd.bottom, ddH: dd.height, wrapTop: wrap.top, wrapBottom: wrap.bottom, kbTop: kb.top,
+             visible: !!(hit && hit.closest('#calcExprAC')) };
+  });
+  expect(st.visible, 'lista ma prostokąt, ale nic jej nie widać (przycięta albo zasłonięta)').toBe(true);
+  expect(st.wrapBottom, 'przygotowanie: pole ma stać tuż nad paskiem').toBeGreaterThan(st.kbTop - 40);
+  expect(st.wrapBottom, 'przygotowanie: pole nie może być pod paskiem').toBeLessThanOrEqual(st.kbTop);
+  expect(st.ddBottom, 'lista wchodzi pod pasek skrótów').toBeLessThanOrEqual(st.kbTop);
+  expect(st.ddBottom, 'lista ma być nad polem').toBeLessThanOrEqual(st.wrapTop + 1);
+  expect(st.ddTop).toBeGreaterThanOrEqual(0);
+  expect(st.ddH, 'lista za niska, by z niej korzystać').toBeGreaterThan(80);
+  // wybór z listy nad polem działa i lista wraca na swoje miejsce
+  await page.locator('#calcExprAC .autocomplete-item').first().dispatchEvent('mousedown');
+  await expect(page.locator('#calcExpr')).not.toHaveValue('dzi');
+  expect(await page.evaluate(() => document.getElementById('calcExprAC').classList.contains('open'))).toBe(false);
+});
