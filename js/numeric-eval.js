@@ -83,11 +83,20 @@
             .replace(/^y\s*=/i, '');
     }
 
+    var _FN_NAMES = ['srednia', 'asin', 'acos', 'atan', 'sinh', 'cosh', 'tanh', 'sqrt', 'floor', 'round', 'suma', 'mean',
+        'ceil', 'sin', 'cos', 'tan', 'cot', 'csc', 'abs', 'log', 'exp', 'sum', 'min', 'max', 'avg', 'ln'];
     function insertImplicitMultiplication(expr) {
-        var names = '(x|pi|e|sin|cos|tan|asin|acos|atan|sinh|cosh|tanh|cot|csc|sqrt|abs|log|ln|exp|floor|ceil|round)';
-        expr = expr.replace(new RegExp('(\\d|\\)|x|pi|e)(?=' + names + '|\\()', 'g'), '$1*');
-        expr = expr.replace(new RegExp('(\\))(?=(\\d|' + names + '))', 'g'), '$1*');
-        return expr;
+        // [EN] nazwy funkcji chowamy przed regułą — inaczej „max(” = „ma·x·(”, „exp(” = „e·xp(”
+        var saved = [];
+        expr = expr.replace(new RegExp('(' + _FN_NAMES.join('|') + ')(?=\\()', 'g'), function (f) {
+            saved.push(f); return '\uE000' + String.fromCharCode(65 + saved.length - 1) + '\uE001';
+        });
+        var next = '(?=x|pi|e|\uE000|\\()';
+        expr = expr.replace(new RegExp('(\\d|\\)|x|pi|e|\uE001)' + next, 'g'), function (m) {
+            return m === '\uE001' ? m : m + '*';
+        });
+        expr = expr.replace(/(\))(?=(\d|x|pi|e|\uE000))/g, '$1*');
+        return expr.replace(/\uE000([\s\S])\uE001/g, function (_, c) { return saved[c.charCodeAt(0) - 65]; });
     }
 
     function compileGraphExpression(raw) {
@@ -120,6 +129,7 @@
             floor: true,
             ceil: true,
             round: true,
+            sum: true, suma: true, min: true, max: true, avg: true, mean: true, srednia: true,
         };
 
         var names = expr.match(/[a-z]+/g) || [];
@@ -129,7 +139,7 @@
             }
         }
 
-        if (!/^[0-9a-z+\-*/^().]+$/.test(expr)) {
+        if (!/^[0-9a-z+\-*/^().;]+$/.test(expr)) {
             throw new Error('Użyj tylko liczb, x, nawiasów, operatorów i prostych funkcji.');
         }
 
@@ -158,6 +168,7 @@
                     idx += match[0].length;
                     continue;
                 }
+                if (ch === ';') { t.push({ type: 'sep', value: ch }); idx++; continue; } // [EN] separator argumentów
                 if ('+-*/^()'.indexOf(ch) !== -1) {
                     t.push({ type: ch === '(' || ch === ')' ? 'paren' : 'operator', value: ch });
                     idx++;
@@ -237,12 +248,13 @@
                 }
                 if (peek() && peek().type === 'paren' && peek().value === '(') {
                     consume();
-                    var arg = parseExpression();
+                    var args = [parseExpression()];
+                    while (peek() && peek().type === 'sep') { consume(); args.push(parseExpression()); }
                     if (!peek() || peek().type !== 'paren' || peek().value !== ')') {
                         throw new Error('Brak nawiasu kończącego.');
                     }
                     consume();
-                    return evaluateFunction(token.value, arg);
+                    return evaluateFunction(token.value, args);
                 }
                 throw new Error('Funkcja ' + token.value + ' wymaga nawiasów.');
             }
@@ -258,7 +270,19 @@
             throw new Error('Nieprawidłowe wyrażenie.');
         }
 
-        function evaluateFunction(name, arg) {
+        function evaluateFunction(name, args) {
+            var arg = args[0];
+            switch (name) { // [EN] funkcje wieloargumentowe; reszta przyjmuje dokładnie jeden argument
+                case 'sum': case 'suma': return args.reduce(function (a, b) { return a + b; }, 0);
+                case 'avg': case 'mean': case 'srednia': return args.reduce(function (a, b) { return a + b; }, 0) / args.length;
+                case 'min': return Math.min.apply(Math, args);
+                case 'max': return Math.max.apply(Math, args);
+                case 'round':
+                    if (args.length > 2) throw new Error('round przyjmuje liczbę i liczbę miejsc.');
+                    if (args.length === 2) { var k = Math.pow(10, Math.round(args[1])); return Math.round(arg * k) / k; }
+                    return Math.round(arg);
+            }
+            if (args.length !== 1) throw new Error('Funkcja ' + name + ' przyjmuje jeden argument.');
             switch (name) {
                 case 'sin': return Math.sin(arg);
                 case 'cos': return Math.cos(arg);

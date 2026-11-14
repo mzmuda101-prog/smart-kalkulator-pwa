@@ -45,7 +45,7 @@ ok(kind('teraz - 2 dni') === 'date', 'teraz - 2 dni nadal datą, nie strefą');
 
 // Konwersja zegara między strefami (offset zależy od DST — tylko format + sens)
 var conv = text('17:00 w Londynie na Tokio');
-ok(/^\d{2}:\d{2} \(Tokio\)$/.test(conv), '17:00 w Londynie na Tokio | got: ' + conv);
+ok(/^\d{2}:\d{2} \(Tokio(, jutro)?\)$/.test(conv), '17:00 w Londynie na Tokio | got: ' + conv);
 
 // „time in 3 weeks" NIE jest strefą (parser dat)
 ok(kind('time in 3 weeks') !== 'clock' || text('time in 3 weeks') == null,

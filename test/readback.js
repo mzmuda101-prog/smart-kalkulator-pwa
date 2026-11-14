@@ -63,7 +63,7 @@ EXPRS.forEach(function (expr) {
 // Odrębnie: wynik zegarowy i datowy MUSZĄ dać się odczytać nawet z opisem w nawiasie,
 // a nawias MATEMATYCZNY nie może zostać zjedzony przy okazji.
 const EXTRA = [
-    ['20:00', true], ['07:05 (Tokio)', true], ['09:00 (SF)', true],
+    ['20:00', true], ['07:05 (Tokio)', true], ['07:05 (Tokio, jutro)', true], ['16:00 (Londyn, wczoraj)', true], ['09:00 (SF)', true],
     ['30.1.2026 (piątek)', true], ['25 km²', true], ['3 kg/m³', true], ['5²', true],
     ['21.9.2026 14:30', true],    // data Z GODZINA - tak wyglada wynik 'teraz'
     ['32.9.2026 10:00', false],   // bledna data nadal odpada

@@ -215,7 +215,30 @@
         'melbourne': 'Australia/Melbourne', 'mel': 'Australia/Melbourne',
         'dubaj': 'Asia/Dubai', 'dubaju': 'Asia/Dubai', 'dubai': 'Asia/Dubai', 'dxb': 'Asia/Dubai',
         'doha': 'Asia/Qatar', 'doh': 'Asia/Qatar',
-        'utc': 'UTC', 'gmt': 'UTC', 'zulu': 'UTC'
+        'brisbane': 'Australia/Brisbane', 'bne': 'Australia/Brisbane', 'perth': 'Australia/Perth', 'per': 'Australia/Perth',
+        'auckland': 'Pacific/Auckland', 'akl': 'Pacific/Auckland', 'honolulu': 'Pacific/Honolulu', 'hnl': 'Pacific/Honolulu',
+        'lizbona': 'Europe/Lisbon', 'lizbonie': 'Europe/Lisbon', 'lisbon': 'Europe/Lisbon', 'lis': 'Europe/Lisbon',
+        'dublin': 'Europe/Dublin', 'dublinie': 'Europe/Dublin', 'dub': 'Europe/Dublin',
+        'reykjavik': 'Atlantic/Reykjavik', 'kef': 'Atlantic/Reykjavik',
+        'kair': 'Africa/Cairo', 'kairze': 'Africa/Cairo', 'cairo': 'Africa/Cairo', 'cai': 'Africa/Cairo',
+        'johannesburg': 'Africa/Johannesburg', 'jnb': 'Africa/Johannesburg', 'kapsztad': 'Africa/Johannesburg', 'cape town': 'Africa/Johannesburg',
+        'tel awiw': 'Asia/Jerusalem', 'tel aviv': 'Asia/Jerusalem', 'tlv': 'Asia/Jerusalem',
+        'dżakarta': 'Asia/Jakarta', 'dzakarta': 'Asia/Jakarta', 'jakarta': 'Asia/Jakarta', 'bali': 'Asia/Makassar',
+        'manila': 'Asia/Manila', 'mnl': 'Asia/Manila', 'tajpej': 'Asia/Taipei', 'taipei': 'Asia/Taipei', 'tpe': 'Asia/Taipei',
+        'osaka': 'Asia/Tokyo', 'kix': 'Asia/Tokyo', 'anchorage': 'America/Anchorage', 'anc': 'America/Anchorage',
+        'phoenix': 'America/Phoenix', 'phx': 'America/Phoenix', 'montreal': 'America/Toronto', 'yul': 'America/Toronto',
+        'lima': 'America/Lima', 'bogota': 'America/Bogota', 'santiago': 'America/Santiago',
+        'rio': 'America/Sao_Paulo', 'rio de janeiro': 'America/Sao_Paulo',
+        'utc': 'UTC', 'gmt': 'UTC', 'zulu': 'UTC',
+        // [EN] skróty stref: ogólne (PT/ET/CT/MT) idą za czasem letnim, konkretne (PST, CEST…) są stałe
+        'pt': 'America/Los_Angeles', 'pst': 'Etc/GMT+8', 'pdt': 'Etc/GMT+7',
+        'mt': 'America/Denver', 'mst': 'Etc/GMT+7', 'mdt': 'Etc/GMT+6',
+        'ct': 'America/Chicago', 'cst': 'Etc/GMT+6', 'cdt': 'Etc/GMT+5',
+        'et': 'America/New_York', 'est': 'Etc/GMT+5', 'edt': 'Etc/GMT+4',
+        'cet': 'Etc/GMT-1', 'cest': 'Etc/GMT-2', 'wet': 'Etc/GMT', 'west': 'Etc/GMT-1',
+        'eet': 'Etc/GMT-2', 'eest': 'Etc/GMT-3', 'bst': 'Etc/GMT-1', 'msk': 'Europe/Moscow',
+        'jst': 'Asia/Tokyo', 'kst': 'Asia/Seoul', 'hkt': 'Asia/Hong_Kong', 'sgt': 'Asia/Singapore',
+        'aest': 'Etc/GMT-10', 'aedt': 'Etc/GMT-11', 'nzst': 'Etc/GMT-12', 'nzdt': 'Etc/GMT-13'
     };
 
     /* ── PL_UNIT_GRAMMAR — odmiana jednostek słownych (polski) ─────────────────

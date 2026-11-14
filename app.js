@@ -14630,8 +14630,8 @@
             results.push({ expr: 'który dzień tygodnia 25.12.2026 → piątek', pass: /25\.12\.2026.*pi[ąa]tek/.test(wdText('który dzień tygodnia 25.12.2026')), got: wdText('który dzień tygodnia 25.12.2026') });
             // Strefy czasowe — offset Londyn↔Tokio zależy od DST (8h lato / 9h zima), więc nie
             // sprawdzamy konkretnej godziny; sprawdzamy format HH:MM + etykietę strefy docelowej.
-            results.push({ expr: '17:00 w Londynie na Tokio → HH:MM (Tokio)', pass: /^\d{2}:\d{2} \(Tokio\)$/.test(wdText('17:00 w Londynie na Tokio')), got: wdText('17:00 w Londynie na Tokio') });
-            results.push({ expr: 'która godzina w Tokio → HH:MM (Tokio)', pass: /^\d{2}:\d{2} \(Tokio\)$/.test(wdText('która godzina w Tokio')), got: wdText('która godzina w Tokio') });
+            results.push({ expr: '17:00 w Londynie na Tokio → HH:MM (Tokio)', pass: /^\d{2}:\d{2} \(Tokio(, jutro|, wczoraj)?\)$/.test(wdText('17:00 w Londynie na Tokio')), got: wdText('17:00 w Londynie na Tokio') });
+            results.push({ expr: 'która godzina w Tokio → HH:MM (Tokio)', pass: /^\d{2}:\d{2} \(Tokio(, jutro|, wczoraj)?\)$/.test(wdText('która godzina w Tokio')), got: wdText('która godzina w Tokio') });
             // Domyślne jednostki wyświetlania (ustawienia) — gołe sumy zwijają się do preferowanej;
             // jawne „X na Y" wygrywa. Zapis/odtworzenie stanu, by nie wpłynąć na inne testy.
             var savedDU = STATE.settings.defaultUnits;

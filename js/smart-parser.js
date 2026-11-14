@@ -201,6 +201,14 @@
             workCode: workCode
         };
     }
+    function _evalUnitExprBase(res) { // [EN] policzone wyrażenie w jednostce bazowej; fallback = suma literałów
+        var N = _numeric();
+        var e = String(res.expr || '').replace(/,(?=\d)/g, '.').replace(/×/g, '*').replace(/÷/g, '/')
+            .replace(/−/g, '-').replace(/\s+/g, '');
+        var fn = e && N.compileGraphExpression ? N.compileGraphExpression(e) : null;
+        var v = fn ? fn(0) : NaN;
+        return isFinite(v) ? v * (res.workFactor || 1) : res.valueInBase;
+    }
     function resolveUnitsExpression(raw, options) {
         var opts = options || {};
         var unitDefs = opts.unitDefs || {};
@@ -277,9 +285,11 @@
             var inner = resolveUnitsExpression(naMatch[1].trim(), opts);
             var targetDef = unitDefs[naMatch[2].toLowerCase()];
             if (inner.unit !== null && targetDef && inner.cat === targetDef.cat) {
-                var converted = inner.valueInBase / targetDef.factor;
+                // [EN] valueInBase = suma literałów („-2 h” → 2 h, „2 h * 3” → 2 h); liczymy całe wyrażenie
+                var innerBase = _evalUnitExprBase(inner);
+                var converted = innerBase / targetDef.factor;
                 var targetKey = naMatch[2].toLowerCase();
-                return { expr: String(converted), unit: unitDisplay[targetKey] || targetKey, cat: targetDef.cat, valueInBase: inner.valueInBase, explicitConvert: true };
+                return { expr: _plainNum(converted), unit: unitDisplay[targetKey] || targetKey, cat: targetDef.cat, valueInBase: innerBase, explicitConvert: true };
             }
         }
 
@@ -942,6 +952,328 @@
         return null;
     }
 
+    /* [PL] ILE ZOSTAŁO / ILE MINĘŁO / NUMER TYGODNIA — parytet z Raycastem 2.12
+       („days left in this month”, „hours left in today”, „days since march”, „week 44 2026”).
+       Dni liczymy kalendarzowo bez dzisiejszego: 14.11 → do końca listopada zostało 16 dni. */
+    function _isoWeek(d) { // [EN] ISO 8601: tydzień z czwartkiem; zwraca { week, year }
+        var t = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        t.setDate(t.getDate() + 3 - (t.getDay() + 6) % 7);
+        var y = t.getFullYear(), jan4 = new Date(y, 0, 4);
+        var w = 1 + Math.round(((t - jan4) / 86400000 - 3 + (jan4.getDay() + 6) % 7) / 7);
+        return { week: w, year: y };
+    }
+    function _isoWeekStart(week, year) {
+        var jan4 = new Date(year, 0, 4);
+        var mon = new Date(year, 0, 4 - (jan4.getDay() + 6) % 7);
+        mon.setDate(mon.getDate() + (week - 1) * 7);
+        return mon;
+    }
+    function _dayDiff(a, b) { // [EN] pełne dni kalendarzowe b − a (odporne na zmianę czasu)
+        return Math.round((Date.UTC(b.getFullYear(), b.getMonth(), b.getDate()) -
+            Date.UTC(a.getFullYear(), a.getMonth(), a.getDate())) / 86400000);
+    }
+    function _periodEnd(kind, now) { // [EN] chwila końca okresu (północ po ostatnim dniu)
+        var t = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        if (kind === 'day') t.setDate(t.getDate() + 1);
+        else if (kind === 'week') t.setDate(t.getDate() + 7 - (t.getDay() + 6) % 7);
+        else if (kind === 'month') t = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        else t = new Date(now.getFullYear() + 1, 0, 1);
+        return t;
+    }
+    function _periodKind(w) {
+        if (/^(?:dni[a-z]*|dzien|dzis|dzisiaj|today|day)$/.test(w)) return 'day';
+        if (/^(?:tydz[a-z]*|tygodni[a-z]*|week)$/.test(w)) return 'week';
+        if (/^(?:miesi[a-z]*|month)$/.test(w)) return 'month';
+        if (/^(?:rok|roku|year)$/.test(w)) return 'year';
+        return null;
+    }
+    function _unitKind(w) {
+        if (/^(?:dni|dnia|dzien|days?)$/.test(w)) return 'days';
+        if (/^(?:godzin[a-z]*|godz|h|hours?)$/.test(w)) return 'hours';
+        if (/^(?:minut[a-z]*|min|minutes?)$/.test(w)) return 'minutes';
+        if (/^(?:tygodni[a-z]*|tydzien|weeks?)$/.test(w)) return 'weeks';
+        return null;
+    }
+    function _remainingResult(unit, period) {
+        var now = _now(), end = _periodEnd(period, now);
+        if (unit === 'days') {
+            var n = _dayDiff(now, end) - 1;
+            return { text: _fmtDays(n), value: n, kind: 'date' };
+        }
+        if (unit === 'weeks') {
+            var wk = (_dayDiff(now, end) - 1) / 7;
+            return { value: parseFloat(wk.toFixed(2)), unit: null, kind: 'number',
+                     text: _formatLocaleNumber(wk, 1) + ' tyg.' };
+        }
+        var sec = Math.max(0, Math.round((end - now) / 1000));
+        if (unit === 'minutes') {
+            var mn = Math.floor(sec / 60);
+            return { value: mn, unit: 'min', kind: 'duration', text: _formatLocaleNumber(mn, 0) + ' min' };
+        }
+        return { value: sec / 3600, unit: null, kind: 'duration', text: formatDurationSeconds(sec) };
+    }
+    function evalPeriodRemaining(raw) {
+        var s = _plFold(raw).trim().replace(/\s+/g, ' ').replace(/[?!.]+$/, '');
+        if (!s) return null;
+        var m, k, u;
+        // „ile dni do końca miesiąca”, „ile godzin zostało do końca dnia”
+        if ((m = s.match(/^(?:ile )?([a-z]+) (?:(?:zostalo|pozostalo|zostaje) )?do konca (?:tego |biezacego )?([a-z]+)$/)) &&
+            (u = _unitKind(m[1])) && (k = _periodKind(m[2]))) return _remainingResult(u, k);
+        // „days left in this month”, „hours left in today”, „days remaining in 2026”
+        if ((m = s.match(/^(?:how many )?([a-z]+) (?:left|remaining) (?:in|of|until the end of) (?:this |the )?([a-z]+)$/)) &&
+            (u = _unitKind(m[1])) && (k = _periodKind(m[2]))) return _remainingResult(u, k);
+        // „ile do 15:00”, „until 3pm”, „time until 17:30” → ile czasu od teraz (przez północ = jutro)
+        if ((m = s.match(/^(?:ile (?:czasu |godzin |minut )?(?:zostalo |jeszcze )?do|(?:time |how long )?(?:left )?until|do) (\d{1,2}(?::\d{2})?(?: ?(?:am|pm))?)$/))) {
+            var tgt = _parseClockToken(m[1]);
+            if (tgt != null && /:|am|pm/.test(m[1])) {
+                var nowD = _now(), diffMin = tgt - (nowD.getHours() * 60 + nowD.getMinutes() + nowD.getSeconds() / 60);
+                if (diffMin <= 0) diffMin += 1440;
+                return { value: diffMin, unit: null, kind: 'duration', text: formatDurationSeconds(Math.round(diffMin) * 60) };
+            }
+        }
+        // „ile dni do piątku”, „days until friday”, „do niedzieli” → najbliższy taki dzień (dziś → za tydzień)
+        if ((m = s.match(/^(?:ile dni (?:zostalo )?do|(?:how many )?days (?:left )?until|until|do) ([a-z]+)$/))) {
+            var wdU = _parseWeekday(m[1]);
+            if (wdU >= 0) { var nU = _dayDiff(_today(), _weekdayDate(wdU, 1)); return { text: _fmtDays(nU), value: nU, kind: 'date' }; }
+        }
+        // „days since march”, „dni od marca”, „ile dni minęło od 1.3”
+        if ((m = s.match(/^(?:how many )?(?:days|dni) since (.+)$/)) ||
+            (m = s.match(/^(?:ile )?dni (?:minelo |uplynelo )?od (.+)$/))) {
+            var tok = m[1].trim(), from = null, mo = _MONTHS[tok];
+            if (mo) {
+                from = new Date(_today().getFullYear(), mo - 1, 1);
+                if (from > _today()) from.setFullYear(from.getFullYear() - 1);
+            } else {
+                var p = _parseDateToken(tok);
+                if (p) { from = p.d; if (!p.hasYear && from > _today()) from.setFullYear(from.getFullYear() - 1); }
+            }
+            if (from) { var n = _dayDiff(from, _today()); return { text: _fmtDays(n), value: n, kind: 'date' }; }
+        }
+        // „week 44 2026”, „tydzień 44”, „44 tydzień 2026” → zakres pn–nd
+        if ((m = s.match(/^(?:week|tydzien|tyg\.?)(?: nr| numer)? (\d{1,2})(?: (\d{4}))?$/)) ||
+            (m = s.match(/^(\d{1,2})\.? (?:week|tydzien)(?: (\d{4}))?$/))) {
+            var wn = +m[1], wy = m[2] ? +m[2] : _today().getFullYear();
+            if (wn >= 1 && wn <= 53) {
+                var st = _isoWeekStart(wn, wy);
+                if (_isoWeek(st).week !== wn) return null; // [EN] rok bez 53. tygodnia
+                var en = new Date(st); en.setDate(en.getDate() + 6);
+                return { text: _fmtDate(st) + ' – ' + _fmtDate(en), value: null, kind: 'date' };
+            }
+        }
+        // „który tydzień”, „numer tygodnia”, „week number”, „który tydzień 25.12”
+        if ((m = s.match(/^(?:(?:ktory|jaki) (?:to |mamy )?(?:jest )?tydzien|numer tygodnia|nr tygodnia|tydzien roku|(?:current |what )?week(?: number| of year)?|week number of|which week)(?: (?:jest |dla |of |is |for )?(.+))?$/))) {
+            var dd = m[1] ? _parseDateToken(m[1].trim()) : { d: _today() };
+            if (dd) {
+                var iw = _isoWeek(dd.d);
+                return { value: iw.week, unit: null, kind: 'number', text: 'tydzień ' + iw.week + ' (' + iw.year + ')' };
+            }
+        }
+        return null;
+    }
+
+    /* [PL] FORMAT LICZBY — zaokrąglanie do kroku, ułamek zwykły, systemy liczbowe (Raycast 2.12:
+       „3.3 to nearest quarter”, „1.75 as improper”, bazy do 36). `inner` liczy lewą stronę pełnym silnikiem. */
+    var _ROUND_STEPS = [
+        [/^(?:quarter|cwiartk[a-z]*|czwart[a-z]*)$/, 0.25], [/^(?:half|polow[a-z]*|pol)$/, 0.5],
+        [/^(?:tenth|dziesiat[aej]j?|dziesiatej czesci)$/, 0.1], [/^(?:hundredth|setn[a-z]*)$/, 0.01],
+        [/^(?:whole(?: number)?|integer|calosci|calkowit[a-z]*|jednosci|one)$/, 1],
+        [/^(?:ten|tens|dziesiat(?:k[a-z]*|ek))$/, 10], [/^(?:hundreds?|set(?:k[a-z]*|ek))$/, 100],
+        [/^(?:thousands?|tysi[a-z]*)$/, 1000]
+    ];
+    function _roundStep(w) {
+        w = w.trim();
+        for (var i = 0; i < _ROUND_STEPS.length; i++) if (_ROUND_STEPS[i][0].test(w)) return _ROUND_STEPS[i][1];
+        if (/^[\d.,]+$/.test(w)) { var n = parseFloat(w.replace(',', '.')); return n > 0 ? n : null; }
+        return null;
+    }
+    function _toFraction(v) { // [EN] ułamek łańcuchowy, mianownik ≤ 10 000; null gdy v nie jest „ładnym” ułamkiem
+        if (!isFinite(v)) return null;
+        var sign = v < 0 ? -1 : 1, x = Math.abs(v), h1 = 1, h0 = 0, k1 = 0, k0 = 1, b = x;
+        for (var i = 0; i < 40; i++) {
+            var a = Math.floor(b), h2 = a * h1 + h0, k2 = a * k1 + k0;
+            if (k2 > 10000) break;
+            h0 = h1; h1 = h2; k0 = k1; k1 = k2;
+            if (Math.abs(x - h1 / k1) <= 1e-9 * Math.max(1, x)) return { n: sign * h1, d: k1 };
+            if (b - a < 1e-12) break;
+            b = 1 / (b - a);
+        }
+        return null;
+    }
+    var _BASES = [
+        [/^(?:hex|hexadecimal|szesnastkow[a-z]*)$/, 16], [/^(?:bin|binary|binarn[a-z]*|dwojkow[a-z]*)$/, 2],
+        [/^(?:oct|octal|osemkow[a-z]*)$/, 8], [/^(?:dec|decimal|dziesietn[a-z]*)$/, 10]
+    ];
+    function evalNumberFormat(raw, inner) {
+        var s = _plFold(raw).trim().replace(/\s+/g, ' ');
+        var m, r, v, w, step, dec;
+        function num(e) {
+            if (/^-?\d+(?:[.,]\d+)?$/.test(e.trim())) return { value: parseFloat(e.replace(',', '.')), unit: null }; // [EN] „3.3” sam = data
+            var x = inner(e); return x && x.value != null && isFinite(x.value) && x.text == null ? x : null; }
+        // ── zaokrąglanie: „zaokrąglij 23,456 do 1 miejsca”, „round 1234 to hundreds”, „3,3 do najbliższej ćwiartki”
+        if ((m = s.match(/^(?:zaokraglij|round)\s+(.+?)\s+(?:do|to)\s+(?:the\s+)?(?:nearest\s+|najblizsz[a-z]*\s+)?(.+)$/)) ||
+            (m = s.match(/^(.+?)\s+(?:zaokraglone\s+|rounded\s+)?(?:do|to)\s+(?:the\s+)?(?:nearest|najblizsz[a-z]*)\s+(.+)$/))) {
+            w = m[2];
+            if ((dec = w.match(/^(\d{1,2})\s*(?:miejsc[a-z]*|decimals?|places?|decimal places?|cyfr[a-z]*)(?:\s+po\s+przecinku)?$/))) step = Math.pow(10, -(+dec[1]));
+            else step = _roundStep(w);
+            if (step && (r = num(m[1]))) {
+                v = parseFloat((Math.round(r.value / step) * step).toPrecision(12));
+                return { value: v, unit: r.unit || null, kind: r.kind || 'number', exact: true };
+            }
+        }
+        // ── ułamek: „1,75 jako ułamek” → 7/4, „1,75 jako liczba mieszana” → 1 3/4
+        if ((m = s.match(/^(.+?)\s+(?:as|jako|na)\s+(?:(?:an?\s+)?improper(?:\s+fraction)?|fraction|ulamek(?:\s+(?:niewlasciwy|zwykly))?|ulamki?\s+zwykl[a-z]*)$/)) ||
+            (m = s.match(/^(.+?)\s+(?:as|jako|na)\s+(?:(?:a\s+)?mixed(?:\s+(?:number|fraction))?|liczb[ae]\s+mieszan[a-z]*|ulamek\s+mieszany)$/))) {
+            var mixed = /mixed|mieszan/.test(s.slice(m[1].length));
+            if ((r = num(m[1])) && !r.unit) {
+                var f = _toFraction(r.value);
+                if (!f) return { value: r.value, unit: null, kind: 'number', text: 'brak dokładnego ułamka' };
+                var txt;
+                if (f.d === 1) txt = String(f.n);
+                else if (mixed && Math.abs(f.n) > f.d) {
+                    var whole = Math.trunc(f.n / f.d);
+                    txt = whole + ' ' + Math.abs(f.n - whole * f.d) + '/' + f.d;
+                } else txt = f.n + '/' + f.d;
+                return { value: r.value, unit: null, kind: 'number', text: txt, exact: true };
+            }
+        }
+        // ── systemy liczbowe: „255 na hex”, „255 w systemie 36”, „0xff na bin”
+        if ((m = s.match(/^(.+?)\s+(?:na|to|in|w|jako|as)\s+(?:(?:systemie|system|base|podstawie|bazie)\s+(\d{1,2})|(?:system[a-z]*\s+)?([a-z]+))$/))) {
+            var base = m[2] ? +m[2] : 0;
+            if (!base && m[3]) for (var i = 0; i < _BASES.length; i++) if (_BASES[i][0].test(m[3])) base = _BASES[i][1];
+            if (base >= 2 && base <= 36 && (r = num(m[1])) && !r.unit && Number.isInteger(r.value) && Math.abs(r.value) <= Number.MAX_SAFE_INTEGER) {
+                var digits = Math.abs(r.value).toString(base).toUpperCase(), sg = r.value < 0 ? '-' : '';
+                var pre = base === 16 ? '0x' : base === 2 ? '0b' : base === 8 ? '0o' : '';
+                var out = base === 10 ? String(r.value) : (pre ? sg + pre + digits : sg + digits + ' (system ' + base + ')');
+                return { value: r.value, unit: null, kind: 'number', text: out, exact: true };
+            }
+        }
+        return null;
+    }
+    function _expandBaseLiterals(s) { // [EN] 0xff / 0b1010 / 0o17 → dziesiętnie (BigInt, bez utraty precyzji)
+        return String(s).replace(/(^|[^\w.,])0([xbo])([0-9a-f]+)(?![\w.])/gi, function (m, pre, k, d) {
+            var base = { x: 16, b: 2, o: 8 }[k.toLowerCase()];
+            var ok = base === 16 ? /^[0-9a-f]+$/i.test(d) : base === 2 ? /^[01]+$/.test(d) : /^[0-7]+$/.test(d);
+            return ok ? pre + BigInt('0' + k.toLowerCase() + d).toString() : m;
+        });
+    }
+
+    /* [PL] NAUKA — tempo biegu, czas transferu, stałe fizyczne, nuty, masa molowa (Raycast 2.12).
+       Wszystko offline: małe tabele, zero sieci. */
+    var _PHYS_CONST = [ // [EN] fraza → wyrażenie; z jednostką silnika tam, gdzie ją zna (konwersje działają)
+        [/\b(?:pr[eę]dko[sś][cć]\s+[sś]wiat[lł]a|speed\s+of\s+light)\b/gi, '299792458 m/s'],
+        [/\b(?:pr[eę]dko[sś][cć]\s+d[zź]wi[eę]ku|speed\s+of\s+sound)\b/gi, '343 m/s'],
+        [/\b(?:przyspieszeni[ea]\s+ziemskie(?:go)?|standard\s+gravity|grawitacj[ai]\s+ziemsk[a-z]*)\b/gi, '9.80665'],
+        [/\b(?:sta[lł][aą]\s+avogadra|avogadro(?:'s)?\s+(?:number|constant))\b/gi, '(6.02214076*10^(23))'],
+        [/\b(?:sta[lł][aą]\s+plancka|planck(?:'s)?\s+constant)\b/gi, '(6.62607015*10^(-34))'],
+        [/\b(?:sta[lł][aą]\s+boltzmanna|boltzmann(?:'s)?\s+constant)\b/gi, '(1.380649*10^(-23))'],
+        [/\b(?:[lł]adun(?:ek|ku)\s+elementarn[a-z]*|elementary\s+charge)\b/gi, '(1.602176634*10^(-19))'],
+        [/\b(?:sta[lł][aą]\s+grawitacji|gravitational\s+constant)\b/gi, '(6.6743*10^(-11))'],
+        [/\b(?:sta[lł][aą]\s+gazowa|gas\s+constant)\b/gi, '8.314462618']
+    ];
+    function _expandPhysConstants(s) {
+        if (!/[a-ząćęłńóśźż]{4}/i.test(s)) return s;
+        for (var i = 0; i < _PHYS_CONST.length; i++) s = s.replace(_PHYS_CONST[i][0], _PHYS_CONST[i][1]);
+        return s;
+    }
+    var _ATOMIC = { H: 1.008, He: 4.0026, Li: 6.94, Be: 9.0122, B: 10.81, C: 12.011, N: 14.007, O: 15.999,
+        F: 18.998, Ne: 20.180, Na: 22.990, Mg: 24.305, Al: 26.982, Si: 28.085, P: 30.974, S: 32.06, Cl: 35.45,
+        Ar: 39.95, K: 39.098, Ca: 40.078, Sc: 44.956, Ti: 47.867, V: 50.942, Cr: 51.996, Mn: 54.938,
+        Fe: 55.845, Co: 58.933, Ni: 58.693, Cu: 63.546, Zn: 65.38, Ga: 69.723, Ge: 72.630, As: 74.922,
+        Se: 78.971, Br: 79.904, Kr: 83.798, Rb: 85.468, Sr: 87.62, Y: 88.906, Zr: 91.224, Nb: 92.906,
+        Mo: 95.95, Pd: 106.42, Ag: 107.87, Cd: 112.41, Sn: 118.71, Sb: 121.76, I: 126.90, Xe: 131.29,
+        Cs: 132.91, Ba: 137.33, W: 183.84, Pt: 195.08, Au: 196.97, Hg: 200.59, Pb: 207.2, Bi: 208.98, U: 238.03 };
+    function _molarMass(f) { // [EN] wzór z nawiasami: Ca(OH)2, C6H12O6; null gdy nieznany pierwiastek
+        var i = 0;
+        function group() {
+            var sum = 0;
+            while (i < f.length && f[i] !== ')') {
+                var part;
+                if (f[i] === '(') { i++; part = group(); if (part == null || f[i] !== ')') return null; i++; }
+                else {
+                    var el = f.slice(i).match(/^[A-Z][a-z]?/);
+                    if (!el || _ATOMIC[el[0]] == null) return null;
+                    part = _ATOMIC[el[0]]; i += el[0].length;
+                }
+                var n = f.slice(i).match(/^\d+/);
+                if (n) { part *= +n[0]; i += n[0].length; }
+                sum += part;
+            }
+            return sum;
+        }
+        var r = group();
+        return r != null && i === f.length && r > 0 ? r : null;
+    }
+    var _NOTE_SEMI = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11, h: 11 };
+    var _NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    function _paceSec(mm, ss) { return (+mm) * 60 + (+ss); }
+    function _fmtPace(sec) { sec = Math.round(sec); return Math.floor(sec / 60) + ':' + (sec % 60 < 10 ? '0' : '') + (sec % 60); }
+    function evalScience(raw) {
+        var t = String(raw || '').trim().replace(/\s+/g, ' ');
+        var s = _plFold(t), m, v;
+        // ── masa molowa: „masa molowa C6H12O6”, „molar mass of H2O” (wzór czytany z wielkością liter)
+        if ((m = t.match(/^(?:masa\s+molowa|molar\s+mass)(?:\s+(?:of|z|dla))?\s+([A-Za-z0-9()]+)$/i))) {
+            v = _molarMass(m[1]);
+            if (v != null) {
+                v = parseFloat(v.toFixed(3));
+                return { value: v, unit: 'g/mol', kind: 'number', exact: false, text: _formatLocaleNumber(v, 3) + ' g/mol' };
+            }
+            return null;
+        }
+        // ── tempo → prędkość: „5:00 min/km na km/h”, „tempo 5:30/km”
+        if ((m = s.match(/^(?:tempo |pace )?(\d{1,2}):(\d{2}) ?(?:min)? ?\/ ?(km|mi|mile|mila)(?: (?:na|in|to|w|jako|as) (km\/h|kmh|kph|mph))?$/))) {
+            var perUnitKm = /^mi/.test(m[3]) ? 1.609344 : 1, pace = _paceSec(m[1], m[2]);
+            if (pace > 0) {
+                var kmh = perUnitKm * 3600 / pace, toMph = m[4] === 'mph' || (!m[4] && perUnitKm !== 1);
+                v = toMph ? kmh / 1.609344 : kmh;
+                return { value: parseFloat(v.toFixed(2)), unit: toMph ? 'mph' : 'km/h', kind: 'physical', exact: false };
+            }
+        }
+        // ── prędkość → tempo: „12 km/h na tempo”, „10 mph to pace”
+        if ((m = s.match(/^([\d.,]+) ?(km\/h|kmh|kph|mph) (?:na|in|to|w|jako|as) (?:tempo|pace|min\/km|min\/mi)$/))) {
+            v = parseFloat(m[1].replace(',', '.'));
+            if (v > 0) {
+                var perMile = m[2] === 'mph' || /min\/mi$/.test(s);
+                var kmhIn = m[2] === 'mph' ? v * 1.609344 : v;
+                var secPer = (perMile ? 1.609344 : 1) * 3600 / kmhIn;
+                return { value: secPer / 60, unit: null, kind: 'duration', text: _fmtPace(secPer) + ' min/' + (perMile ? 'mi' : 'km') };
+            }
+        }
+        // ── czas biegu: „10 km w tempie 5:00”, „21,1 km at 4:45/km”
+        if ((m = s.match(/^([\d.,]+) ?(km|mi) (?:w tempie|przy tempie|tempem|at|at pace) (\d{1,2}):(\d{2}) ?(?:min)? ?(?:\/ ?(?:km|mi))?$/))) {
+            v = parseFloat(m[1].replace(',', '.')) * _paceSec(m[3], m[4]);
+            if (isFinite(v) && v > 0) return { value: v / 60, unit: null, kind: 'duration', text: formatDurationSeconds(v) };
+        }
+        // ── transfer: „1 TB przy 100 Mbps”, „transfer 4 GB at 50 MB/s” (B = bajty, b = bity)
+        if ((m = t.match(/^(?:(?:transfer|pobierz|pobranie|pobieranie|wys[lł]anie|upload|download)\s+)?([\d.,]+)\s*([kKMGTP]?)(i?)([bB])\s+(?:at|przy|po|@|z\s+pr[eę]dko[sś]ci[aą])\s+([\d.,]+)\s*([kKMGT]?)(bps|bit\/s|b\/s|B\/s|Bps)$/))) {
+            var P = { '': 1, k: 1e3, K: 1e3, M: 1e6, G: 1e9, T: 1e12, P: 1e15 };
+            var Pi = { '': 1, k: 1024, K: 1024, M: 1048576, G: 1073741824, T: 1099511627776, P: 1125899906842624 };
+            var sizeBits = parseFloat(m[1].replace(',', '.')) * (m[3] ? Pi : P)[m[2]] * (m[4] === 'B' ? 8 : 1);
+            var rateBits = parseFloat(m[5].replace(',', '.')) * P[m[6]] * (/^B/.test(m[7]) ? 8 : 1);
+            if (sizeBits > 0 && rateBits > 0) {
+                v = sizeBits / rateBits;
+                return { value: v / 60, unit: null, kind: 'duration', text: formatDurationSeconds(v) };
+            }
+        }
+        // ── nuta → Hz: „a4 na hz” = 440 Hz, „c#5 to hz” (B/H = si)
+        if ((m = s.match(/^([a-h])(#|is|s|b|es)?(-?\d) (?:na|to|in|w) (?:hz|herc[a-z]*)$/))) {
+            var semi = _NOTE_SEMI[m[1]] + (m[2] === '#' || m[2] === 'is' ? 1 : m[2] ? -1 : 0);
+            var midi = 12 * (+m[3] + 1) + semi;
+            v = parseFloat((440 * Math.pow(2, (midi - 69) / 12)).toFixed(2));
+            return { value: v, unit: 'Hz', kind: 'physical', exact: false };
+        }
+        // ── Hz → nuta: „440 hz na nutę”, „300 Hz to note”
+        if ((m = s.match(/^([\d.,]+) ?hz (?:na|to|in|w|jako|as) (?:nut[aeęy]|note|dzwiek)$/))) {
+            v = parseFloat(m[1].replace(',', '.'));
+            if (v > 0) {
+                var mf = 69 + 12 * Math.log2(v / 440), mr = Math.round(mf), cents = Math.round((mf - mr) * 100);
+                var name = _NOTE_NAMES[((mr % 12) + 12) % 12] + (Math.floor(mr / 12) - 1);
+                return { value: v, unit: null, kind: 'number',
+                         text: name + (cents ? ' ' + (cents > 0 ? '+' : '−') + Math.abs(cents) + ' ct' : '') };
+            }
+        }
+        return null;
+    }
+
     // Procent upływu okresu: „ile % dnia", „ile % roku minęło", „day percentage".
     function evalPeriodPercentage(raw) {
         var s = _plFold(raw).trim();
@@ -1444,8 +1776,9 @@
     function _tzLookup(name) { return _TZ_CITY[String(name).trim().toLowerCase()] || null; }
     function _tzLabel(name) {
         // [EN] Kody miast/lotnisk piszemy wersalikami — „sf" ma wyjść jako „SF", nie „Sf".
-        return String(name).trim().split(/\s+/).map(function (w) {
-            if (w.length <= 3) return w.toUpperCase();
+        var words = String(name).trim().split(/\s+/);
+        return words.map(function (w) {
+            if (w.length <= 3 && words.length === 1) return w.toUpperCase(); // [EN] „sf” → SF, ale „Los Angeles”
             return w.charAt(0).toUpperCase() + w.slice(1);
         }).join(' ');
     }
@@ -1459,13 +1792,16 @@
             return Math.round((asUTC - date.getTime()) / 60000);
         } catch (e) { return null; }
     }
-    function _tzNowInCity(cityRaw) {
+    function _tzNowInCity(cityRaw, plusMin) {
         var tz = _tzLookup(cityRaw); if (tz == null) return null;
         var d = new Date();
         var off = _tzOffsetMin(tz, d); if (off == null) return null;
         var offLocal = -d.getTimezoneOffset();
-        var rm = d.getHours() * 60 + d.getMinutes() + (off - offLocal);
-        return { text: _fmtClock(rm) + ' (' + _tzLabel(cityRaw) + ')', value: null, kind: 'clock', exact: true };
+        var rm = d.getHours() * 60 + d.getMinutes() + (off - offLocal) + (plusMin || 0);
+        // [EN] data TAMTEGO miejsca (Raycast 2.12): u nich może już być jutro / jeszcze wczoraj
+        var day = Math.floor(rm / 1440);
+        var dayLbl = day === 1 ? ', jutro' : day === -1 ? ', wczoraj' : day ? ', ' + (day > 0 ? '+' : '') + day + ' dni' : '';
+        return { text: _fmtClock(rm) + ' (' + _tzLabel(cityRaw) + dayLbl + ')', value: null, kind: 'clock', exact: true };
     }
     function evalTimezoneExpression(raw) {
         var s = String(raw || '').trim(); if (!s) return null;
@@ -1479,7 +1815,9 @@
             var offA = _tzOffsetMin(tzA, now), offB = _tzOffsetMin(tzB, now);
             if (offA == null || offB == null) return null;
             var resMin = baseMin + (offB - offA);
-            return { text: _fmtClock(resMin) + ' (' + _tzLabel(m[3]) + ')', value: null, kind: 'clock', exact: true };
+            var dShift = Math.floor(resMin / 1440);
+            var dLbl = dShift === 1 ? ', jutro' : dShift === -1 ? ', wczoraj' : '';
+            return { text: _fmtClock(resMin) + ' (' + _tzLabel(m[3]) + dLbl + ')', value: null, kind: 'clock', exact: true };
         }
         // Sama godzina 12h → 24h („5pm" = 17:00). Dla polskiego użytkownika to realna
         // konwersja, a dotąd nie zwracała nic.
@@ -1490,6 +1828,11 @@
         // „teraz NYC" / „teraz w Tokio" / „now in Kyoto" — skrót bez „czas w"/„time in"
         if ((m = low.match(new RegExp('^(?:teraz|now|czas|time)\\s+(?:' + _TZ_PREP + '\\s+)?(.+?)\\s*$')))) {
             var tzSh = _tzNowInCity(m[1]); if (tzSh) return tzSh;
+        }
+        // „czas w Tokio + 4”, „time in Brisbane - 30 min” — goła liczba = godziny (jak „3:45pm + 5”)
+        if ((m = low.match(new RegExp('^(?:czas|time|godzina|teraz|now)\\s+' + _TZ_PREP + '\\s+(.+?)\\s*([+\\-])\\s*(\\d+(?:[.,]\\d+)?)\\s*(h|godz[a-z]*|hours?|min[a-z]*)?\\s*$')))) {
+            var amt = parseFloat(m[3].replace(',', '.')) * (m[4] && /^min/.test(m[4]) ? 1 : 60);
+            var tzPlus = _tzNowInCity(m[1], m[2] === '-' ? -amt : amt); if (tzPlus) return tzPlus;
         }
         // „czas w <A>" / „time in <A>" / „która godzina w <A>" (Raycast-style)
         if ((m = low.match(new RegExp('^(?:(?:kt[oó]ra\\s+(?:jest\\s+)?godzina|czas|godzina)|(?:what(?:\'s|\\s+is)?\\s+(?:the\\s+)?time|what\\s+time|time))\\s+' + _TZ_PREP + '\\s+(.+?)\\s*$')))) {
@@ -1600,11 +1943,25 @@
             function(_, a, b) { return '(' + a.replace(',', '.') + '/' + b.replace(',', '.') + ')'; });
         raw = raw.replace(/([\d.,]+)\s+(?:to|do)\s+([\d.,]+)\s+(?:proporcja|stosunek|ratio)/gi,
             function(_, a, b) { return '(' + a.replace(',', '.') + '/' + b.replace(',', '.') + ')'; });
-        raw = raw.replace(/([\d.,]+)%\s+(?:tip|napiwek)\s+(?:on|na)\s+([\d.,]+)/gi,
+        // [EN] podział rachunku: „… split 3”, „… podziel na 3”, „… na 3 osoby” → (…)/3 (cała reszta zdania)
+        raw = raw.replace(/^(.+?)\s+(?:split|podziel(?:one|ic)?\s+na|na)\s+(\d+)\s*(?:os(?:ob[a-z]*|oby)|people|persons|ways)?\s*$/i,
+            function(m, body, n, _o, off, all) {
+                var tag = /\b(?:split|podziel)/i.test(m.slice(body.length)) || /os(?:ob|oby)|people|persons|ways/i.test(m.slice(body.length));
+                return tag && +n > 0 ? '((' + body + ')/' + n + ')' : m;
+            });
+        // [EN] VAT zawarty w kwocie brutto: „23% vat w 123”, „20% vat in 120”, „vat w 123” → x − x/(1+r)
+        raw = raw.replace(/(?:([\d.,]+)\s*%\s*)?\b(?:vat[a-z]*|tax)\b(?:\s+([\d.,]+)\s*%)?\s+(?:w|in|included\s+in|zawart[ya]\s+w)\s+([\d.,]+)/gi,
+            function(_, r1, r2, x) { var r = _vatRate(r1 || r2); x = x.replace(',', '.'); return '(' + x + '-' + x + '/(1+' + r + '/100))'; });
+        // [EN] „15% mniej od 813”, „15% decrease from 813” odejmują; „więcej/increase” dodają (zawsze, bez zgadywania)
+        raw = raw.replace(/([\d.,]+)%\s+(?:mniej|taniej|decrease|less|spadk[a-z]*|obnizk[a-z]*)\s+(?:od|z|niz|from|of|on|than)\s+([\d.,]+)/gi,
+            function(_, p, b) { return '(' + b.replace(',', '.') + '*(1-' + p.replace(',', '.') + '/100))'; });
+        raw = raw.replace(/([\d.,]+)%\s+(?:wiecej|drozej|increase|more|wzrost[a-z]*|podwyzk[a-z]*)\s+(?:od|z|niz|from|of|on|than)\s+([\d.,]+)/gi,
             function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
-        raw = raw.replace(/\b(?:tip|napiwek)\s+([\d.,]+)%\s+(?:on|na)\s+([\d.,]+)/gi,
+        raw = raw.replace(/([\d.,]+)%\s+(?:tip|napiwk[a-z]*|napiwek)\s+(?:on|na|od|do|z|of|for)\s+([\d.,]+)/gi,
             function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
-        raw = raw.replace(/([\d.,]+)%\s+(?:off|rabat[u]?|zni[zż]k[aię]?)\s+(?:na|od|z|on)?\s*([\d.,]+)/gi,
+        raw = raw.replace(/\b(?:tip|napiwk[a-z]*|napiwek)\s+([\d.,]+)%\s+(?:on|na|od|do|z|of|for)\s+([\d.,]+)/gi,
+            function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
+        raw = raw.replace(/([\d.,]+)%\s+(?:off|rabat[u]?|zni[zż]k[aię]?)\s+(?:na|od|z|on|from|of)?\s*([\d.,]+)/gi,
             function(_, p, b) { return '(' + b.replace(',', '.') + '*(1-' + p.replace(',', '.') + '/100))'; });
         raw = raw.replace(/\b(?:off|rabat[u]?|zni[zż]k[aię]?)\s+([\d.,]+)%\s+(?:na|od|z|on)?\s*([\d.,]+)/gi,
             function(_, p, b) { return '(' + b.replace(',', '.') + '*(1-' + p.replace(',', '.') + '/100))'; });
@@ -1799,7 +2156,7 @@
         out = out.replace(/(\d)\s*\u00b2/g, '$1^2').replace(/(\d)\s*\u00b3/g, '$1^3');
         var m = out.match(/^(.*\S)\s*\(([^()]*)\)\s*$/);
         if (m) {
-            var inner = String(m[2]).trim();
+            var inner = String(m[2]).trim().replace(/,\s*(?:jutro|wczoraj|[+-]?\d+\s*dni)$/i, ''); // „(Tokio, jutro)”
             // Dopisek doby z _dayShift: „(jutro)", „(wczoraj)", „(+2 dni)".
             // Sprawdzany ODDZIELNIE, bo „+2 dni" ma cyfrę i znak, więc wypadłby
             // przez filtr matematyczny niżej.
@@ -1849,7 +2206,7 @@
         var tolerated = _tolerateInput(raw);
         if (!tolerated) return _dbgFail(opts, 'empty_input');
         // Agregaty („suma z 100 200 300”) to LISTY liczb — tam spacja rozdziela pozycje.
-        var original = _normalizeCompactMultiplier(_joinThousandGroups(tolerated));
+        var original = _expandPhysConstants(_expandBaseLiterals(_normalizeCompactMultiplier(_joinThousandGroups(tolerated))));
         var fxRates = opts.fxRates || {};
         var currencyOpts = {
             fxRates: fxRates,
@@ -1882,6 +2239,8 @@
         if (spanRes) return spanRes;
         var workRes = evalWorkTime(original);
         if (workRes) return workRes;
+        var remainRes = evalPeriodRemaining(original);
+        if (remainRes) return remainRes;
         var dateRes = evalDateExpression(original);
         if (dateRes) {
             return { value: dateRes.value, text: dateRes.text, kind: 'date' };
@@ -1902,6 +2261,10 @@
         if (routeQ) return routeQ;
         var taxQ = evalTaxExpression(original);
         if (taxQ) return taxQ;
+        var sciQ = evalScience(original);
+        if (sciQ) return sciQ;
+        var fmtQ = evalNumberFormat(original, function (e) { return _evaluateCore(e, opts); });
+        if (fmtQ) return fmtQ;
         try {
             var expr = original;
             expr = resolveCalcConstants(expr, constOpts);
@@ -1965,6 +2328,8 @@
             if (opts.keepWorkCurrency && curRes.hasCurrency && curRes.workCode) {
                 unit = _currencyDisplay(curRes.workCode, { currencyCompactSymbols: currencyOpts.currencyCompactSymbols });
             }
+            // [EN] argumenty funkcji: „round(23,456; 1)”, „sum(1, 2, 3)” — przecinek ZE spacją albo średnik
+            if (/[a-z]\s*\(/i.test(expr)) expr = expr.replace(/,\s+/g, ';');
             expr = expr.replace(/,(?=\d)/g, '.');
             expr = expr.replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-');
             expr = expr.replace(/\s+/g, '');

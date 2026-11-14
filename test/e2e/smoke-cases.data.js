@@ -14,6 +14,15 @@ module.exports = {
         { expr: '20 C na F', value: 68 },
         { expr: '2 GB na MB', value: 2000 }, // SI: 1 GB = 1000 MB (binarnie: GiB/MiB)
         { expr: '9999999999999×9', value: 89999999999991 },
+        // Raycast 2.12 — przez prawdziwe pole (UI nie może zjeść ; ani minusa)
+        { expr: '-2 h na min', value: -120 },
+        { expr: '2 h * 3 na min', value: 360 },
+        { expr: 'max(3; 7; 2)', value: 7 },
+        { expr: 'round(23,456; 1)', value: 23.5, tol: 1e-9 },
+        { expr: '15% napiwku od 80', value: 92, tol: 1e-9 },
+        { expr: '23% vat w 123', value: 23, tol: 1e-9 },
+        { expr: '0b1010 + 1', value: 11 },
+        { expr: '5:00 min/km na km/h', value: 12, tol: 1e-9 },
     ],
     weird: [
         { expr: '', expectResultText: '0' },

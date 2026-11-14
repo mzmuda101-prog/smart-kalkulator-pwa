@@ -1,5 +1,17 @@
 # TODO / Do przemyślenia
 
+## Funkcje online na żądanie (pomysł na później)
+
+**Status:** zaplanować później (decyzja 2026-11-14, inspiracja: Raycast 2.12). NIE teraz.
+
+Pogoda (`pogoda w Paryżu`, `pogoda jutro`), loty (`lot BA117`), czas dojazdu
+(`czas dojazdu do Gdańska autem`), odległość między dowolnymi miejscami.
+
+Zasada: aplikacja domyślnie działa w 100% offline i nic nie wysyła. Sieć tylko wtedy,
+gdy jest internet ORAZ użytkownik wpisze taką komendę — szybko i bezpiecznie, z jasną
+informacją, że zapytanie idzie do sieci, i sensownym komunikatem bez internetu.
+Do przemyślenia: opt-in w ustawieniach, jakie API (bez kluczy / prywatne), cache wyników.
+
 ## AI — wąska, bezpieczna integracja (pomysł na przyszłość)
 
 **Status:** do przemyślenia, NIE priorytet. Rdzeń liczenia zostaje deterministyczny (parser regułowy + testy baseline).
@@ -85,6 +97,28 @@ w polu lądował martwy tekst. Zepsute było 6 z 15 rodzajów wyniku:
       więc mapowanie etykiety na jednostkę cicho nie działało.
 
 Bramka: `test/readback.js` (53 przypadki) + testy e2e historii i podpowiedzi.
+
+### Naprawione (v1.04.85) — parytet z Raycast 2.12
+
+Błąd poprawności: konwersja „X na jednostkę” brała sumę samych liczb z jednostkami
+zamiast policzonego wyrażenia (`-2 h na min` → 120, `2 h * 3 na min` → 120,
+`10 km - 15 km na m` → 25000). Teraz liczy całe wyrażenie, ze znakiem.
+
+- [x] Pieniądze: `15% napiwku od 80`, `23% vat w 123`, `25% off 60 split 3`,
+      `15% mniej od 813` (mniej/decrease zawsze odejmuje, więcej/increase dodaje)
+- [x] Daty: `ile dni do końca miesiąca`, `ile godzin do końca dnia`, `dni od marca`,
+      `tydzień 44 2026`, `który tydzień`, `ile do 17:00`, `ile dni do piątku`
+- [x] Funkcje wieloargumentowe: `round(x; n)`, `sum`/`suma`, `min`, `max`, `avg`/`średnia`
+      (średnik albo przecinek ze spacją); naprawione `exp(` i `max(` łamane przez mnożenie domyślne
+- [x] `3,3 do najbliższej ćwiartki`, `zaokrąglij 1234 do setek`, `1,75 jako ułamek` / `liczba mieszana`
+- [x] Systemy liczbowe: `255 na hex/bin/oct`, `w systemie 2–36`, wejście `0xff`, `0b1010`, `0o17`
+- [x] Strefy: skróty (UTC, CET, CEST, PT, ET, PST, JST…), `czas w Tokio + 4`, więcej miast,
+      dopisek `(Tokio, jutro)`, gdy tam jest inny dzień
+- [x] Nauka: tempo biegu ↔ km/h, czas biegu, czas transferu (B vs b), stałe fizyczne,
+      nuty ↔ Hz, masa molowa
+
+Bramka: `test/raycast-parity.js` (114 przypadków) + 8 nowych przypadków UI w `test/e2e/smoke-cases.data.js`.
+Poza zakresem (decyzja): tekst (`first 10 characters of …`), funkcje online — patrz wyżej.
 
 ### Znane flaky (NIE od zmian silnika)
 
