@@ -1,3 +1,4 @@
+// @ts-check
 /* ============================================================
    [EN] Matm0 Calc — czyste tablice danych (no-DOM, no-logic).
    Wydzielone z app.js dla porządku ("clean look"). Ładowane PRZED app.js;

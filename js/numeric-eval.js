@@ -1,3 +1,4 @@
+// @ts-check
 /* ============================================================
    [PL] Moduł numeryczny — BigInt, kompilacja wyrażeń (kalkulator + wykres).
    [EN] Numeric eval — BigInt path, compileExpression for calc + graph.

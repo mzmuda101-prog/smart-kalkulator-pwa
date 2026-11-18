@@ -1,3 +1,4 @@
+// @ts-check
 /* ============================================================
    [EN] APP VERSION — single source of truth for app version.
    Bump ONLY here. Read by Service Worker (importScripts) AND page (index.html).

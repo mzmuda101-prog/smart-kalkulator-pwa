@@ -37,12 +37,16 @@
     "test:e2e:report": "playwright show-report test-results/playwright-report",
     "sync-version": "node scripts/sync-sw-fingerprint.mjs",
     "test:predeploy": "npm run sync-version && npm test && npm run test:e2e",
-    "postinstall": "node scripts/vendor-decimal.mjs"
+    "postinstall": "node scripts/vendor-decimal.mjs",
+    "check": "tsc -p jsconfig.json",
+    "lint": "biome lint"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.6.8",
     "fast-check": "^3.23.2",
     "mathjs": "^15.2.0",
-    "playwright": "^1.60.0"
+    "playwright": "^1.60.0",
+    "typescript": "7.0.2"
   },
   "dependencies": {
     "decimal.js": "^10.6.0"

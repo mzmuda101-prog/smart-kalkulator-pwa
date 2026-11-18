@@ -1,3 +1,4 @@
+// @ts-check
 /* ============================================================
    [EN] MATM0_CALC — pochodne i całki krok po kroku (bez DOM, działa też w Node).
    Wyrażenie = lista składników {c: ułamek, fs: [{b: atom, e: wykładnik}]}.

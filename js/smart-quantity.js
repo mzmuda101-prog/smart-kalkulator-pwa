@@ -1,3 +1,4 @@
+// @ts-check
 /* ============================================================
    [PL] smart-quantity — FUNDAMENT „typowanej wielkości" (KROK 3, etap 1).
    [EN] Typed-quantity core for the smart calculator's unified engine.

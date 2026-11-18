@@ -1,3 +1,4 @@
+// @ts-check
 /* ============================================================
    [EN] Notepad eval worker — off-main-thread for long notes (P6)
    importScripts stack mirrors index.html order before notepad-engine.

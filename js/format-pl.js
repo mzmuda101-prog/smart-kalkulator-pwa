@@ -1,3 +1,4 @@
+// @ts-check
 /* ============================================================
    [PL] Formatowanie PL — liczby i odmiana jednostek w wyniku.
    [EN] Shared by app.js (UI) and smart-parser.js (routery % / route cost).

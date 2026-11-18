@@ -1,3 +1,4 @@
+// @ts-check
 /* ============================================================
    [EN] Polish diacritics → ASCII for NL engine matching (mobile bez ą/ę/ć…).
    Used by parseNaturalShortcuts, percent/date queries, autocomplete filter.

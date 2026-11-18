@@ -1,3 +1,4 @@
+// @ts-check
 /* [EN] Theme bootstrap — runs BEFORE CSS paint so splash/first frame doesn't flash
    light background in dark mode. External file (not inline) so CSP can stay
    script-src 'self'. Loaded synchronously in <head> before the stylesheet. */

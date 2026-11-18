@@ -1,3 +1,4 @@
+// @ts-check
 /* ============================================================
    [EN] Notepad line-eval engine — razem/suma, @vars, auto-units, labels.
    Extracted from app.js; wire via MATM0_NP_ENGINE.createEngine(deps).

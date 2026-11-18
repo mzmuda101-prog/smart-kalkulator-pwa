@@ -1,3 +1,4 @@
+// @ts-check
 /* [EN] Asset cache bust after force refresh — CSP-safe (no inline scripts). */
 (function (global) {
     var stamp = '';

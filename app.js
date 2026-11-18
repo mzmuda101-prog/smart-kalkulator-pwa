@@ -777,6 +777,7 @@
                 }
             }
             var vp = _flowNum(pc), vn = _flowNum(nc), dir;
+            // biome-ignore lint/suspicious/noSelfCompare: x === x to celowy test „nie NaN”
             if (vp === vp && vn === vn && vp !== vn) dir = vn > vp ? 1 : -1;
             else dir = firstRoll && (firstRoll[1] < firstRoll[0]) !== /^[−-]/.test(nc) ? -1 : 1;
             return { ops: ops, dir: dir, ghosts: ghosts };
