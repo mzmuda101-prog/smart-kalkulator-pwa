@@ -46,6 +46,7 @@ const SUITES = [
     'test/placeholder-examples.js',
     'test/settings-migration.js',
     'test/result-roll.js',
+    'test/sw-cache-keep.js',
 ];
 
 const failures = [];

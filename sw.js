@@ -6,6 +6,10 @@
 var SW_FINGERPRINT = 'v1.04.87'; // [EN] auto-synced — triggers SW reinstall on bump
 importScripts('version.js'); // ustawia self.APP_VERSION (np. 'v36')
 const CACHE_NAME = 'matm0-calc-' + (self.APP_VERSION || 'v0');
+/* [EN] Cache modeli (model-store.js) żyje poza wersją apki — activate go nie rusza. */
+function isStaleCache(name, current) {
+    return name !== current && name.indexOf('matm0-models-') !== 0;
+}
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -36,6 +40,7 @@ const ASSETS_TO_CACHE = [
     './js/math-calculus.js',
     './js/math-limits.js',
     './js/hint-rules.js',
+    './js/model-store.js',
     './js/notepad-format.js',
     './js/notepad-engine.js',
     './js/notepad-worker.js',
@@ -63,7 +68,7 @@ self.addEventListener('activate', function(event) {
         caches.keys().then(function(cacheNames) {
             return Promise.all(
                 cacheNames.map(function(name) {
-                    if (name !== CACHE_NAME) {
+                    if (isStaleCache(name, CACHE_NAME)) {
                         console.log('[SW] Deleting old cache:', name);
                         return caches.delete(name);
                     }
@@ -113,6 +118,16 @@ self.addEventListener('fetch', function(event) {
        Offline odrzuci, a strona obsłuży to sama (fallback kursów w localStorage). */
     if (url.origin !== self.location.origin) {
         event.respondWith(fetch(event.request));
+        return;
+    }
+
+    /* [EN] Model i silnik OCR: tylko cache modeli (wypełnia go model-store.js), potem sieć;
+       nigdy do cache apki — 15 MB wasm nie ma trafiać tam przy każdym wejściu. */
+    if (url.pathname.indexOf('/models/') !== -1 || url.pathname.indexOf('/vendor/onnxruntime-web/') !== -1) {
+        event.respondWith(
+            caches.open('matm0-models-v1').then(function(c) { return c.match(event.request); })
+                .then(function(hit) { return hit || fetch(event.request); })
+        );
         return;
     }
 
