@@ -40,6 +40,7 @@ const SUITES = [
     'test/math-steps.js',
     'test/math-calculus.js',
     'test/math-limits.js',
+    'test/formula-model-manifest.js',
     'test/placeholder-examples.js',
     'test/settings-migration.js',
     'test/result-roll.js',

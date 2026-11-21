@@ -31,5 +31,5 @@ onnx.save(m, out + "_fp32.onnx")
 print("fp32 zapisany")
 for wt, tag in ((QuantType.QInt8, "int8"),):
     quantize_dynamic(out + "_fp32.onnx", out + f"_{tag}.onnx", weight_type=wt,
-                     op_types_to_quantize=["MatMul", "Gather"], extra_options={"MatMulConstBOnly": True, "EnableSubgraph": True})
+                     op_types_to_quantize=["MatMul", "Gather"], extra_options={"MatMulConstBOnly": True, "EnableSubgraph": True}, per_channel=True)
     print(tag, "zapisany")

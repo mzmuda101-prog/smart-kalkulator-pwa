@@ -1,0 +1,55 @@
+{
+  "name": "formulanet-s",
+  "version": 1,
+  "bytes": 58979756,
+  "gzBytes": 37428903,
+  "parts": [
+    {
+      "file": "model.onnx.part0.gz",
+      "gzBytes": 5805174,
+      "bytes": 10000000,
+      "sha256": "e932d6682c9242becc4f849aa7f6ebe3c8fbd2f1d95d19adf51be4a1eb9ab2fd"
+    },
+    {
+      "file": "model.onnx.part1.gz",
+      "gzBytes": 5297768,
+      "bytes": 10000000,
+      "sha256": "092b5c7aff138625ec3cdf8266ff025fdd96ec8f77c6e79a38e7ba41510e7f3c"
+    },
+    {
+      "file": "model.onnx.part2.gz",
+      "gzBytes": 6980057,
+      "bytes": 10000000,
+      "sha256": "a85794a3291339aa9289baa9d572612d3ab2dc9f429c2f2d775f3ec708701be3"
+    },
+    {
+      "file": "model.onnx.part3.gz",
+      "gzBytes": 5086810,
+      "bytes": 10000000,
+      "sha256": "543f0034b1d8775518fa54aa1b16f69171642ded6603fe114591f9c28d2a1b85"
+    },
+    {
+      "file": "model.onnx.part4.gz",
+      "gzBytes": 6653972,
+      "bytes": 10000000,
+      "sha256": "74b86c3fd2f01ee4eda219c4376ca81c5bceaba7d95da2c617813731cc30655c"
+    },
+    {
+      "file": "model.onnx.part5.gz",
+      "gzBytes": 7605122,
+      "bytes": 8979756,
+      "sha256": "f85bedd3bff00d2b25ef5ca20eb675d4d53dbb0db34e3fc48790141557b73456"
+    }
+  ],
+  "input": "x",
+  "inputShape": [
+    1,
+    1,
+    384,
+    384
+  ],
+  "mean": 0.7931,
+  "std": 0.1738,
+  "eosId": 2,
+  "firstTextId": 4
+}

@@ -8,7 +8,7 @@ Kolejność:
 1. `paddle2onnx --model_dir ~/.paddlex/official_models/PP-FormulaNet-S --model_filename inference.json
    --params_filename inference.pdiparams --save_file fn.onnx --opset_version 17`
 2. `shrink.py fn.onnx fns` — wpieka maskę osadzeń, stałe → inicjalizatory, int8 dekodera
-   (dla wersji końcowej: `per_channel=True`).
+   (`per_channel=True`).
 3. `convq.py fns_int8.onnx fns_int8c.onnx` — wagi Conv jako int8 + DequantizeLinear (≈ 59 MB).
 4. `fixshapes.py wej.onnx wyj.onnx` — poprawki kształtów wymagane przez onnxruntime-web.
 
