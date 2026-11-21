@@ -42,11 +42,21 @@ const px = (img, x, y) => img.data[(y * img.width + x) * 4];
     ok('tensor: jasny piksel', t2.some(v => Math.abs(v - (1 - 0.7931) / 0.1738) < 1e-3));
 }
 
+// kolor: wagi szarości jak w run.py (R*0.114 + G*0.587 + B*0.299 po normalizacji)
+{
+    const im = blank(60, 60); rect(im, 10, 10, 40, 40);
+    for (let y = 20; y < 40; y++) for (let x = 20; x < 40; x++) { const i = (y * 60 + x) * 4; im.data[i] = 200; im.data[i + 1] = 200; im.data[i + 2] = 40; }
+    const want = ((0.114 * 200 + 0.587 * 200 + 0.299 * 40) / 255 - 0.7931) / 0.1738;
+    const t = toTensor(im);
+    ok('tensor: kolor wg wag run.py', t.some(v => Math.abs(v - want) < 1e-3), want);
+}
+
 // decodeTokens
 {
     const s = decodeTokens([0, 0, 82, 2646, 2, 99], vocab);
     ok('decode: zaczyna od \\operatorname', s.startsWith('\\operatorname'), s);
     ok('decode: ucina przed eos (bez „m”)', s === '\\operatorname', s);
+    ok('decode: BigInt64Array', decodeTokens(BigInt64Array.from([0n, 0n, 82n, 2646n, 2n, 99n]), vocab) === s);
     ok('decode: Ġ → spacja', decodeTokens([243], vocab) === ' ', decodeTokens([243], vocab));
 }
 

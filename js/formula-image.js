@@ -101,7 +101,8 @@
         const cw = x1 - x0, ch = y1 - y0, g = new Uint8ClampedArray(cw * ch);
         for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
             const i = ((y + y0) * w + x + x0) * 4, p = img.data;
-            g[y * cw + x] = p[i] * 0.299 + p[i + 1] * 0.587 + p[i + 2] * 0.114;
+            // wagi „odwrócone” celowo: PaddleX czyta RGB i stosuje cv2 BGR2GRAY na tablicy RGB (jak run.py)
+            g[y * cw + x] = p[i] * 0.114 + p[i + 1] * 0.587 + p[i + 2] * 0.299;
         }
         let nw, nh;
         if (cw <= ch) { nw = size; nh = Math.trunc(size * ch / cw); } else { nw = Math.trunc(size * cw / ch); nh = size; }
@@ -122,10 +123,11 @@
         return out;
     }
 
-    /** Id tokenów → LaTeX: do pierwszego eosId, bez id < 4, sklejone bez separatora, „Ġ” → spacja. */
+    /** Id tokenów (number[], bigint[] lub BigInt64Array) → LaTeX: do pierwszego eosId, bez id < 4, sklejone bez separatora, „Ġ” → spacja. */
     function decodeTokens(ids, vocab, eosId) {
         const eos = eosId === undefined ? 2 : eosId, out = [];
-        for (const id of ids) { if (id === eos) break; if (id > 3) out.push(vocab[id]); }
+        // onnxruntime-web zwraca int64 jako BigInt
+        for (const raw of ids) { const id = Number(raw); if (id === eos) break; if (id > 3) out.push(vocab[id]); }
         return out.join('').replace(/Ġ/g, ' ');
     }
 
