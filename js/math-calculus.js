@@ -81,7 +81,12 @@
             if (root) c = powR(root, Number(r.n));
             else extra.push({ b: { k: 'num', v: t.c }, e: r });
         }
-        return [term(c, normFactors(extra.concat(t.fs.map(function (f) { return { b: f.b, e: mul(f.e, r) }; }))))];
+        return [term(c, normFactors(extra.concat(t.fs.map(function (f) {
+            var ne = mul(f.e, r);
+            // [EN] (x²)^(1/2) = |x|, nie x: parzysta potęga pod parzystym pierwiastkiem traci znak — nie upraszczamy
+            if (f.b.k !== 'num' && f.b.k !== 'const' && f.e.n % 2n === 0n && ne.n % 2n !== 0n) throw new NotSupported();
+            return { b: f.b, e: ne };
+        }))))];
     }
     function isNumber(e) { return !e.length || (e.length === 1 && !e[0].fs.length); }
     function numberOf(e) { return e.length ? e[0].c : ZERO; }

@@ -113,7 +113,7 @@
             if (cb) { out.push({ t: 'root', n: 3 }); i += cb[0].length; continue; }
             // [EN] log o podstawie: log_2(u), log2(u) — przed ogólnym „log” (= log₁₀)
             var lb = /^log_?(\d+)(?=\s*\()/.exec(s.slice(i));
-            if (lb) { out.push({ t: 'fn', v: 'logb', base: lb[1] }); i += lb[0].length; continue; }
+            if (lb && +lb[1] >= 2) { out.push({ t: 'fn', v: 'logb', base: lb[1] }); i += lb[0].length; continue; }
             var name = FN_RE.exec(s.slice(i));
             if (name) { out.push({ t: 'fn', v: FN_NAMES[name[0]] || name[0] }); i += name[0].length; continue; }
             var pi = /^(?:pi(?![a-z])|π)/.exec(s.slice(i));

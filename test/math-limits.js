@@ -200,6 +200,45 @@ const WANT_TEXT = { '1a': '1/3', '1d': '0', '1e': '+∞', '7a': '√3/3', '7b': 
     ok('9e tekst −1/96', text(byId['9e'].input) === '−1/96', text(byId['9e'].input));
 }
 
+// ── Przegląd kontrolny (po Task 3): błędy znalezione przez recenzenta ──
+ok('C1: lim x→−1 √(x²) ≠ −1 (|x|, nie x)', text('lim x→-1 sqrt(x^2)') !== '−1', text('lim x→-1 sqrt(x^2)'));
+ok('C1: pochodna √(x²) ≠ 1', text('pochodna sqrt(x^2)') !== 'f′(x) = 1', text('pochodna sqrt(x^2)'));
+if (L && L.numericLimit) {
+    const r = L.numericLimit(expr('x/sqrt(x^2+1)'), 'x', { at: '-inf', side: 0 });
+    ok('C1: numeric x/√(x²+1) przy −∞ → −1', r && r.kind === 'num' && near(r.value, -1, 1e-6), r);
+    let t0 = Date.now();
+    L.numericLimit(expr('sin(x^100)'), 'x', { at: 'inf', side: 0 });
+    ok('C2: sin(x¹⁰⁰) liczy się szybko', Date.now() - t0 < 2000, (Date.now() - t0) + ' ms');
+    t0 = Date.now();
+    const after = text('lim x→∞ (2x+1)/(x+3)');
+    ok('C2: po sin(x¹⁰⁰) zwykła granica dalej szybka', after === '2' && Date.now() - t0 < 300, after + ' ' + (Date.now() - t0) + ' ms');
+    t0 = Date.now();
+    L.numericLimit(expr('sin(e^x)'), 'x', { at: 'inf', side: 0 });
+    ok('C2: sin(eˣ) nie wisi', Date.now() - t0 < 2000, (Date.now() - t0) + ' ms');
+    ok('I1: sin(πx) przy ∞ nie rozstrzyga', L.numericLimit(expr('sin(pi x)'), 'x', { at: 'inf', side: 0 }) === null);
+    ok('I1: cos(2πx) przy ∞ nie rozstrzyga', L.numericLimit(expr('cos(2 pi x)'), 'x', { at: 'inf', side: 0 }) === null);
+    ok('I1: sin(π/x) przy 0 nie rozstrzyga', !(L.numericLimit(expr('sin(pi/x)'), 'x', { at: 0, side: 0 }) || {}).kind);
+}
+if (L && L.detect) {
+    const d1 = L.detect('lim_{x\\to2} x^2');
+    ok('I2: lim_{x\\to2}', d1 && d1.target.at === 2, d1);
+    const d2 = L.detect('lim x \\to \\infty 1/x');
+    ok('I2: \\infty', d2 && d2.target.at === 'inf', d2);
+    const d3 = L.detect('\\lim_{x\\to 0} x');
+    ok('I2: \\lim', d3 && d3.target.at === 0, d3);
+    const d4 = L.detect('lim x→0⁺ x'), d5 = L.detect('lim x→0^+ x'), d6 = L.detect('lim x→0⁻ x');
+    ok('I3: 0⁺ / 0^+ / 0⁻', d4 && d4.target.side === 1 && d5 && d5.target.side === 1 && d6 && d6.target.side === -1, [d4, d5, d6]);
+    const d7 = L.detect('lim x→0 - 1/x');
+    ok('minor: „x→0 - 1/x” to granica −1/x, nie lewostronna', d7 && d7.target.side === 0 && /^- ?1\/x$/.test(d7.src), d7);
+}
+{
+    const lg = S.run('pochodna log_0(x)');
+    ok('minor: log_0 nie jest logarytmem', !lg || lg.text === NOPE || !/ln\(0\)/.test(lg.text), lg && lg.text);
+}
+ok('minor: „krok po kroku” na końcu', text('lim x→2 x^2 krok po kroku') === '4', text('lim x→2 x^2 krok po kroku'));
+// [EN] ∛ z liczby ujemnej przy podstawianiu: silnik (cPow) tego nie umie — odłożone; ważne, że nie ma złego wyniku
+ok('minor: lim x→−8 ∛x nie daje złego wyniku', ['−2', NOPE].includes(text('lim x→-8 ∛x')), text('lim x→-8 ∛x'));
+
 // ── Zestaw 58 zadań ─────────────────────────────────────────
 let covered = 0, wrong = 0;
 const missing = [];

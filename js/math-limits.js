@@ -53,44 +53,83 @@
             case 'num': return rat(a.v);
             case 'sum': return evalDec(a.s, env);
             case 'exp': return evalDec(a.b, env).pow(evalDec(a.x, env));
-            case 'fn':
-                var u = evalDec(a.a, env);
-                switch (a.f) {
-                    case 'sin': return u.sin();
-                    case 'cos': return u.cos();
-                    case 'tan': return u.tan();
-                    case 'cot': return new D(1).div(u.tan());
-                    case 'ln': return u.lte(0) ? new D(NaN) : u.ln();
-                    case 'lnabs': return u.isZero() ? new D(NaN) : u.abs().ln();
-                    case 'log': return u.lte(0) ? new D(NaN) : u.log(10);
-                    case 'logb': return u.lte(0) ? new D(NaN) : u.ln().div(rat(a.base).ln());
-                    case 'asin': return u.asin();
-                    case 'acos': return u.acos();
-                    case 'atan': return u.atan();
-                }
+            case 'fn': return fnDec(a.f, evalDec(a.a, env), a.base);
         }
         return new D(NaN);
     }
-    function valueAt(e, v, x) {
-        var env = {}; env[v] = x;
+    function fnDec(f, u, base) {
+        var D = Dec();
+        if (u.isNaN()) return u;
+        // [EN] sin/cos ogromnego argumentu: decimal.js podnosi precyzję o tysiące cyfr i wisi — pomijamy próbkę
+        if ((f === 'sin' || f === 'cos' || f === 'tan' || f === 'cot') && u.abs().gt(1e40)) return new D(NaN);
+        switch (f) {
+            case 'sin': return u.sin();
+            case 'cos': return u.cos();
+            case 'tan': return u.tan();
+            case 'cot': return new D(1).div(u.tan());
+            case 'ln': return u.lte(0) ? new D(NaN) : u.ln();
+            case 'lnabs': return u.isZero() ? new D(NaN) : u.abs().ln();
+            case 'log': return u.lte(0) ? new D(NaN) : u.log(10);
+            case 'logb': return u.lte(0) ? new D(NaN) : u.ln().div(rat(base).ln());
+            case 'asin': return u.asin();
+            case 'acos': return u.acos();
+            case 'atan': return u.atan();
+        }
+        return new D(NaN);
+    }
+    // [EN] Wartość drzewa z parsera (MATM0_STEPS), niezależna od MATM0_CALC: bramka nie widzi
+    // uproszczeń silnika, więc nie powtórzy jego błędu (np. √(x²) = x).
+    function evalAst(n, env) {
+        var D = Dec();
+        switch (n.k) {
+            case 'num': return rat(n.v);
+            case 'var': return env[n.v] != null ? env[n.v] : new D(NaN);
+            case 'const': return n.v === 'pi' ? D.acos(-1) : D.exp(1);
+            case 'add': return evalAst(n.a, env).add(evalAst(n.b, env));
+            case 'sub': return evalAst(n.a, env).sub(evalAst(n.b, env));
+            case 'neg': return evalAst(n.a, env).neg();
+            case 'mul': return evalAst(n.a, env).mul(evalAst(n.b, env));
+            case 'div': return evalAst(n.a, env).div(evalAst(n.b, env));
+            case 'sqrt': return powRat(evalAst(n.a, env), K.R(1, 2));
+            case 'pow':
+                var b = evalAst(n.a, env);
+                if (n.b.k === 'num') return powRat(b, n.b.v);
+                if (n.b.k === 'neg' && n.b.a.k === 'num') return powRat(b, K.neg(n.b.a.v));
+                return b.pow(evalAst(n.b, env));
+            case 'fn':
+                var u = evalAst(n.a, env);
+                if (n.f === 'exp') return u.exp();
+                return fnDec(n.f, u, n.base != null ? K.R(BigInt(n.base)) : null);
+        }
+        return new D(NaN);
+    }
+    function valueAt(evalFn, x) {
+        var D = Dec(), prec = D.precision, rnd = D.rounding;
         try {
-            var r = evalDec(e, env);
-            return r.isFinite() ? r : null;
+            var r = evalFn(x);
+            return r && r.isFinite() ? r : null;
         } catch (err) { return null; } // [EN] poza dziedziną (np. dzielenie przez 0)
+        finally { D.precision = prec; D.rounding = rnd; } // [EN] trygonometria decimal.js potrafi zostawić podniesioną precyzję
+    }
+    function numVal(e) { // [EN] wartość stałej w wysokiej precyzji: ∛(−8) = −2, czego Math.pow nie umie
+        var r = valueAt(function () { return evalDec(e, {}); }, null);
+        return r ? r.toNumber() : NaN;
     }
 
     /* Ciąg próbek zbliżających się do celu: ∞ → 10^k, punkt → a ± 10^-k.
        Zbieżność: różnice kolejnych próbek maleją (każda ≤ połowy poprzedniej), ostatnia
        względnie < 1e-6. Rozbieżność do ∞: moduł rośnie, różnice nie maleją. Inaczej null. */
-    function samples(e, v, at, side) {
-        var D = Dec(), out = [];
+    // [EN] mnożnik √2 (pełna precyzja): w punktach 10ᵏ albo 1,23…·10ᵏ (całkowitych od k = 10)
+    // sin(πx), cos(2πx) udawałyby zbieżność
+    function samples(evalFn, at, side) {
+        var D = Dec(), out = [], SAMPLE_C = D.sqrt(2);
         var ks = at === 'inf' || at === '-inf' ? [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18] : [3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20];
         for (var i = 0; i < ks.length; i++) {
             var x;
-            if (at === 'inf') x = new D(10).pow(ks[i]);
-            else if (at === '-inf') x = new D(10).pow(ks[i]).neg();
-            else x = new D(at).add(new D(10).pow(-ks[i]).mul(side));
-            var y = valueAt(e, v, x);
+            if (at === 'inf') x = new D(10).pow(ks[i]).mul(SAMPLE_C);
+            else if (at === '-inf') x = new D(10).pow(ks[i]).mul(SAMPLE_C).neg();
+            else x = new D(at).add(new D(10).pow(-ks[i]).mul(SAMPLE_C).mul(side));
+            var y = valueAt(evalFn, x);
             if (y) out.push(y);
         }
         return out;
@@ -124,9 +163,15 @@
      * @returns {{kind:'num', value:number, err:number}|{kind:'inf', sign:number}|{kind:'sides', left:any, right:any}|null}
      */
     function numericLimit(e, v, target) {
-        if (target.at === 'inf' || target.at === '-inf') return judge(samples(e, v, target.at, 1));
-        if (target.side) return judge(samples(e, v, target.at, target.side));
-        var right = judge(samples(e, v, target.at, 1)), left = judge(samples(e, v, target.at, -1));
+        return limitBy(function (x) { var env = {}; env[v] = x; return evalDec(e, env); }, target);
+    }
+    function numericLimitAst(ast, v, target) {
+        return limitBy(function (x) { var env = {}; env[v] = x; return evalAst(ast, env); }, target);
+    }
+    function limitBy(evalFn, target) {
+        if (target.at === 'inf' || target.at === '-inf') return judge(samples(evalFn, target.at, 1));
+        if (target.side) return judge(samples(evalFn, target.at, target.side));
+        var right = judge(samples(evalFn, target.at, 1)), left = judge(samples(evalFn, target.at, -1));
         if (!right || !left) return null;
         if (sameLimit(left, right)) return right;
         return { kind: 'sides', left: left, right: right };
@@ -140,13 +185,17 @@
 
     // ── Wykrywanie komendy ───────────────────────────────────────────
     var C = CALC._core, NotSupported = K.NotSupported, ONE = K.ONE;
-    var TARGET = '([+-]?(?:∞|inf(?:inity)?|nieskonczonosc[ia]?|nieskonczonosci)|-?\\d+(?:[.,]\\d+)?)\\s*(\\+|-|z\\s+prawej|z\\s+lewej|prawostronn\\w*|lewostronn\\w*)?';
+    // [EN] strona: „0+”/„0-” bez spacji (z odstępem „x→0 - 1/x” to minus w wyrażeniu) albo słownie
+    var TARGET = '([+-]?(?:∞|inf(?:inity)?|nieskonczonosc[ia]?|nieskonczonosci)|-?\\d+(?:[.,]\\d+)?)(?:([+-])(?=[\\s})]|$)|\\s+(z\\s+prawej|z\\s+lewej|prawostronn\\w*|lewostronn\\w*))?';
     var ARROW = '\\s*(?:→|do|dazy\\s+do|zmierza\\s+do)\\s*';
     var HEAD_RE = new RegExp('^(?:oblicz\\s+)?(?:lim|limit|granica|granice|granicy)\\s*(?:_?\\{|\\(|_)?\\s*([a-z])' + ARROW + TARGET + '\\s*[})]?\\s+(.+)$');
     var TAIL_RE = new RegExp('^(?:oblicz\\s+)?(?:lim|limit|granica|granice|granicy)(?:\\s+(?:ciagu|funkcji|of))?\\s+(.+?)\\s+(?:przy|dla|gdy|as|when|for)\\s+([a-z])' + ARROW + TARGET + '$');
     function normalize(raw) {
         return K.fold(raw)
-            .replace(/[−–]/g, '-').replace(/->|\\to\b/g, '→').replace(/\s*→\s*/g, '→')
+            .replace(/^\\lim/, 'lim').replace(/\\infty/g, '∞').replace(/⟶|⇒/g, '→')
+            .replace(/[−–]/g, '-').replace(/->|\\to(?![a-z])/g, '→').replace(/\s*→\s*/g, '→')
+            .replace(/⁺/g, '+').replace(/⁻/g, '-').replace(/(→[^\s]*?)\^([+-])/, '$1$2')
+            .replace(/\s+(?:krok po kroku|step by step)$/, '')
             .replace(/→\+?∞|→\+inf/g, function (m) { return m.replace('+', ''); });
     }
     function targetOf(tok, sideTok) {
@@ -161,8 +210,8 @@
         var s = normalize(raw);
         if (!s || s.length > K.MAX_INPUT || !/^(?:oblicz\s+)?(?:lim|granic)/.test(s)) return null;
         var m = HEAD_RE.exec(s), body, v, tg, side;
-        if (m) { v = m[1]; tg = m[2]; side = m[3]; body = m[4]; }
-        else if ((m = TAIL_RE.exec(s))) { body = m[1]; v = m[2]; tg = m[3]; side = m[4]; }
+        if (m) { v = m[1]; tg = m[2]; side = m[3] || m[4]; body = m[5]; }
+        else if ((m = TAIL_RE.exec(s))) { body = m[1]; v = m[2]; tg = m[3]; side = m[4] || m[5]; }
         else return null;
         var target = targetOf(tg, side);
         body = body.trim();
@@ -181,7 +230,7 @@
     function formatAnswer(ans) {
         if (ans.kind === 'inf') return { text: ans.sign > 0 ? '+∞' : '−∞', value: ans.sign > 0 ? Infinity : -Infinity };
         if (ans.kind === 'dne') return { text: 'granica nie istnieje', value: null };
-        return { text: C.show(rationalize(fold(ans.e))), value: C.evalExpr(ans.e, {}) };
+        return { text: C.show(rationalize(fold(ans.e))), value: numVal(ans.e) };
     }
     function rationalize(e) { // [EN] 1/√3 → √3/3: pierwiastek liczby w mianowniku przenosimy do licznika
         return e.map(function (t) {
@@ -199,7 +248,7 @@
         if (ans.kind === 'inf') return check.kind === 'inf' && check.sign === ans.sign;
         if (ans.kind === 'dne') return check.kind === 'sides';
         if (check.kind !== 'num') return false;
-        var v = C.evalExpr(ans.e, {}), tol = Math.max(1e-9, 10 * (check.err || 0));
+        var v = numVal(ans.e), tol = Math.max(1e-9, 10 * (check.err || 0));
         return isFinite(v) && Math.abs(v - check.value) <= tol * (1 + Math.abs(check.value));
     }
 
@@ -217,7 +266,7 @@
             name: 'constant',
             test: function (e, v) { return !C.hasVar(e, v); },
             apply: function (e) {
-                if (!isFinite(C.evalExpr(e, {}))) throw new NotSupported();
+                if (!isFinite(numVal(e))) throw new NotSupported();
                 return { kind: 'num', e: e };
             }
         },
@@ -230,12 +279,12 @@
                 e.forEach(function (term) {
                     term.fs.forEach(function (f) {
                         if (f.e.n >= 0n) return;
-                        var dv = C.evalExpr(substitute(C.atomExpr(f.b), v, pt), {});
+                        var dv = numVal(substitute(C.atomExpr(f.b), v, pt));
                         if (!isFinite(dv) || Math.abs(dv) < 1e-12) throw new NotSupported();
                     });
                 });
                 var at = fold(substitute(e, v, pt));
-                var val = C.evalExpr(at, {});
+                var val = numVal(at);
                 if (C.hasVar(at, v) || !isFinite(val)) throw new NotSupported();
                 line(log, 'Podstawiamy ' + v + ' = ' + targetText({ at: t.at, src: t.src, side: 0 }), limOf(v, t, e) + ' = ' + C.show(at));
                 return { kind: 'num', e: at };
@@ -347,7 +396,7 @@
             rest = C.cAdd(rest, K.isZero(q) ? x.rest : C.cMul(x.rest, uPow(v, sign, q)));
             if (K.isZero(q)) c = C.cAdd(c, x.c);
         });
-        if (!c.length || Math.abs(C.evalExpr(c, {})) < 1e-12) throw new NotSupported(); // [EN] ∞ − ∞
+        if (!c.length || Math.abs(numVal(c)) < 1e-12) throw new NotSupported(); // [EN] ∞ − ∞
         return { p: p, rest: rest, c: c };
     }
     function uText(v, sign, p) {
@@ -408,7 +457,7 @@
             var q = K.sub(N.p, D.p);
             if (same && !K.isZero(N.p)) line(log, 'Skracamy ' + uText(v, sign, N.p), head + quotientText(N.rest, D.rest));
             var cval = C.cMul(N.c, C.cPow(D.c, K.neg(ONE)));
-            var cv = C.evalExpr(cval, {}), cText = C.show(rationalize(cval));
+            var cv = numVal(cval), cText = C.show(rationalize(cval));
             if (K.isZero(q)) {
                 line(log, 'Wyrazy z ' + v + ' w mianowniku dążą do 0', '→ ' + cText);
                 return { kind: 'num', e: cval };
@@ -516,7 +565,7 @@
                 return { kind: 'inf', sign: 1 };
             }
             if (inn.kind !== 'num') throw new NotSupported();
-            var val = C.evalExpr(inn.e, {});
+            var val = numVal(inn.e);
             if (!(val > 0)) throw new NotSupported();
             var res = C.isNumber(inn.e) ? exactLog(lp.kind.f, lp.kind.base, C.numberOf(inn.e)) : null;
             var resE = res ? C.num(res) : C.cFn(lp.kind.f, inn.e, lp.kind.base);
@@ -805,19 +854,19 @@
         throw new NotSupported();
     }
     function run(d) {
-        var e = C.fromAst(K.parse(d.src));
+        var ast = K.parse(d.src), e = C.fromAst(ast);
         C.setVar(d.v);
         var ind = indeterminate(e, d.v, d.target);
         var steps = [{ label: 'Granica', math: limOf(d.v, d.target, e) + (ind ? '  [' + ind + ']' : '') }];
         var ans = limitOf(e, d.v, d.target, steps, 0);
-        if (!agrees(ans, numericLimit(e, d.v, d.target))) throw new NotSupported(); // [EN] nigdy błędnego wyniku
+        if (!agrees(ans, numericLimitAst(ast, d.v, d.target))) throw new NotSupported(); // [EN] nigdy błędnego wyniku — liczone z zapisu użytkownika
         var out = formatAnswer(ans);
         steps.push({ label: 'Wynik', math: limOf(d.v, d.target, e) + ' = ' + out.text });
         return K.done('Granica', out.text, out.value, steps);
     }
 
     var API = {
-        detect: detect, run: run, numericLimit: numericLimit, _evalDec: evalDec,
+        detect: detect, run: run, numericLimit: numericLimit, numericLimitAst: numericLimitAst, _evalDec: evalDec,
         _test: {
             formatAnswer: formatAnswer,
             pushRule: function (r) { RULES.unshift(r); },
