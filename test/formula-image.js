@@ -2,9 +2,10 @@
 // Uruchom: node test/formula-image.js
 'use strict';
 const fs = require('fs');
+const zlib = require('zlib');
 const path = require('path');
 const root = path.join(__dirname, '..');
-const { trimEdgeBlobs, toTensor, decodeTokens } = require(path.join(root, 'js', 'formula-image.js'));
+const { blurScore, BLUR_MIN, trimEdgeBlobs, toTensor, decodeTokens } = require(path.join(root, 'js', 'formula-image.js'));
 const vocab = require(path.join(root, 'models', 'formulanet-s', 'vocab.json'));
 
 let pass = 0, fail = 0;
@@ -74,6 +75,22 @@ const px = (img, x, y) => img.data[(y * img.width + x) * 4];
         console.log('  parytet', id, 'średnia |Δ| =', mean.toFixed(5));
         ok('parytet ' + id, mean < 0.02, mean);
     }
+}
+// blurScore: frac.png ostry vs rozmyty Gaussem sigma=3 (PNG dekodowany tu, bez bibliotek)
+{
+function png(buf){let p=8,idat=[],w,h;while(p<buf.length){const l=buf.readUInt32BE(p),t=buf.toString('ascii',p+4,p+8);if(t==='IHDR'){w=buf.readUInt32BE(p+8);h=buf.readUInt32BE(p+12);}if(t==='IDAT')idat.push(buf.slice(p+8,p+8+l));p+=12+l;}
+const raw=zlib.inflateSync(Buffer.concat(idat)),bp=4,st=w*bp,out=Buffer.alloc(h*st);
+for(let y=0;y<h;y++){const f=raw[y*(st+1)];for(let x=0;x<st;x++){const v=raw[y*(st+1)+1+x],a=x>=bp?out[y*st+x-bp]:0,b=y?out[(y-1)*st+x]:0,c=x>=bp&&y?out[(y-1)*st+x-bp]:0;let r=f===0?v:f===1?v+a:f===2?v+b:f===3?v+((a+b)>>1):v+(()=>{const pp=a+b-c,pa=Math.abs(pp-a),pb=Math.abs(pp-b),pc=Math.abs(pp-c);return pa<=pb&&pa<=pc?a:pb<=pc?b:c})();out[y*st+x]=r&255;}}
+return{data:new Uint8ClampedArray(out),width:w,height:h};}
+function blur(im,s){const r=Math.ceil(3*s),k=[];let t=0;for(let i=-r;i<=r;i++){const v=Math.exp(-i*i/(2*s*s));k.push(v);t+=v;}
+const {width:w,height:h}=im;let src=Float64Array.from(im.data),tmp=new Float64Array(src.length);
+for(const dir of [0,1]){for(let y=0;y<h;y++)for(let x=0;x<w;x++)for(let c=0;c<4;c++){let a=0;for(let i=-r;i<=r;i++){const xx=dir?x:Math.min(w-1,Math.max(0,x+i)),yy=dir?Math.min(h-1,Math.max(0,y+i)):y;a+=k[i+r]*src[(yy*w+xx)*4+c];}tmp[(y*w+x)*4+c]=a/t;}[src,tmp]=[tmp,src];}
+return{data:new Uint8ClampedArray(src),width:w,height:h};}
+    const im = png(fs.readFileSync(path.join(root, 'test', 'fixtures', 'formulas', 'frac.png')));
+    const sharp = blurScore(im), soft = blurScore(blur(im, 3));
+    ok('blur: ostry powyżej progu', sharp > BLUR_MIN, sharp);
+    ok('blur: sigma=3 poniżej progu', soft < BLUR_MIN, soft);
+    ok('blur: duży odstęp', sharp > 10 * soft, [sharp, soft]);
 }
 
 console.log(fail ? `❌ formula-image: ${fail} błędów (${pass} OK)` : `✅ formula-image: ${pass} OK`);

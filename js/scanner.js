@@ -1,11 +1,12 @@
 // @ts-check
-// Skaner wzoru: okno pełnoekranowe z ramką na obrazie. "Źródło" (dziś: nieruchomy obraz na canvasie;
-// później: kamera, strona PDF) daje canvas do przycięcia — ramka, przycinanie i odczyt są wspólne.
+// Skaner wzoru: okno pełnoekranowe z ramką na obrazie. "Źródło" (nieruchomy obraz na canvasie albo podgląd
+// z kamery; później strona PDF) daje canvas do przycięcia — ramka, przycinanie i odczyt są wspólne.
 (function () {
     'use strict';
     const win = /** @type {any} */ (window);
     const MIN_W = 48, MIN_H = 24, MAX_SIDE = 2000, MAX_DISPLAY = 4096;
     const DEF = { x: 0.1, y: 0.375, w: 0.8, h: 0.25 }; // awaryjnie; właściwa ramka: defaultFrame()
+    const DARK_MEAN = 60; // średnia jasność klatki (0..255) poniżej tego = „za ciemno”
     const PAD = 22; // połowa uchwytu: uchwyt na krawędzi obrazu nie wychodzi poza scenę
     const CORNERS = ['nw', 'ne', 'sw', 'se'];
     const CORNER_PL = { nw: 'lewy górny', ne: 'prawy górny', sw: 'lewy dolny', se: 'prawy dolny' };
@@ -53,6 +54,8 @@
         const emptyText = el('p', 'scanner-empty-text', 'Wybierz zdjęcie z jednym wydrukowanym wzorem. Potem ustawisz ramkę na wzorze.');
         const pick = /** @type {HTMLButtonElement} */ (el('button', 'scanner-btn primary', 'Wybierz zdjęcie')); pick.type = 'button';
         empty.append(emptyText, pick);
+        const video = /** @type {HTMLVideoElement} */ (el('video')); video.hidden = true;
+        video.playsInline = true; video.muted = true; video.autoplay = true; video.setAttribute('aria-label', 'Podgląd z aparatu');
         const canvas = document.createElement('canvas'); canvas.hidden = true;
         canvas.setAttribute('role', 'img'); canvas.setAttribute('aria-label', 'Wybrane zdjęcie');
         const frame = el('div', 'scanner-frame'); frame.hidden = true; frame.tabIndex = 0;
@@ -64,7 +67,10 @@
             h.innerHTML = '<span class="scanner-knob"></span>';
             frame.append(h); return h;
         });
-        stage.append(empty, canvas, frame);
+        const hint = el('p', 'scanner-hint'); hint.hidden = true; hint.setAttribute('aria-live', 'polite');
+        const torch = /** @type {HTMLButtonElement} */ (el('button', 'scanner-torch', 'Latarka')); torch.type = 'button'; torch.hidden = true;
+        torch.setAttribute('aria-pressed', 'false');
+        stage.append(empty, video, canvas, frame, hint, torch);
 
         const error = el('p', 'scanner-error'); error.hidden = true; error.setAttribute('role', 'alert');
         const bar = el('div', 'scanner-bar');
@@ -72,11 +78,13 @@
         const read = /** @type {HTMLButtonElement} */ (el('button', 'scanner-btn primary')); read.type = 'button';
         read.innerHTML = '<span class="scanner-spinner" aria-hidden="true"></span><span class="scanner-btn-label">Odczytaj</span>';
         read.disabled = true;
-        bar.append(again, read);
+        const shoot = /** @type {HTMLButtonElement} */ (el('button', 'scanner-btn primary', 'Zrób')); shoot.type = 'button'; shoot.hidden = true;
+        const gallery = /** @type {HTMLButtonElement} */ (el('button', 'scanner-btn', 'Wybierz zdjęcie')); gallery.type = 'button'; gallery.hidden = true;
+        bar.append(gallery, again, shoot, read);
         const input = /** @type {HTMLInputElement} */ (el('input')); input.type = 'file'; input.accept = 'image/*'; input.hidden = true;
         dlg.append(head, stage, error, bar, input);
         document.body.append(dlg);
-        return { dlg, close, stage, empty, canvas, frame, handles, error, again, read, pick, input };
+        return { dlg, close, stage, empty, emptyText, video, hint, torch, shoot, gallery, canvas, frame, handles, error, again, read, pick, input };
     }
 
     /** Sprawdza jednorazowo, że dialog zbudowany; reszta stanu żyje w open(). */
@@ -88,24 +96,114 @@
         st.opener = opener && opener !== document.body ? opener : document.querySelector('.calc-scan-btn');
         resetUi(u);
         if (!u.dlg.open) u.dlg.showModal();
-        u.pick.focus();
+        if (opts.source !== 'file' && win.navigator.mediaDevices && win.navigator.mediaDevices.getUserMedia) startCamera(u);
+        else showFallback(u, opts.source === 'file' ? 'Wybierz zdjęcie z jednym wydrukowanym wzorem. Potem ustawisz ramkę na wzorze.' : undefined);
     }
 
     /** Stan jednego otwarcia. Ramka znormalizowana (0..1) do widocznego obrazu, więc przeżywa zmianę rozmiaru okna. */
     const st = {
         /** @type {HTMLElement|null} */ opener: null,
-        /** @type {{ el: HTMLCanvasElement, width: number, height: number, snapshot: () => HTMLCanvasElement }|null} */ source: null,
+        /** @type {{ el: HTMLCanvasElement|HTMLVideoElement, width: number, height: number, cover?: boolean, snapshot: () => HTMLCanvasElement }|null} */ source: null,
         f: { ...DEF },
         busy: false,
         token: 0, // ładowanie pliku
         readId: 0, // odczyt: wynik zastępczego odczytu jest pomijany
+        /** @type {'camera'|'file'|'fallback'} */ mode: 'fallback',
+        shot: false, // w trybie kamery: na scenie stoi zrobione zdjęcie, nie podgląd
+        camId: 0, // start kamery: spóźniony strumień po zamknięciu/zmianie trybu jest zatrzymywany
+        /** @type {MediaStream|null} */ stream: null,
+        /** @type {ReturnType<typeof setInterval>|null} */ timer: null,
+        torchOn: false,
+        hintKind: '',
     };
 
     function resetUi(/** @type {NonNullable<typeof ui>} */ u) {
-        st.token++; st.readId++; st.busy = false; st.source = null;
-        u.canvas.hidden = true; u.frame.hidden = true; u.empty.hidden = false; u.again.hidden = true;
+        st.token++; st.readId++; st.busy = false; st.source = null; st.shot = false;
+        stopCamera(u); setHint(u, '');
+        u.canvas.hidden = true; u.video.hidden = true; u.frame.hidden = true; u.empty.hidden = true;
         u.read.disabled = true; clearBusy(u);
         u.error.hidden = true; u.input.value = '';
+        setMode(u, 'fallback'); u.empty.hidden = true;
+    }
+
+    /** Przyciski paska zależą od trybu i od tego, czy na scenie stoi zrobione zdjęcie. */
+    function setMode(/** @type {NonNullable<typeof ui>} */ u, /** @type {typeof st.mode} */ mode) {
+        st.mode = mode;
+        const cam = mode === 'camera', live = cam && !st.shot;
+        u.shoot.hidden = !live; u.gallery.hidden = !cam;
+        u.again.hidden = !(mode === 'file' || (cam && st.shot));
+        u.again.textContent = cam ? 'Zrób ponownie' : 'Zmień zdjęcie';
+        u.read.hidden = !(mode === 'file' || (cam && st.shot));
+    }
+
+    function setHint(/** @type {NonNullable<typeof ui>} */ u, /** @type {string} */ text, kind = '') {
+        u.hint.textContent = text; u.hint.hidden = !text; st.hintKind = text ? kind : '';
+    }
+
+    /** Brak kamery albo odmowa: komunikat i wybór pliku. */
+    function showFallback(/** @type {NonNullable<typeof ui>} */ u, /** @type {string} */ msg = 'Nie mam dostępu do aparatu.') {
+        stopCamera(u); setMode(u, 'fallback');
+        u.video.hidden = true; u.canvas.hidden = true; u.frame.hidden = true;
+        u.emptyText.textContent = msg;
+        u.pick.textContent = 'Wybierz zdjęcie lub PDF';
+        u.empty.hidden = false; u.pick.focus();
+    }
+
+    function stopCamera(/** @type {NonNullable<typeof ui>} */ u) {
+        st.camId++;
+        if (st.timer) { clearInterval(st.timer); st.timer = null; }
+        if (st.stream) { st.stream.getTracks().forEach((t) => t.stop()); st.stream = null; }
+        u.video.srcObject = null; u.torch.hidden = true; st.torchOn = false; u.torch.setAttribute('aria-pressed', 'false');
+    }
+
+    async function startCamera(/** @type {NonNullable<typeof ui>} */ u) {
+        stopCamera(u); // nigdy dwóch strumieni naraz
+        const my = st.camId;
+        st.shot = false; st.source = null; u.error.hidden = true; u.empty.hidden = true; u.canvas.hidden = true; u.frame.hidden = true;
+        setHint(u, ''); setMode(u, 'camera'); u.shoot.disabled = true;
+        const md = win.navigator.mediaDevices;
+        try {
+            let s;
+            try { s = await md.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false }); }
+            catch (e) { if (e && /** @type {Error} */ (e).name === 'OverconstrainedError') s = await md.getUserMedia({ video: true, audio: false }); else throw e; }
+            if (my !== st.camId) { s.getTracks().forEach((t) => t.stop()); return; }
+            st.stream = s; u.video.srcObject = s;
+            if (!u.video.videoWidth) await new Promise((ok) => { u.video.onloadedmetadata = () => ok(null); });
+            if (my !== st.camId) return;
+            await u.video.play().catch(() => {});
+            if (my !== st.camId) return;
+            const v = u.video;
+            useSource(u, { el: v, width: v.videoWidth, height: v.videoHeight, cover: true, snapshot: () => u.canvas });
+            const track = s.getVideoTracks()[0], caps = track && track.getCapabilities && track.getCapabilities();
+            u.torch.hidden = !(caps && /** @type {any} */ (caps).torch);
+            u.shoot.disabled = false; u.shoot.focus();
+            const probe = document.createElement('canvas'); probe.width = 64; probe.height = 36;
+            const pctx = /** @type {CanvasRenderingContext2D} */ (probe.getContext('2d', { willReadFrequently: true }));
+            st.timer = setInterval(() => {
+                if (st.source?.el !== u.video) return;
+                pctx.drawImage(u.video, 0, 0, 64, 36);
+                const d = pctx.getImageData(0, 0, 64, 36).data; let sum = 0;
+                for (let i = 0; i < d.length; i += 4) sum += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+                if (sum / (d.length / 4) < DARK_MEAN) setHint(u, 'Za ciemno — włącz światło', 'dark');
+                else if (st.hintKind === 'dark') setHint(u, '');
+            }, 500);
+        } catch {
+            if (my === st.camId) showFallback(u); // odmowa, brak urządzenia, zajęta kamera, błąd: wybór pliku
+        }
+    }
+
+    /** Zrób: klatka do canvasa, kamera stoi PRZED odczytem (pamięć iPhone'a), ramka zostaje na tym samym kawałku obrazu. */
+    function shoot(/** @type {NonNullable<typeof ui>} */ u) {
+        const v = u.video;
+        if (st.mode !== 'camera' || st.shot || st.source?.el !== v || !v.videoWidth) return;
+        const k = Math.min(1, MAX_DISPLAY / Math.max(v.videoWidth, v.videoHeight));
+        u.canvas.width = Math.max(1, Math.round(v.videoWidth * k)); u.canvas.height = Math.max(1, Math.round(v.videoHeight * k));
+        /** @type {CanvasRenderingContext2D} */ (u.canvas.getContext('2d')).drawImage(v, 0, 0, u.canvas.width, u.canvas.height);
+        const f = { ...st.f };
+        stopCamera(u); st.shot = true; setHint(u, ''); setMode(u, 'camera');
+        useSource(u, { el: u.canvas, width: u.canvas.width, height: u.canvas.height, snapshot: () => u.canvas });
+        st.f = f; layout(u); // frakcje obrazu: ten sam wycinek, choć scena pokazuje teraz całe zdjęcie
+        doRead(u, true);
     }
 
     function clearBusy(/** @type {NonNullable<typeof ui>} */ u) {
@@ -117,6 +215,9 @@
         const s = u.stage.getBoundingClientRect(), c = content(u);
         const fw = 0.8 * s.width, fh = 0.25 * s.height;
         let x0 = (s.width - fw) / 2, x1 = x0 + fw, y0 = (s.height - fh) / 2, y1 = y0 + fh;
+        if (st.source && st.source.cover) { // kamera: sama ramka 80% x 25% sceny, bez reguły „cały obraz”
+            return { x: (x0 - c.x) / c.w, y: (y0 - c.y) / c.h, w: fw / c.w, h: fh / c.h };
+        }
         // Obraz niższy niż ramka albo szeroki pasek (>= 1,9:1, szerszy niż każde zdjęcie) to już przycięty wzór: bierz cały, nie obcinaj.
         if (c.h <= fh || c.w / c.h >= 1.9) { x0 = c.x; x1 = c.x + c.w; y0 = c.y; y1 = c.y + c.h; }
         x0 = Math.max(x0, c.x); x1 = Math.min(x1, c.x + c.w); y0 = Math.max(y0, c.y); y1 = Math.min(y1, c.y + c.h);
@@ -126,23 +227,28 @@
     /** Prostokąt widocznego obrazu w pikselach sceny (object-fit: contain, więc z marginesami). */
     function content(/** @type {NonNullable<typeof ui>} */ u) {
         const s = u.stage.getBoundingClientRect(), src = st.source;
-        if (!src) return { x: 0, y: 0, w: s.width, h: s.height, left: s.left, top: s.top };
-        const k = Math.min((s.width - 2 * PAD) / src.width, (s.height - 2 * PAD) / src.height);
+        if (!src) return { x: 0, y: 0, w: s.width, h: s.height, left: s.left, top: s.top, x0: 0, x1: 1, y0: 0, y1: 1 };
+        // contain (zdjęcie): obraz w całości, z marginesami. cover (kamera): obraz większy od sceny, przycięty z boków albo z góry i dołu.
+        const k = src.cover ? Math.max(s.width / src.width, s.height / src.height) : Math.min((s.width - 2 * PAD) / src.width, (s.height - 2 * PAD) / src.height);
         const w = src.width * k, h = src.height * k, x = (s.width - w) / 2, y = (s.height - h) / 2;
-        return { x, y, w, h, left: s.left, top: s.top };
+        // dozwolony zakres ramki (ułamki obrazu): cały obraz dla contain, widoczna scena z PAD dla cover
+        const lim = src.cover
+            ? { x0: (PAD - x) / w, x1: (s.width - PAD - x) / w, y0: (PAD - y) / h, y1: (s.height - PAD - y) / h }
+            : { x0: 0, x1: 1, y0: 0, y1: 1 };
+        return { x, y, w, h, left: s.left, top: s.top, ...lim };
     }
 
     function layout(/** @type {NonNullable<typeof ui>} */ u) {
         const c = content(u), f = st.f;
-        Object.assign(u.canvas.style, { left: c.x + 'px', top: c.y + 'px', width: c.w + 'px', height: c.h + 'px' });
+        Object.assign(/** @type {HTMLElement} */ (st.source ? st.source.el : u.canvas).style, { left: c.x + 'px', top: c.y + 'px', width: c.w + 'px', height: c.h + 'px' });
         Object.assign(u.frame.style, { left: c.x + f.x * c.w + 'px', top: c.y + f.y * c.h + 'px', width: f.w * c.w + 'px', height: f.h * c.h + 'px' });
     }
 
-    /** @param {{x:number,y:number,w:number,h:number}} f @param {{w:number,h:number}} c */
+    /** @param {{x:number,y:number,w:number,h:number}} f @param {{w:number,h:number,x0:number,x1:number,y0:number,y1:number}} c */
     function clampFrame(f, c) {
         const mw = Math.min(1, MIN_W / c.w), mh = Math.min(1, MIN_H / c.h);
-        f.w = Math.min(1, Math.max(mw, f.w)); f.h = Math.min(1, Math.max(mh, f.h));
-        f.x = Math.min(1 - f.w, Math.max(0, f.x)); f.y = Math.min(1 - f.h, Math.max(0, f.y));
+        f.w = Math.min(c.x1 - c.x0, Math.max(mw, f.w)); f.h = Math.min(c.y1 - c.y0, Math.max(mh, f.h));
+        f.x = Math.min(c.x1 - f.w, Math.max(c.x0, f.x)); f.y = Math.min(c.y1 - f.h, Math.max(c.y0, f.y));
     }
 
     /** Przesuwa narożnik (dx, dy w px sceny); przeciwległy zostaje. */
@@ -150,8 +256,8 @@
         const c = content(u), west = corner[1] === 'w', north = corner[0] === 'n';
         const fx = dx / c.w, fy = dy / c.h, mw = Math.min(1, MIN_W / c.w), mh = Math.min(1, MIN_H / c.h);
         let x0 = start.x, x1 = start.x + start.w, y0 = start.y, y1 = start.y + start.h;
-        if (west) x0 = Math.min(x1 - mw, Math.max(0, x0 + fx)); else x1 = Math.max(x0 + mw, Math.min(1, x1 + fx));
-        if (north) y0 = Math.min(y1 - mh, Math.max(0, y0 + fy)); else y1 = Math.max(y0 + mh, Math.min(1, y1 + fy));
+        if (west) x0 = Math.min(x1 - mw, Math.max(c.x0, x0 + fx)); else x1 = Math.max(x0 + mw, Math.min(c.x1, x1 + fx));
+        if (north) y0 = Math.min(y1 - mh, Math.max(c.y0, y0 + fy)); else y1 = Math.max(y0 + mh, Math.min(c.y1, y1 + fy));
         st.f = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
         layout(u);
     }
@@ -180,17 +286,18 @@
         const ctx = /** @type {CanvasRenderingContext2D} */ (u.canvas.getContext('2d'));
         ctx.drawImage(bmp, 0, 0, u.canvas.width, u.canvas.height);
         bmp.close();
+        stopCamera(u); st.shot = false; setHint(u, ''); setMode(u, 'file'); u.video.hidden = true;
         useSource(u, { el: u.canvas, width: u.canvas.width, height: u.canvas.height, snapshot: () => u.canvas });
     }
 
     /** Wspólne wejście dla każdego źródła (zdjęcie, później kamera i PDF). */
     function useSource(/** @type {NonNullable<typeof ui>} */ u, /** @type {NonNullable<typeof st.source>} */ src) {
         st.source = src; st.readId++; clearBusy(u);
-        u.error.hidden = true; u.empty.hidden = true; u.canvas.hidden = false; u.frame.hidden = false; u.again.hidden = false;
+        u.error.hidden = true; u.empty.hidden = true; u.canvas.hidden = src.el !== u.canvas; u.video.hidden = src.el !== u.video; u.frame.hidden = false;
         u.read.disabled = false;
         st.f = defaultFrame(u);
         layout(u);
-        u.frame.focus({ preventScroll: true });
+        if (st.mode !== 'camera' || st.shot) u.frame.focus({ preventScroll: true });
     }
 
     function showError(/** @type {NonNullable<typeof ui>} */ u, /** @type {string} */ msg) {
@@ -198,12 +305,12 @@
     }
 
     function closeDlg(/** @type {NonNullable<typeof ui>} */ u) {
-        st.token++; st.readId++; clearBusy(u);
+        st.token++; st.readId++; clearBusy(u); stopCamera(u);
         if (u.dlg.open) u.dlg.close();
         const o = st.opener; if (o && o.isConnected) o.focus();
     }
 
-    async function doRead(/** @type {NonNullable<typeof ui>} */ u) {
+    async function doRead(/** @type {NonNullable<typeof ui>} */ u, /** @type {boolean} */ checkBlur = false) {
         if (st.busy || !st.source) return;
         const my = ++st.readId;
         st.busy = true; u.error.hidden = true;
@@ -213,6 +320,7 @@
             const src = st.source.snapshot(), f = st.f;
             // ramka znormalizowana do widocznego obrazu = ułamek pikseli źródła (letterboxing już odjęty w content())
             const crop = cropToImage(src, { x: f.x * src.width, y: f.y * src.height, w: f.w * src.width, h: f.h * src.height });
+            if (checkBlur && win.MATM0_FIMG.blurScore(crop) < win.MATM0_FIMG.BLUR_MIN) setHint(u, 'Rozmazane — przytrzymaj telefon nieruchomo', 'blur');
             const res = await win.MATM0_OCR.read(win.MATM0_FIMG.trimEdgeBlobs(crop));
             if (!done()) return;
             if (res && res.expr && !res.error) {
@@ -232,9 +340,22 @@
     function wire(/** @type {NonNullable<typeof ui>} */ u) {
         u.close.addEventListener('click', () => closeDlg(u));
         u.dlg.addEventListener('cancel', (e) => { e.preventDefault(); closeDlg(u); }); // Escape
-        u.dlg.addEventListener('close', () => { st.token++; });
+        u.dlg.addEventListener('close', () => { st.token++; stopCamera(u); });
         const choose = () => u.input.click();
-        u.pick.addEventListener('click', choose); u.again.addEventListener('click', choose);
+        u.pick.addEventListener('click', choose); u.gallery.addEventListener('click', choose);
+        u.again.addEventListener('click', () => { if (st.mode === 'camera') startCamera(u); else choose(); });
+        u.shoot.addEventListener('click', () => shoot(u));
+        u.torch.addEventListener('click', async () => {
+            const track = st.stream && st.stream.getVideoTracks()[0]; if (!track) return;
+            const on = !st.torchOn;
+            try { await track.applyConstraints({ advanced: [/** @type {any} */ ({ torch: on })] }); st.torchOn = on; u.torch.setAttribute('aria-pressed', String(on)); } catch {}
+        });
+        // Ukryta karta: kamera stoi (bateria, pamięć); po powrocie wraca podgląd, o ile okno nadal czeka na kadr.
+        document.addEventListener('visibilitychange', () => {
+            if (!u.dlg.open || st.mode !== 'camera' || st.shot) return;
+            if (document.visibilityState === 'hidden') { stopCamera(u); st.source = null; u.frame.hidden = true; u.shoot.disabled = true; }
+            else if (!st.stream) startCamera(u);
+        });
         u.input.addEventListener('change', () => { const f = u.input.files && u.input.files[0]; if (f) loadFile(f); });
         u.read.addEventListener('click', () => doRead(u));
         new ResizeObserver(() => { if (st.source) layout(u); }).observe(u.stage);

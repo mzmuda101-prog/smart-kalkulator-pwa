@@ -5706,7 +5706,21 @@ body.kb-open.notepad-open .np-total-bar { margin-top: 6px; padding-top: 2px; pad
 .scanner-close:active { transform: scale(0.94); }
 @media (hover: hover) { .scanner-close:hover { background: var(--border); } }
 .scanner-stage { position: relative; flex: 1 1 auto; min-block-size: 0; overflow: hidden; background: var(--border); }
-.scanner-stage canvas { position: absolute; display: block; outline: 1px solid var(--text-muted); } /* krawędź białego zdjęcia widoczna pod przyciemnieniem */
+.scanner-stage video, .scanner-stage canvas { position: absolute; display: block; outline: 1px solid var(--text-muted); } /* krawędź białego zdjęcia widoczna pod przyciemnieniem */
+.scanner-stage video { object-fit: cover; background: #000; }
+.scanner-hint {
+    position: absolute; inset-block-start: 12px; inset-inline: 16px; margin: 0 auto; inline-size: fit-content; max-inline-size: calc(100% - 32px);
+    padding: 8px 14px; border-radius: 999px; background: var(--card-bg); color: var(--text); border: 1.5px solid var(--border-focus);
+    font-weight: 600; font-size: 0.9375rem; text-align: center; pointer-events: none; z-index: 2;
+}
+.scanner-torch {
+    position: absolute; inset-block-end: 12px; inset-inline-end: 16px; z-index: 2; min-block-size: 44px; min-inline-size: 44px; padding: 0 16px;
+    border: 1.5px solid var(--border-focus); border-radius: var(--radius); background: var(--card-bg); color: var(--text); font: inherit; font-weight: 600; cursor: pointer;
+}
+.scanner-torch[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: var(--text-on-accent); }
+.scanner-torch:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+@media (hover: hover) { .scanner-torch:hover { border-color: var(--primary); } }
+[data-theme="dark"] .scanner-torch[aria-pressed="true"] { color: var(--bg); }
 .scanner-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px; text-align: center; }
 .scanner-empty-text { margin: 0; max-inline-size: 32ch; color: var(--text-secondary); line-height: 1.5; }
 .scanner-frame {

@@ -2307,7 +2307,7 @@
                 return loading;
             };
             if (scanBtn) scanBtn.addEventListener('click', function () {
-                window.loadScanner().then(function () { window.MATM0_SCANNER.open({ source: 'file' }); }, function () {});
+                window.loadScanner().then(function () { window.MATM0_SCANNER.open(); }, function () {});
             });
         })();
         function setupPlaceholderMarquee() {

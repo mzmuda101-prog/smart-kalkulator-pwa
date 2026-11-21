@@ -131,7 +131,28 @@
         return out.join('').replace(/Ġ/g, ' ');
     }
 
-    const API = { trimEdgeBlobs: trimEdgeBlobs, toTensor: toTensor, decodeTokens: decodeTokens };
+    /** Ostrość: wariancja laplasjanu 3x3 na jasności zmniejszonej kopii (dłuższy bok <= 512). Niska = rozmazane. */
+    function blurScore(/** @type {Img} */ img) {
+        const k = Math.min(1, 512 / Math.max(img.width, img.height));
+        const w = Math.max(3, Math.round(img.width * k)), h = Math.max(3, Math.round(img.height * k)), g = new Float64Array(w * h);
+        for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { // średnia z komórki źródła
+            const x0 = Math.floor(x * img.width / w), x1 = Math.max(x0 + 1, Math.floor((x + 1) * img.width / w));
+            const y0 = Math.floor(y * img.height / h), y1 = Math.max(y0 + 1, Math.floor((y + 1) * img.height / h));
+            let s = 0, n = 0;
+            for (let yy = y0; yy < y1; yy++) for (let xx = x0; xx < x1; xx++) { const i = (yy * img.width + xx) * 4; s += 0.299 * img.data[i] + 0.587 * img.data[i + 1] + 0.114 * img.data[i + 2]; n++; }
+            g[y * w + x] = s / n;
+        }
+        let sum = 0, sq = 0, n = 0;
+        for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+            const i = y * w + x, l = g[i - 1] + g[i + 1] + g[i - w] + g[i + w] - 4 * g[i];
+            sum += l; sq += l * l; n++;
+        }
+        return sq / n - (sum / n) * (sum / n);
+    }
+
+    /** Próg: frac.png ma ok. 4170, z rozmyciem Gaussa sigma=1 ok. 350, sigma=2 ok. 45, sigma=3 ok. 10. */
+    const BLUR_MIN = 100;
+    const API = { blurScore: blurScore, BLUR_MIN: BLUR_MIN, trimEdgeBlobs: trimEdgeBlobs, toTensor: toTensor, decodeTokens: decodeTokens };
     /** @type {any} */ (typeof window !== 'undefined' ? window : globalThis).MATM0_FIMG = API; // w Workerze nie ma window
     if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();
