@@ -513,6 +513,7 @@
         } catch (e) {
             if (!done()) return;
             const m = e && /** @type {Error} */ (e).message;
+            if (u.debug) showDebug(u.debug, { failed: m || String(e) }); // panel nigdy nie zostaje z poprzednim odczytem
             if (m === 'declined') closeDlg(u);
             else if (m === 'timeout') showError(u, 'Odczyt trwa za długo. Spróbuj z mniejszą ramką.');
             else showError(u, 'Nie udało się uruchomić odczytu. Sprawdź połączenie i spróbuj ponownie.'); // pobieranie, offline, worker, silnik
@@ -521,7 +522,8 @@
 
     /** ?debug=1: surowy LaTeX, wynik tłumacza, czas i zapis obrazu, który dostał model (po białym tle i przycięciu). */
     function showDebug(/** @type {NonNullable<NonNullable<typeof ui>['debug']>} */ d, /** @type {any} */ res) {
-        d.out.textContent = 'LaTeX: ' + (res && res.latex || '(pusto)') + '\n'
+        d.out.textContent = res && res.failed ? 'Odczyt nieudany: ' + res.failed
+            : 'LaTeX: ' + (res && res.latex || '(pusto)') + '\n'
             + (res && res.error ? 'Tłumacz: błąd — ' + res.error : 'Tłumacz: ' + (res && res.expr || '(pusto)')) + '\n'
             + 'Czas: ' + (res && res.ms) + ' ms';
         d.box.hidden = false;

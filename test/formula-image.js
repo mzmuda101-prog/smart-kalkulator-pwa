@@ -36,6 +36,22 @@ const px = (img, x, y) => img.data[(y * img.width + x) * 4];
     // ciasna ramka: wysoki pas przy krawędzi (licznik) nie jest skrawkiem — zostaje
     const n = blank(100, 40); rect(n, 40, 0, 10, 14); rect(n, 20, 22, 60, 3); rect(n, 40, 30, 10, 10);
     ok('trim: licznik zostaje', px(trimEdgeBlobs(n), 45, 5) === 0);
+    const inkLeft = (r) => { let c = 0; for (let i = 0; i < r.data.length; i += 4) if (r.data[i] < 128) c++; return c; };
+    // skrawek u góry + pas + wzór dotykający dołu (oba <= 25%): obie strony wyglądają na skrawek — wzór (wyższy) zostaje
+    const a = blank(300, 80); rect(a, 20, 0, 200, 8); rect(a, 30, 64, 240, 16);
+    const ra = trimEdgeBlobs(a);
+    ok('trim: skrawek góra + wzór przy dole — wzór zostaje', px(ra, 100, 70) === 0 && px(ra, 100, 4) === 255, [px(ra, 100, 70), px(ra, 100, 4), inkLeft(ra)]);
+    // lustrzanie: wzór przy górze, skrawek u dołu
+    const b = blank(300, 80); rect(b, 30, 0, 240, 16); rect(b, 20, 72, 200, 8);
+    const rb = trimEdgeBlobs(b);
+    ok('trim: wzór przy górze + skrawek u dołu — wzór zostaje', px(rb, 100, 8) === 0 && px(rb, 100, 76) === 255, [px(rb, 100, 8), px(rb, 100, 76)]);
+    // równe pasy: nie wiadomo, który jest wzorem — nic nie znika
+    const e = blank(300, 80); rect(e, 20, 0, 200, 10); rect(e, 20, 70, 200, 10);
+    ok('trim: równe pasy — bez cięcia', inkLeft(trimEdgeBlobs(e)) === inkLeft(e));
+    // skrawki u góry i u dołu, wzór w środku: oba cięcia
+    const c = blank(300, 80); rect(c, 20, 0, 200, 6); rect(c, 30, 25, 240, 30); rect(c, 20, 74, 200, 6);
+    const rc = trimEdgeBlobs(c);
+    ok('trim: skrawki góra i dół, wzór w środku', px(rc, 100, 3) === 255 && px(rc, 100, 77) === 255 && px(rc, 100, 40) === 0, [px(rc, 100, 3), px(rc, 100, 77), px(rc, 100, 40)]);
 }
 
 // whitenBackground: szare tło z gradientem (zdjęcie ekranu / kartki w pokoju) → białe, kreski zostają ciemne
@@ -55,6 +71,17 @@ const px = (img, x, y) => img.data[(y * img.width + x) * 4];
     }
     ok('whiten: tło >= 240', Math.min(...bgv) >= 240, Math.min(...bgv));
     ok('whiten: kreski <= 60', inkMax <= 60, inkMax);
+    // ciemny motyw: #121212 z białymi kreskami → negatyw, białe tło, ciemne kreski
+    const dk = blank(300, 90, 0x12); for (let i = 3; i < dk.data.length; i += 4) dk.data[i] = 255;
+    for (const x0 of [30, 120, 210]) { rect(dk, x0, 30, 40, 4, 255); rect(dk, x0 + 18, 15, 4, 40, 255); }
+    const rd = whitenBackground(dk);
+    let dBg = 255, dInk = 0;
+    for (let y = 0; y < 90; y++) for (let x = 0; x < 300; x++) {
+        const v = px(rd, x, y), stroke = [30, 120, 210].some(x0 => (y >= 30 && y < 34 && x >= x0 && x < x0 + 40) || (x >= x0 + 18 && x < x0 + 22 && y >= 15 && y < 55));
+        if (stroke) dInk = Math.max(dInk, v); else dBg = Math.min(dBg, v);
+    }
+    ok('whiten: ciemny motyw — tło >= 240', dBg >= 240, dBg);
+    ok('whiten: ciemny motyw — kreski <= 60', dInk <= 60, dInk);
     const clean = blank(200, 60); rect(clean, 20, 20, 100, 10, 0);
     const rc = whitenBackground(clean);
     ok('whiten: czysty skan bez zmian', rc.data.every((v, i) => v === clean.data[i]));

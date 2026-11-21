@@ -202,6 +202,12 @@ test.describe('podgląd kryje scenę', () => {
         const c = document.querySelector('.scanner-preview'), d = c.getContext('2d').getImageData(c.width >> 1, c.height >> 1, 1, 1).data;
         return d[3] === 255 && d[0] < 40;
       })).toBe(true);
+      // cover, nie contain: róg sceny też jest klatką (nieprzezroczysty, szare tło klatki), nie pustym polem
+      const corner = await page.evaluate(() => {
+        const c = document.querySelector('.scanner-preview'), g = c.getContext('2d');
+        return [[1, 1], [c.width - 2, c.height - 2]].map(([x, y]) => Array.from(g.getImageData(x, y, 1, 1).data));
+      });
+      for (const px of corner) { expect(px[3]).toBe(255); expect(Math.abs(px[0] - 0xc8)).toBeLessThan(12); }
     });
   }
 });

@@ -381,6 +381,12 @@ test.describe('ramka na zdjęciu', () => {
     await expect(panel).toContainText('Czas: 42 ms');
     const [dl] = await Promise.all([page.waitForEvent('download'), panel.getByRole('button', { name: 'Zapisz wycinek' }).click()]);
     expect(dl.suggestedFilename()).toMatch(/^wycinek-\d+\.png$/);
+    // błąd odczytu (np. limit czasu) też trafia do panelu, zamiast starego odczytu
+    await page.evaluate(() => { window.MATM0_OCR.read = async () => { throw new Error('timeout'); }; });
+    await page.getByRole('button', { name: 'Odczytaj', exact: true }).click();
+    await expect(panel).toContainText('Odczyt nieudany: timeout');
+    await expect(panel).not.toContainText('LaTeX:');
+    await expect(panel.getByRole('button', { name: 'Zapisz wycinek' })).toBeHidden();
   });
 
   test('cropToImage: przycina w pikselach źródła i zmniejsza dłuższy bok do 2000', async ({ page }) => {

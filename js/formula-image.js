@@ -26,7 +26,14 @@
      * @param {Img} img @returns {Img}
      */
     function whitenBackground(img) {
-        const { width: w, height: h } = img, d = img.data, out = new Uint8ClampedArray(d);
+        const { width: w, height: h } = img, out = new Uint8ClampedArray(img.data);
+        // ciemny motyw (zrzut ekranu): mediana jasności < 110 → najpierw negatyw, jasny tusz na czarnym = ciemny na białym
+        const lh = new Uint32Array(256);
+        for (let i = 0; i < w * h; i++) lh[Math.round(out[i * 4] * 0.299 + out[i * 4 + 1] * 0.587 + out[i * 4 + 2] * 0.114)]++;
+        let med = 0;
+        for (let acc = 0; med < 255 && acc + lh[med] < w * h / 2; med++) acc += lh[med];
+        if (med < 110) for (let i = 0; i < out.length; i++) if ((i & 3) !== 3) out[i] = 255 - out[i];
+        const d = new Uint8ClampedArray(out);
         const B = Math.max(8, Math.round(Math.min(w, h) / 3)); // ok. 3 kafelki na wysokość wzoru: tuszu w kafelku zwykle < 10%
         const bw = Math.ceil(w / B), bh = Math.ceil(h / B), step = Math.max(1, Math.floor(B / 24));
         const tile = [0, 1, 2].map(() => new Float32Array(bw * bh)), hist = new Uint32Array(256);
@@ -79,15 +86,22 @@
         const ink = new Uint8Array(h);
         for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (g[y * w + x] < 200) { ink[y] = 1; break; }
         const maxSliver = 0.25 * h, minGap = Math.max(3, 0.08 * h);
-        for (const dir of [1, -1]) {
+        /** Pas skrawka od krawędzi (liczba wierszy) albo 0. dir 1 = góra, -1 = dół. */
+        const cut = (/** @type {number} */ dir) => {
             const row = (/** @type {number} */ i) => (dir === 1 ? i : h - 1 - i);
             let i = 0;
             while (i < h && ink[row(i)]) i++;
             const a = i;
             while (i < h && !ink[row(i)]) i++;
-            if (a === 0 || a > maxSliver || i - a < minGap || i >= h) continue; // brak skrawka, za wysoki, pas za wąski albo dalej nic
-            for (let k = 0; k < a; k++) out.data.fill(255, row(k) * w * 4, (row(k) + 1) * w * 4);
-        }
+            return a === 0 || a > maxSliver || i - a < minGap || i >= h ? 0 : a; // brak, za wysoki, pas za wąski albo dalej nic
+        };
+        let top = cut(1), bot = cut(-1);
+        // oba cięcia razem nie mogą zjeść wszystkiego: wtedy jedna strona to sam wzór — zostaje wyższy pas, równe = nic nie tniemy
+        let rest = false;
+        for (let y = top; y < h - bot && !rest; y++) rest = !!ink[y];
+        if (!rest) { if (top > bot) top = 0; else if (bot > top) bot = 0; else top = bot = 0; }
+        for (let y = 0; y < top; y++) out.data.fill(255, y * w * 4, (y + 1) * w * 4);
+        for (let y = h - bot; y < h; y++) out.data.fill(255, y * w * 4, (y + 1) * w * 4);
         return out;
     }
 
