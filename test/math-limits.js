@@ -183,6 +183,23 @@ const WANT_TEXT = { '1a': '1/3', '1d': '0', '1e': '+∞', '7a': '√3/3', '7b': 
     ok('6d: wykładnik → −6', st.some(x => /→ −6$/.test(x.math)), st.map(x => x.math));
 }
 
+// ── Task 8: punkt skończony 0/0 ────────────────────────────
+['8a', '8b', '8c', '8d', '8e', '8f', '9a', '9b', '9c', '9d', '9e', '9f'].forEach(id => {
+    const r = S.run(byId[id].input);
+    ok('zadanie ' + id, r && r.text !== NOPE && agrees(r.value, byId[id].value) && r.explain.steps.length >= 3, r && r.text);
+});
+{
+    const st8 = (S.run(byId['8a'].input) || {}).explain;
+    const s8 = st8 ? st8.steps : [];
+    ok('8a: [0/0] w pierwszym kroku', s8.length && /\[0\/0\]$/.test(s8[0].math), s8[0]);
+    ok('8a: Rozkładamy na czynniki (x − 4)(x − 2)/((x − 4)(3x + 2))', s8.some(x => x.label === 'Rozkładamy na czynniki' && x.math.includes('(x − 4)(x − 2)/((x − 4)(3x + 2))')), s8.map(x => x.label + ': ' + x.math));
+    ok('8a: Skracamy (x − 4)', s8.some(x => x.label === 'Skracamy (x − 4)'), s8.map(x => x.label));
+    ok('8a tekst 1/7', text(byId['8a'].input) === '1/7', text(byId['8a'].input));
+    const s9 = ((S.run(byId['9e'].input) || {}).explain || { steps: [] }).steps;
+    ok('9e: sprzężenie a⁴ − b⁴', s9.some(x => x.label.includes('a⁴ − b⁴')), s9.map(x => x.label));
+    ok('9e tekst −1/96', text(byId['9e'].input) === '−1/96', text(byId['9e'].input));
+}
+
 // ── Zestaw 58 zadań ─────────────────────────────────────────
 let covered = 0, wrong = 0;
 const missing = [];

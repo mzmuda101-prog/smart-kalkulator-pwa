@@ -225,7 +225,16 @@
             name: 'substitution',
             test: function (e, v, t) { return isFiniteTarget(t); },
             apply: function (e, v, t, log) {
-                var at = substitute(e, v, pointExpr(t));
+                var pt = pointExpr(t);
+                // [EN] mianownik w punkcie ≠ 0 — czynnik po czynniku (∛8 − 2 to zero, choć nie wygląda)
+                e.forEach(function (term) {
+                    term.fs.forEach(function (f) {
+                        if (f.e.n >= 0n) return;
+                        var dv = C.evalExpr(substitute(C.atomExpr(f.b), v, pt), {});
+                        if (!isFinite(dv) || Math.abs(dv) < 1e-12) throw new NotSupported();
+                    });
+                });
+                var at = fold(substitute(e, v, pt));
                 var val = C.evalExpr(at, {});
                 if (C.hasVar(at, v) || !isFinite(val)) throw new NotSupported();
                 line(log, 'Podstawiamy ' + v + ' = ' + targetText({ at: t.at, src: t.src, side: 0 }), limOf(v, t, e) + ' = ' + C.show(at));
@@ -276,8 +285,13 @@
                     sums[key] = sums[key] ? { s: C.expandExpr(C.cMul(sums[key].s, fold(f.b.s))), e: f.e, many: true } : { s: fold(f.b.s), e: f.e };
                     return;
                 }
-                if (f.b.k === 'sum') fs.push({ b: { k: 'sum', s: fold(f.b.s) }, e: f.e });
-                else fs.push(f);
+                if (f.b.k === 'sum') {
+                    var inner = fold(f.b.s);
+                    if (C.isNumber(inner) && K.isInt(f.e) && !K.isZero(C.numberOf(inner))) { // [EN] (32)⁻¹ → 1/32
+                        var q = K.powR(C.numberOf(inner), Number(f.e.n < 0n ? -f.e.n : f.e.n));
+                        c = f.e.n < 0n ? K.div(c, q) : K.mul(c, q);
+                    } else fs.push({ b: { k: 'sum', s: inner }, e: f.e });
+                } else fs.push(f);
             });
             var out = fs.length ? C.cMul(C.num(c), C.atomsProduct(fs)) : C.num(c);
             Object.keys(sums).forEach(function (k2) {
@@ -535,19 +549,19 @@
         var r = numericLimit(D, v, t);
         return !!r && r.kind === 'num' && Math.abs(r.value) < 1e-9;
     }
-    function conjPair(D, v) { // [EN] dwuwyrazowa różnica z pierwiastkiem → { A, B, k }
-        if (D.length === 3) { // [EN] √a + √b − 2n²: sprzężenie (√a + √b) i wyrazu bez pierwiastka
-            var roots = D.filter(function (t) { return rootDegree(t, v) === 2; });
-            var plain = D.filter(function (t) { return !rootDegree(t, v) && isPlain(t); });
-            if (roots.length === 2 && plain.length === 1) return { A: roots, B: C.cNeg(plain), k: 2 };
-            return null;
-        }
-        if (D.length !== 2) return null;
-        var ka = rootDegree(D[0], v), kb = rootDegree(D[1], v);
-        if (!ka && !kb) return null;
-        if (ka && kb && ka !== kb) return null;
-        if ((!ka && !isPlain(D[0])) || (!kb && !isPlain(D[1]))) return null;
-        return { A: [D[0]], B: C.cNeg([D[1]]), k: ka || kb };
+    function conjPair(D, v) {
+        // [EN] A − B: jeden pierwiastek i reszta bez pierwiastka (√(x+7) − x − 1), dwa pierwiastki
+        // tego samego stopnia, albo dwa pierwiastki kwadratowe i reszta (√a + √b − 2n²)
+        if (D.length < 2) return null;
+        var roots = D.filter(function (t) { return rootDegree(t, v) > 0; });
+        var plain = D.filter(function (t) { return !rootDegree(t, v); });
+        if (!roots.length || !plain.every(isPlain)) return null;
+        var k = rootDegree(roots[0], v);
+        if (roots.some(function (t) { return rootDegree(t, v) !== k; })) return null;
+        if (roots.length === 1) return plain.length ? { A: roots, B: C.cNeg(plain), k: k } : null;
+        if (roots.length === 2 && !plain.length) return { A: [roots[0]], B: C.cNeg([roots[1]]), k: k };
+        if (roots.length === 2 && k === 2) return { A: roots, B: C.cNeg(plain), k: 2 };
+        return null;
     }
     function findDifference(e, v, t) {
         if (e.length > 1) return conjPair(e, v) && cancels(e, v, t) ? { whole: true, D: e } : null;
@@ -687,7 +701,63 @@
             return limitOf(combined, v, t, log, depth);
         }
     };
-    RULES.push(commonDenominator, logCombine, conjugate, splitPairs, sameExponent, eLimit, dominantPower);
+    // ── 0/0 w punkcie: rozkład wielomianów (schemat Hornera) i skracanie (x − a) ──
+    function hornerAt(c, a) { // [EN] c rosnąco, dokładnie
+        var r = K.ZERO;
+        for (var i = c.length - 1; i >= 0; i--) r = K.add(K.mul(r, a), c[i]);
+        return r;
+    }
+    function deflateBy(c, a) { // [EN] c(x)/(x − a), reszta = 0
+        var n = c.length - 1, b = new Array(n);
+        b[n - 1] = c[n];
+        for (var i = n - 1; i >= 1; i--) b[i - 1] = K.add(c[i], K.mul(a, b[i]));
+        return b;
+    }
+    function trimPoly(c) { while (c.length > 1 && K.isZero(c[c.length - 1])) c = c.slice(0, -1); return c; }
+    var factorCancel = {
+        name: 'factorCancel',
+        test: function (e, v, t) {
+            if (!isFiniteTarget(t) || e.length !== 1) return false;
+            var a = C.numberOf(pointExpr(t));
+            return e[0].fs.some(function (f) {
+                if (f.e.n >= 0n || !K.isInt(f.e)) return false;
+                var c = C.polyCoefs(C.atomExpr(f.b), v);
+                return !!c && c.length > 1 && K.isZero(hornerAt(c, a));
+            });
+        },
+        apply: function (e, v, t, log, depth) {
+            var a = C.numberOf(pointExpr(t)), xa = C.polyExpr([K.neg(a), ONE], v);
+            var M = 0, rest = C.num(e[0].c), ups = [], downs = [];
+            e[0].fs.forEach(function (f) {
+                var c = K.isInt(f.e) ? C.polyCoefs(C.atomExpr(f.b), v) : null;
+                var pow = Number(f.e.n < 0n ? -f.e.n : f.e.n), list = f.e.n < 0n ? downs : ups;
+                if (!c || c.length < 2) {
+                    rest = C.cMul(rest, C.cPow(C.atomExpr(f.b), f.e));
+                    list.push(grpFactor(C.atomExpr(f.b), pow));
+                    return;
+                }
+                c = trimPoly(c);
+                var m = 0;
+                while (c.length > 1 && K.isZero(hornerAt(c, a))) { c = deflateBy(c, a); m++; }
+                M += (f.e.n < 0n ? -1 : 1) * m * pow;
+                var Q = C.polyExpr(c, v);
+                rest = C.cMul(rest, C.cPow(Q, f.e));
+                for (var i = 0; i < m * pow; i++) list.push('(' + C.show(xa) + ')');
+                if (!isOne(Q)) list.push(grpFactor(Q, pow));
+            });
+            if (!M && !ups.concat(downs).some(function (x) { return x === '(' + C.show(xa) + ')'; })) throw new NotSupported();
+            var head = limHead(v, t), coef = K.fmt(e[0].c) === '1' ? '' : K.fmt(e[0].c);
+            line(log, 'Rozkładamy na czynniki', head + coef + (ups.join('') || '1') + '/' + (downs.length > 1 ? '(' + downs.join('') + ')' : downs.join('')));
+            var out = M ? C.cMul(rest, C.cPow(xa, K.R(M))) : rest;
+            line(log, 'Skracamy (' + C.show(xa) + ')', limOf(v, t, out));
+            return limitOf(out, v, t, log, depth);
+        }
+    };
+    function grpFactor(x, pow) {
+        var s = x.length > 1 ? '(' + C.show(x) + ')' : C.show(x);
+        return pow > 1 ? (x.length > 1 ? s : '(' + s + ')') + K.sup(String(pow)) : s;
+    }
+    RULES.push(commonDenominator, logCombine, factorCancel, conjugate, splitPairs, sameExponent, eLimit, dominantPower);
 
     // ── Symbol nieoznaczony (do pierwszego kroku, jak na zajęciach) ──────
     function kindOf(x) {
