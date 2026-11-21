@@ -36,6 +36,12 @@ function compareAppVersions(a, b) {
     return 0;
 }
 
+/* Cache modelu odczytu wzorów (js/model-store.js) żyje poza wersją apki: aktualizacja ani
+   „Wyczyść cache” go nie ruszają (usuwa go tylko Ustawienia). Zmiana modelu albo wersji
+   onnxruntime-web = podbij numer tutaj; activate w sw.js skasuje wtedy stare matm0-models-*. */
+var MODELS_CACHE = 'matm0-models-v1';
+function isModelsCache(name) { return name === MODELS_CACHE; }
+
 function formatAppVersion(label) {
     return String(label || '').trim() || 'v?';
 }
@@ -46,10 +52,14 @@ if (typeof self !== 'undefined') {
     self.parseAppVersion = parseAppVersion;
     self.compareAppVersions = compareAppVersions;
     self.formatAppVersion = formatAppVersion;
+    self.MODELS_CACHE = MODELS_CACHE;
+    self.isModelsCache = isModelsCache;
 }
 if (typeof window !== 'undefined') {
     window.APP_VERSION = APP_VERSION;
     window.parseAppVersion = parseAppVersion;
     window.compareAppVersions = compareAppVersions;
     window.formatAppVersion = formatAppVersion;
+    window.MODELS_CACHE = MODELS_CACHE;
+    window.isModelsCache = isModelsCache;
 }

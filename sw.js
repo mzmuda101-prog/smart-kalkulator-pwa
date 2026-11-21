@@ -6,9 +6,11 @@
 var SW_FINGERPRINT = 'v1.04.90'; // [EN] auto-synced — triggers SW reinstall on bump
 importScripts('version.js'); // ustawia self.APP_VERSION (np. 'v36')
 const CACHE_NAME = 'matm0-calc-' + (self.APP_VERSION || 'v0');
-/* [EN] Cache modeli (model-store.js) żyje poza wersją apki — activate go nie rusza. */
+/* [EN] Cache modeli (model-store.js) żyje poza wersją apki — activate i purge go nie ruszają.
+   MODELS_CACHE/isModelsCache są w version.js. Zmiana modelu albo wersji onnxruntime-web wymaga
+   podbicia MODELS_CACHE; starsze matm0-models-* activate wtedy skasuje (nie są już bieżące). */
 function isStaleCache(name, current) {
-    return name !== current && name.indexOf('matm0-models-') !== 0;
+    return name !== current && !isModelsCache(name);
 }
 const ASSETS_TO_CACHE = [
     './',
@@ -46,6 +48,8 @@ const ASSETS_TO_CACHE = [
     './js/formula-image.js',
     './js/latex-to-expr.js',
     './js/scanner.js',
+    './vendor/pdfjs/pdf.min.mjs',
+    './vendor/pdfjs/pdf.worker.min.mjs',
     './js/notepad-format.js',
     './js/notepad-engine.js',
     './js/notepad-worker.js',
@@ -130,7 +134,7 @@ self.addEventListener('fetch', function(event) {
        nigdy do cache apki — 15 MB wasm nie ma trafiać tam przy każdym wejściu. */
     if (url.pathname.indexOf('/models/') !== -1 || url.pathname.indexOf('/vendor/onnxruntime-web/') !== -1) {
         event.respondWith(
-            caches.open('matm0-models-v1').then(function(c) { return c.match(event.request); })
+            caches.open(MODELS_CACHE).then(function(c) { return c.match(event.request); })
                 .then(function(hit) { return hit || fetch(event.request); })
         );
         return;
@@ -153,10 +157,11 @@ self.addEventListener('message', function(event) {
         self.skipWaiting();
     }
     if (event.data && event.data.action === 'purge-caches') {
-        console.log('[SW] Purging all caches');
+        console.log('[SW] Purging app caches (model zostaje)');
         event.waitUntil(
             caches.keys().then(function(names) {
                 return Promise.all(names.map(function(name) {
+                    if (isModelsCache(name)) return;
                     console.log('[SW] Deleting cache:', name);
                     return caches.delete(name);
                 }));

@@ -2299,7 +2299,7 @@
                 if (!loading) loading = Promise.all(['js/formula-image.js', 'js/scanner.js'].map(function (src) {
                     return new Promise(function (ok, fail) {
                         var el = document.createElement('script');
-                        el.src = src + '?v=' + (window.APP_VERSION || 'v0');
+                        el.src = src; // bez ?v: tak je ma precache SW (offline po aktualizacji); świeżość daje wersjonowany cache
                         el.onload = ok; el.onerror = function () { fail(new Error(src)); };
                         document.head.appendChild(el);
                     });
@@ -2307,7 +2307,9 @@
                 return loading;
             };
             if (scanBtn) scanBtn.addEventListener('click', function () {
-                window.loadScanner().then(function () { window.MATM0_SCANNER.open(); }, function () {});
+                window.loadScanner().then(function () { window.MATM0_SCANNER.open(); }, function () {
+                    showToast('Nie udało się wczytać skanera. Sprawdź połączenie.', 'error');
+                });
             });
         })();
         function setupPlaceholderMarquee() {
@@ -9212,6 +9214,8 @@
            [EN] PWA — Service Worker Registration
            ============================================================ */
         function isDebugOrigin() {
+            // e2e ścieżki produkcyjnej: SW zostaje także na localhost
+            try { if (localStorage.getItem('matm0_sw_local') === '1') return false; } catch (e) {}
             var host = window.location.hostname;
             return (
                 window.location.protocol !== 'https:' ||
@@ -9316,10 +9320,10 @@
             updateBanner.setAttribute('aria-hidden', 'true'); updateBanner.inert = true; // ukryte = poza Tabem i czytnikiem
             swSoftUpdateVersion = null;
         }
-        function purgeAppCaches() { // [EN] wyczyść Cache Storage przed przeładowaniem po update
+        function purgeAppCaches() { // [EN] wyczyść Cache Storage przed przeładowaniem po update (model OCR zostaje)
             if (!('caches' in window)) return Promise.resolve();
             return caches.keys().then(function(keys) {
-                return Promise.all(keys.map(function(k) { return caches.delete(k); }));
+                return Promise.all(keys.map(function(k) { return window.isModelsCache(k) ? false : caches.delete(k); }));
             });
         }
         function markAssetBustForReload() { // [EN] wymusza świeże URL-e JS/CSS po przeładowaniu
@@ -9797,14 +9801,14 @@
             if (settingFxBackupRow) settingFxBackupRow.classList.toggle('is-na', isAuto);
         }
 
-        // Wiersz „Model odczytu wzorów”: widoczny tylko, gdy model jest pobrany (js/model-store.js).
+        // Wiersz „Model odczytu wzorów”: widoczny, gdy cokolwiek z modelu jest w cache (też przerwane pobranie), z zajętym rozmiarem (js/model-store.js).
         var modelRow = $('#settingsModelRow'), modelConfirm = $('#settingsModelConfirm');
         function syncModelRow() {
             if (!modelRow || !window.MATM0_MODELS) return;
             modelConfirm.hidden = true;
             window.MATM0_MODELS.status('formulanet-s').then(function(st) {
-                modelRow.hidden = !st.ready;
-                if (st.ready) $('#settingsModelSize').textContent = (st.downloadBytes / 1e6).toFixed(1).replace('.', ',') + ' MB';
+                modelRow.hidden = !(st.haveBytes > 0);
+                if (st.haveBytes > 0) $('#settingsModelSize').textContent = (st.haveBytes / 1e6).toFixed(1).replace('.', ',') + ' MB';
             }, function() { modelRow.hidden = true; });
         }
         if (modelRow) {

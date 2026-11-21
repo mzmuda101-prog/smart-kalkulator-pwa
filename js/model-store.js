@@ -7,7 +7,14 @@
 (function () {
     'use strict';
 
-    const CACHE = 'matm0-models-v1';
+    // Nazwa w version.js (MODELS_CACHE): zmiana modelu albo wersji onnxruntime-web wymaga jej podbicia.
+    const CACHE = /** @type {any} */ (window).MODELS_CACHE;
+    // Typ z sieci (albo z rozszerzenia) + COEP: silnik wykonuje te pliki jako moduł i workery wątków,
+    // a z pustym MIME albo bez COEP przeglądarka je odrzuca. Content-Encoding nigdy (bajty są już surowe).
+    const TYPES = /** @type {Record<string,string>} */ ({ mjs: 'text/javascript', wasm: 'application/wasm', json: 'application/json' });
+    const stored = (/** @type {Blob} */ body, /** @type {string} */ url, /** @type {string|null} */ type) => new Response(body, {
+        headers: { 'Content-Type': type || TYPES[url.split('.').pop() || ''] || 'application/octet-stream', 'Cross-Origin-Embedder-Policy': 'require-corp' },
+    });
     /** @type {Record<string, Promise<ArrayBuffer[]>>} */
     const running = {};
 
@@ -41,8 +48,8 @@
         for (const p of m.parts) {
             if (await cache.match(modelUrl(name, p.file))) have += p.gzBytes; else all = false;
         }
-        for (const u of extraUrls(m)) {
-            if (!(await cache.match(u))) all = false;
+        for (const e of m.extras || []) {
+            if (await cache.match(new URL(e.url, document.baseURI).href)) have += e.bytes; else all = false;
         }
         return { ready: all, haveBytes: have, gzBytes: m.gzBytes, downloadBytes: m.downloadBytes };
     }
@@ -58,7 +65,7 @@
             chunks.push(value);
             onChunk(value.length);
         }
-        return new Blob(chunks);
+        return { blob: new Blob(chunks), type: res.headers.get('Content-Type') };
     }
 
     /** @param {string} name @param {(got:number,total:number)=>void} onProgress */
@@ -70,7 +77,7 @@
             const url = modelUrl(name, p.file);
             if (await cache.match(url)) { got += p.gzBytes; continue; }
             onProgress(got, total);
-            const gz = await fetchGz(url, n => onProgress(got += n, total));
+            const gz = (await fetchGz(url, n => onProgress(got += n, total))).blob;
             got = got - gz.size + p.gzBytes;
             // serwer mógł sam rozpakować (Content-Encoding: gzip) — wtedy to już surowe bajty, SHA rozstrzyga
             const head = new Uint8Array(await gz.slice(0, 2).arrayBuffer());
@@ -86,9 +93,9 @@
         for (const e of manifest.extras || []) {
             const u = new URL(e.url, document.baseURI).href;
             if (await cache.match(u)) { got += e.bytes; continue; }
-            const blob = await fetchGz(u, n => onProgress(got += n, total));
+            const { blob, type } = await fetchGz(u, n => onProgress(got += n, total));
             got = got - blob.size + e.bytes;
-            await cache.put(u, new Response(blob));
+            await cache.put(u, stored(blob, u, type));
             onProgress(got, total);
         }
         return manifest;
