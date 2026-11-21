@@ -1,35 +1,51 @@
-# Przekazanie: skaner druku (następny krok) — stan na 2026-11-21
+# Przekazanie: skaner druku — stan na 2026-11-22 (noc)
 
-Dla nowej rozmowy / agenta. Najpierw przeczytaj `AGENTS.md`, `../ZASADY-AGENTOW.md`
-i projekt `docs/superpowers/specs/2026-11-21-skaner-i-granice-design.md` (szczególnie 5.5, 5.7, 5.9, 7).
-
-## Co jest zrobione
-- Etap 1 (granice krok po kroku + upraszczanie pierwiastków) wydany w **v1.04.87**, wypchnięty na GitHub.
-  Kod: `js/math-limits.js`, testy `test/math-limits.js` (zestaw 58 zadań, 0 błędnych, 58/58 z krokami).
-- Odłożone drobiazgi granic: `TODO.md` → „Granice — odłożone drobiazgi”.
+Dla nowej rozmowy / agenta. Najpierw przeczytaj `AGENTS.md`, `../ZASADY-AGENTOW.md`,
+projekt `docs/superpowers/specs/2026-11-21-skaner-i-granice-design.md` (5.5, 5.10, 5.11)
+i plan `docs/superpowers/plans/2026-11-21-skaner-druku-etap-3.md`.
 
 ## Decyzja Mateusza (kolejność)
 Skaner wydruków → klawiatura do wzorów (5.9) → SymPy → pismo → „Sprawdź moje rozwiązanie”.
 
-## Następny krok: próba techniczna skanera (przed szczegółowym planem — spec 5.7/7)
-Cel: czy PP-FormulaNet-S da się uruchomić w przeglądarce i jak czyta wydruki Mateusza.
-1. Środowisko: model jest w `~/.paddlex/official_models/PP-FormulaNet-S` (format Paddle, ~227 MB),
-   ale **brak środowiska z paddlepaddle/paddleocr** (stare venv zniknęło; systemowy Python to 3.15 —
-   paddle może nie mieć kół dla 3.15, użyj Pythona 3.11/3.12, np. z Homebrew, w osobnym venv poza repo).
-2. Konwersja: paddle2onnx → ONNX, potem kwantyzacja int8 (cel ok. 60 MB); pomiar trafień przed/po.
-3. Uruchomienie w onnxruntime-web (Node, potem przeglądarka/telefon): czas, pamięć.
-4. Test na wydrukach: `~/Library/Mobile Documents/com~apple~CloudDocs/Dokumenty szkoła /Granice ciagow i funkcji zadania na cwiczenia 2026.pdf`
-   (4 strony, 58 wzorów — odpowiedzi i zapis parsera są w `test/limits-zestaw.json`). Strony renderować do
-   obrazów, każdy wzór wyciąć osobno. Materiały lokalne trzymać w `test/fixtures-local/` (w .gitignore).
-5. Tłumacz LaTeX → zapis parsera (czysty JS z testami: `\lim_{n\to\infty}`, `\frac`, `\sqrt[n]`, `\cdot`, `\infty`, `\left( \right)`);
-   punkt wyjścia: `latex_to_expr` w `scripts/ocr-bench/models.py`.
+## Gdzie jest praca
+- Gałąź **`feat/skaner-druku`** (wypchnięta na GitHub), osobny katalog roboczy
+  `../smart-kalkulator-pwa-skaner` (git worktree). `main` nietknięty (v1.04.87).
+- Podgląd Vercela (HTTPS, wymaga logowania do Vercela):
+  `https://kalkulator-by-matm0-git-feat-893bfa-mateuszs-projects-ff80359a.vercel.app`
+- Rejestr postępu z wszystkimi decyzjami i odłożonymi drobiazgami (poza gitem):
+  `../smart-kalkulator-pwa-skaner/.superpowers/sdd/2026-11-21-skaner-druku-etap-3/progress.md`.
+
+## Co jest zrobione
+- Plan etapu 3: wszystkie 9 kroków, każdy po recenzji; końcowy przegląd całej gałęzi + poprawki
+  (silnik w cache z nagłówkami, model przeżywa aktualizację, limity czasu, offline).
+- Pierwszy test na iPhonie (00:11) → poprawki: podgląd kamery rysowany na canvasie (iOS pokazywał
+  go pomniejszonego), białe tło przed odczytem, ostrożniejsze przycinanie krawędzi, tryb `?debug=1`.
+  Wyniki na zestawie 58 wzorów (/58): czyste 52, szare tło 49, lampa 51, ciasna ramka 40.
+- Wersja w gałęzi: v1.04.90 (jeszcze niewydana).
+
+## Następne kroki
+1. Jeśli recenzja poprawek z telefonu („phone-fix” w rejestrze) zostawiła uwagi — poprawić je.
+2. **Zestaw „udawanych zdjęć”** (decyzja Mateusza zamiast 30 ręcznych zdjęć): z 58 wzorów PDF
+   (`test/fixtures-local/`, rendery 200 dpi) wersje: perspektywa, rozmycie, nierówne światło/cień,
+   ciepłe światło, zdjęcie ekranu (mora), JPEG, niedokładna ramka (za ciasno/luźno/z sąsiadem).
+   Skrypt w `scripts/formula-onnx/` (bazy: `scripts/ocr-bench/bench.py` → `photo`, `perspective`;
+   `scripts/formula-onnx/prep.js` przepuszcza przez kod apki). Bramka etapu: ≥ 80% bez poprawek.
+   Wynik dopisać do spec 5.10.
+3. Podbić wersję w gałęzi (+1) i `npm run sync-version`, żeby telefony dostały poprawki; krótki test
+   Mateusza na iPhonie (podgląd kamery wypełnia okno, odczyt druku, tryb samolotowy po 2. wizycie).
+4. Połączenie z `main` — **zapytać Mateusza przed scaleniem** (`superpowers:finishing-a-development-branch`).
+
+## Później
+- UniMER-Test (część zdjęć ekranu) jako druga próba; notatki pisane z `~/Downloads/6 dokumentów/` → etap 4.
+- Odczyt na żywo w ramce bez „Zrób” — spec 5.11.
+- Cała apka: offline działa dopiero po 2. wizycie online (SWR bez `ignoreSearch`, `?v=`) — do TODO.
 
 ## Ograniczenia do pamiętania
-- CSP w `index.html`: trzeba dodać `'wasm-unsafe-eval'` do `script-src`; `connect-src 'self'` — modele z naszej domeny, pliki < 50 MB.
-- Aparat: `<input type="file" accept="image/*,application/pdf" capture>` działa mimo `Permissions-Policy: camera=()` (vercel.json).
-- Gotowe do przeniesienia z `documents-workbench-pwa`: `app/photo-import.js` (kartka, perspektywa, wybielanie), `lib/pdfjs/` (PDF → obraz).
-- Zdjęcie nie wychodzi z telefonu; model pobierany raz, za zgodą, z rozmiarem w oknie (wzór: `local-ai.js` w Documents).
+- iPhone mierzyć **tylko przez HTTPS** (przez `http` Safari liczy ~14× wolniej, brak WebGPU i wątków).
+- Środowisko Pythona do modelu: `~/.venvs/paddle-onnx` (Python 3.12); budowa modelu: `scripts/formula-onnx/README.md`.
+- Zdjęcie nie wychodzi z telefonu; model pobierany raz, za zgodą (52,9 MB).
 
 ## Sposób pracy, który się sprawdził
-Projekt → plan (`docs/superpowers/plans/`) → praca na osobnej gałęzi/worktree → TDD → przeglądy kontrolne
-recenzenta (opus) → końcowy przegląd → połączenie z main. Commity bez dopisków o AI, wersja +1 i `npm run sync-version`.
+Projekt → plan (`docs/superpowers/plans/`) → osobna gałąź/worktree → zadanie po zadaniu z recenzją
+każdego → końcowy przegląd → test na telefonie → połączenie z main. Commity bez dopisków o AI,
+wersja +1 i `npm run sync-version`.
