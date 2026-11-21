@@ -19,13 +19,18 @@ test.describe('model: pobieranie za zgodą', () => {
   test.use({ serviceWorkers: 'block' });
   test.beforeEach(({}, testInfo) => test.skip(testInfo.project.name !== 'desktop', 'model testujemy raz'));
 
-  test('(a) odmowa: okno z 37 MB, „Nie teraz” → declined, cache pusty', async ({ page }) => {
+  test('(a) odmowa: okno z rozmiarem pobrania, „Nie teraz” → declined, cache pusty', async ({ page }) => {
     await open(page);
     const result = page.evaluate(ENSURE(NAME));
     const dlg = page.locator('dialog.model-dialog');
     await expect(dlg).toBeVisible();
     await expect(dlg).toContainText('Odczyt wzorów ze zdjęć');
-    await expect(dlg).toContainText('37 MB');
+    const mbText = await page.evaluate(async () => {
+      const m = await (await fetch('models/formulanet-s/manifest.json')).json();
+      return (m.downloadBytes / 1e6).toFixed(1).replace('.', ',') + ' MB';
+    });
+    expect(mbText).toBe('52,9 MB');
+    await expect(dlg).toContainText('Pobrać model do odczytu wzorów? ' + mbText + ', jednorazowo.');
     await dlg.getByRole('button', { name: 'Nie teraz' }).click();
     expect(await result).toEqual({ err: 'declined' });
     await expect(dlg).toHaveCount(0);
@@ -34,18 +39,19 @@ test.describe('model: pobieranie za zgodą', () => {
     expect(st.haveBytes).toBe(0);
   });
 
-  test('(b) zgoda: postęp rośnie do gzBytes, status.ready', async ({ page }) => {
+  test('(b) zgoda: postęp rośnie do downloadBytes, status.ready', async ({ page }) => {
     await open(page);
     const result = page.evaluate(ENSURE(NAME));
     await page.locator('dialog.model-dialog').getByRole('button', { name: 'Pobierz' }).click();
     await expect(page.locator('dialog.model-dialog')).toHaveCount(0, { timeout: 60_000 });
     expect((await result).ok).toBe(6);
     const got = await page.evaluate(() => window.__got);
-    const total = got[0][1];
+    const total = await page.evaluate(async () => (await (await fetch('models/formulanet-s/manifest.json')).json()).downloadBytes);
+    expect(got[0][1]).toBe(total);
     expect(got[got.length - 1][0]).toBe(total);
     for (let i = 1; i < got.length; i++) expect(got[i][0]).toBeGreaterThanOrEqual(got[i - 1][0]);
     const st = await page.evaluate(() => MATM0_MODELS.status('formulanet-s'));
-    expect(st).toMatchObject({ ready: true, haveBytes: total, gzBytes: total });
+    expect(st).toMatchObject({ ready: true, haveBytes: 37428903, gzBytes: 37428903 });
     // gotowy model: bez okna, bez sieci
     const again = await page.evaluate(ENSURE(NAME));
     expect(again.ok).toBe(6);
@@ -75,6 +81,41 @@ test.describe('model: pobieranie za zgodą', () => {
     await expect(dlg).toHaveCount(0, { timeout: 60_000 });
     expect((await result).ok).toBe(6);
     expect(partReqs(reqs)).toEqual(['part3', 'part4', 'part5']);
+  });
+
+  test('klik w padding okna nie zamyka, klik poza ramką tak', async ({ page }) => {
+    await open(page);
+    const result = page.evaluate(ENSURE(NAME));
+    const dlg = page.locator('dialog.model-dialog');
+    await expect(dlg).toBeVisible();
+    await dlg.click({ position: { x: 4, y: 4 } });
+    await expect(dlg).toBeVisible();
+    await page.mouse.click(2, 2); // poza ramką (dialog jest wyśrodkowany)
+    expect(await result).toEqual({ err: 'declined' });
+  });
+
+  test('serwer sam rozpakował part0 (Content-Encoding): ensure nadal działa', async ({ page }) => {
+    await open(page);
+    await page.route('**/model.onnx.part0.gz', async (r) => {
+      const res = await r.fetch();
+      await r.fulfill({ status: 200, body: require('zlib').gunzipSync(await res.body()) });
+    });
+    const result = page.evaluate(ENSURE(NAME));
+    await page.locator('dialog.model-dialog').getByRole('button', { name: 'Pobierz' }).click();
+    await expect(page.locator('dialog.model-dialog')).toHaveCount(0, { timeout: 60_000 });
+    expect((await result).ok).toBe(6);
+  });
+
+  test('brak DecompressionStream: komunikat w oknie, bez ponawiania', async ({ page }) => {
+    await page.addInitScript(() => { delete window.DecompressionStream; });
+    await open(page);
+    const result = page.evaluate(ENSURE(NAME));
+    const dlg = page.locator('dialog.model-dialog');
+    await dlg.getByRole('button', { name: 'Pobierz' }).click();
+    await expect(dlg).toContainText('Ta przeglądarka nie obsługuje pobierania modelu. Zaktualizuj system lub przeglądarkę.');
+    await expect(dlg.getByRole('button', { name: 'Spróbuj ponownie' })).toHaveCount(0);
+    await dlg.getByRole('button', { name: 'Zamknij' }).click();
+    expect((await result).err).toContain('nie obsługuje');
   });
 
   test('(d) złe bajty: błąd sumy, part1 nie trafia do cache', async ({ page }) => {

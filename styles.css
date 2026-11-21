@@ -5640,6 +5640,7 @@ body.kb-open.notepad-open .np-total-bar { margin-top: 6px; padding-top: 2px; pad
 
 /* ===== Okno pobierania modelu odczytu wzorów (js/model-store.js) ===== */
 .model-dialog {
+    margin: auto; /* reset aplikacji zeruje margines UA, dialog lądował w rogu */
     max-inline-size: min(26rem, calc(100vw - 32px));
     padding: 24px;
     border: 1px solid var(--border);

@@ -8,14 +8,14 @@
     'use strict';
 
     const CACHE = 'matm0-models-v1';
-    const ENGINE = ['ort.wasm.min.mjs', 'ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.wasm'];
     /** @type {Record<string, Promise<ArrayBuffer[]>>} */
     const running = {};
 
     const modelUrl = (/** @type {string} */ name, /** @type {string} */ file) =>
         new URL('models/' + name + '/' + file, document.baseURI).href;
-    const engineUrl = (/** @type {string} */ file) =>
-        new URL('vendor/onnxruntime-web/' + file, document.baseURI).href;
+    /** Pliki dodatkowe z manifestu (vocab + silnik): ścieżki od korzenia strony. */
+    const extraUrls = (/** @type {any} */ m) =>
+        (m.extras || []).map((/** @type {any} */ e) => new URL(e.url, document.baseURI).href);
 
     /** @param {string} name */
     async function loadManifest(name) {
@@ -41,7 +41,7 @@
         for (const p of m.parts) {
             if (await cache.match(modelUrl(name, p.file))) have += p.gzBytes; else all = false;
         }
-        for (const u of [modelUrl(name, 'vocab.json')].concat(ENGINE.map(engineUrl))) {
+        for (const u of extraUrls(m)) {
             if (!(await cache.match(u))) all = false;
         }
         return { ready: all, haveBytes: have, gzBytes: m.gzBytes };
@@ -64,26 +64,32 @@
     /** @param {string} name @param {(got:number,total:number)=>void} onProgress */
     async function download(name, onProgress) {
         const { cache, manifest } = await loadManifest(name);
+        const total = manifest.downloadBytes;
         let got = 0;
         for (const p of manifest.parts) {
             const url = modelUrl(name, p.file);
             if (await cache.match(url)) { got += p.gzBytes; continue; }
-            onProgress(got, manifest.gzBytes);
-            const gz = await fetchGz(url, n => onProgress(got += n, manifest.gzBytes));
+            onProgress(got, total);
+            const gz = await fetchGz(url, n => onProgress(got += n, total));
             got = got - gz.size + p.gzBytes;
-            const raw = await new Response(gz.stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+            // serwer mógł sam rozpakować (Content-Encoding: gzip) — wtedy to już surowe bajty, SHA rozstrzyga
+            const head = new Uint8Array(await gz.slice(0, 2).arrayBuffer());
+            const gzipped = head[0] === 0x1f && head[1] === 0x8b;
+            const raw = await new Response(gzipped ? gz.stream().pipeThrough(new DecompressionStream('gzip')) : gz).arrayBuffer();
             const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', raw)))
                 .map(b => b.toString(16).padStart(2, '0')).join('');
             if (hash !== p.sha256) throw new Error('Suma kontrolna się nie zgadza: ' + p.file);
             await cache.put(url, new Response(raw));
-            onProgress(got, manifest.gzBytes);
+            onProgress(got, total);
         }
-        // małe pliki i silnik: bez sumy (serwuje je to samo źródło co apkę), as-is
-        for (const u of [modelUrl(name, 'vocab.json')].concat(ENGINE.map(engineUrl))) {
-            if (await cache.match(u)) continue;
-            const res = await fetch(u);
-            if (!res.ok) throw new Error('HTTP ' + res.status + ' (' + u.split('/').pop() + ')');
-            await cache.put(u, res);
+        // vocab i silnik: bez sumy (serwuje je to samo źródło co apkę), as-is
+        for (const e of manifest.extras || []) {
+            const u = new URL(e.url, document.baseURI).href;
+            if (await cache.match(u)) { got += e.bytes; continue; }
+            const blob = await fetchGz(u, n => onProgress(got += n, total));
+            got = got - blob.size + e.bytes;
+            await cache.put(u, new Response(blob));
+            onProgress(got, total);
         }
         return manifest;
     }
@@ -97,7 +103,7 @@
     const mb = (/** @type {number} */ n) => (n / 1e6).toFixed(1).replace('.', ',');
 
     /** Okno zgody + postęp. Resolve po pobraniu; reject('declined') albo błąd pobierania. */
-    function askAndDownload(/** @type {string} */ name, /** @type {any} */ opts) {
+    function askAndDownload(/** @type {string} */ name, /** @type {any} */ opts, /** @type {number} */ totalBytes) {
         return new Promise((resolve, reject) => {
             const dlg = document.createElement('dialog');
             dlg.className = 'model-dialog';
@@ -110,7 +116,7 @@
             };
             const title = el('h2', 'model-dialog-title', 'Odczyt wzorów ze zdjęć');
             title.id = 'modelDlgTitle';
-            const msg = el('p', 'model-dialog-text', 'Pobrać model do odczytu wzorów? 37 MB, jednorazowo. Zdjęcia nie opuszczają telefonu.');
+            const msg = el('p', 'model-dialog-text', 'Pobrać model do odczytu wzorów? ' + mb(totalBytes) + ' MB, jednorazowo. Zdjęcia nie opuszczają telefonu.');
             const bar = document.createElement('progress');
             bar.className = 'model-dialog-bar';
             bar.max = 1; bar.value = 0; bar.hidden = true;
@@ -131,6 +137,13 @@
                 if (err) reject(err); else resolve(undefined);
             };
             const start = () => {
+                try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) {}
+                if (typeof caches === 'undefined' || typeof DecompressionStream === 'undefined') {
+                    lastError = new Error('Ta przeglądarka nie obsługuje pobierania modelu. Zaktualizuj system lub przeglądarkę.');
+                    msg.textContent = lastError.message;
+                    ok.hidden = true; no.textContent = 'Zamknij';
+                    return;
+                }
                 busy = true; lastError = null;
                 ok.hidden = no.hidden = true;
                 bar.hidden = false; info.textContent = '';
@@ -149,8 +162,13 @@
             };
             ok.addEventListener('click', start);
             no.addEventListener('click', () => finish(lastError || new Error('declined')));
+            // dotknięcie własnego paddingu dialogu też ma target === dlg: liczy się tylko punkt poza ramką
+            const outside = (/** @type {MouseEvent} */ e) => {
+                const r = dlg.getBoundingClientRect();
+                return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+            };
             dlg.addEventListener('cancel', e => { e.preventDefault(); if (!busy) finish(lastError || new Error('declined')); });
-            dlg.addEventListener('click', e => { if (e.target === dlg && !busy) finish(lastError || new Error('declined')); });
+            dlg.addEventListener('click', e => { if (!busy && e.target === dlg && outside(e)) finish(lastError || new Error('declined')); });
             dlg.addEventListener('close', () => { if (!settled) finish(new Error('declined')); });
             document.body.appendChild(dlg);
             dlg.showModal();
@@ -161,7 +179,10 @@
     function ensure(name, opts) {
         if (running[name]) return running[name];
         const p = (async () => {
-            if (!(await status(name)).ready) await askAndDownload(name, opts);
+            if (!(await status(name)).ready) {
+                const { manifest } = await loadManifest(name);
+                await askAndDownload(name, opts, manifest.downloadBytes);
+            }
             return readParts(name);
         })();
         running[name] = p;
@@ -174,10 +195,12 @@
     async function remove(name) {
         const cache = await caches.open(CACHE);
         const mres = await cache.match(modelUrl(name, 'manifest.json'));
-        const files = ['manifest.json', 'vocab.json'];
-        if (mres) for (const p of (await mres.json()).parts) files.push(p.file);
-        for (const f of files) await cache.delete(modelUrl(name, f));
-        for (const f of ENGINE) await cache.delete(engineUrl(f));
+        if (mres) {
+            const m = await mres.json();
+            for (const p of m.parts) await cache.delete(modelUrl(name, p.file));
+            for (const u of extraUrls(m)) await cache.delete(u);
+        }
+        await cache.delete(modelUrl(name, 'manifest.json'));
     }
 
     /** @type {any} */ (window).MATM0_MODELS = { status, ensure, remove };

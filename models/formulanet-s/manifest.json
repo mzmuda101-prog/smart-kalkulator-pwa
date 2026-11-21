@@ -3,6 +3,25 @@
   "version": 1,
   "bytes": 58979756,
   "gzBytes": 37428903,
+  "extras": [
+    {
+      "url": "models/formulanet-s/vocab.json",
+      "bytes": 524079
+    },
+    {
+      "url": "vendor/onnxruntime-web/ort.wasm.min.mjs",
+      "bytes": 53725
+    },
+    {
+      "url": "vendor/onnxruntime-web/ort-wasm-simd-threaded.mjs",
+      "bytes": 24738
+    },
+    {
+      "url": "vendor/onnxruntime-web/ort-wasm-simd-threaded.wasm",
+      "bytes": 14848852
+    }
+  ],
+  "downloadBytes": 52880297,
   "parts": [
     {
       "file": "model.onnx.part0.gz",

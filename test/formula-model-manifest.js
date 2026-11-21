@@ -25,6 +25,13 @@ else {
     }
     ok('suma bytes', bytes === M.bytes, bytes);
     ok('suma gzBytes', gz === M.gzBytes, gz);
+    const sumExtras = (M.extras || []).reduce((a, e) => a + e.bytes, 0);
+    ok('extras: vocab + 3 pliki silnika', (M.extras || []).length === 4, (M.extras || []).length);
+    for (const e of M.extras || []) {
+        const f = path.join(root, e.url);
+        ok('extras ' + e.url + ' rozmiar', exists(f) && fs.statSync(f).size === e.bytes);
+    }
+    ok('downloadBytes = gzBytes + extras', M.downloadBytes === M.gzBytes + sumExtras, M.downloadBytes);
     ok('pola stałe', M.input === 'x' && M.eosId === 2 && M.firstTextId === 4 && M.inputShape.join() === '1,1,384,384');
     const vf = path.join(dir, 'vocab.json');
     if (!exists(vf)) ok('vocab.json istnieje', false);
