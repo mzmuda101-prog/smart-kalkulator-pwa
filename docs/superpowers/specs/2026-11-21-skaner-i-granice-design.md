@@ -29,7 +29,8 @@ bezużyteczny dla głównego zastosowania, więc projekt obejmuje oba.
 - Upraszczanie pierwiastków (`√8 = 2√2`, usuwanie niewymierności z mianownika).
 - Zdjęcie **albo PDF** wydrukowanego zadania → odczytane działanie w polu → rozwiązanie.
 - Zdjęcie pisma (dowolnego) → odczytane działanie do poprawienia → rozwiązanie.
-- Kilka wzorów na zdjęciu → wybór stuknięciem.
+- Aparat na żywo z ramką (jak w Photomacie): wzór ustawiony w prostokącie → odczyt tylko tego,
+  co w ramce (decyzja Mateusza 2026-11-21, patrz 5.5).
 - „Zapisz do Notatek” z rozwiązania.
 - Później: „Sprawdź moje rozwiązanie” (zdjęcie własnych kroków → pierwszy błędny krok).
 
@@ -37,7 +38,8 @@ bezużyteczny dla głównego zastosowania, więc projekt obejmuje oba.
 - Przepisywanie całych stron notatek do edytowalnego tekstu (OCR tekstu + układ strony).
 - Wykresy, geometria, zadania z treścią („pociąg jedzie…”).
 - Szeregi, całki wielokrotne, równania różniczkowe.
-- Podgląd aparatu na żywo w pierwszej wersji (najpierw systemowy aparat przez `<input capture>`).
+- Automatyczne wykrywanie wielu wzorów na całej stronie (PP-OCR detection) — ramkę ustawia
+  użytkownik; wraca tylko, jeśli ramka okaże się za mało wygodna.
 
 **Anty-cele (porażka, nawet jeśli „działa”)**
 - **Pokazanie błędnego wyniku.** Każdy wynik granicy jest sprawdzany niezależnie (5.3).
@@ -56,7 +58,7 @@ bezużyteczny dla głównego zastosowania, więc projekt obejmuje oba.
 - CSP w `index.html`: `script-src 'self'` — WebAssembly (onnxruntime-web, Pyodide) wymaga
   dodania `'wasm-unsafe-eval'`; `connect-src 'self' …` — modele muszą leżeć na naszym
   serwerze, nie na Hugging Face. `vercel.json`: `Permissions-Policy: camera=()` blokuje
-  `getUserMedia`, ale nie `<input type="file" capture>`.
+  `getUserMedia` — dla aparatu na żywo zmienić na `camera=(self)` (tylko nasza domena).
 - Telefony: Android i iPhone **nowsze niż iPhone 12** (odpowiedź Mateusza) — model ok. 60 MB int8
   mieści się; WebGPU opcjonalnie, WASM jako podstawa. iOS Safari i tak ma ostry limit pamięci kart — wzór: `documents-workbench-pwa`
   (`app/pdf-ocr.js`: 1 wątek na telefonie, `app/local-ai.js`: okno zgody, wybór lżejszego modelu).
@@ -169,10 +171,13 @@ jak okno w `local-ai.js`), potem z cache SW. Bez zgody działa wszystko poza zap
 
 ```
 [ pole wyrażenia ........................ (ikona aparatu) ]
-     ↓ systemowy aparat albo plik (<input type="file" accept="image/*" capture>)
-[ zdjęcie + ramka kadrowania (uchwyty, palcem) ]
-     wykryte wzory obrysowane → stuknięcie wybiera jeden
-     podpowiedzi: „za ciemno”, „rozmazane”, „ustaw równo” (przed rozpoznaniem)
+     ↓ aparat na żywo (getUserMedia)          ↓ zapas: plik / galeria / PDF
+[ podgląd + prostokątna ramka, poza nią przyciemnienie ]   [ gotowy obraz + ta sama ramka ]
+     ramka przesuwana i zmieniana uchwytami (ułamek piętrowy jest wysoki)
+     podpowiedzi: „za ciemno”, „rozmazane”, „ustaw równo”
+     [ Zrób ] → klatka z wideo, wycięta do ramki
+     ↓ automatycznie: usunięcie plamek tuszu dotykających brzegu wycinka
+       (skrawki sąsiednich wzorów — patrz 5.10)
      ↓
 [ lim(x→0) (√(1+x) − 1)/x ]   ← zwykłe pole, edytowalne; niepewne znaki podświetlone,
                                   stuknięcie → 2–3 alternatywy (x/×, 1/7, …)
@@ -186,7 +191,23 @@ jak okno w `local-ai.js`), potem z cache SW. Bez zgody działa wszystko poza zap
 - **Obróbka wstępna** w Web Workerze, bez bibliotek: kod z `documents-workbench-pwa/app/photo-import.js`
   (kartka, perspektywa, wybielenie) + kroki z `SCANNER-PLAN.md` §4 (światło, próg, kratka,
   prostowanie, kadr). Dla pisma: wariant bez progowania (test 6.11 pokazał, że próg szkodzi).
-- **Wykrywanie wzorów na stronie**: PP-OCR detection (lekki, kilka MB) — ramki wokół linii/wzorów.
+- **Ramka zamiast wykrywania wzorów**: jeden wzór na raz, wskazany przez użytkownika.
+- **Aparat w przeglądarce — pułapki do zrobienia od razu dobrze**:
+  - `<video playsinline muted autoplay>` (bez `playsinline` iPhone otwiera pełny ekran);
+  - `facingMode: 'environment'` i prośba o wysoką rozdzielczość (`width: {ideal: 1920}` lub więcej) —
+    domyślne 640×480 jest za słabe na indeksy i wykładniki;
+  - zrzut klatki przez `<canvas>.drawImage(video)` (Safari nie ma `ImageCapture`); ramkę przeliczać
+    z pikseli ekranu na piksele wideo z uwzględnieniem `object-fit: cover`;
+  - zatrzymać ścieżki (`track.stop()`) przy wyjściu, schowaniu karty (`visibilitychange`) i po zrobieniu
+    zdjęcia — bateria i zielona kropka;
+  - zgoda: przy odmowie albo braku aparatu od razu zapas „wybierz plik”; iPhone w trybie aplikacji
+    z ekranu głównego potrafi pytać o zgodę ponownie po każdym uruchomieniu — tego nie obejdziemy;
+  - latarka (`applyConstraints({advanced:[{torch:true}]})`) tylko tam, gdzie `getCapabilities().torch`
+    — na iPhonie zwykle jej nie ma, więc przy „za ciemno” podpowiedź tekstem;
+  - uchwyty ramki: `touch-action: none` tylko na uchwytach, cele ≥ 44 px, `:active` zamiast `:hover`,
+    `user-select: none`; przycisk „Zrób” nad `env(safe-area-inset-bottom)`, okno na `100dvh`;
+  - sprawdzane tylko na prawdziwym telefonie (emulacja w Chrome nie pokaże zgody, ostrości ani pamięci).
+- **Pamięć**: podgląd wideo wyłączony przed uruchomieniem modelu (iPhone: wideo + model naraz to ryzyko).
 - **Rozpoznanie**: PP-FormulaNet-S → LaTeX → tłumacz LaTeX → składnia parsera
   (`\lim_{x \to 0}`, `\frac`, `\sqrt[n]`, `\cdot`, `\infty`, `\left( \right)` itd.).
   Tłumacz to czysty JS z testami (para LaTeX → oczekiwany zapis).
@@ -229,7 +250,7 @@ granicę) → pierwsza niezgodna linia podświetlona z krótkim „tu wynik się
    **Próg wydania: 0 błędnych wyników, ≥ 80% zestawu z krokami.**
 2. **SymPy jako sędzia i zapas** (5.3). Ten sam zestaw: **≥ 98% z pewnym wynikiem**
    (z krokami albo bez), 0 błędnych.
-3. **Skaner druku** (5.5 bez pisma): ONNX + tłumacz LaTeX + kadrowanie + wybór wzoru.
+3. **Skaner druku** (5.5 bez pisma): ONNX + tłumacz LaTeX + aparat na żywo z ramką (zapas: plik/PDF z ramką).
    Zestaw zdjęć Mateusza (20–30 wydruków). **Próg: ≥ 80% wzorów odczytanych w całości
    bez poprawek.**
 4. **Pismo**: wariant obróbki, niepewne znaki, alternatywy, druga próba ✦. Zestaw zdjęć pisma
@@ -258,6 +279,61 @@ Dwie drogi (do decyzji przy projektowaniu tego etapu, po skanerze):
 - **W repo zostają tylko przepisane wyrażenia i oczekiwane wyniki.** PDF-y, zdjęcia i wycinki
   pisma leżą w `test/fixtures-local/` dodanym do `.gitignore` (cudze pismo i materiały z zajęć
   nie trafiają do publicznego repo). Test skanera pomija się, gdy folderu nie ma.
+
+### 5.10 Próba techniczna PP-FormulaNet-S (2026-11-21, w toku)
+
+Środowisko poza repo: `~/.venvs/paddle-onnx` (Python 3.12, paddlepaddle 3.3.1, paddle2onnx 2.1,
+onnxruntime 1.32). Wycinki: 58 wzorów z PDF-u (200 dpi) w `test/fixtures-local/`.
+
+- **Konwersja** `paddle2onnx` (opset 18): cały model w jednym grafie — koder + pętla dekodera
+  (`Loop`) — wejście `x [1,1,384,384]` (szarość, norm. 0.7931/0.1738), wyjście identyfikatory tokenów.
+  Słownik tokenów: `inference.yml` → `PostProcess.character_dict.fast_tokenizer_file`.
+  **ONNX = Paddle w 58/58** odczytach.
+- **Rozmiar**: 309 MB po konwersji. 77 MB to maska 0/1 (50000×384) mnożona przez osadzenia —
+  wpieczona w wagi i usunięta → 232 MB, odczyty bez zmian 58/58. Kwantyzacja int8 dekodera
+  (`quantize_dynamic`, MatMul + Gather, `EnableSubgraph`) → **99 MB**, 51/58 identycznych
+  (5 różnic tylko w zapisie, 1 poprawa, 1 pogorszenie), ok. 0,1 s/wzór na Macu (CPU).
+  Dekoder per kanał + wagi Conv jako int8 z `DequantizeLinear` (liczenie w fp32) → **59 MB**.
+- **Kadrowanie decyduje**: skrawki sąsiednich wzorów na brzegu wycinka psują odczyt.
+  Usunięcie plamek tuszu dotykających górnej/dolnej krawędzi (connected components)
+  naprawia prawie wszystkie. Stąd ramka + to czyszczenie w 5.5.
+- **Trafienia** (odczyt → prototyp tłumacza LaTeX → to samo zadanie co w `limits-zestaw.json`,
+  sprawdzane liczbowo → kalkulator je rozwiązuje):
+
+  | wariant | rozmiar | trafienia |
+  |---|---|---|
+  | wycinki ze skrawkami, fp32 | 232 MB | 37/58 (64%) |
+  | wycinki oczyszczone, fp32 | 232 MB | 52/58 (90%) |
+  | int8 per kanał + Conv int8 (Python) | 59 MB | 52/58 (90%) |
+  | to samo w onnxruntime-web 1.31.1 (Node i Chrome) | 59 MB | 51/58 (88%) |
+
+  Próg etapu 3 (≥ 80%) spełniony na wydruku z PDF-u; zdjęcia aparatem jeszcze nie badane.
+  Każdy odczyt, który dał dobre zadanie, kalkulator rozwiązał. Błędne odczyty kończą się
+  błędem tłumacza albo innym wyrażeniem — dlatego odczyt zawsze trafia do pola do sprawdzenia.
+- **onnxruntime-web wymaga dwóch poprawek grafu** (Python je tylko ostrzega): usunąć
+  zadeklarowane kształty wyjść podgrafów `Loop`/`If` i zamienić stałe w gałęzi „then” `If.3`
+  na skalary (zmienna pętli startuje jako skalar). Po tym: Chrome na Macu, 4 wątki —
+  wczytanie 0,4 s, **~0,26 s/wzór**; Node 1 wątek ~0,85 s/wzór; pamięć procesu ~0,5–0,6 GB.
+- **Wątki**: wielowątkowy WASM wymaga `crossOriginIsolated` (nagłówki COOP/COEP w `vercel.json`);
+  bez nich 1 wątek (~3× wolniej). Do decyzji przy etapie 3 (COEP może blokować zasoby z innych domen).
+- Skrypty próby (w brudnopisie, do przeniesienia do `scripts/formula-onnx/` przy planie):
+  konwersja + odchudzenie + kwantyzacja, poprawki grafu, wycinanie wzorów z PDF, czyszczenie
+  brzegów, prototyp tłumacza LaTeX, ocena trafień.
+- **Pobieranie**: model 59 MB kompresuje się gzipem do 37 MB. W apce: kawałki `.gz` < 50 MB,
+  rozpakowywane w przeglądarce (`DecompressionStream`), każdy kawałek zapisany od razu
+  (cache SW / IndexedDB), żeby przerwane pobieranie szło dalej, a nie od zera; pasek postępu w MB.
+- **iPhone (Safari 27.2) mierzyć tylko przez HTTPS.** Ta sama strona przez `http://` w sieci
+  domowej: JS ok. 14× wolniejszy (test JS 2601 ms vs 184 ms przez HTTPS), brak WebGPU,
+  brak `crossOriginIsolated`; model w WASM: wczytanie 103 s, 26–38 s/wzór. Lokalnie: serwer
+  HTTPS z własnym certyfikatem (`openssl req -x509 …`, ostrzeżenie Safari do ominięcia).
+- **WebGPU** (Chrome na Macu): wymaga wag „int8 + DequantizeLinear” zamiast MatMulInteger
+  i zwinięcia stałych (`Range` → stała; ORT `ENABLE_BASIC` z zapisem modelu). Działa, ale
+  1,7 s/wzór — wolniej niż WASM (0,26 s), bo pętla dekodera kopiuje dane GPU↔CPU przy każdym znaku.
+- **iPhone przez HTTPS (z COOP/COEP → `crossOriginIsolated`, 4 wątki), model 59 MB int8, WASM:**
+  pobranie 37 MB (gzip) 7,6 s w sieci domowej, wczytanie 2,6 s, **odczyt 0,39–0,72 s/wzór
+  (średnio 0,5 s)** na 58 wzorach; karta nie padła z braku pamięci. Liczby tokenów zgodne z Makiem.
+  **Wniosek: próba techniczna zaliczona** — w apce WASM + 4 wątki (nagłówki COOP/COEP
+  w `vercel.json` do sprawdzenia z resztą strony), WebGPU niepotrzebne.
 
 ## 6. Zostawione wykonawcy
 

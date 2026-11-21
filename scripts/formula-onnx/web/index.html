@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Próba skanera</title>
+<style>
+  :root { --bg: #fff; --fg: #111; --muted: #555; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #111; --fg: #eee; --muted: #aaa; } }
+  body { background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, sans-serif; margin: 0; padding: 16px; }
+  button { font: inherit; padding: 12px 16px; min-height: 44px; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>Próba skanera</h1>
+<p>Wczytuje model (59 MB) i czyta 58 wzorów z PDF-u. Wynik pokaże się poniżej.</p>
+<label><input type="checkbox" id="all"> wszystkie 58 (inaczej 8)</label>
+<p><button id="go">Start</button></p>
+<pre id="log"></pre>
+<script type="module">
+import * as ort from './ort/ort.wasm.min.mjs';
+const log = s => { document.getElementById('log').textContent += s + '\n'; };
+const IDS = '1a 1b 1c 1d 1e 1f 1g 2a 2b 2c 2d 2e 2f 3a 3b 3c 3d 3e 4a 4b 4c 4d 4e 4f 4g 4h 5a 5b 5c 5d 5e 6a 6b 6c 6d 6e 6f 6g 6h 6i 6j 7a 7b 7c 7d 7e 8a 8b 8c 8d 8e 8f 9a 9b 9c 9d 9e 9f'.split(' ');
+document.getElementById('go').onclick = async () => {
+  try {
+    const threads = self.crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 1) : 1;
+    ort.env.wasm.numThreads = threads;
+    ort.env.wasm.wasmPaths = new URL('./ort/', location.href).href;
+    log(`crossOriginIsolated=${self.crossOriginIsolated}, wątki=${threads}, ${navigator.userAgent}`);
+    let t0 = performance.now();
+    // model w kawałkach po 10 MB (jak na produkcji: pliki < 50 MB)
+    // Kawałki skompresowane gzipem (37 MB zamiast 59), rozpakowywane w telefonie;
+    // każdy pobrany kawałek zapamiętany w IndexedDB — po odświeżeniu pobieranie idzie dalej.
+    const db = await new Promise((ok, no) => { const r = indexedDB.open('proba-skanera', 1); r.onupgradeneeded = () => r.result.createObjectStore('parts'); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); });
+    const idb = (mode, fn) => new Promise((ok, no) => { const tx = db.transaction('parts', mode); const r = fn(tx.objectStore('parts')); tx.oncomplete = () => ok(r && r.result); tx.onerror = () => no(tx.error); });
+    const parts = []; let got = 0, net = 0;
+    const bar = document.createElement('p'); document.getElementById('log').before(bar);
+    for (const s of 'abcdef') {
+      const saved = await idb('readonly', st => st.get(s));
+      if (saved) { parts.push(new Uint8Array(saved)); got += saved.byteLength; log(`część ${s}: z pamięci telefonu`); continue; }
+      const t1 = performance.now();
+      const resp = await fetch(`parts/model.onnx.part${s}.gz`);
+      const size = +resp.headers.get('content-length');
+      let partNet = 0;
+      const counted = resp.body.pipeThrough(new TransformStream({ transform(c, ctl) { partNet += c.length; net += c.length; bar.textContent = `Pobrano ${(net / 1e6).toFixed(1)} MB (część ${s}: ${Math.round(100 * partNet / size)}%)`; ctl.enqueue(c); } }));
+      const buf = new Uint8Array(await new Response(counted.pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
+      await idb('readwrite', st => st.put(buf.buffer, s));
+      parts.push(buf); got += buf.length;
+      log(`część ${s}: ${(partNet / 1e6).toFixed(1)} MB przez sieć, ${Math.round((performance.now() - t1) / 1000)} s`);
+    }
+    bar.textContent = 'Pobrano całość, wczytuję model…';
+    const buf = new Uint8Array(got); let off = 0; for (const p of parts) { buf.set(p, off); off += p.length; }
+    parts.length = 0;
+    log(`pobranie ${Math.round(performance.now() - t0)} ms`);
+    t0 = performance.now();
+    const sess = await ort.InferenceSession.create(buf, { executionProviders: ['wasm'] });
+    log(`wczytanie ${Math.round(performance.now() - t0)} ms` + (performance.memory ? `, sterta JS ${Math.round(performance.memory.usedJSHeapSize / 1e6)} MB` : ''));
+    const ids = document.getElementById('all').checked ? IDS : IDS.slice(0, 8);
+    const out = {}; let tot = 0;
+    for (const id of ids) {
+      const x = new Float32Array(await (await fetch(`x/${id}.bin`)).arrayBuffer());
+      t0 = performance.now();
+      const r = await sess.run({ x: new ort.Tensor('float32', x, [1, 1, 384, 384]) });
+      const ms = performance.now() - t0; tot += ms;
+      out[id] = Array.from(r[sess.outputNames[0]].data, Number);
+      log(`${id}: ${Math.round(ms)} ms, ${out[id].length} tokenów`);
+    }
+    log(`ŚREDNIO ${Math.round(tot / ids.length)} ms/wzór`);
+    window.__wynik = out; window.__gotowe = true;
+  } catch (e) { log('BŁĄD: ' + (e && e.message || e)); window.__gotowe = true; }
+};
+</script>
+</body>
+</html>
