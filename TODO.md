@@ -1,5 +1,21 @@
 # TODO / Do przemyślenia
 
+## Granice — odłożone drobiazgi (etap 1, v1.04.87)
+
+Żaden nie daje złego wyniku — najwyżej „Jeszcze tego nie rozwiążę” albo nieładny zapis kroku.
+
+- [ ] Wygląd kroków: `√(4n²+2)` jako `√2√(2n²+1)`; `(h)(h + 4)/(h)`; `(x − 1)` powtórzone zamiast `(x − 1)²⁴`;
+      mieszany zapis `∜(…)` i `(…)^(3/4)`; pierwsza linia po przekształceniu (`−(cos x − 1)/x²` zamiast `(1 − cos x)/x²`)
+- [ ] Brak znacznika `[1^∞]` / `[∞ − ∞]`, gdy granice jednostronne są różne
+- [ ] `ln(x) − ln(2x)` przy ∞ daje `ln(1/2)` zamiast `−ln 2`; `ln x − ln x²` przy ∞ → NOPE
+- [ ] `lim x→−8 ∛x` → NOPE (cPow nie liczy pierwiastka nieparzystego z liczby ujemnej; to samo `∛(x³+x)/x` przy −∞)
+- [ ] `√(x²)/x` przy ±∞ → NOPE (skutek poprawnej osłony |x|)
+- [ ] `ln(x)/x^0.001` — sprawdzenie liczbowe nie odróżnia tak wolnych funkcji (próbki do 10¹⁸)
+- [ ] Cele `π`, `1/2` w zapisie granicy — nierozpoznawane
+- [ ] Wynik ±∞ trafia do `ans` jako Infinity (app.js, `STATE.calc.ans`)
+- [ ] Bardzo złożone zadania (`tan(tan x) − sin(sin x)`) przekraczają budżet pracy → NOPE
+- [ ] Sprawdzić szybkość na prawdziwym telefonie (pomiary tylko z Maca)
+
 ## Funkcje online na żądanie (pomysł na później)
 
 **Status:** zaplanować później (decyzja 2026-11-14, inspiracja: Raycast 2.12). NIE teraz.
