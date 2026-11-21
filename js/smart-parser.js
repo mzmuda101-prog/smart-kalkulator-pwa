@@ -2155,6 +2155,12 @@
        dopisek z _dayShift — „(2+3)" czy „(x)" muszą zostać nietknięte. */
     function _readBackOwnOutput(str) {
         var out = String(str);
+        // [EN] liczba e z wykładnikiem (wynik granic: e⁴, 1/e⁶, 2e³) → e^(n); inaczej „2e³” → „2e3” = 2000
+        var SUPD = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+        out = out.replace(/(^|[^A-Za-zÀ-ſ])e(⁻?[⁰¹²³⁴⁵⁶⁷⁸⁹]+)(?![A-Za-zÀ-ſ])/g, function (_, pre, sup) {
+            return pre + 'e^(' + sup.replace('⁻', '-').replace(/[⁰-⁹¹²³]/g, function (c) { return String(SUPD.indexOf(c)); }) + ')';
+        });
+        out = out.replace(/√e(?![A-Za-zÀ-ſ])/g, 'sqrt(e)');
         // indeks górny: przy jednostce to cyfra (km² → km2), przy liczbie to potęga (5² → 5^2)
         out = out.replace(/([A-Za-zÀ-ſ])\u00b2/g, '$12').replace(/([A-Za-zÀ-ſ])\u00b3/g, '$13');
         out = out.replace(/(\d)\s*\u00b2/g, '$1^2').replace(/(\d)\s*\u00b3/g, '$1^3');

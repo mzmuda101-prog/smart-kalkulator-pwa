@@ -77,7 +77,16 @@ const EXTRA = [
     ['05:00 (wczoraj)', true],
     ['07:00 (+2 dni)', true],
     ['12:00 (-3 dni)', true],
+    // wyniki granic (MATM0_LIMITS) — po „=” liczymy dalej
+    ['1/e⁶', true], ['e⁴', true], ['√e', true], ['√3/3', true], ['−√3/3', true], ['1/e', true],
+    ['+∞', false], ['granica nie istnieje', false],   // tekst — nie liczy, ale nie wywraca
 ];
+[['1/e⁶', Math.exp(-6)], ['e⁴', Math.exp(4)], ['√e', Math.sqrt(Math.E)], ['2e³', 2 * Math.exp(3)]].forEach(function (pair) {
+    const r = api.evalCalcExpression(pair[0]);
+    const okv = r && typeof r.value === 'number' && Math.abs(r.value - pair[1]) <= 1e-9 * (1 + Math.abs(pair[1]));
+    if (okv) pass++;
+    else { fail++; fails.push({ expr: pair[0], why: 'zła wartość', shown: r && r.value }); }
+});
 EXTRA.forEach(function (pair) {
     const r = api.evalCalcExpression(pair[0]);
     const got = !!(r && (r.value !== null || r.text != null || r.big));
