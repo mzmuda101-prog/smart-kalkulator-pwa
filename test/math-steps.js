@@ -70,6 +70,24 @@ ok('gołe równanie', S.runBare('2x + 3 = 7').text === 'x = 2');
     ['kroki sqrt(16)+1', '5'],
 ].forEach(([q, want]) => ok(q, text(q) === want, text(q)));
 
+// pierwiastki liczbowe: wyciąganie kwadratów i usuwanie niewymierności z mianownika
+[
+    ['uprość √8', '2√2', 2 * Math.SQRT2],
+    ['uprość sqrt(8)', '2√2', 2 * Math.SQRT2],
+    ['uprość sqrt(12) + sqrt(27)', '5√3', 5 * Math.sqrt(3)],
+    ['uprość 1/√2', '√2/2', Math.SQRT1_2],
+    ['uprość 1/(√3 - 1)', '(√3 + 1)/2', 1 / (Math.sqrt(3) - 1)],
+    ['uprość √(4·18)', '6√2', 6 * Math.SQRT2],
+    ['uprość √7', '√7', Math.sqrt(7)],
+    ['uprość 2√3 - √12', '0', 0],
+    ['kroki 0,5√8', '√2', Math.SQRT2],
+].forEach(([q, want, v]) => {
+    const r = S.run(q);
+    ok(q, r.text === want && Math.abs(r.value - v) < 1e-9 && r.explain.steps.slice(-1)[0].final, r);
+});
+ok('sprzężenie w krokach', labels('uprość 1/(√3 - 1)').includes('Usuwamy niewymierność z mianownika'));
+ok('wymierny pierwiastek po staremu', labels('kroki sqrt(16)+1') === 'Działanie | Pierwiastek | Dodawanie');
+
 // przykłady ze ściągi dają obiecany wynik
 [
     ['rozwiąż 3(x - 2) = x + 4', 'x = 5'],

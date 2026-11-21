@@ -781,8 +781,140 @@
     }
     var OP_LABEL = { add: 'Dodawanie', sub: 'Odejmowanie', mul: 'Mnożenie', div: 'Dzielenie', pow: 'Potęgowanie', neg: 'Zmiana znaku', sqrt: 'Pierwiastek' };
 
+    // ── Pierwiastki liczbowe: Σ qᵢ·√tᵢ, mapa t → wymierne ───
+    function hasSqrt(n) {
+        return n.k === 'sqrt' || (n.a ? hasSqrt(n.a) : false) || (n.b ? hasSqrt(n.b) : false);
+    }
+    function hasSum(n) {
+        return n.k === 'add' || n.k === 'sub' || (n.a ? hasSum(n.a) : false) || (n.b ? hasSum(n.b) : false);
+    }
+    function sPut(o, t, c) {
+        var k = t.toString();
+        o[k] = o[k] ? add(o[k], c) : c;
+        if (isZero(o[k])) delete o[k];
+        return o;
+    }
+    function sAdd(a, b) {
+        var o = {};
+        [a, b].forEach(function (m) { Object.keys(m).forEach(function (k) { sPut(o, k, m[k]); }); });
+        return o;
+    }
+    function sScale(a, c) {
+        var o = {};
+        Object.keys(a).forEach(function (k) { sPut(o, k, mul(a[k], c)); });
+        return o;
+    }
+    function sMul(a, b) { // [EN] √s·√t = g·√(s/g · t/g), g = NWD(s, t)
+        var o = {};
+        Object.keys(a).forEach(function (ka) {
+            Object.keys(b).forEach(function (kb) {
+                var s = BigInt(ka), t = BigInt(kb), g = gcd(s, t);
+                sPut(o, (s / g) * (t / g), mul(mul(a[ka], b[kb]), R(g)));
+            });
+        });
+        return o;
+    }
+    function sRational(a) { // [EN] liczba wymierna albo null
+        var keys = Object.keys(a);
+        return keys.length === 0 ? ZERO : (keys.length === 1 && keys[0] === '1' ? a['1'] : null);
+    }
+    function sValue(a) {
+        return Object.keys(a).reduce(function (v, k) { return v + toNum(a[k]) * Math.sqrt(Number(k)); }, 0);
+    }
+    function sKeys(a) { // [EN] najpierw pierwiastki rosnąco, liczba na końcu
+        return Object.keys(a).sort(function (x, y) {
+            if (x === '1' || y === '1') return x === '1' ? 1 : -1;
+            return BigInt(x) < BigInt(y) ? -1 : 1;
+        });
+    }
+    function sText(a) { // [EN] wspólny mianownik: (√3 + 1)/2
+        var keys = sKeys(a);
+        if (!keys.length) return '0';
+        var den = keys.reduce(function (l, k) { return (l * a[k].d) / gcd(l, a[k].d); }, 1n);
+        var body = keys.map(function (k, i) {
+            var c = mul(a[k], R(den)).n, abs = c < 0n ? -c : c;
+            var term = k === '1' ? abs.toString() : (abs === 1n ? '' : abs.toString()) + '√' + k;
+            return (i === 0 ? (c < 0n ? '−' : '') : (c < 0n ? ' − ' : ' + ')) + term;
+        }).join('');
+        if (den === 1n) return body;
+        return (keys.length > 1 ? '(' + body + ')' : body) + '/' + den.toString();
+    }
+    function sDiv(a, b, steps) { // [EN] dzielenie przez q√t albo p√s + q√t: mnożę przez sprzężenie
+        var r = sRational(b);
+        if (r) {
+            if (isZero(r)) throw new NotSupported();
+            return sScale(a, div(ONE, r));
+        }
+        var keys = sKeys(b), conj = {};
+        if (keys.length === 1) conj[keys[0]] = ONE;
+        else if (keys.length === 2) { conj[keys[0]] = b[keys[0]]; conj[keys[1]] = neg(b[keys[1]]); }
+        else throw new NotSupported();
+        var den = sRational(sMul(b, conj));
+        if (!den || isZero(den)) throw new NotSupported();
+        var res = sScale(sMul(a, conj), div(ONE, den));
+        var par = function (x) { return /[ /]/.test(x) ? '(' + x + ')' : x; };
+        var C = par(sText(conj));
+        steps.push({
+            label: 'Usuwamy niewymierność z mianownika',
+            math: par(sText(a)) + '·' + C + '/(' + par(sText(b)) + '·' + C + ') = ' + sText(res)
+        });
+        return res;
+    }
+    function surdEval(n, steps, ctx) {
+        var one = function (c) { return { 1: c }; };
+        switch (n.k) {
+            case 'num': return isZero(n.v) ? {} : one(n.v);
+            case 'add': return sAdd(surdEval(n.a, steps, ctx), surdEval(n.b, steps, ctx));
+            case 'sub': return sAdd(surdEval(n.a, steps, ctx), sScale(surdEval(n.b, steps, ctx), neg(ONE)));
+            case 'neg': return sScale(surdEval(n.a, steps, ctx), neg(ONE));
+            case 'mul': return sMul(surdEval(n.a, steps, ctx), surdEval(n.b, steps, ctx));
+            case 'div': return sDiv(surdEval(n.a, steps, ctx), surdEval(n.b, steps, ctx), steps);
+            case 'pow':
+                var k = sRational(surdEval(n.b, steps, ctx));
+                if (!k || !isInt(k) || k.n > BigInt(MAX_POW) || k.n < -BigInt(MAX_POW)) throw new NotSupported();
+                var base = surdEval(n.a, steps, ctx), out = one(ONE);
+                for (var i = 0; i < Math.abs(Number(k.n)); i++) out = sMul(out, base);
+                return k.n < 0n ? sDiv(one(ONE), out, steps) : out;
+            case 'sqrt':
+                var r = sRational(surdEval(n.a, steps, ctx));
+                if (!r || r.n < 0n) throw new NotSupported();
+                var sr = simplifiedRoot(r), res = {};
+                if (sr.t > 1n) ctx.irr = true;
+                sPut(res, sr.t, sr.q);
+                var s = sr.q.n * sr.q.d / r.d; // [EN] wyciągnięty czynnik dla liczby całkowitej
+                if (isInt(r) && s > 1n && sr.t > 1n) {
+                    var plain = '√' + r.n.toString();
+                    steps.push({
+                        label: 'Wyciągam kwadrat spod pierwiastka',
+                        math: (n.a.k === 'num' ? '' : show(n, ctx) + ' = ') + plain + ' = √(' + (s * s).toString() + '·' + sr.t.toString() + ') = ' + sText(res)
+                    });
+                }
+                return res;
+        }
+        throw new NotSupported();
+    }
+    function surds(ast) { // [EN] null = brak niewymierności, niech liczy zwykła ścieżka
+        if (!hasSqrt(ast)) return null;
+        var ctx = { dec: hasDecimal(ast) };
+        var steps = [{ label: 'Wyrażenie', math: show(ast, ctx) }];
+        var res;
+        try { res = surdEval(ast, steps, ctx); }
+        catch (e) { if (e instanceof NotSupported) return null; throw e; }
+        if (!ctx.irr) return null; // [EN] same pierwiastki wymierne: zwykłe kroki działania
+        var text = sText(res), value = sValue(res), want = evalNum(ast, {});
+        if (!(Math.abs(value - want) <= 1e-9 * Math.max(1, Math.abs(want)))) return unsupported();
+        var lastMath = steps[steps.length - 1].math;
+        if (lastMath !== text && lastMath.slice(-text.length - 3) !== ' = ' + text) {
+            steps.push({ label: hasSum(ast) ? 'Redukuję wyrazy podobne' : 'Wynik', math: text });
+        }
+        if (!sRational(res)) steps.push({ label: 'Wynik w przybliżeniu', math: text + ' ≈ ' + fmtApprox(value) });
+        return done('Upraszczanie pierwiastków', text, value, steps);
+    }
+
     function arithmetic(ast) {
         var ctx = { dec: hasDecimal(ast) };
+        var exact = surds(ast);
+        if (exact) return exact;
         var tree = foldFractions(ast);
         var steps = [{ label: 'Działanie', math: show(tree, ctx) }];
         for (var guard = 0; tree.k !== 'num' && guard < 60; guard++) {
