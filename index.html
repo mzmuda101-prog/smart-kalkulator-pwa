@@ -10,7 +10,7 @@
     <meta name="color-scheme" content="light dark">
     <!-- [EN] CSP — app is local/offline except FX rates APIs (NBP + Frankfurter) in connect-src.
          style-src 'unsafe-inline' bo kilka legacy atrybutów style="" w markupie. -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://api.nbp.pl https://api.frankfurter.dev; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://api.nbp.pl https://api.frankfurter.dev; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Smart Kalkulator">
@@ -1415,6 +1415,7 @@
     <script defer src="js/math-limits.js?v=v1.04.87"></script>
     <script defer src="js/hint-rules.js?v=v1.04.87"></script>
     <script defer src="js/model-store.js?v=v1.04.87"></script>
+    <script defer src="js/formula-ocr.js?v=v1.04.87"></script>
     <script defer src="js/notepad-format.js?v=v1.04.87"></script>
     <script defer src="js/notepad-engine.js?v=v1.04.87"></script>
     <script defer src="command-definitions.js?v=v1.04.87"></script>

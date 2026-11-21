@@ -44,7 +44,7 @@ module.exports = defineConfig({
     webServer: process.env.CALC_URL
         ? undefined
         : {
-            command: `python3 -m http.server ${PORT} --bind 127.0.0.1`,
+            command: `node scripts/dev-server.mjs ${PORT}`,
             cwd: __dirname,
             url: `${BASE_URL}index.html`,
             reuseExistingServer: !process.env.CI,

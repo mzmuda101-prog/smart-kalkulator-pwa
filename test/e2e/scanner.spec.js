@@ -161,3 +161,51 @@ test('(e) offline: po pobraniu SW oddaje model i silnik z cache modeli', async (
   });
   expect(appCaches.filter((u) => /\/models\/|onnxruntime/.test(u))).toEqual([]);
 });
+
+// Wartości oczekiwane = run.py (ONNX w Pythonie) + latexToExpr na tych samych PNG.
+const FIXTURES = [
+  ['frac', 'lim n→∞ (2n+1)/(6n+5)'],
+  ['sqrt-lim', 'lim x→5 (x-5)/(3-sqrt(x+4))'],
+  ['power', 'lim n→∞ (1+1/(2n))^n'],
+];
+
+test.describe('odczyt wzoru w workerze', () => {
+  test.use({ serviceWorkers: 'block' });
+  test.beforeEach(({}, testInfo) => test.skip(testInfo.project.name !== 'desktop', 'model testujemy raz'));
+
+  test('MATM0_OCR.read czyta trzy wzory, strona jest crossOriginIsolated, konsola bez błędów COEP/CSP', async ({ page }) => {
+    test.setTimeout(180_000);
+    const errors = [];
+    page.on('console', (m) => { if (/Cross-Origin-Embedder-Policy|Content Security Policy/i.test(m.text())) errors.push(m.text()); });
+    page.on('pageerror', (e) => errors.push(e.message));
+    await open(page);
+    expect(await page.evaluate(() => crossOriginIsolated)).toBe(true);
+    const readFixture = (name) => page.evaluate(async (n) => {
+      const bmp = await createImageBitmap(await (await fetch(`test/fixtures/formulas/${n}.png`)).blob());
+      const ctx = new OffscreenCanvas(bmp.width, bmp.height).getContext('2d');
+      ctx.drawImage(bmp, 0, 0);
+      const d = ctx.getImageData(0, 0, bmp.width, bmp.height);
+      return MATM0_OCR.read({ data: d.data, width: d.width, height: d.height });
+    }, name);
+    const first = readFixture(FIXTURES[0][0]);
+    await page.locator('dialog.model-dialog').getByRole('button', { name: 'Pobierz' }).click();
+    const times = [];
+    let res = await first;
+    for (const [i, [name, expr]] of FIXTURES.entries()) {
+      if (i) res = await readFixture(name);
+      expect(res.error, name).toBeUndefined();
+      expect(res.expr, name).toBe(expr);
+      times.push(`${name}=${res.ms}ms`);
+      if (i) expect(res.ms).toBeLessThan(3000); // pierwszy odczyt może liczyć rozgrzewkę
+    }
+    console.log('odczyt:', times.join(' '));
+    expect(errors).toEqual([]);
+  });
+
+  test('odmowa zgody: read odrzuca się z „declined”', async ({ page }) => {
+    await open(page);
+    const result = page.evaluate(() => MATM0_OCR.read({ data: new Uint8ClampedArray(16), width: 2, height: 2 }).then(() => 'ok', (e) => e.message));
+    await page.locator('dialog.model-dialog').getByRole('button', { name: 'Nie teraz' }).click();
+    expect(await result).toBe('declined');
+  });
+});

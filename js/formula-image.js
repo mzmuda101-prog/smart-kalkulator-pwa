@@ -132,6 +132,6 @@
     }
 
     const API = { trimEdgeBlobs: trimEdgeBlobs, toTensor: toTensor, decodeTokens: decodeTokens };
-    if (typeof window !== 'undefined') /** @type {any} */ (window).MATM0_FIMG = API;
+    /** @type {any} */ (typeof window !== 'undefined' ? window : globalThis).MATM0_FIMG = API; // w Workerze nie ma window
     if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();
