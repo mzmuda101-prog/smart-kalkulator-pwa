@@ -19,6 +19,11 @@ function ok(name, cond, got) {
     console.log('  ✗', name, got === undefined ? '' : '→ ' + JSON.stringify(got));
 }
 const text = q => { const r = S.run(q); return r && r.text; };
+function agrees(got, want) {
+    if (want === 'inf') return got === Infinity;
+    if (want === '-inf') return got === -Infinity;
+    return typeof got === 'number' && Math.abs(got - want) <= 1e-9 * (1 + Math.abs(want));
+}
 
 const CALC = require(path.join(__dirname, '..', 'js', 'math-calculus.js'));
 const C = CALC._core || {};
@@ -115,12 +120,23 @@ if (L && L._test) {
     ok('czas 1g < 300 ms', dt < 300, dt + ' ms');
 }
 
-// ── Zestaw 58 zadań ─────────────────────────────────────────
-function agrees(got, want) {
-    if (want === 'inf') return got === Infinity;
-    if (want === '-inf') return got === -Infinity;
-    return typeof got === 'number' && Math.abs(got - want) <= 1e-9 * (1 + Math.abs(want));
+// ── Task 4: wyłączanie najwyższej potęgi ───────────────────
+const byId = Object.fromEntries(ZESTAW.map(z => [z.id, z]));
+const WANT_TEXT = { '1a': '1/3', '1d': '0', '1e': '+∞', '7a': '√3/3', '7b': '−√3/3', '3a': '+∞', '2c': '4/5', '1f': '3' };
+['1a', '1b', '1c', '1d', '1e', '1f', '1g', '2a', '2b', '2c', '2d', '2e', '2f', '3a', '7a', '7b'].forEach(id => {
+    const r = S.run(byId[id].input);
+    ok('zadanie ' + id, r && r.text !== NOPE && agrees(r.value, byId[id].value) && r.explain.steps.length >= 3, r && r.text);
+    if (WANT_TEXT[id]) ok('zadanie ' + id + ' tekst', r && r.text === WANT_TEXT[id], r && r.text);
+});
+{
+    const r = S.run(byId['1b'].input), st = r && r.explain ? r.explain.steps : [];
+    ok('1b: pierwszy krok kończy się [∞/∞]', st.length && /\[∞\/∞\]$/.test(st[0].math), st[0]);
+    ok('1b: krok „Wyłączamy n² przed nawias”', st.some(x => x.label === 'Wyłączamy n² przed nawias'), st.map(x => x.label));
+    const b = S.run(byId['7b'].input), sb = b && b.explain ? b.explain.steps : [];
+    ok('7b: krok √(x²) = |x| = −x', sb.some(x => /√\(x²\) = \|x\| = −x/.test(x.math)), sb.map(x => x.math));
 }
+
+// ── Zestaw 58 zadań ─────────────────────────────────────────
 let covered = 0, wrong = 0;
 const missing = [];
 for (const z of ZESTAW) {

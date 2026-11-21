@@ -177,10 +177,22 @@
         return a + (t.side > 0 ? '⁺' : (t.side < 0 ? '⁻' : ''));
     }
     function limHead(v, t) { return 'lim(' + v + '→' + targetText(t) + ') '; }
+    function limOf(v, t, e) { return limHead(v, t) + (e.length > 1 ? '(' + C.show(e) + ')' : C.show(e)); }
     function formatAnswer(ans) {
         if (ans.kind === 'inf') return { text: ans.sign > 0 ? '+∞' : '−∞', value: ans.sign > 0 ? Infinity : -Infinity };
         if (ans.kind === 'dne') return { text: 'granica nie istnieje', value: null };
-        return { text: C.show(ans.e), value: C.evalExpr(ans.e, {}) };
+        return { text: C.show(rationalize(ans.e)), value: C.evalExpr(ans.e, {}) };
+    }
+    function rationalize(e) { // [EN] 1/√3 → √3/3: pierwiastek liczby w mianowniku przenosimy do licznika
+        return e.map(function (t) {
+            var c = t.c, fs = t.fs.map(function (f) {
+                if (f.b.k !== 'num' || f.e.n >= 0n || K.isInt(f.e)) return f;
+                var whole = (-f.e.n + f.e.d - 1n) / f.e.d; // [EN] ceil(|e|)
+                c = K.div(c, K.powR(f.b.v, Number(whole)));
+                return { b: f.b, e: K.add(f.e, K.R(whole)) };
+            });
+            return C.term(c, fs);
+        });
     }
     function agrees(ans, check) {
         if (!check) return false;
@@ -208,11 +220,160 @@
                 var at = substitute(e, v, pointExpr(t));
                 var val = C.evalExpr(at, {});
                 if (C.hasVar(at, v) || !isFinite(val)) throw new NotSupported();
-                line(log, 'Podstawiamy ' + v + ' = ' + targetText({ at: t.at, src: t.src, side: 0 }), limHead(v, t) + C.show(e) + ' = ' + C.show(at));
+                line(log, 'Podstawiamy ' + v + ' = ' + targetText({ at: t.at, src: t.src, side: 0 }), limOf(v, t, e) + ' = ' + C.show(at));
                 return { kind: 'num', e: at };
             }
         }
     ];
+    // ── Rozbiór na licznik i mianownik ─────────────────────────────────
+    function splitFraction(e) {
+        if (e.length !== 1) return { N: e, D: C.num(ONE) };
+        var t = e[0], up = [], down = [];
+        t.fs.forEach(function (f) {
+            if (f.e.n < 0n) down.push({ b: f.b, e: K.neg(f.e) }); else up.push(f);
+        });
+        return { N: [C.term(t.c, up)], D: down.length ? [C.term(ONE, down)] : C.num(ONE) };
+    }
+    function isOne(e) { return C.isNumber(e) && K.eq(C.numberOf(e), ONE); }
+
+    /* Wyłączanie najwyższej potęgi przy v → ±∞. Z u = sign·v (u → +∞):
+       pull(e) = { p, rest, c } gdzie e = u^p · rest, a rest → c (stała ≠ 0, dokładnie).
+       Skrócenie się najwyższych potęg w sumie (∞ − ∞) → NotSupported (to robota innych reguł). */
+    function uPow(v, sign, q) { // [EN] u^q wyrażone przez v
+        if (sign > 0) return C.cPow(C.variable(v), q);
+        if (!K.isInt(q)) throw new NotSupported();
+        var r = C.cPow(C.variable(v), q);
+        return q.n % 2n === 0n ? r : C.cNeg(r);
+    }
+    function pullTerm(t, v, sign) {
+        var p = K.ZERO, rest = C.num(t.c), c = C.num(t.c);
+        t.fs.forEach(function (f) {
+            var a = f.b, r = f.e;
+            if (a.k === 'var' && a.v === v) {
+                p = K.add(p, r);
+                if (sign < 0) {
+                    if (!K.isInt(r)) throw new NotSupported();
+                    if (r.n % 2n !== 0n) { rest = C.cNeg(rest); c = C.cNeg(c); }
+                }
+                return;
+            }
+            if (a.k === 'sum' && C.hasVar(a.s, v)) {
+                var inner = pullExpr(a.s, v, sign);
+                p = K.add(p, K.mul(inner.p, r));
+                rest = C.cMul(rest, C.cPow(inner.rest, r));
+                c = C.cMul(c, C.cPow(inner.c, r));
+                return;
+            }
+            if (atomHasVar(a, v)) throw new NotSupported();
+            var self = C.cPow(C.atomExpr(a), r);
+            rest = C.cMul(rest, self); c = C.cMul(c, self);
+        });
+        return { p: p, rest: rest, c: c };
+    }
+    function atomHasVar(a, v) { return C.hasVar(C.atomExpr(a), v); }
+    function pullExpr(e, v, sign) {
+        if (e.length === 1) return pullTerm(e[0], v, sign);
+        var parts = e.map(function (t) { return pullTerm(t, v, sign); });
+        var p = parts.reduce(function (m, x) { return K.toNum(x.p) > K.toNum(m) ? x.p : m; }, parts[0].p);
+        var rest = [], c = [];
+        parts.forEach(function (x) {
+            var q = K.sub(x.p, p);
+            rest = C.cAdd(rest, K.isZero(q) ? x.rest : C.cMul(x.rest, uPow(v, sign, q)));
+            if (K.isZero(q)) c = C.cAdd(c, x.c);
+        });
+        if (!c.length || Math.abs(C.evalExpr(c, {})) < 1e-12) throw new NotSupported(); // [EN] ∞ − ∞
+        return { p: p, rest: rest, c: c };
+    }
+    function uText(v, sign, p) {
+        var base = sign > 0 ? v : '(−' + v + ')';
+        if (K.eq(p, ONE)) return base;
+        return sign > 0 ? C.show(C.cPow(C.variable(v), p)) : base + (K.isInt(p) ? K.sup(p.n.toString()) : '^(' + K.fmt(p) + ')');
+    }
+    function hasEvenRoot(e, v) {
+        var found = false;
+        (function walk(x) {
+            x.forEach(function (t) {
+                t.fs.forEach(function (f) {
+                    if (f.b.k === 'sum') {
+                        if (C.hasVar(f.b.s, v) && f.e.d % 2n === 0n) found = true;
+                        walk(f.b.s);
+                    }
+                });
+            });
+        })(e);
+        return found;
+    }
+    function quotientText(n, d) { return isOne(d) ? C.show(n) : C.paren(n) + '/' + C.paren(d); }
+    function pulledText(v, sign, x) { // [EN] u^p · (reszta); liczba jako współczynnik: −(−x), nie (−x)−1
+        if (K.isZero(x.p)) return C.paren(x.rest);
+        var u = uText(v, sign, x.p);
+        if (C.isNumber(x.rest)) {
+            var c = C.numberOf(x.rest);
+            if (K.eq(c, ONE)) return u;
+            if (K.eq(c, K.neg(ONE))) return '−' + u;
+            return C.show(x.rest) + u;
+        }
+        return u + C.paren(x.rest);
+    }
+
+    var dominantPower = {
+        name: 'dominantPower',
+        test: function (e, v, t) { return !isFiniteTarget(t) && C.hasVar(e, v); },
+        apply: function (e, v, t, log) {
+            var sign = t.at === 'inf' ? 1 : -1, fr = splitFraction(e);
+            var N = pullExpr(fr.N, v, sign), D = pullExpr(fr.D, v, sign);
+            var head = limHead(v, t);
+            if (sign < 0 && hasEvenRoot(e, v)) line(log, 'Dla ' + v + ' → −∞', '√(' + v + '²) = |' + v + '| = −' + v);
+            var same = K.eq(N.p, D.p), alone = isOne(fr.D);
+            var label = (same || alone) && !K.isZero(N.p) ? 'Wyłączamy ' + uText(v, sign, N.p) + ' przed nawias' : 'Wyłączamy najwyższe potęgi przed nawias';
+            var pn = pulledText(v, sign, N), pd = pulledText(v, sign, D);
+            line(log, label, head + (alone ? pn : pn + '/' + (K.isZero(D.p) ? pd : '(' + pd + ')')));
+            var q = K.sub(N.p, D.p);
+            if (same && !K.isZero(N.p)) line(log, 'Skracamy ' + uText(v, sign, N.p), head + quotientText(N.rest, D.rest));
+            var cval = C.cMul(N.c, C.cPow(D.c, K.neg(ONE)));
+            var cv = C.evalExpr(cval, {}), cText = quotientText(N.c, D.c);
+            if (K.isZero(q)) {
+                line(log, 'Wyrazy z ' + v + ' w mianowniku dążą do 0', '→ ' + cText);
+                return { kind: 'num', e: cval };
+            }
+            var neg = K.toNum(q) < 0, infSign = cv > 0 ? 1 : -1;
+            var tail = neg ? ' → 0' : ' → ' + (infSign > 0 ? '+∞' : '−∞');
+            line(log, 'Wyrazy z ' + v + ' w mianowniku dążą do 0', '→ ' + (cText === '1' ? '' : cText + ' · ') + uText(v, sign, neg ? K.neg(q) : q) + (neg ? ' w mianowniku' : '') + tail);
+            return neg ? { kind: 'num', e: [] } : { kind: 'inf', sign: infSign };
+        }
+    };
+    RULES.push(dominantPower);
+
+    // ── Symbol nieoznaczony (do pierwszego kroku, jak na zajęciach) ──────
+    function kindOf(x) {
+        if (!x) return null;
+        if (x.kind === 'inf') return '∞';
+        if (x.kind === 'num') return Math.abs(x.value) < 1e-9 ? '0' : (Math.abs(x.value - 1) < 1e-9 ? '1' : 'c');
+        return null;
+    }
+    function indeterminate(e, v, t) {
+        try {
+            if (e.length > 1) {
+                var signs = e.map(function (term) { var r = numericLimit([term], v, t); return r && r.kind === 'inf' ? r.sign : 0; });
+                return signs.indexOf(1) >= 0 && signs.indexOf(-1) >= 0 ? '∞ − ∞' : null;
+            }
+            var only = e[0];
+            if (only.fs.length === 1 && only.fs[0].b.k === 'exp' && K.eq(only.c, ONE)) {
+                var b = kindOf(numericLimit(only.fs[0].b.b, v, t)), x = kindOf(numericLimit(only.fs[0].b.x, v, t));
+                if (b === '1' && x === '∞') return '1^∞';
+                if (b === '0' && x === '0') return '0^0';
+                if (b === '∞' && x === '0') return '∞^0';
+                return null;
+            }
+            var fr = splitFraction(e);
+            if (isOne(fr.D)) return null;
+            var n = kindOf(numericLimit(fr.N, v, t)), d = kindOf(numericLimit(fr.D, v, t));
+            if (n === '0' && d === '0') return '0/0';
+            if (n === '∞' && d === '∞') return '∞/∞';
+            return null;
+        } catch (err) { return null; }
+    }
+
     var MAX_DEPTH = 8;
     function limitOf(e, v, t, log, depth) {
         if ((depth || 0) > MAX_DEPTH) throw new NotSupported();
@@ -231,11 +392,12 @@
     function run(d) {
         var e = C.fromAst(K.parse(d.src));
         C.setVar(d.v);
-        var steps = [{ label: 'Granica', math: limHead(d.v, d.target) + C.show(e) }];
+        var ind = indeterminate(e, d.v, d.target);
+        var steps = [{ label: 'Granica', math: limOf(d.v, d.target, e) + (ind ? '  [' + ind + ']' : '') }];
         var ans = limitOf(e, d.v, d.target, steps, 0);
         if (!agrees(ans, numericLimit(e, d.v, d.target))) throw new NotSupported(); // [EN] nigdy błędnego wyniku
         var out = formatAnswer(ans);
-        steps.push({ label: 'Wynik', math: limHead(d.v, d.target) + C.show(e) + ' = ' + out.text });
+        steps.push({ label: 'Wynik', math: limOf(d.v, d.target, e) + ' = ' + out.text });
         return K.done('Granica', out.text, out.value, steps);
     }
 
