@@ -4,8 +4,9 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const port = Number(process.argv[2] || process.env.PORT) || 3000;
 const types = {
     '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
@@ -27,5 +28,5 @@ http.createServer((req, res) => {
     if (fs.existsSync(p) && fs.statSync(p).isDirectory()) p = path.join(p, 'index.html');
     if (!fs.existsSync(p)) { res.writeHead(404, head); return res.end('Not found'); }
     res.writeHead(200, { ...head, 'Content-Type': types[path.extname(p)] || 'application/octet-stream', 'Content-Length': fs.statSync(p).size });
-    fs.createReadStream(p).pipe(res);
+    fs.createReadStream(p).on('error', () => res.destroy()).pipe(res);
 }).listen(port, '127.0.0.1', () => console.log(`http://127.0.0.1:${port}`));

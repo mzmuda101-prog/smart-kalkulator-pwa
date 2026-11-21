@@ -202,6 +202,27 @@ test.describe('odczyt wzoru w workerze', () => {
     expect(errors).toEqual([]);
   });
 
+  test('nieudany start workera nie zostawia workera; ponowna próba działa', async ({ page }) => {
+    test.setTimeout(120_000);
+    await open(page);
+    const engine = '**/js/formula-ocr-worker.js';
+    await page.route(engine, (r) => r.fulfill({ status: 404, body: '' }));
+    const img = () => page.evaluate(async () => {
+      const bmp = await createImageBitmap(await (await fetch('test/fixtures/formulas/frac.png')).blob());
+      const ctx = new OffscreenCanvas(bmp.width, bmp.height).getContext('2d');
+      ctx.drawImage(bmp, 0, 0);
+      const d = ctx.getImageData(0, 0, bmp.width, bmp.height);
+      return MATM0_OCR.read({ data: d.data, width: d.width, height: d.height }).then((r) => ({ expr: r.expr }), (e) => ({ err: e.message }));
+    });
+    const first = img();
+    await page.locator('dialog.model-dialog').getByRole('button', { name: 'Pobierz' }).click();
+    expect((await first).err).toBeTruthy();
+    expect(await page.evaluate(() => MATM0_OCR._workers())).toBe(0);
+    await page.unroute(engine);
+    expect((await img()).expr).toBe(FIXTURES[0][1]);
+    expect(await page.evaluate(() => MATM0_OCR._workers())).toBe(1);
+  });
+
   test('odmowa zgody: read odrzuca się z „declined”', async ({ page }) => {
     await open(page);
     const result = page.evaluate(() => MATM0_OCR.read({ data: new Uint8ClampedArray(16), width: 2, height: 2 }).then(() => 'ok', (e) => e.message));
