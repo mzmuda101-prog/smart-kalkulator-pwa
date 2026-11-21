@@ -24,3 +24,12 @@ import shutil, subprocess
 if shutil.which("ffmpeg"):
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-loop", "1", "-i", os.path.join(out, "frac.png"), "-frames:v", "1",
                     "-vf", "pad=640:360:(ow-iw)/2:(oh-ih)/2:white,format=yuv420p", os.path.join(out, "frac.y4m")], check=True)
+
+# two-pages.pdf: 2 strony A4 do testu wyboru strony PDF. Strona 1: zwykły tekst, strona 2: wzór frac na środku, dużo większy niż na zdjęciu.
+from matplotlib.backends.backend_pdf import PdfPages
+with PdfPages(os.path.join(out, "two-pages.pdf")) as pdf:
+    for body, size in (("Zadanie domowe. Strona pierwsza bez wzoru.", 14), (f"${FORMULAS['frac']}$", 56)):
+        fig = plt.figure(figsize=(8.27, 11.69), facecolor="white")
+        fig.text(0.5, 0.5, body, fontsize=size, color="black", ha="center", va="center")
+        pdf.savefig(fig, facecolor="white")
+        plt.close(fig)

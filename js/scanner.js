@@ -1,11 +1,12 @@
 // @ts-check
 // Skaner wzoru: okno pełnoekranowe z ramką na obrazie. "Źródło" (nieruchomy obraz na canvasie albo podgląd
-// z kamery; później strona PDF) daje canvas do przycięcia — ramka, przycinanie i odczyt są wspólne.
+// z kamery albo wybrana strona PDF) daje canvas do przycięcia — ramka, przycinanie i odczyt są wspólne.
 (function () {
     'use strict';
     const win = /** @type {any} */ (window);
     const MIN_W = 48, MIN_H = 24, MAX_SIDE = 2000, MAX_DISPLAY = 4096;
     const DEF = { x: 0.1, y: 0.375, w: 0.8, h: 0.25 }; // awaryjnie; właściwa ramka: defaultFrame()
+    const PDF_SCALE = 2, PDF_MAX_SIDE = 3000, THUMB_SCALE = 0.3; // strona PDF: 2x, dłuższy bok <= 3000 px; miniatura 0,3x
     const DARK_MEAN = 60; // średnia jasność klatki (0..255) poniżej tego = „za ciemno”
     const PAD = 22; // połowa uchwytu: uchwyt na krawędzi obrazu nie wychodzi poza scenę
     const CORNERS = ['nw', 'ne', 'sw', 'se'];
@@ -50,6 +51,7 @@
         head.append(title, close);
 
         const stage = el('div', 'scanner-stage');
+        const pages = el('div', 'scanner-pages'); pages.hidden = true; pages.setAttribute('role', 'group'); pages.setAttribute('aria-label', 'Strony PDF');
         const empty = el('div', 'scanner-empty');
         const emptyText = el('p', 'scanner-empty-text', 'Wybierz zdjęcie z jednym wydrukowanym wzorem. Potem ustawisz ramkę na wzorze.');
         const pick = /** @type {HTMLButtonElement} */ (el('button', 'scanner-btn primary', 'Wybierz zdjęcie')); pick.type = 'button';
@@ -70,7 +72,7 @@
         const hint = el('p', 'scanner-hint'); hint.hidden = true; hint.setAttribute('aria-live', 'polite');
         const torch = /** @type {HTMLButtonElement} */ (el('button', 'scanner-torch', 'Latarka')); torch.type = 'button'; torch.hidden = true;
         torch.setAttribute('aria-pressed', 'false');
-        stage.append(empty, video, canvas, frame, hint, torch);
+        stage.append(empty, video, canvas, frame, hint, torch, pages);
 
         const error = el('p', 'scanner-error'); error.hidden = true; error.setAttribute('role', 'alert');
         const bar = el('div', 'scanner-bar');
@@ -79,12 +81,13 @@
         read.innerHTML = '<span class="scanner-spinner" aria-hidden="true"></span><span class="scanner-btn-label">Odczytaj</span>';
         read.disabled = true;
         const shoot = /** @type {HTMLButtonElement} */ (el('button', 'scanner-btn primary', 'Zrób')); shoot.type = 'button'; shoot.hidden = true;
-        const gallery = /** @type {HTMLButtonElement} */ (el('button', 'scanner-btn', 'Wybierz zdjęcie')); gallery.type = 'button'; gallery.hidden = true;
-        bar.append(gallery, again, shoot, read);
-        const input = /** @type {HTMLInputElement} */ (el('input')); input.type = 'file'; input.accept = 'image/*'; input.hidden = true;
+        const gallery = /** @type {HTMLButtonElement} */ (el('button', 'scanner-btn', 'Wybierz zdjęcie lub PDF')); gallery.type = 'button'; gallery.hidden = true;
+        const otherPage = /** @type {HTMLButtonElement} */ (el('button', 'scanner-btn', 'Inna strona')); otherPage.type = 'button'; otherPage.hidden = true;
+        bar.append(gallery, otherPage, again, shoot, read);
+        const input = /** @type {HTMLInputElement} */ (el('input')); input.type = 'file'; input.accept = 'image/*,application/pdf'; input.hidden = true;
         dlg.append(head, stage, error, bar, input);
         document.body.append(dlg);
-        return { dlg, close, stage, empty, emptyText, video, hint, torch, shoot, gallery, canvas, frame, handles, error, again, read, pick, input };
+        return { dlg, title, pages, otherPage, close, stage, empty, emptyText, video, hint, torch, shoot, gallery, canvas, frame, handles, error, again, read, pick, input };
     }
 
     /** Sprawdza jednorazowo, że dialog zbudowany; reszta stanu żyje w open(). */
@@ -106,6 +109,10 @@
         /** @type {{ el: HTMLCanvasElement|HTMLVideoElement, width: number, height: number, cover?: boolean, snapshot: () => HTMLCanvasElement }|null} */ source: null,
         f: { ...DEF },
         busy: false,
+        /** @type {any} */ pdf: null, // otwarty dokument PDF (żyje, dopóki okno albo wybór innego pliku go nie zwolni)
+        picking: false, // na scenie lista miniatur stron
+        /** @type {IntersectionObserver|null} */ thumbs: null,
+        /** @type {any[]} */ tasks: [],
         token: 0, // ładowanie pliku
         readId: 0, // odczyt: wynik zastępczego odczytu jest pomijany
         /** @type {'camera'|'file'|'fallback'} */ mode: 'fallback',
@@ -119,7 +126,7 @@
 
     function resetUi(/** @type {NonNullable<typeof ui>} */ u) {
         st.token++; st.readId++; st.busy = false; st.source = null; st.shot = false;
-        stopCamera(u); setHint(u, '');
+        leavePdf(u); stopCamera(u); setHint(u, '');
         u.canvas.hidden = true; u.video.hidden = true; u.frame.hidden = true; u.empty.hidden = true;
         u.read.disabled = true; clearBusy(u);
         u.error.hidden = true; u.input.value = '';
@@ -132,8 +139,9 @@
         const cam = mode === 'camera', live = cam && !st.shot;
         u.shoot.hidden = !live; u.gallery.hidden = !cam;
         u.again.hidden = !(mode === 'file' || (cam && st.shot));
-        u.again.textContent = cam ? 'Zrób ponownie' : 'Zmień zdjęcie';
-        u.read.hidden = !(mode === 'file' || (cam && st.shot));
+        u.again.textContent = cam ? 'Zrób ponownie' : st.pdf ? 'Zmień plik' : 'Zmień zdjęcie';
+        u.read.hidden = st.picking || !(mode === 'file' || (cam && st.shot));
+        u.otherPage.hidden = !(mode === 'file' && st.pdf && st.pdf.numPages > 1 && !st.picking);
     }
 
     function setHint(/** @type {NonNullable<typeof ui>} */ u, /** @type {string} */ text, kind = '') {
@@ -158,6 +166,7 @@
 
     async function startCamera(/** @type {NonNullable<typeof ui>} */ u) {
         stopCamera(u); // nigdy dwóch strumieni naraz
+        leavePdf(u);
         const my = st.camId;
         st.shot = false; st.source = null; u.error.hidden = true; u.empty.hidden = true; u.canvas.hidden = true; u.frame.hidden = true;
         setHint(u, ''); setMode(u, 'camera'); u.shoot.disabled = true;
@@ -272,8 +281,112 @@
         clampFrame(st.f, c); layout(u);
     }
 
+    const isPdf = (/** @type {File} */ f) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
+
+    /** Zwalnia PDF: dokument, zadania renderu, miniatury (canvasy). */
+    function leavePdf(/** @type {NonNullable<typeof ui>} */ u) {
+        if (st.thumbs) { st.thumbs.disconnect(); st.thumbs = null; }
+        st.tasks.forEach((t) => { try { t.cancel(); } catch {} }); st.tasks = [];
+        u.pages.querySelectorAll('canvas').forEach((c) => { c.width = c.height = 0; });
+        u.pages.replaceChildren(); u.pages.hidden = true; st.picking = false;
+        u.title.textContent = 'Ustaw ramkę na jednym wzorze';
+        const d = st.pdf; st.pdf = null;
+        if (d) d.loadingTask.destroy().catch(() => {});
+    }
+
+    let pdfjs = null;
+    /** pdf.js ładuje się dopiero przy pierwszym PDF-ie, nie przy starcie ani otwarciu skanera. */
+    function loadPdfjs() {
+        if (!pdfjs) pdfjs = import(/** @type {string} */ (new URL('vendor/pdfjs/pdf.min.mjs', document.baseURI).href)).then((m) => {
+            m.GlobalWorkerOptions.workerSrc = new URL('vendor/pdfjs/pdf.worker.min.mjs', document.baseURI).href;
+            return m;
+        }, (e) => { pdfjs = null; throw e; });
+        return pdfjs;
+    }
+
+    /** @param {File} file */
+    async function loadPdf(file) {
+        const u = /** @type {NonNullable<typeof ui>} */ (ui);
+        const my = ++st.token;
+        let doc;
+        try {
+            const lib = await loadPdfjs();
+            doc = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()), isEvalSupported: false, useSystemFonts: true }).promise;
+        } catch {
+            if (my === st.token) showError(u, 'Nie mogę otworzyć tego PDF-u.');
+            return;
+        }
+        if (my !== st.token) { doc.loadingTask.destroy().catch(() => {}); return; }
+        leavePdf(u); stopCamera(u); st.shot = false; st.source = null; setHint(u, ''); u.video.hidden = true; st.pdf = doc;
+        if (doc.numPages === 1) { pickPage(u, 1); return; }
+        showPicker(u);
+    }
+
+    /** Lista miniatur: każda strona renderuje się dopiero, gdy wjedzie w widok (PDF może mieć 100+ stron). */
+    function showPicker(/** @type {NonNullable<typeof ui>} */ u) {
+        const doc = st.pdf; if (!doc) return;
+        st.picking = true; st.source = null; st.readId++; clearBusy(u);
+        u.canvas.hidden = true; u.frame.hidden = true; u.empty.hidden = true; u.error.hidden = true; u.read.disabled = true;
+        u.title.textContent = 'Wybierz stronę';
+        u.pages.replaceChildren();
+        const frag = document.createDocumentFragment();
+        for (let n = 1; n <= doc.numPages; n++) {
+            const b = /** @type {HTMLButtonElement} */ (el('button', 'scanner-page')); b.type = 'button'; b.dataset.page = String(n);
+            b.setAttribute('aria-label', 'Strona ' + n);
+            b.append(document.createElement('canvas'), el('span', 'scanner-page-label', 'Strona ' + n));
+            frag.append(b);
+        }
+        u.pages.append(frag); u.pages.hidden = false; u.pages.scrollTop = 0;
+        setMode(u, 'file');
+        st.thumbs = new IntersectionObserver((entries) => {
+            for (const e of entries) if (e.isIntersecting) { st.thumbs?.unobserve(e.target); renderThumb(doc, /** @type {HTMLElement} */ (e.target)); }
+        }, { root: u.pages, rootMargin: '200px' });
+        u.pages.querySelectorAll('.scanner-page').forEach((b) => st.thumbs?.observe(b));
+        /** @type {HTMLElement|null} */ (u.pages.firstElementChild)?.focus({ preventScroll: true });
+    }
+
+    async function renderThumb(/** @type {any} */ doc, /** @type {HTMLElement} */ btn) {
+        try {
+            const page = await doc.getPage(Number(btn.dataset.page));
+            if (st.pdf !== doc) return;
+            const vp = page.getViewport({ scale: THUMB_SCALE }), c = /** @type {HTMLCanvasElement} */ (btn.querySelector('canvas'));
+            c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+            const task = page.render({ canvas: c, viewport: vp, background: '#fff' });
+            st.tasks.push(task);
+            await task.promise;
+            st.tasks = st.tasks.filter((t) => t !== task);
+        } catch { /* anulowane przy zamknięciu albo uszkodzona strona: miniatura zostaje pusta, numer widać */ }
+    }
+
+    /** Wybrana strona: 2x (dłuższy bok <= 3000 px) na canvasie, dalej jak zdjęcie. */
+    async function pickPage(/** @type {NonNullable<typeof ui>} */ u, /** @type {number} */ n) {
+        const doc = st.pdf; if (!doc) return;
+        const my = ++st.token;
+        try {
+            const page = await doc.getPage(n), base = page.getViewport({ scale: 1 });
+            const vp = page.getViewport({ scale: Math.min(PDF_SCALE, PDF_MAX_SIDE / Math.max(base.width, base.height)) });
+            const c = document.createElement('canvas'); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+            const task = page.render({ canvas: c, viewport: vp, background: '#fff' });
+            st.tasks.push(task); await task.promise; st.tasks = st.tasks.filter((t) => t !== task);
+            if (my !== st.token || st.pdf !== doc) return;
+            u.canvas.width = c.width; u.canvas.height = c.height;
+            /** @type {CanvasRenderingContext2D} */ (u.canvas.getContext('2d')).drawImage(c, 0, 0);
+            c.width = c.height = 0;
+        } catch {
+            if (my === st.token && st.pdf === doc) showError(u, 'Nie mogę otworzyć tego PDF-u.');
+            return;
+        }
+        if (st.thumbs) { st.thumbs.disconnect(); st.thumbs = null; }
+        u.pages.querySelectorAll('canvas').forEach((x) => { x.width = x.height = 0; }); // miniatury zwolnione, gdy wychodzimy z listy
+        u.pages.replaceChildren(); u.pages.hidden = true; st.picking = false;
+        u.title.textContent = 'Ustaw ramkę na jednym wzorze';
+        setMode(u, 'file');
+        useSource(u, { el: u.canvas, width: u.canvas.width, height: u.canvas.height, snapshot: () => u.canvas });
+    }
+
     /** @param {File} file */
     async function loadFile(file) {
+        if (isPdf(file)) return loadPdf(file);
         const u = /** @type {NonNullable<typeof ui>} */ (ui);
         const my = ++st.token;
         let bmp;
@@ -290,7 +403,7 @@
         const ctx = /** @type {CanvasRenderingContext2D} */ (u.canvas.getContext('2d'));
         ctx.drawImage(bmp, 0, 0, u.canvas.width, u.canvas.height);
         bmp.close();
-        stopCamera(u); st.shot = false; setHint(u, ''); setMode(u, 'file'); u.video.hidden = true;
+        leavePdf(u); stopCamera(u); st.shot = false; setHint(u, ''); setMode(u, 'file'); u.video.hidden = true;
         useSource(u, { el: u.canvas, width: u.canvas.width, height: u.canvas.height, snapshot: () => u.canvas });
     }
 
@@ -309,7 +422,7 @@
     }
 
     function closeDlg(/** @type {NonNullable<typeof ui>} */ u) {
-        st.token++; st.readId++; clearBusy(u); stopCamera(u);
+        st.token++; st.readId++; clearBusy(u); stopCamera(u); leavePdf(u);
         if (u.dlg.open) u.dlg.close();
         const o = st.opener; if (o && o.isConnected) o.focus();
     }
@@ -344,11 +457,16 @@
     function wire(/** @type {NonNullable<typeof ui>} */ u) {
         u.close.addEventListener('click', () => closeDlg(u));
         u.dlg.addEventListener('cancel', (e) => { e.preventDefault(); closeDlg(u); }); // Escape
-        u.dlg.addEventListener('close', () => { st.token++; stopCamera(u); });
+        u.dlg.addEventListener('close', () => { st.token++; stopCamera(u); leavePdf(u); });
         const choose = () => u.input.click();
         u.pick.addEventListener('click', choose); u.gallery.addEventListener('click', choose);
         u.again.addEventListener('click', () => { if (st.mode === 'camera') startCamera(u); else choose(); });
         u.shoot.addEventListener('click', () => shoot(u));
+        u.otherPage.addEventListener('click', () => showPicker(u));
+        u.pages.addEventListener('click', (e) => {
+            const b = /** @type {HTMLElement} */ (e.target).closest('.scanner-page');
+            if (b) pickPage(u, Number(/** @type {HTMLElement} */ (b).dataset.page));
+        });
         u.torch.addEventListener('click', async () => {
             const track = st.stream && st.stream.getVideoTracks()[0]; if (!track) return;
             const on = !st.torchOn;

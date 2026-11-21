@@ -386,3 +386,66 @@ test.describe('ramka na zdjęciu', () => {
     await expect(page.locator('#calcExpr')).toHaveValue('1+1');
   });
 });
+
+// ============================================================
+//  Strona PDF jako obraz: miniatury -> strona -> ta sama ramka co przy zdjęciu
+// ============================================================
+const PDF = require('fs').readFileSync(require('path').join(__dirname, '../fixtures/formulas/two-pages.pdf'));
+const FRAME_ON_PDF_FORMULA = [0.12, 0.43, 0.76, 0.14]; // formuła na środku A4; cała strona nie mieści się w regule „krótki obraz”
+async function pickPdf(page, buffer = PDF, name = 'zadania.pdf') {
+  await page.locator('dialog.scanner-dialog input[type=file]').setInputFiles({ name, mimeType: 'application/pdf', buffer });
+}
+
+test.describe('strona PDF', () => {
+  test.use({ serviceWorkers: 'block' });
+
+  test('pdf.js ładuje się dopiero przy PDF-ie; miniatury, „Strona 2”, „Inna strona”, uszkodzony plik', async ({ page }) => {
+    const reqs = [];
+    page.on('request', (r) => reqs.push(r.url()));
+    const { dlg } = await openScanner(page);
+    expect(reqs.filter((u) => /\/vendor\/pdfjs\//.test(u))).toEqual([]);
+    expect(await dlg.locator('input[type=file]').getAttribute('accept')).toBe('image/*,application/pdf');
+
+    // uszkodzony PDF: komunikat, żadnej ramki
+    await pickPdf(page, Buffer.from('to nie jest pdf'));
+    await expect(page.locator('.scanner-error')).toHaveText('Nie mogę otworzyć tego PDF-u.');
+    await expect(page.locator('.scanner-frame')).toBeHidden();
+
+    await pickPdf(page);
+    await expect(dlg.getByRole('heading', { name: 'Wybierz stronę' })).toBeVisible();
+    const thumbs = dlg.locator('.scanner-page');
+    await expect(thumbs).toHaveCount(2);
+    await expect(thumbs.nth(1)).toHaveText('Strona 2');
+    for (const t of await thumbs.all()) expect((await t.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    // miniatura faktycznie narysowana (nie biała): jest w niej czarny piksel
+    await expect.poll(() => thumbs.nth(0).locator('canvas').evaluate((c) => c.width > 0 && Array.from(c.getContext('2d').getImageData(0, 0, c.width, c.height).data).some((v, i) => i % 4 === 0 && v < 100))).toBe(true);
+
+    await dlg.getByRole('button', { name: 'Strona 2' }).click();
+    await expect(page.locator('.scanner-frame')).toBeVisible();
+    await expect(dlg.getByRole('heading', { name: 'Ustaw ramkę na jednym wzorze' })).toBeVisible();
+    await expect(dlg.locator('.scanner-page')).toHaveCount(0);
+    const size = await page.evaluate(() => { const c = document.querySelector('.scanner-stage > canvas'); return [c.width, c.height]; });
+    expect(Math.max(...size)).toBeLessThanOrEqual(3000);
+    expect(Math.max(...size)).toBeGreaterThan(1600); // A4 = 842 pt, przy 2x ok. 1684 px
+    expect(reqs.some((u) => /\/vendor\/pdfjs\/pdf\.min\.mjs/.test(u))).toBe(true);
+
+    await dlg.getByRole('button', { name: 'Inna strona' }).click();
+    await expect(dlg.locator('.scanner-page')).toHaveCount(2);
+    await expect(page.locator('.scanner-frame')).toBeHidden();
+    await expect(dlg.getByRole('button', { name: 'Odczytaj', exact: true })).toBeHidden();
+  });
+
+  test('odczyt wzoru ze strony 2 PDF-u: wartość trafia do pola', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'model testujemy raz');
+    test.setTimeout(180_000);
+    const { dlg } = await openScanner(page);
+    await pickPdf(page);
+    await dlg.getByRole('button', { name: 'Strona 2' }).click();
+    await expect(page.locator('.scanner-frame')).toBeVisible();
+    await page.evaluate((f) => MATM0_SCANNER._setFrame(...f), FRAME_ON_PDF_FORMULA);
+    await page.getByRole('button', { name: 'Odczytaj', exact: true }).click();
+    await page.locator('dialog.model-dialog').getByRole('button', { name: 'Pobierz' }).click();
+    await expect(dlg).toBeHidden({ timeout: 90_000 });
+    await expect(page.locator('#calcExpr')).toHaveValue(FIXTURES[0][1]);
+  });
+});
