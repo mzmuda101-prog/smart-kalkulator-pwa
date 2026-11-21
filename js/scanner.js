@@ -5,7 +5,8 @@
     'use strict';
     const win = /** @type {any} */ (window);
     const MIN_W = 48, MIN_H = 24, MAX_SIDE = 2000, MAX_DISPLAY = 4096;
-    const DEF = { x: 0.1, y: 0.375, w: 0.8, h: 0.25 }; // 80% x 25%, środek
+    const DEF = { x: 0.1, y: 0.375, w: 0.8, h: 0.25 }; // awaryjnie; właściwa ramka: defaultFrame()
+    const PAD = 22; // połowa uchwytu: uchwyt na krawędzi obrazu nie wychodzi poza scenę
     const CORNERS = ['nw', 'ne', 'sw', 'se'];
     const CORNER_PL = { nw: 'lewy górny', ne: 'prawy górny', sw: 'lewy dolny', se: 'prawy dolny' };
 
@@ -96,21 +97,37 @@
         /** @type {{ el: HTMLCanvasElement, width: number, height: number, snapshot: () => HTMLCanvasElement }|null} */ source: null,
         f: { ...DEF },
         busy: false,
-        token: 0,
+        token: 0, // ładowanie pliku
+        readId: 0, // odczyt: wynik zastępczego odczytu jest pomijany
     };
 
     function resetUi(/** @type {NonNullable<typeof ui>} */ u) {
-        st.token++; st.busy = false; st.source = null;
+        st.token++; st.readId++; st.busy = false; st.source = null;
         u.canvas.hidden = true; u.frame.hidden = true; u.empty.hidden = false; u.again.hidden = true;
-        u.read.disabled = true; u.read.removeAttribute('aria-busy'); u.read.classList.remove('is-busy');
+        u.read.disabled = true; clearBusy(u);
         u.error.hidden = true; u.input.value = '';
+    }
+
+    function clearBusy(/** @type {NonNullable<typeof ui>} */ u) {
+        st.busy = false; u.read.removeAttribute('aria-busy'); u.read.classList.remove('is-busy');
+    }
+
+    /** Domyślna ramka: 80% x 25% sceny, na środku, przecięta z widocznym obrazem (krótki obraz dostaje cały). */
+    function defaultFrame(/** @type {NonNullable<typeof ui>} */ u) {
+        const s = u.stage.getBoundingClientRect(), c = content(u);
+        const fw = 0.8 * s.width, fh = 0.25 * s.height;
+        let x0 = (s.width - fw) / 2, x1 = x0 + fw, y0 = (s.height - fh) / 2, y1 = y0 + fh;
+        // Obraz niższy niż ramka albo szeroki pasek (>= 1,9:1, szerszy niż każde zdjęcie) to już przycięty wzór: bierz cały, nie obcinaj.
+        if (c.h <= fh || c.w / c.h >= 1.9) { x0 = c.x; x1 = c.x + c.w; y0 = c.y; y1 = c.y + c.h; }
+        x0 = Math.max(x0, c.x); x1 = Math.min(x1, c.x + c.w); y0 = Math.max(y0, c.y); y1 = Math.min(y1, c.y + c.h);
+        return { x: (x0 - c.x) / c.w, y: (y0 - c.y) / c.h, w: (x1 - x0) / c.w, h: (y1 - y0) / c.h };
     }
 
     /** Prostokąt widocznego obrazu w pikselach sceny (object-fit: contain, więc z marginesami). */
     function content(/** @type {NonNullable<typeof ui>} */ u) {
         const s = u.stage.getBoundingClientRect(), src = st.source;
         if (!src) return { x: 0, y: 0, w: s.width, h: s.height, left: s.left, top: s.top };
-        const k = Math.min(s.width / src.width, s.height / src.height);
+        const k = Math.min((s.width - 2 * PAD) / src.width, (s.height - 2 * PAD) / src.height);
         const w = src.width * k, h = src.height * k, x = (s.width - w) / 2, y = (s.height - h) / 2;
         return { x, y, w, h, left: s.left, top: s.top };
     }
@@ -168,9 +185,10 @@
 
     /** Wspólne wejście dla każdego źródła (zdjęcie, później kamera i PDF). */
     function useSource(/** @type {NonNullable<typeof ui>} */ u, /** @type {NonNullable<typeof st.source>} */ src) {
-        st.source = src; st.f = { ...DEF };
+        st.source = src; st.readId++; clearBusy(u);
         u.error.hidden = true; u.empty.hidden = true; u.canvas.hidden = false; u.frame.hidden = false; u.again.hidden = false;
         u.read.disabled = false;
+        st.f = defaultFrame(u);
         layout(u);
         u.frame.focus({ preventScroll: true });
     }
@@ -180,17 +198,17 @@
     }
 
     function closeDlg(/** @type {NonNullable<typeof ui>} */ u) {
-        st.token++;
+        st.token++; st.readId++; clearBusy(u);
         if (u.dlg.open) u.dlg.close();
         const o = st.opener; if (o && o.isConnected) o.focus();
     }
 
     async function doRead(/** @type {NonNullable<typeof ui>} */ u) {
         if (st.busy || !st.source) return;
-        const my = ++st.token;
+        const my = ++st.readId;
         st.busy = true; u.error.hidden = true;
         u.read.setAttribute('aria-busy', 'true'); u.read.classList.add('is-busy');
-        const done = () => { if (my !== st.token) return false; st.busy = false; u.read.removeAttribute('aria-busy'); u.read.classList.remove('is-busy'); return true; };
+        const done = () => { if (my !== st.readId) return false; clearBusy(u); return true; }; // spóźniony odczyt nie rusza nowego stanu
         try {
             const src = st.source.snapshot(), f = st.f;
             // ramka znormalizowana do widocznego obrazu = ułamek pikseli źródła (letterboxing już odjęty w content())

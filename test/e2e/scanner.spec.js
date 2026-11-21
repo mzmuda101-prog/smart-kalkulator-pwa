@@ -239,7 +239,7 @@ const fixtureBuf = (name) => require('fs').readFileSync(require('path').join(__d
 
 async function openScanner(page) {
   await page.goto('index.html', { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => !!window.MATM0_OCR && !!window.MATM0_SCANNER);
+  await page.waitForFunction(() => !!window.MATM0_OCR && !!window.loadScanner);
   const icon = page.getByRole('button', { name: 'Odczytaj wzór ze zdjęcia' });
   await icon.click();
   return { icon, dlg: page.locator('dialog.scanner-dialog') };
@@ -306,7 +306,7 @@ test.describe('ramka na zdjęciu', () => {
     test.skip(testInfo.project.name !== 'desktop', 'model testujemy raz');
     test.setTimeout(180_000);
     await page.goto('index.html', { waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(() => !!window.MATM0_SCANNER);
+    await page.waitForFunction(() => !!window.loadScanner);
     await page.locator('#calcExpr').fill('2+2');
     await page.getByRole('button', { name: 'Odczytaj wzór ze zdjęcia' }).click();
     const noise = await page.evaluate(async () => {
@@ -333,8 +333,7 @@ test.describe('ramka na zdjęciu', () => {
     test.setTimeout(180_000);
     const { dlg } = await openScanner(page);
     await pickFile(page, fixtureBuf('frac'));
-    // ramka na całym obrazie: fixture to już przycięty wzór
-    await page.evaluate(() => MATM0_SCANNER._setFrame(0, 0, 1, 1));
+    // domyślna ramka: krótki obraz z jednym wzorem dostaje go w całości
     await page.getByRole('button', { name: 'Odczytaj', exact: true }).click();
     await page.locator('dialog.model-dialog').getByRole('button', { name: 'Pobierz' }).click();
     await expect(dlg).toBeHidden({ timeout: 90_000 });
@@ -346,7 +345,7 @@ test.describe('ramka na zdjęciu', () => {
   test('odmowa zgody zamyka okno po cichu, pole bez zmian', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop', 'model testujemy raz');
     await page.goto('index.html', { waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(() => !!window.MATM0_SCANNER);
+    await page.waitForFunction(() => !!window.loadScanner);
     await page.evaluate(() => MATM0_MODELS.remove('formulanet-s'));
     await page.getByRole('button', { name: 'Odczytaj wzór ze zdjęcia' }).click();
     await pickFile(page, fixtureBuf('frac'));
@@ -358,8 +357,9 @@ test.describe('ramka na zdjęciu', () => {
 
   test('cropToImage: przycina w pikselach źródła i zmniejsza dłuższy bok do 2000', async ({ page }) => {
     await page.goto('index.html', { waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(() => !!window.MATM0_SCANNER);
-    const r = await page.evaluate(() => {
+    await page.waitForFunction(() => !!window.loadScanner);
+    const r = await page.evaluate(async () => {
+      await loadScanner();
       const c = document.createElement('canvas'); c.width = 4000; c.height = 1000;
       const x = c.getContext('2d'); x.fillStyle = '#00f'; x.fillRect(0, 0, 4000, 1000); x.fillStyle = '#f00'; x.fillRect(0, 0, 1000, 1000);
       const a = MATM0_SCANNER.cropToImage(c, { x: 0, y: 0, w: 1000, h: 500 });
@@ -367,5 +367,22 @@ test.describe('ramka na zdjęciu', () => {
       return [a.width, a.height, a.data[0], a.data[2], b.width, b.height, b.data[0] < 30, b.data[2] > 225];
     });
     expect(r).toEqual([1000, 500, 255, 0, 2000, 667, true, true]);
+  });
+
+  test('„Zmień zdjęcie” w trakcie odczytu: przycisk wraca do normy, nowy odczyt działa', async ({ page }) => {
+    const { dlg } = await openScanner(page);
+    await page.evaluate(() => { window.MATM0_OCR.read = () => new Promise(() => {}); }); // odczyt nigdy się nie kończy
+    await pickFile(page, fixtureBuf('frac'));
+    const read = page.getByRole('button', { name: 'Odczytaj', exact: true });
+    await read.click();
+    await expect(read).toHaveAttribute('aria-busy', 'true');
+    await page.getByRole('button', { name: 'Zmień zdjęcie' }).click({ trial: true });
+    await page.locator('dialog.scanner-dialog input[type=file]').setInputFiles({ name: 'w.png', mimeType: 'image/png', buffer: fixtureBuf('power') });
+    await expect(read).not.toHaveAttribute('aria-busy', 'true');
+    await expect(read).toBeEnabled();
+    await page.evaluate(() => { window.MATM0_OCR.read = async () => ({ latex: '', expr: '1+1', ms: 1 }); });
+    await read.click();
+    await expect(dlg).toBeHidden();
+    await expect(page.locator('#calcExpr')).toHaveValue('1+1');
   });
 });

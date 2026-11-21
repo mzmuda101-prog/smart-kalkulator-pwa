@@ -2292,7 +2292,23 @@
         // Skaner wzoru ze zdjęcia (js/scanner.js): ikona aparatu w polu.
         (function () {
             var scanBtn = document.getElementById('calcScanBtn');
-            if (scanBtn) scanBtn.addEventListener('click', function () { if (window.MATM0_SCANNER) window.MATM0_SCANNER.open({ source: 'file' }); });
+            // Skrypty skanera ładują się dopiero przy pierwszym dotknięciu (zero kosztu na starcie).
+            var loading = null;
+            window.loadScanner = function () {
+                if (window.MATM0_SCANNER) return Promise.resolve();
+                if (!loading) loading = Promise.all(['js/formula-image.js', 'js/scanner.js'].map(function (src) {
+                    return new Promise(function (ok, fail) {
+                        var el = document.createElement('script');
+                        el.src = src + '?v=' + (window.APP_VERSION || 'v0');
+                        el.onload = ok; el.onerror = function () { fail(new Error(src)); };
+                        document.head.appendChild(el);
+                    });
+                })).catch(function (e) { loading = null; throw e; });
+                return loading;
+            };
+            if (scanBtn) scanBtn.addEventListener('click', function () {
+                window.loadScanner().then(function () { window.MATM0_SCANNER.open({ source: 'file' }); }, function () {});
+            });
         })();
         function setupPlaceholderMarquee() {
             _calcPh = document.getElementById('calcPh');

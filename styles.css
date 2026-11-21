@@ -775,7 +775,10 @@
             position: absolute; inset-block-start: 0; inset-inline-end: 0; z-index: 2;
             inline-size: 44px; block-size: 44px; padding: 0; border: 0; border-radius: var(--radius);
             background: transparent; color: var(--text-muted); cursor: pointer;
-            display: inline-flex; align-items: center; justify-content: center;
+            display: inline-flex; align-items: flex-start; justify-content: center;
+            /* ikona (22px) na środku pierwszej linii pola; strefa dotyku 44px sięga niżej */
+            padding-block-start: calc((1.3 * var(--calc-expr-font, 1.25rem) - 22px) / 2);
+            box-sizing: border-box;
         }
         .calc-scan-btn .ui-icon { inline-size: 22px; block-size: 22px; }
         .calc-scan-btn:active { transform: scale(0.94); color: var(--primary); }
@@ -5702,8 +5705,8 @@ body.kb-open.notepad-open .np-total-bar { margin-top: 6px; padding-top: 2px; pad
 }
 .scanner-close:active { transform: scale(0.94); }
 @media (hover: hover) { .scanner-close:hover { background: var(--border); } }
-.scanner-stage { position: relative; flex: 1 1 auto; min-block-size: 0; overflow: hidden; background: var(--card-bg); }
-.scanner-stage canvas { position: absolute; display: block; }
+.scanner-stage { position: relative; flex: 1 1 auto; min-block-size: 0; overflow: hidden; background: var(--border); }
+.scanner-stage canvas { position: absolute; display: block; outline: 1px solid var(--text-muted); } /* krawędź białego zdjęcia widoczna pod przyciemnieniem */
 .scanner-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px; text-align: center; }
 .scanner-empty-text { margin: 0; max-inline-size: 32ch; color: var(--text-secondary); line-height: 1.5; }
 .scanner-frame {
@@ -5741,3 +5744,7 @@ body.kb-open.notepad-open .np-total-bar { margin-top: 6px; padding-top: 2px; pad
 .is-busy .scanner-spinner { display: inline-block; animation: scannerSpin 0.8s linear infinite; }
 @keyframes scannerSpin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .is-busy .scanner-spinner { animation-duration: 3s; } }
+
+/* Ciemny motyw: biały tekst na jasnym --primary ma ok. 2:1, więc na przyciskach głównych tekst jest ciemny. */
+[data-theme="dark"] .model-dialog-btn.primary,
+[data-theme="dark"] .scanner-btn.primary { color: var(--bg); }
