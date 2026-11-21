@@ -217,7 +217,7 @@ granicę) → pierwsza niezgodna linia podświetlona z krótkim „tu wynik się
 ### 5.7 Etapy (każdy wydawany osobno, z testami)
 
 1. **Granice + pierwiastki, wpisywane ręcznie** (5.1–5.4, bez SymPy). Zestaw testowy:
-   **59 zadań z „Granice ciągów i funkcji — zadania na ćwiczenia 2026”** (zestawy 1–9: wielomiany
+   **58 zadań z „Granice ciągów i funkcji — zadania na ćwiczenia 2026”** (zestawy 1–9: wielomiany
    przy n → ∞, pierwiastki, różnice pierwiastków 2., 3. i 4. stopnia, logarytmy, 1^∞, x → ±∞,
    0/0 w punkcie) przepisanych do składni parsera, z odpowiedziami policzonymi raz offline
    w SymPy (skrypt w `scripts/`, wynik zapisany w teście). Przykłady z notatek (`Ćw: 17.11.26`
@@ -240,7 +240,7 @@ z sekcji 7 (decyzja Claude po recenzji).
 - Mateusz da zdjęcia: wydruki zadań i notatki (swoje i cudze).
 - Pliki już przekazane (lokalnie, poza repo):
   - `~/Library/Mobile Documents/com~apple~CloudDocs/Dokumenty szkoła /Granice ciagow i funkcji
-    zadania na cwiczenia 2026.pdf` — wydruk LaTeX, 4 strony, 59 zadań: zestaw etapu 1
+    zadania na cwiczenia 2026.pdf` — wydruk LaTeX, 4 strony, 58 zadań: zestaw etapu 1
     i materiał „druku” do etapu 3 (strony renderowane do obrazów, każdy wzór wycięty osobno);
   - `~/Downloads/6 dokumentów/` — notatki z ćwiczeń i wykładów (pismo z tabletu, rozwiązania
     krokami przez „=”): materiał „pisma” do etapu 4 i wzorzec do „Sprawdź moje rozwiązanie”.
