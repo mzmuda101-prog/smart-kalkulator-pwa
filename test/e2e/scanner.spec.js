@@ -198,6 +198,15 @@ test.describe('odczyt wzoru w workerze', () => {
       times.push(`${name}=${res.ms}ms`);
       if (i) expect(res.ms).toBeLessThan(3000); // pierwszy odczyt może liczyć rozgrzewkę
     }
+    const dbg = await page.evaluate(async () => {
+      const bmp = await createImageBitmap(await (await fetch('test/fixtures/formulas/frac.png')).blob());
+      const ctx = new OffscreenCanvas(bmp.width, bmp.height).getContext('2d');
+      ctx.drawImage(bmp, 0, 0);
+      const d = ctx.getImageData(0, 0, bmp.width, bmp.height);
+      const r = await MATM0_OCR.read({ data: d.data, width: d.width, height: d.height }, { debug: true });
+      return [r.img && r.img.width, r.img && r.img.height, d.width, d.height, r.img && r.img.data.length];
+    });
+    expect(dbg[0]).toBe(dbg[2]); expect(dbg[1]).toBe(dbg[3]); expect(dbg[4]).toBe(dbg[2] * dbg[3] * 4); // ?debug=1: obraz po obróbce wraca
     console.log('odczyt:', times.join(' '));
     expect(errors).toEqual([]);
   });
@@ -237,8 +246,8 @@ test.describe('odczyt wzoru w workerze', () => {
 const FRAC = `test/fixtures/formulas/frac.png`;
 const fixtureBuf = (name) => require('fs').readFileSync(require('path').join(__dirname, '../fixtures/formulas', name + '.png'));
 
-async function openScanner(page) {
-  await page.goto('index.html', { waitUntil: 'domcontentloaded' });
+async function openScanner(page, url = 'index.html') {
+  await page.goto(url, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => !!window.MATM0_OCR && !!window.loadScanner);
   const icon = page.getByRole('button', { name: 'Odczytaj wzór ze zdjęcia' });
   await icon.click();
@@ -353,6 +362,25 @@ test.describe('ramka na zdjęciu', () => {
     await page.locator('dialog.model-dialog').getByRole('button', { name: 'Nie teraz' }).click();
     await expect(page.locator('dialog.scanner-dialog')).toBeHidden();
     await expect(page.locator('#calcExpr')).toHaveValue('');
+  });
+
+  for (const debug of [true, false]) test(`diagnostyka odczytu ${debug ? 'z ?debug=1: LaTeX, tłumacz, czas, zapis wycinka' : 'bez flagi: brak panelu'}`, async ({ page }) => {
+    await openScanner(page, debug ? 'index.html?debug=1' : 'index.html');
+    await page.evaluate(() => {
+      window.MATM0_OCR.read = async (img, opt) => ({ latex: '\\frac{1}{2', error: 'nawias', ms: 42,
+        ...(opt && opt.debug ? { img: { data: new Uint8ClampedArray(img.data), width: img.width, height: img.height } } : {}) });
+    });
+    await pickFile(page, fixtureBuf('frac'));
+    await page.getByRole('button', { name: 'Odczytaj', exact: true }).click();
+    await expect(page.locator('.scanner-error')).toBeVisible();
+    if (!debug) { await expect(page.locator('.scanner-debug')).toHaveCount(0); return; }
+    const panel = page.locator('.scanner-debug');
+    await expect(panel).toBeVisible();
+    await expect(panel).toContainText('LaTeX: \\frac{1}{2');
+    await expect(panel).toContainText('Tłumacz: błąd — nawias');
+    await expect(panel).toContainText('Czas: 42 ms');
+    const [dl] = await Promise.all([page.waitForEvent('download'), panel.getByRole('button', { name: 'Zapisz wycinek' }).click()]);
+    expect(dl.suggestedFilename()).toMatch(/^wycinek-\d+\.png$/);
   });
 
   test('cropToImage: przycina w pikselach źródła i zmniejsza dłuższy bok do 2000', async ({ page }) => {

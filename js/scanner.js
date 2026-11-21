@@ -10,6 +10,7 @@
     const DARK_MEAN = 60; // średnia jasność klatki (0..255) poniżej tego = „za ciemno”
     const PAD = 22; // połowa uchwytu: uchwyt na krawędzi obrazu nie wychodzi poza scenę
     const CORNERS = ['nw', 'ne', 'sw', 'se'];
+    const DEBUG = new URLSearchParams(location.search).get('debug') === '1'; // diagnostyka odczytu tylko z ?debug=1
     const CORNER_PL = { nw: 'lewy górny', ne: 'prawy górny', sw: 'lewy dolny', se: 'prawy dolny' };
 
     /** @typedef {{ data: Uint8ClampedArray, width: number, height: number }} Img */
@@ -78,6 +79,13 @@
         stage.append(empty, video, canvas, preview, frame, hint, torch, pages);
 
         const error = el('p', 'scanner-error'); error.hidden = true; error.setAttribute('role', 'alert');
+        /** @type {null | { box: HTMLElement, out: HTMLElement, save: HTMLButtonElement }} */ let debug = null;
+        if (DEBUG) {
+            const box = el('div', 'scanner-debug'); box.hidden = true;
+            const out = el('pre', 'scanner-debug-out');
+            const save = /** @type {HTMLButtonElement} */ (el('button', 'scanner-btn', 'Zapisz wycinek')); save.type = 'button';
+            box.append(out, save); debug = { box, out, save };
+        }
         const bar = el('div', 'scanner-bar');
         const again = /** @type {HTMLButtonElement} */ (el('button', 'scanner-btn', 'Zmień zdjęcie')); again.type = 'button'; again.hidden = true;
         const read = /** @type {HTMLButtonElement} */ (el('button', 'scanner-btn primary')); read.type = 'button';
@@ -88,9 +96,9 @@
         const otherPage = /** @type {HTMLButtonElement} */ (el('button', 'scanner-btn', 'Inna strona')); otherPage.type = 'button'; otherPage.hidden = true;
         bar.append(gallery, otherPage, again, shoot, read);
         const input = /** @type {HTMLInputElement} */ (el('input')); input.type = 'file'; input.accept = 'image/*,application/pdf'; input.hidden = true;
-        dlg.append(head, stage, error, bar, input);
+        dlg.append(head, stage, error, ...(debug ? [debug.box] : []), bar, input);
         document.body.append(dlg);
-        return { dlg, title, pages, otherPage, close, stage, empty, emptyText, video, preview, hint, torch, shoot, gallery, canvas, frame, handles, error, again, read, pick, input };
+        return { dlg, title, pages, otherPage, close, stage, empty, emptyText, video, preview, debug, hint, torch, shoot, gallery, canvas, frame, handles, error, again, read, pick, input };
     }
 
     /** Sprawdza jednorazowo, że dialog zbudowany; reszta stanu żyje w open(). */
@@ -136,6 +144,7 @@
         u.canvas.hidden = true; u.video.hidden = true; u.frame.hidden = true; u.empty.hidden = true;
         u.read.disabled = true; clearBusy(u);
         u.error.hidden = true; u.input.value = '';
+        if (u.debug) u.debug.box.hidden = true;
         setMode(u, 'fallback'); u.empty.hidden = true;
     }
 
@@ -493,12 +502,13 @@
             // ramka znormalizowana do widocznego obrazu = ułamek pikseli źródła (letterboxing już odjęty w content())
             const crop = cropToImage(src, { x: f.x * src.width, y: f.y * src.height, w: f.w * src.width, h: f.h * src.height });
             if (checkBlur && win.MATM0_FIMG.blurScore(crop) < win.MATM0_FIMG.BLUR_MIN) setHint(u, 'Rozmazane — przytrzymaj telefon nieruchomo', 'blur');
-            const res = await win.MATM0_OCR.read(crop); // białe tło i skrawki: w workerze
+            const res = await win.MATM0_OCR.read(crop, { debug: DEBUG }); // białe tło i skrawki: w workerze
             if (!done()) return;
+            if (u.debug) showDebug(u.debug, res);
             if (res && res.expr && !res.error) {
                 const field = /** @type {HTMLTextAreaElement|null} */ (document.getElementById('calcExpr'));
                 if (field) { field.value = res.expr; field.dispatchEvent(new Event('input', { bubbles: true })); }
-                closeDlg(u);
+                if (!u.debug) closeDlg(u); // diagnostyka: okno zostaje, żeby było widać odczyt
             } else showError(u, 'Nie odczytałem wzoru. Ustaw ramkę ciaśniej wokół jednego wzoru.');
         } catch (e) {
             if (!done()) return;
@@ -507,6 +517,25 @@
             else if (m === 'timeout') showError(u, 'Odczyt trwa za długo. Spróbuj z mniejszą ramką.');
             else showError(u, 'Nie udało się uruchomić odczytu. Sprawdź połączenie i spróbuj ponownie.'); // pobieranie, offline, worker, silnik
         }
+    }
+
+    /** ?debug=1: surowy LaTeX, wynik tłumacza, czas i zapis obrazu, który dostał model (po białym tle i przycięciu). */
+    function showDebug(/** @type {NonNullable<NonNullable<typeof ui>['debug']>} */ d, /** @type {any} */ res) {
+        d.out.textContent = 'LaTeX: ' + (res && res.latex || '(pusto)') + '\n'
+            + (res && res.error ? 'Tłumacz: błąd — ' + res.error : 'Tłumacz: ' + (res && res.expr || '(pusto)')) + '\n'
+            + 'Czas: ' + (res && res.ms) + ' ms';
+        d.box.hidden = false;
+        const img = res && res.img;
+        d.save.hidden = !img;
+        d.save.onclick = img ? () => {
+            const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+            /** @type {CanvasRenderingContext2D} */ (c.getContext('2d')).putImageData(new ImageData(img.data, img.width, img.height), 0, 0);
+            c.toBlob((b) => {
+                if (!b) return;
+                const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'wycinek-' + Date.now() + '.png';
+                document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+            }, 'image/png');
+        } : null;
     }
 
     function wire(/** @type {NonNullable<typeof ui>} */ u) {

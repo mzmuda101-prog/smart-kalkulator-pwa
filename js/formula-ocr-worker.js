@@ -44,7 +44,7 @@ self.onmessage = async (/** @type {MessageEvent} */ e) => {
             const latex = g.MATM0_FIMG.decodeTokens(out[session.outputNames[0]].data, vocab, manifest.eosId);
             const conv = g.MATM0_LATEX.latexToExpr(latex);
             const result = { latex, ...conv, ms: Math.round(performance.now() - t0) };
-            if (m.debug) self.postMessage({ id: m.id, result: { ...result, img } }, [img.data.buffer]); // ?debug=1: obraz, który widział model
+            if (m.debug) self.postMessage({ id: m.id, result: { ...result, img } }, { transfer: [img.data.buffer] }); // ?debug=1: obraz, który widział model
             else self.postMessage({ id: m.id, result });
         }
     } catch (err) {
