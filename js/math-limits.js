@@ -213,6 +213,14 @@
         return C.mapExpr(e, function (a) { return a.k === 'var' && a.v === v ? valueExpr : null; });
     }
     var RULES = [
+        { // [EN] bez zmiennej: granica stałej to ta stała
+            name: 'constant',
+            test: function (e, v) { return !C.hasVar(e, v); },
+            apply: function (e) {
+                if (!isFinite(C.evalExpr(e, {}))) throw new NotSupported();
+                return { kind: 'num', e: e };
+            }
+        },
         { // [EN] funkcja ciągła w punkcie: podstawiamy
             name: 'substitution',
             test: function (e, v, t) { return isFiniteTarget(t); },
@@ -611,7 +619,75 @@
             return sum;
         }
     };
-    RULES.push(commonDenominator, logCombine, conjugate, splitPairs, dominantPower);
+    // ── 1^∞: lim f^g = e^(lim g·(f − 1)), jak na zajęciach: f = 1 + 1/aₙ ──────
+    function expOf(e) { // [EN] c · f^g (jedna potęga o zmiennym wykładniku) → { c, f, g }
+        if (e.length !== 1) return null;
+        var t = e[0];
+        if (t.fs.length !== 1 || t.fs[0].b.k !== 'exp' || !K.eq(t.fs[0].e, ONE)) return null;
+        return { c: t.c, f: t.fs[0].b.b, g: t.fs[0].b.x };
+    }
+    function minusOne(f) { // [EN] f − 1 jako jeden iloraz: (P − Q)/Q albo uproszczona suma
+        var fr = splitFraction(f);
+        if (!isOne(fr.D)) {
+            var top = fold(C.expandExpr(C.cSub(fr.N, fr.D)));
+            return C.cMul(top, C.cPow(fr.D, K.neg(ONE)));
+        }
+        return fold(C.expandExpr(C.cSub(f, C.num(ONE))));
+    }
+    var eLimit = {
+        name: 'eLimit',
+        test: function (e, v, t) {
+            var p = expOf(e);
+            if (!p || !C.hasVar(p.g, v)) return false;
+            var fb = numericLimit(p.f, v, t), gx = numericLimit(p.g, v, t);
+            // [EN] podstawa → 1 bywa wolna (1 − 3/√n), więc próg zależy od zbieżności; wynik i tak jest sprawdzany
+            return !!fb && fb.kind === 'num' && Math.abs(fb.value - 1) <= Math.max(1e-6, 10 * (fb.err || 0)) && !!gx && gx.kind === 'inf';
+        },
+        apply: function (e, v, t, log, depth) {
+            var p = expOf(e), h = minusOne(p.f), a = C.cPow(h, K.neg(ONE));
+            var onePlus = '1 ' + (/^−/.test(C.show(h)) ? '− ' + C.show(C.cNeg(h)) : '+ ' + C.show(h));
+            line(log, 'Dorabiamy jedynkę', C.show(p.f) + ' = ' + onePlus + ',  aₙ = ' + C.show(a));
+            var gh = fold(C.cMul(p.g, h));
+            line(log, 'Wzór na e', '(1 + 1/aₙ)^aₙ → e, więc ' + limHead(v, t) + '[(' + onePlus + ')^(' + C.show(a) + ')]^(' + C.show(gh) + ')');
+            line(log, 'Granica wykładnika', limOf(v, t, gh));
+            var L = limitOf(gh, v, t, log, depth);
+            var coef = C.num(p.c);
+            if (L.kind === 'inf') {
+                line(log, 'Potęga e', L.sign > 0 ? '→ e^(+∞) = +∞' : '→ e^(−∞) = 0');
+                if (L.sign < 0) return { kind: 'num', e: [] };
+                if (p.c.n < 0n) return { kind: 'inf', sign: -1 };
+                return { kind: 'inf', sign: 1 };
+            }
+            if (L.kind !== 'num') throw new NotSupported();
+            line(log, 'Wykładnik', '→ ' + C.show(rationalize(fold(L.e))));
+            return { kind: 'num', e: C.cMul(coef, C.cExp(C.E_CONST, L.e)) };
+        }
+    };
+    // [EN] aᵍᵏ/bᵍ = (aᵏ/b)ᵍ — wspólny wykładnik dla ilorazu potęg (zad. 6h)
+    var sameExponent = {
+        name: 'sameExponent',
+        test: function (e) {
+            if (e.length !== 1) return false;
+            var ex = e[0].fs.filter(function (f) { return f.b.k === 'exp'; });
+            if (ex.length !== 2 || e[0].fs.length !== 2) return false;
+            var ratio = C.cMul(ex[0].b.x, C.cPow(ex[1].b.x, K.neg(ONE)));
+            return C.isNumber(ratio);
+        },
+        apply: function (e, v, t, log, depth) {
+            var fs = e[0].fs, A = fs[0], B = fs[1];
+            var k = C.numberOf(C.cMul(C.cMul(A.b.x, C.num(A.e)), C.cPow(C.cMul(B.b.x, C.num(B.e)), K.neg(ONE))));
+            // A^(xA·eA) · B^(xB·eB), xA·eA = k · xB·eB → (A^k · B)^(xB·eB)
+            var g = C.cMul(B.b.x, C.num(B.e)), kk = k, flip = k.n < 0n;
+            if (flip) { g = C.cNeg(g); kk = K.neg(k); } // [EN] dodatni wykładnik, jak na kartce: (a/b)ᵍ
+            var asAtom = function (x) { return x.length > 1 ? [C.term(ONE, [{ b: { k: 'sum', s: x }, e: ONE }])] : x; };
+            var P = asAtom(fold(C.expandExpr(C.cPow(A.b.b, kk)))), Q = asAtom(fold(C.expandExpr(B.b.b)));
+            var ratio = flip ? C.cMul(P, C.cPow(Q, K.neg(ONE))) : C.cMul(P, Q);
+            var combined = C.cMul(C.num(e[0].c), C.cExp(ratio, g));
+            line(log, 'Sprowadzamy do wspólnego wykładnika: aᵍ/bᵍ = (a/b)ᵍ', limOf(v, t, combined));
+            return limitOf(combined, v, t, log, depth);
+        }
+    };
+    RULES.push(commonDenominator, logCombine, conjugate, splitPairs, sameExponent, eLimit, dominantPower);
 
     // ── Symbol nieoznaczony (do pierwszego kroku, jak na zajęciach) ──────
     function kindOf(x) {

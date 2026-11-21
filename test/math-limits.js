@@ -168,6 +168,21 @@ const WANT_TEXT = { '1a': '1/3', '1d': '0', '1e': '+∞', '7a': '√3/3', '7b': 
     ok('7d tekst −3√2/4', text(byId['7d'].input) === '−3√2/4', text(byId['7d'].input));
 }
 
+// ── Task 7: 1^∞ przez liczbę e ─────────────────────────────
+{
+    const WANT6 = { '6a': '1/e', '6b': '√e', '6c': 'e⁴', '6d': '1/e⁶', '6e': '1', '6f': 'e³', '6h': 'e⁹' };
+    ['6a', '6b', '6c', '6d', '6e', '6f', '6g', '6h', '6i', '6j'].forEach(id => {
+        const r = S.run(byId[id].input);
+        ok('zadanie ' + id, r && r.text !== NOPE && agrees(r.value, byId[id].value) && r.explain.steps.length >= 3, r && r.text);
+        if (WANT6[id]) ok('zadanie ' + id + ' tekst', r && r.text === WANT6[id], r && r.text);
+    });
+    const r = S.run(byId['6d'].input), st = r && r.explain ? r.explain.steps : [];
+    ok('6d: [1^∞] w pierwszym kroku', st.length && st[0].math.includes('[1^∞]'), st[0]);
+    ok('6d: krok „Wzór na e” z (1 + 1/aₙ)^aₙ → e', st.some(x => x.label === 'Wzór na e' && x.math.includes('(1 + 1/aₙ)^aₙ → e')), st.map(x => x.label + ': ' + x.math));
+    ok('6d: krok z aₙ = ', st.some(x => x.math.includes('aₙ = ')), st.map(x => x.math));
+    ok('6d: wykładnik → −6', st.some(x => /→ −6$/.test(x.math)), st.map(x => x.math));
+}
+
 // ── Zestaw 58 zadań ─────────────────────────────────────────
 let covered = 0, wrong = 0;
 const missing = [];
