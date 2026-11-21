@@ -107,6 +107,13 @@
             var fn = /^(sqrt|pierwiastek z|pierwiastek)\b/.exec(s.slice(i));
             if (fn) { out.push({ t: 'sqrt' }); i += fn[0].length; continue; }
             if (c === '√') { out.push({ t: 'sqrt' }); i++; continue; }
+            // [EN] pierwiastki 3. i 4. stopnia: ∛u, ∜u, cbrt(u) → u^(1/n)
+            if (c === '∛' || c === '∜') { out.push({ t: 'root', n: c === '∛' ? 3 : 4 }); i++; continue; }
+            var cb = /^cbrt\b/.exec(s.slice(i));
+            if (cb) { out.push({ t: 'root', n: 3 }); i += cb[0].length; continue; }
+            // [EN] log o podstawie: log_2(u), log2(u) — przed ogólnym „log” (= log₁₀)
+            var lb = /^log_?(\d+)(?=\s*\()/.exec(s.slice(i));
+            if (lb) { out.push({ t: 'fn', v: 'logb', base: lb[1] }); i += lb[0].length; continue; }
             var name = FN_RE.exec(s.slice(i));
             if (name) { out.push({ t: 'fn', v: FN_NAMES[name[0]] || name[0] }); i += name[0].length; continue; }
             var pi = /^(?:pi(?![a-z])|π)/.exec(s.slice(i));
@@ -141,7 +148,7 @@
         function isOp(v) { var t = tokens[i]; return !!t && t.t === 'op' && t.v === v; }
         function startsFactor() {
             var t = tokens[i];
-            return !!t && (t.t === 'var' || t.t === 'sqrt' || t.t === 'fn' || t.t === 'const' || (t.t === 'op' && t.v === '('));
+            return !!t && (t.t === 'var' || t.t === 'sqrt' || t.t === 'root' || t.t === 'fn' || t.t === 'const' || (t.t === 'op' && t.v === '('));
         }
         function sum() {
             var left = isOp('-') ? (i++, { k: 'neg', a: product() }) : (isOp('+') ? (i++, product()) : product());
@@ -186,6 +193,7 @@
             }
             if (t.t === 'var') return { k: 'var', v: t.v };
             if (t.t === 'sqrt') { return { k: 'sqrt', a: atom() }; }
+            if (t.t === 'root') return { k: 'pow', a: atom(), b: { k: 'num', v: R(1n, BigInt(t.n)) } };
             if (t.t === 'const') return { k: 'const', v: t.v };
             if (t.t === 'fn') {
                 if (isOp('^')) { // [EN] sin²x, sin^2(x)
@@ -193,7 +201,7 @@
                     var outer = atom();
                     return { k: 'pow', a: { k: 'fn', f: t.v, a: fnArg() }, b: outer };
                 }
-                return { k: 'fn', f: t.v, a: fnArg() };
+                return t.base ? { k: 'fn', f: t.v, base: t.base, a: fnArg() } : { k: 'fn', f: t.v, a: fnArg() };
             }
             if (t.t === 'op' && t.v === '(') {
                 var inner = sum();
@@ -899,7 +907,7 @@
         _core: {
             NotSupported: NotSupported, R: R, ZERO: ZERO, ONE: ONE, gcd: gcd, add: add, neg: neg, sub: sub,
             mul: mul, div: div, isZero: isZero, isInt: isInt, eq: eq, toNum: toNum, powR: powR,
-            sqrtExact: sqrtExact, sup: sup, fmt: fmt, fmtApprox: fmtApprox, fold: fold, done: done,
+            sqrtExact: sqrtExact, sup: sup, sub_: sub_, fmt: fmt, fmtApprox: fmtApprox, fold: fold, done: done,
             MAX_INPUT: MAX_INPUT,
             parse: function (src) { return parseTokens(tokenize(src, { calculus: true })); }
         }

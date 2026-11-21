@@ -85,7 +85,12 @@
     }
     function isNumber(e) { return !e.length || (e.length === 1 && !e[0].fs.length); }
     function numberOf(e) { return e.length ? e[0].c : ZERO; }
-    function cFn(f, a) {
+    function cFn(f, a, base) {
+        if (f === 'logb') { // [EN] log_b(u); log_b(1) = 0, log_b(b) = 1
+            if (isNumber(a) && eq(numberOf(a), ONE)) return [];
+            if (isNumber(a) && eq(numberOf(a), base)) return num(ONE);
+            return atomExpr({ k: 'fn', f: 'logb', base: base, a: a });
+        }
         if (!a.length) {
             if (f === 'sin' || f === 'tan' || f === 'atan' || f === 'asin') return [];
             if (f === 'cos') return num(ONE);
@@ -113,7 +118,7 @@
             case 'sqrt': return cPow(fromAst(n.a), R(1, 2));
             case 'fn':
                 if (n.f === 'exp') return cExp(E_CONST, fromAst(n.a));
-                return cFn(n.f, fromAst(n.a));
+                return cFn(n.f, fromAst(n.a), n.base != null ? R(BigInt(n.base)) : undefined);
         }
         throw new NotSupported();
     }
@@ -129,7 +134,7 @@
     function mapAtom(a, fn) {
         var hit = fn(a);
         if (hit) return hit;
-        if (a.k === 'fn') return cFn(a.f, mapExpr(a.a, fn));
+        if (a.k === 'fn') return cFn(a.f, mapExpr(a.a, fn), a.base);
         if (a.k === 'sum') return mapExpr(a.s, fn);
         if (a.k === 'exp') return cExp(mapExpr(a.b, fn), mapExpr(a.x, fn));
         return atomExpr(a);
@@ -230,6 +235,7 @@
                 return base + '^' + exponentText(a.x);
             case 'fn':
                 if (a.f === 'lnabs') return 'ln|' + showInner(a.a) + '|';
+                if (a.f === 'logb') return 'log' + K.sub_(a.base.n.toString()) + '(' + showInner(a.a) + ')';
                 return (FN_SHOW[a.f] || a.f) + '(' + showInner(a.a) + ')';
         }
         return '?';
@@ -241,9 +247,9 @@
     function showFactor(f) {
         var a = f.b, e = f.e;
         if (eq(e, ONE)) return a.k === 'num' ? '√' + fmt(a.v).replace('^', '') : showAtom(a);
-        if (eq(e, R(1, 2))) {
-            var body = showAtom(a);
-            return '√' + (a.k === 'var' || a.k === 'num' || a.k === 'sum' ? body : '(' + body + ')');
+        if (eq(e, R(1, 2)) || eq(e, R(1, 3)) || eq(e, R(1, 4))) {
+            var body = showAtom(a), mark = eq(e, R(1, 2)) ? '√' : (eq(e, R(1, 3)) ? '∛' : '∜');
+            return mark + (a.k === 'var' || a.k === 'num' || a.k === 'sum' ? body : '(' + body + ')');
         }
         if (a.k === 'fn' && a.f !== 'lnabs' && isInt(e) && e.n > 0n) {
             return (FN_SHOW[a.f] || a.f) + sup(e.n.toString()) + '(' + showInner(a.a) + ')';
@@ -318,6 +324,7 @@
                     case 'ln': return Math.log(u);
                     case 'lnabs': return Math.log(Math.abs(u));
                     case 'log': return Math.log10(u);
+                    case 'logb': return Math.log(u) / Math.log(toNum(a.base));
                     case 'asin': return Math.asin(u);
                     case 'acos': return Math.acos(u);
                     case 'atan': return Math.atan(u);
@@ -430,13 +437,13 @@
             var outerE = isEuler(a.b) ? self : cMul(self, cFn('ln', a.b));
             return chain(outerE, a.x, v, log, show(self));
         }
-        if (a.k === 'fn') return chain(fnOuter(a.f, a.a), a.a, v, log, showAtom(a));
+        if (a.k === 'fn') return chain(fnOuter(a.f, a.a, a.base), a.a, v, log, showAtom(a));
         throw new NotSupported();
     }
     function isEuler(b) {
         return b.length === 1 && b[0].fs.length === 1 && b[0].fs[0].b.k === 'const' && b[0].fs[0].b.v === 'e' && eq(b[0].c, ONE) && eq(b[0].fs[0].e, ONE);
     }
-    function fnOuter(f, u) {
+    function fnOuter(f, u, base) {
         var minus1 = neg(ONE);
         switch (f) {
             case 'sin': return cFn('cos', u);
@@ -445,6 +452,7 @@
             case 'cot': return cNeg(cPow(cFn('sin', u), R(-2)));
             case 'ln': case 'lnabs': return cPow(u, minus1);
             case 'log': return cPow(cMul(u, cFn('ln', num(R(10)))), minus1);
+            case 'logb': return cPow(cMul(u, cFn('ln', num(base))), minus1);
             case 'asin': return cPow(cSub(num(ONE), cPow(u, R(2))), R(-1, 2));
             case 'acos': return cNeg(cPow(cSub(num(ONE), cPow(u, R(2))), R(-1, 2)));
             case 'atan': return cPow(cAdd(num(ONE), cPow(u, R(2))), minus1);
@@ -790,7 +798,18 @@
         return d.kind === 'd' ? derivative(e, v) : integral(e, v, d);
     }
 
-    var API = { detect: detect, run: run };
+    var API = {
+        detect: detect, run: run,
+        // [EN] dla js/math-limits.js — te same wyrażenia, pokaz i pochodne (bez zmiany zachowania)
+        _core: {
+            fromAst: fromAst, show: show, paren: paren, evalExpr: evalExpr, dExpr: dExpr,
+            cAdd: cAdd, cSub: cSub, cNeg: cNeg, cMul: cMul, cPow: cPow, cExp: cExp, cFn: cFn,
+            num: num, variable: variable, atomExpr: atomExpr, term: term, hasVar: hasVar,
+            isNumber: isNumber, numberOf: numberOf, mapExpr: mapExpr, expandExpr: expandExpr,
+            polyCoefs: polyCoefs, polyExpr: polyExpr, E_CONST: E_CONST, showAtom: showAtom,
+            showInner: showInner, asTerm: asTerm, setVar: function (v) { _var = v; }
+        }
+    };
     STEPS.registerCalculus(API);
     if (typeof window !== 'undefined') window.MATM0_CALC = API;
     if (typeof module !== 'undefined' && module.exports) module.exports = API;
