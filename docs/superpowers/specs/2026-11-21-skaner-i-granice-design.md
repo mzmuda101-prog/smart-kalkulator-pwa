@@ -335,6 +335,17 @@ onnxruntime 1.32). Wycinki: 58 wzorów z PDF-u (200 dpi) w `test/fixtures-local/
   **Wniosek: próba techniczna zaliczona** — w apce WASM + 4 wątki (nagłówki COOP/COEP
   w `vercel.json` do sprawdzenia z resztą strony), WebGPU niepotrzebne.
 
+### 5.11 Na później: odczyt na żywo w ramce (pomysł Mateusza, 2026-11-22)
+
+Cel dalekiego etapu (po piśmie i „Sprawdź moje rozwiązanie”): podgląd aparatu z ramką **czyta
+sam, bez „Zrób”** — gdy wzór w ramce jest czytelny, apka go łapie albo pyta „Złapać?”.
+- Wykonalne w PWA: odczyt na iPhonie ok. 0,5 s (5.10), więc ok. 1 odczyt/s z klatki podglądu
+  w tym samym workerze; złapanie, gdy 2 kolejne odczyty dają ten sam poprawny zapis
+  (`latexToExpr` bez błędu) i obraz jest ostry (`blurScore`) i jasny.
+- Koszt: bateria i grzanie — odczyt tylko gdy obraz stoi (mała zmiana między klatkami),
+  przerwa po kilku nieudanych, wyłączenie przy niskiej baterii / `prefers-reduced-data`.
+- Przed decyzją: pomiar zużycia baterii i temperatury na iPhonie w 2–3 min podglądu.
+
 ## 6. Zostawione wykonawcy
 
 - Dokładna kolejność i warunki prób w 5.2 (poza zasadą: najpierw proste, de l'Hospital później).
