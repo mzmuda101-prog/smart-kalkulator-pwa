@@ -8,7 +8,7 @@ const verbose = process.argv.includes('-v');
 const S = require(path.join(repo, 'js/math-steps.js'));
 const C = require(path.join(repo, 'js/math-calculus.js'))._core;
 require(path.join(repo, 'js/math-limits.js'));
-const { latexToExpr } = require('./latex-to-expr.js');
+const { latexToExpr } = require(path.join(repo, 'js/latex-to-expr.js'));
 const zestaw = require(path.join(repo, 'test/limits-zestaw.json'));
 const res = require(path.resolve(file));
 

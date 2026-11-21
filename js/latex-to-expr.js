@@ -1,7 +1,7 @@
 // @ts-check
 (function () {
     'use strict';
-    // Prototyp: LaTeX z PP-FormulaNet → zapis parsera kalkulatora („lim n→∞ (2n+1)/(6n+5)”).
+    // LaTeX z PP-FormulaNet → zapis parsera kalkulatora („lim n→∞ (2n+1)/(6n+5)”).
     // Zwraca { expr } albo { error } — nigdy nie zgaduje po cichu.
     const SKIP = new Set(['\\,', '\\;', '\\:', '\\!', '\\ ', '\\quad', '\\qquad', '\\displaystyle', '\\textstyle',
         '\\scriptstyle', '\\left', '\\right', '\\big', '\\Big', '\\bigg', '\\Bigg', '\\bigl', '\\bigr', '\\Bigl', '\\Bigr',
@@ -120,7 +120,7 @@
         try {
             let s = seq('').trim().replace(/[.,;^]+$/, '').trim();
             if (!s) fail('pusty odczyt');
-        if (/\(\)|\(\s*$/.test(s)) fail('pusty nawias');
+            if (/\(\)|\(\s*$/.test(s)) fail('pusty nawias');
             let depth = 0;
             for (const c of s) { depth += c === '(' ? 1 : c === ')' ? -1 : 0; if (depth < 0) fail('nawiasy'); }
             if (depth) fail('nawiasy');
