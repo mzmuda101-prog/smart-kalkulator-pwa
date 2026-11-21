@@ -27,12 +27,13 @@
      */
     function whitenBackground(img) {
         const { width: w, height: h } = img, out = new Uint8ClampedArray(img.data);
-        // ciemny motyw (zrzut ekranu): mediana jasności < 110 → najpierw negatyw, jasny tusz na czarnym = ciemny na białym
+        // ciemny motyw (zrzut ekranu): mediana < 110 i jasny ogon dalej od mediany niż ciemny → najpierw negatyw
         const lh = new Uint32Array(256);
         for (let i = 0; i < w * h; i++) lh[Math.round(out[i * 4] * 0.299 + out[i * 4 + 1] * 0.587 + out[i * 4 + 2] * 0.114)]++;
-        let med = 0;
-        for (let acc = 0; med < 255 && acc + lh[med] < w * h / 2; med++) acc += lh[med];
-        if (med < 110) for (let i = 0; i < out.length; i++) if ((i & 3) !== 3) out[i] = 255 - out[i];
+        const q = (/** @type {number} */ f) => { let v = 0; for (let acc = 0; v < 255 && acc + lh[v] < w * h * f; v++) acc += lh[v]; return v; };
+        const med = q(0.5), p1 = q(0.01), p99 = q(0.99);
+        // negatyw tylko, gdy jasny ogon jest rzadkim sygnałem (tusz); ciemne zdjęcie kartki ma tusz w ciemnym ogonie
+        if (med < 110 && p99 - med > med - p1) for (let i = 0; i < out.length; i++) if ((i & 3) !== 3) out[i] = 255 - out[i];
         const d = new Uint8ClampedArray(out);
         const B = Math.max(8, Math.round(Math.min(w, h) / 3)); // ok. 3 kafelki na wysokość wzoru: tuszu w kafelku zwykle < 10%
         const bw = Math.ceil(w / B), bh = Math.ceil(h / B), step = Math.max(1, Math.floor(B / 24));

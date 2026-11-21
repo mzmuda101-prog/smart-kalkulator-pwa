@@ -82,6 +82,23 @@ const px = (img, x, y) => img.data[(y * img.width + x) * 4];
     }
     ok('whiten: ciemny motyw — tło >= 240', dBg >= 240, dBg);
     ok('whiten: ciemny motyw — kreski <= 60', dInk <= 60, dInk);
+    // ciemne zdjęcie kartki (~95) z ciemnym tuszem (~20): BEZ negatywu, potem kartka >= 240, tusz <= 60
+    const dim = blank(300, 90, 95); for (let i = 3; i < dim.data.length; i += 4) dim.data[i] = 255;
+    for (const x0 of [30, 120, 210]) { rect(dim, x0, 30, 40, 4, 20); rect(dim, x0 + 18, 15, 4, 40, 20); }
+    const rm = whitenBackground(dim);
+    let mBg = 255, mInk = 0;
+    for (let y = 0; y < 90; y++) for (let x = 0; x < 300; x++) {
+        const v = px(rm, x, y), stroke = [30, 120, 210].some(x0 => (y >= 30 && y < 34 && x >= x0 && x < x0 + 40) || (x >= x0 + 18 && x < x0 + 22 && y >= 15 && y < 55));
+        if (stroke) mInk = Math.max(mInk, v); else mBg = Math.min(mBg, v);
+    }
+    ok('whiten: ciemna kartka — bez negatywu, tło >= 240', mBg >= 240, mBg);
+    ok('whiten: ciemna kartka — tusz <= 60', mInk <= 60, mInk);
+    // gęsty tusz (40% powierzchni) na szarym tle ~100 (mediana < 110): bez negatywu — tusz zostaje ciemniejszy od tła.
+    // Tusz > 50% to już mediana w tuszu: statystycznie to samo co jasne kreski na ciemnym — tego nie rozstrzygamy.
+    const dense = blank(120, 60, 100); for (let i = 3; i < dense.data.length; i += 4) dense.data[i] = 255;
+    for (let x = 0; x < 120; x += 5) rect(dense, x, 0, 2, 60, 30);
+    const rn = whitenBackground(dense);
+    ok('whiten: gęsty tusz — bez negatywu', px(rn, 1, 30) < px(rn, 3, 30), [px(rn, 1, 30), px(rn, 3, 30)]);
     const clean = blank(200, 60); rect(clean, 20, 20, 100, 10, 0);
     const rc = whitenBackground(clean);
     ok('whiten: czysty skan bez zmian', rc.data.every((v, i) => v === clean.data[i]));
