@@ -29,6 +29,13 @@ const px = (img, x, y) => img.data[(y * img.width + x) * 4];
     ok('trim: górna plama wybielona', px(r, 25, 2) === 255, px(r, 25, 2));
     ok('trim: środkowa zostaje', px(r, 65, 20) === 0, px(r, 65, 20));
     ok('trim: wejście bez zmian', px(im, 25, 2) === 0);
+    // ciasna ramka: wykładnik dotyka górnej krawędzi obok nawiasu (bez pustego pasa) — zostaje
+    const t = blank(100, 40); rect(t, 10, 0, 4, 40); rect(t, 20, 15, 40, 10); rect(t, 64, 0, 8, 8);
+    const rt = trimEdgeBlobs(t);
+    ok('trim: wykładnik przy krawędzi zostaje', px(rt, 66, 2) === 0, px(rt, 66, 2));
+    // ciasna ramka: wysoki pas przy krawędzi (licznik) nie jest skrawkiem — zostaje
+    const n = blank(100, 40); rect(n, 40, 0, 10, 14); rect(n, 20, 22, 60, 3); rect(n, 40, 30, 10, 10);
+    ok('trim: licznik zostaje', px(trimEdgeBlobs(n), 45, 5) === 0);
 }
 
 // whitenBackground: szare tło z gradientem (zdjęcie ekranu / kartki w pokoju) → białe, kreski zostają ciemne

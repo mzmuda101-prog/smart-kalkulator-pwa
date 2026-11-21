@@ -67,27 +67,26 @@
         return { data: out, width: w, height: h };
     }
 
-    /** Wybiela plamy tuszu (8-sąsiedztwo) dotykające górnej lub dolnej krawędzi (skrawki sąsiednich wzorów). */
+    /**
+     * Wybiela skrawki sąsiednich wzorów przy górnej i dolnej krawędzi. Skrawek = pas tuszu od krawędzi nie wyższy niż
+     * 25% kadru, oddzielony od reszty pustym pasem (żadnego tuszu w całej szerokości) wysokim na co najmniej 8% kadru.
+     * Wykładnik albo indeks granicy przy ciasnej ramce stoi obok nawiasu czy „lim”, więc pustego pasa nie ma i zostaje.
+     * Pomiar (scripts/formula-onnx/prep.js): każdy skrawek w zestawie 58 wycinków ma taki pas (>= 10%), treść — nie.
+     */
     function trimEdgeBlobs(img) {
         const { width: w, height: h } = img, g = stretched(img);
         const out = { data: new Uint8ClampedArray(img.data), width: w, height: h };
-        const seen = new Uint8Array(w * h), stack = [];
-        for (let s = 0; s < w * h; s++) {
-            if (seen[s] || g[s] >= 200) continue;
-            const comp = []; let touch = false;
-            seen[s] = 1; stack.push(s);
-            while (stack.length) {
-                const p = /** @type {number} */ (stack.pop()), y = (p / w) | 0, x = p - y * w;
-                comp.push(p);
-                if (y === 0 || y === h - 1) touch = true;
-                for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-                    const nx = x + dx, ny = y + dy;
-                    if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-                    const q = ny * w + nx;
-                    if (!seen[q] && g[q] < 200) { seen[q] = 1; stack.push(q); }
-                }
-            }
-            if (touch) for (const p of comp) { const i = p * 4; out.data[i] = out.data[i + 1] = out.data[i + 2] = 255; }
+        const ink = new Uint8Array(h);
+        for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (g[y * w + x] < 200) { ink[y] = 1; break; }
+        const maxSliver = 0.25 * h, minGap = Math.max(3, 0.08 * h);
+        for (const dir of [1, -1]) {
+            const row = (/** @type {number} */ i) => (dir === 1 ? i : h - 1 - i);
+            let i = 0;
+            while (i < h && ink[row(i)]) i++;
+            const a = i;
+            while (i < h && !ink[row(i)]) i++;
+            if (a === 0 || a > maxSliver || i - a < minGap || i >= h) continue; // brak skrawka, za wysoki, pas za wąski albo dalej nic
+            for (let k = 0; k < a; k++) out.data.fill(255, row(k) * w * 4, (row(k) + 1) * w * 4);
         }
         return out;
     }
