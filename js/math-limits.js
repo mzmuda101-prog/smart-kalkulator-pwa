@@ -25,8 +25,12 @@
 
     // ── Wartość w wysokiej precyzji (tylko do sprawdzania) ───────────
     function rat(r) { var D = Dec(); return new D(r.n.toString()).div(r.d.toString()); }
+    function tick() { // [EN] jedna operacja w wysokiej precyzji; budżet pilnuje pisania na żywo
+        if (++_work > _budget) throw new NotSupported();
+    }
     function powRat(b, r) { // [EN] b^(n/d); pierwiastek nieparzysty z ujemnej działa jak na kartce
         var D = Dec();
+        tick();
         if (b.isNaN()) return b;
         var neg = b.isNeg() && !b.isZero();
         if (neg && r.d % 2n === 0n) return new D(NaN);
@@ -47,6 +51,7 @@
     }
     function atomDec(a, env) {
         var D = Dec();
+        tick();
         switch (a.k) {
             case 'var': return env[a.v];
             case 'const': return a.v === 'pi' ? D.acos(-1) : D.exp(1);
@@ -121,16 +126,20 @@
        względnie < 1e-6. Rozbieżność do ∞: moduł rośnie, różnice nie maleją. Inaczej null. */
     // [EN] mnożnik √2 (pełna precyzja): w punktach 10ᵏ albo 1,23…·10ᵏ (całkowitych od k = 10)
     // sin(πx), cos(2πx) udawałyby zbieżność
-    function samples(evalFn, at, side) {
-        var D = Dec(), out = [], SAMPLE_C = D.sqrt(2);
+    var _work = 0, _budget = Infinity; // [EN] budżet pracy reguł (operacje w wysokiej precyzji) — deterministyczny, nie zależy od szybkości telefonu
+    function samples(evalFn, at, side, mult) {
+        var D = Dec(), out = [], SAMPLE_C = mult || D.sqrt(2);
+
+        // [EN] od najbliższej celu w dół, aż będzie 6 poprawnych (judge() patrzy na 5 ostatnich);
+        // ogromne potęgi (zad. 6h) przekraczają zakres przy dużym n — wtedy sięgamy po mniejsze
         var ks = at === 'inf' || at === '-inf' ? [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18] : [3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20];
-        for (var i = 0; i < ks.length; i++) {
+        for (var i = ks.length - 1; i >= 0 && out.length < 6; i--) {
             var x;
             if (at === 'inf') x = new D(10).pow(ks[i]).mul(SAMPLE_C);
             else if (at === '-inf') x = new D(10).pow(ks[i]).mul(SAMPLE_C).neg();
             else x = new D(at).add(new D(10).pow(-ks[i]).mul(SAMPLE_C).mul(side));
             var y = valueAt(evalFn, x);
-            if (y) out.push(y);
+            if (y) out.unshift(y); // [EN] rosnąco po zbliżeniu do celu
         }
         return out;
     }
@@ -166,12 +175,18 @@
         return limitBy(function (x) { var env = {}; env[v] = x; return evalDec(e, env); }, target);
     }
     function numericLimitAst(ast, v, target) {
-        return limitBy(function (x) { var env = {}; env[v] = x; return evalAst(ast, env); }, target);
+        // [EN] bramka: dwie niezależne siatki próbek (√2·10ᵏ i √3·0,7·10ᵏ) muszą się zgodzić —
+        // okres dobrany pod jedną siatkę (sin(πx/√2)) nie przejdzie przez drugą
+        var D = Dec(), f = function (x) { var env = {}; env[v] = x; return evalAst(ast, env); };
+        var a = limitBy(f, target, D.sqrt(2)), b = limitBy(f, target, D.sqrt(3).mul('0.7'));
+        if (!a || !b || a.kind !== b.kind) return null;
+        if (a.kind === 'sides') return sameLimit(a.left, b.left) && sameLimit(a.right, b.right) ? a : null;
+        return sameLimit(a, b) ? a : null;
     }
-    function limitBy(evalFn, target) {
-        if (target.at === 'inf' || target.at === '-inf') return judge(samples(evalFn, target.at, 1));
-        if (target.side) return judge(samples(evalFn, target.at, target.side));
-        var right = judge(samples(evalFn, target.at, 1)), left = judge(samples(evalFn, target.at, -1));
+    function limitBy(evalFn, target, mult) {
+        if (target.at === 'inf' || target.at === '-inf') return judge(samples(evalFn, target.at, 1, mult));
+        if (target.side) return judge(samples(evalFn, target.at, target.side, mult));
+        var right = judge(samples(evalFn, target.at, 1, mult)), left = judge(samples(evalFn, target.at, -1, mult));
         if (!right || !left) return null;
         if (sameLimit(left, right)) return right;
         return { kind: 'sides', left: left, right: right };
@@ -275,12 +290,15 @@
             test: function (e, v, t) { return isFiniteTarget(t); },
             apply: function (e, v, t, log) {
                 var pt = pointExpr(t);
-                // [EN] mianownik w punkcie ≠ 0 — czynnik po czynniku (∛8 − 2 to zero, choć nie wygląda)
+                // [EN] każdy czynnik liczony LICZBOWO w punkcie: ln(0), ctg(0) to nie liczby, a ln 0 − ln 0
+                // nie wolno skrócić symbolicznie; mianownik ≠ 0 (∛8 − 2 to zero, choć nie wygląda)
+                var D0 = Dec(), env0 = {};
+                env0[v] = new D0(String(t.src != null ? t.src : t.at));
                 e.forEach(function (term) {
                     term.fs.forEach(function (f) {
-                        if (f.e.n >= 0n) return;
-                        var dv = numVal(substitute(C.atomExpr(f.b), v, pt));
-                        if (!isFinite(dv) || Math.abs(dv) < 1e-12) throw new NotSupported();
+                        var r0 = valueAt(function () { return evalDec(C.atomExpr(f.b), env0); }, null);
+                        if (!r0) throw new NotSupported();
+                        if (f.e.n < 0n && r0.abs().lt(1e-12)) throw new NotSupported();
                     });
                 });
                 var at = fold(substitute(e, v, pt));
@@ -940,6 +958,7 @@
     }
 
     var MAX_DEPTH = 8;
+    var WORK_BUDGET = 1500; // [EN] operacji w wysokiej precyzji na zadanie; zestaw 58 zużywa najwyżej ~670, (x − sin x)/x³ ~1100
     function limitOf(e, v, t, log, depth) {
         if ((depth || 0) > MAX_DEPTH) throw new NotSupported();
         for (var i = 0; i < RULES.length; i++) {
@@ -957,9 +976,14 @@
     function run(d) {
         var ast = K.parse(d.src), e = C.fromAst(ast);
         C.setVar(d.v);
-        var ind = indeterminate(e, d.v, d.target);
-        var steps = [{ label: 'Granica', math: limOf(d.v, d.target, e) + (ind ? '  [' + ind + ']' : '') }];
-        var ans = limitOf(e, d.v, d.target, steps, 0);
+        var ans, ind, steps;
+        _work = 0; _budget = WORK_BUDGET;
+        try {
+            ind = indeterminate(e, d.v, d.target);
+            steps = [{ label: 'Granica', math: limOf(d.v, d.target, e) + (ind ? '  [' + ind + ']' : '') }];
+            ans = limitOf(e, d.v, d.target, steps, 0);
+        }
+        finally { _budget = Infinity; }
         if (!agrees(ans, numericLimitAst(ast, d.v, d.target))) throw new NotSupported(); // [EN] nigdy błędnego wyniku — liczone z zapisu użytkownika
         var out = formatAnswer(ans);
         steps.push({ label: 'Wynik', math: limOf(d.v, d.target, e) + ' = ' + out.text });
@@ -970,6 +994,7 @@
         detect: detect, run: run, numericLimit: numericLimit, numericLimitAst: numericLimitAst, _evalDec: evalDec,
         _test: {
             formatAnswer: formatAnswer,
+            lastWork: function () { return _work; },
             pushRule: function (r) { RULES.unshift(r); },
             popRule: function () { RULES.shift(); }
         },

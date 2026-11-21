@@ -261,6 +261,29 @@ ok('minor: „krok po kroku” na końcu', text('lim x→2 x^2 krok po kroku') =
 // [EN] ∛ z liczby ujemnej przy podstawianiu: silnik (cPow) tego nie umie — odłożone; ważne, że nie ma złego wyniku
 ok('minor: lim x→−8 ∛x nie daje złego wyniku', ['−2', NOPE].includes(text('lim x→-8 ∛x')), text('lim x→-8 ∛x'));
 
+// ── Przegląd kontrolny 2 (po Task 9) ───────────────────────
+{
+    const st = q => { const r = S.run(q); return r && r.explain ? r.explain.steps : []; };
+    // I1: podstawienie nie może „liczyć” ln(0), cot(0) ani skracać ln(0) − ln(0)
+    const xl = st('lim x→0+ x·ln(x)');
+    ok('I1: x·ln(x) bez fałszywego „Podstawiamy x = 0”', !xl.some(x => /^Podstawiamy/.test(x.label)), xl.map(x => x.label + ': ' + x.math));
+    const lnl = st('lim x→0+ ln(sin(x))-ln(x)');
+    ok('I1: ln(sin x) − ln x bez fałszywego podstawienia', !lnl.some(x => /^Podstawiamy/.test(x.label) && /= 0$/.test(x.math)), lnl.map(x => x.label + ': ' + x.math));
+    ok('I1: ln(2x) − ln(x) = ln 2 (logarytmy łączą się, a nie podstawienie)', /ln\(2\)|ln 2/.test(text('lim x→0+ ln(2x)-ln(x)') || ''), text('lim x→0+ ln(2x)-ln(x)'));
+    if (L && L._internal) {
+        let got = null;
+        try { got = L._internal.limitOf(expr('x cot(x)'), 'x', { at: 0, side: 0, src: '0' }, [], 0); } catch (e) { got = 'NOPE'; }
+        ok('I1: reguły nie dają 0 dla x·ctg(x)', got === 'NOPE' || (got.kind === 'num' && Math.abs(C.evalExpr(got.e, {}) - 1) < 1e-9), got);
+    }
+    // I2: aliasing z siatką próbek — oscylacja nie może przejść jako 1
+    ok('I2: sin(sin(πx/√2))/sin(πx/√2) przy ∞ ≠ 1', text('lim x→∞ sin(sin(pi x/sqrt(2)))/sin(pi x/sqrt(2))') !== '1', text('lim x→∞ sin(sin(pi x/sqrt(2)))/sin(pi x/sqrt(2))'));
+    // I3: liczone przy każdym znaku — żadne wejście nie może trwać sekundami
+    ['lim x→-∞ (∛(x^3+x)-∛(x^3-x))', 'lim x→-∞ ∛(x^3+x^2)-x', 'lim x→0 (tan(tan(x))-sin(sin(x)))/(tan(x)-sin(x))', 'lim x→0 (1/x^2-1/sin(x)^2)'].forEach(q => {
+        const t0 = Date.now(); S.run(q); const ms = Date.now() - t0;
+        ok('I3: < 600 ms: ' + q, ms < 600, ms + ' ms');
+    });
+}
+
 // ── Zestaw 58 zadań ─────────────────────────────────────────
 let covered = 0, wrong = 0;
 const missing = [];
