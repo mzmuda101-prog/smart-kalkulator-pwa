@@ -5724,6 +5724,8 @@ body.kb-open.notepad-open .np-total-bar { margin-top: 6px; padding-top: 2px; pad
 .scanner-pages { position: absolute; inset: 0; overflow-y: auto; padding: 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 16px; align-content: start; background: var(--bg); }
 .scanner-page { display: flex; flex-direction: column; align-items: center; gap: 8px; min-block-size: 44px; padding: 8px; border: 1.5px solid var(--border); border-radius: var(--radius); background: var(--card-bg); color: var(--text); font: inherit; cursor: pointer; }
 .scanner-stage .scanner-page canvas { position: static; inline-size: 100%; block-size: auto; aspect-ratio: auto 210 / 297; outline: none; background: #fff; border: 1px solid var(--border); box-sizing: border-box; }
+.scanner-page.is-busy .scanner-page-label::after { content: ""; display: inline-block; inline-size: 12px; block-size: 12px; margin-inline-start: 8px; vertical-align: -1px; border-radius: 50%; border: 2px solid currentColor; border-inline-end-color: transparent; animation: scannerSpin 0.8s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .scanner-page.is-busy .scanner-page-label::after { animation-duration: 3s; } }
 .scanner-page-label { font-weight: 600; font-size: 0.875rem; }
 .scanner-page:active { transform: scale(0.97); }
 .scanner-page:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }

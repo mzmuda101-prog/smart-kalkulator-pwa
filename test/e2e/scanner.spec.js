@@ -448,4 +448,27 @@ test.describe('strona PDF', () => {
     await expect(dlg).toBeHidden({ timeout: 90_000 });
     await expect(page.locator('#calcExpr')).toHaveValue(FIXTURES[0][1]);
   });
+
+  test('podwójne kliknięcie miniatury: jedna strona na scenie, odczyt działa', async ({ page }) => {
+    const { dlg } = await openScanner(page);
+    await page.evaluate(() => { window.MATM0_OCR.read = async () => ({ latex: '', expr: '3+3', ms: 1 }); });
+    await pickPdf(page);
+    await dlg.getByRole('button', { name: 'Strona 2' }).evaluate((b) => { b.click(); b.click(); }); // dwa tapy w jednym takcie
+    await expect(page.locator('.scanner-frame')).toBeVisible();
+    await expect(dlg.locator('.scanner-page')).toHaveCount(0);
+    await expect(page.locator('.scanner-stage > canvas:not([hidden])')).toHaveCount(1);
+    await dlg.getByRole('button', { name: 'Odczytaj', exact: true }).click();
+    await expect(dlg).toBeHidden();
+    await expect(page.locator('#calcExpr')).toHaveValue('3+3');
+  });
+
+  test('PDF z jedną stroną: bez listy, bez „Inna strona”, od razu ramka', async ({ page }) => {
+    const { dlg } = await openScanner(page);
+    await pickPdf(page, require('fs').readFileSync(require('path').join(__dirname, '../fixtures/formulas/one-page.pdf')), 'jedna.pdf');
+    await expect(page.locator('.scanner-frame')).toBeVisible();
+    await expect(dlg.locator('.scanner-page')).toHaveCount(0);
+    await expect(dlg.getByRole('button', { name: 'Inna strona' })).toBeHidden();
+    await expect(dlg.getByRole('heading', { name: 'Ustaw ramkę na jednym wzorze' })).toBeVisible();
+    await expect(page.locator('.scanner-stage > canvas:not([hidden])')).toHaveCount(1);
+  });
 });

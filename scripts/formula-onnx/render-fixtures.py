@@ -33,3 +33,10 @@ with PdfPages(os.path.join(out, "two-pages.pdf")) as pdf:
         fig.text(0.5, 0.5, body, fontsize=size, color="black", ha="center", va="center")
         pdf.savefig(fig, facecolor="white")
         plt.close(fig)
+
+# one-page.pdf: jedna strona A4 z samym wzorem (picker pomijany).
+with PdfPages(os.path.join(out, "one-page.pdf")) as pdf:
+    fig = plt.figure(figsize=(8.27, 11.69), facecolor="white")
+    fig.text(0.5, 0.5, f"${FORMULAS['frac']}$", fontsize=56, color="black", ha="center", va="center")
+    pdf.savefig(fig, facecolor="white")
+    plt.close(fig)

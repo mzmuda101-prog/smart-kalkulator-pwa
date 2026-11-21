@@ -112,7 +112,8 @@
         /** @type {any} */ pdf: null, // otwarty dokument PDF (żyje, dopóki okno albo wybór innego pliku go nie zwolni)
         picking: false, // na scenie lista miniatur stron
         /** @type {IntersectionObserver|null} */ thumbs: null,
-        /** @type {any[]} */ tasks: [],
+        /** @type {any[]} */ tasks: [], // rendery miniatur
+        /** @type {{ task: any, canvas: HTMLCanvasElement }|null} */ pickTask: null, // render wybranej strony (2x)
         token: 0, // ładowanie pliku
         readId: 0, // odczyt: wynik zastępczego odczytu jest pomijany
         /** @type {'camera'|'file'|'fallback'} */ mode: 'fallback',
@@ -284,11 +285,22 @@
     const isPdf = (/** @type {File} */ f) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
 
     /** Zwalnia PDF: dokument, zadania renderu, miniatury (canvasy). */
-    function leavePdf(/** @type {NonNullable<typeof ui>} */ u) {
+    /** Miniatury: odłącz obserwatora, przerwij ich rendery, zwolnij canvasy. */
+    function releaseThumbs(/** @type {NonNullable<typeof ui>} */ u) {
         if (st.thumbs) { st.thumbs.disconnect(); st.thumbs = null; }
         st.tasks.forEach((t) => { try { t.cancel(); } catch {} }); st.tasks = [];
         u.pages.querySelectorAll('canvas').forEach((c) => { c.width = c.height = 0; });
-        u.pages.replaceChildren(); u.pages.hidden = true; st.picking = false;
+        u.pages.replaceChildren(); u.pages.inert = false;
+    }
+
+    function cancelPick() {
+        const t = st.pickTask; st.pickTask = null;
+        if (t) { try { t.task.cancel(); } catch {} t.canvas.width = t.canvas.height = 0; }
+    }
+
+    function leavePdf(/** @type {NonNullable<typeof ui>} */ u) {
+        cancelPick(); releaseThumbs(u);
+        u.pages.hidden = true; st.picking = false;
         u.title.textContent = 'Ustaw ramkę na jednym wzorze';
         const d = st.pdf; st.pdf = null;
         if (d) d.loadingTask.destroy().catch(() => {});
@@ -308,11 +320,13 @@
     async function loadPdf(file) {
         const u = /** @type {NonNullable<typeof ui>} */ (ui);
         const my = ++st.token;
-        let doc;
+        let doc, task;
         try {
             const lib = await loadPdfjs();
-            doc = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()), isEvalSupported: false, useSystemFonts: true }).promise;
+            task = lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()), isEvalSupported: false, useSystemFonts: true });
+            doc = await task.promise;
         } catch {
+            if (task) task.destroy().catch(() => {});
             if (my === st.token) showError(u, 'Nie mogę otworzyć tego PDF-u.');
             return;
         }
@@ -346,39 +360,51 @@
     }
 
     async function renderThumb(/** @type {any} */ doc, /** @type {HTMLElement} */ btn) {
+        let task;
         try {
             const page = await doc.getPage(Number(btn.dataset.page));
             if (st.pdf !== doc) return;
             const vp = page.getViewport({ scale: THUMB_SCALE }), c = /** @type {HTMLCanvasElement} */ (btn.querySelector('canvas'));
             c.width = Math.round(vp.width); c.height = Math.round(vp.height);
-            const task = page.render({ canvas: c, viewport: vp, background: '#fff' });
+            task = page.render({ canvas: c, viewport: vp, background: '#fff' });
             st.tasks.push(task);
             await task.promise;
-            st.tasks = st.tasks.filter((t) => t !== task);
         } catch { /* anulowane przy zamknięciu albo uszkodzona strona: miniatura zostaje pusta, numer widać */ }
+        finally { if (task) st.tasks = st.tasks.filter((t) => t !== task); }
     }
 
-    /** Wybrana strona: 2x (dłuższy bok <= 3000 px) na canvasie, dalej jak zdjęcie. */
-    async function pickPage(/** @type {NonNullable<typeof ui>} */ u, /** @type {number} */ n) {
+    /** Wybrana strona: 2x (dłuższy bok <= 3000 px) na canvasie, dalej jak zdjęcie. Jeden render naraz: lista jest inert, dopóki trwa. */
+    async function pickPage(/** @type {NonNullable<typeof ui>} */ u, /** @type {number} */ n, /** @type {HTMLElement|null} */ btn = null) {
         const doc = st.pdf; if (!doc) return;
+        cancelPick();
         const my = ++st.token;
+        u.pages.inert = true;
+        if (btn) { btn.classList.add('is-busy'); btn.setAttribute('aria-busy', 'true'); }
+        const c = document.createElement('canvas'); let ok = false;
         try {
             const page = await doc.getPage(n), base = page.getViewport({ scale: 1 });
+            if (my !== st.token || st.pdf !== doc) return;
             const vp = page.getViewport({ scale: Math.min(PDF_SCALE, PDF_MAX_SIDE / Math.max(base.width, base.height)) });
-            const c = document.createElement('canvas'); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+            c.width = Math.round(vp.width); c.height = Math.round(vp.height);
             const task = page.render({ canvas: c, viewport: vp, background: '#fff' });
-            st.tasks.push(task); await task.promise; st.tasks = st.tasks.filter((t) => t !== task);
+            st.pickTask = { task, canvas: c };
+            await task.promise;
             if (my !== st.token || st.pdf !== doc) return;
             u.canvas.width = c.width; u.canvas.height = c.height;
             /** @type {CanvasRenderingContext2D} */ (u.canvas.getContext('2d')).drawImage(c, 0, 0);
-            c.width = c.height = 0;
+            ok = true;
         } catch {
-            if (my === st.token && st.pdf === doc) showError(u, 'Nie mogę otworzyć tego PDF-u.');
+            if (my === st.token && st.pdf === doc) {
+                showError(u, 'Nie mogę otworzyć tego PDF-u.');
+                u.pages.inert = false; if (btn) { btn.classList.remove('is-busy'); btn.removeAttribute('aria-busy'); }
+            }
             return;
+        } finally {
+            c.width = c.height = 0;
+            if (st.pickTask && st.pickTask.canvas === c) st.pickTask = null;
         }
-        if (st.thumbs) { st.thumbs.disconnect(); st.thumbs = null; }
-        u.pages.querySelectorAll('canvas').forEach((x) => { x.width = x.height = 0; }); // miniatury zwolnione, gdy wychodzimy z listy
-        u.pages.replaceChildren(); u.pages.hidden = true; st.picking = false;
+        if (!ok) return;
+        releaseThumbs(u); u.pages.hidden = true; st.picking = false;
         u.title.textContent = 'Ustaw ramkę na jednym wzorze';
         setMode(u, 'file');
         useSource(u, { el: u.canvas, width: u.canvas.width, height: u.canvas.height, snapshot: () => u.canvas });
@@ -465,7 +491,7 @@
         u.otherPage.addEventListener('click', () => showPicker(u));
         u.pages.addEventListener('click', (e) => {
             const b = /** @type {HTMLElement} */ (e.target).closest('.scanner-page');
-            if (b) pickPage(u, Number(/** @type {HTMLElement} */ (b).dataset.page));
+            if (b && !u.pages.inert) pickPage(u, Number(/** @type {HTMLElement} */ (b).dataset.page), /** @type {HTMLElement} */ (b));
         });
         u.torch.addEventListener('click', async () => {
             const track = st.stream && st.stream.getVideoTracks()[0]; if (!track) return;
