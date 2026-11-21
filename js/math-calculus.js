@@ -249,7 +249,7 @@
         if (eq(e, ONE)) return a.k === 'num' ? '√' + fmt(a.v).replace('^', '') : showAtom(a);
         if (eq(e, R(1, 2)) || eq(e, R(1, 3)) || eq(e, R(1, 4))) {
             var body = showAtom(a), mark = eq(e, R(1, 2)) ? '√' : (eq(e, R(1, 3)) ? '∛' : '∜');
-            return mark + (a.k === 'var' || a.k === 'num' || a.k === 'sum' ? body : '(' + body + ')');
+            return mark + (a.k === 'var' || a.k === 'num' || a.k === 'sum' || a.k === 'const' ? body : '(' + body + ')');
         }
         if (a.k === 'fn' && a.f !== 'lnabs' && isInt(e) && e.n > 0n) {
             return (FN_SHOW[a.f] || a.f) + sup(e.n.toString()) + '(' + showInner(a.a) + ')';

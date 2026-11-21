@@ -63,6 +63,58 @@ if (L && L.numericLimit && C.fromAst) {
     ok('numeric 1/x przy 0 → różne strony', r8 && r8.kind === 'sides', r8);
 } else ok('numericLimit istnieje', false);
 
+// ── Task 3: komenda, podstawienie, bramka pewności ─────────
+if (L && L.detect) {
+    const same = (q, v, at, side) => {
+        const d = L.detect(q);
+        ok('detect: ' + q, d && d.v === v && d.target.at === at && (d.target.side || 0) === (side || 0), d);
+    };
+    ['granica x^2+1 przy x → 2', 'granica x^2+1 przy x do 2', 'granica x^2+1 dla x→2', 'lim x->2 x^2+1',
+        'lim(x→2) x^2+1', 'lim_{x\\to 2} x^2+1', 'limit x^2+1 as x->2', 'Granica x^2+1 przy x → 2']
+        .forEach(q => same(q, 'x', 2));
+    same('lim x→0+ 1/x', 'x', 0, 1);
+    same('granica 1/x przy x do 0 z prawej', 'x', 0, 1);
+    same('lim x→0- 1/x', 'x', 0, -1);
+    same('lim x → ∞ 1/x', 'x', 'inf');
+    same('lim x→+∞ 1/x', 'x', 'inf');
+    same('lim x → -∞ 1/x', 'x', '-inf');
+    same('lim x → −∞ 1/x', 'x', '-inf');
+    same('granica 1/x przy x do nieskończoności', 'x', 'inf');
+    same('lim n→inf 1/n', 'n', 'inf');
+    ok('detect: zwykłe działanie to nie granica', L.detect('2+2') === null && L.detect('pochodna x^2') === null);
+} else ok('detect istnieje', false);
+ok('granica x^2+1 przy x → 2 = 5', text('granica x^2+1 przy x → 2') === '5', text('granica x^2+1 przy x → 2'));
+{
+    const r = S.run('granica x^2+1 przy x → 2');
+    const first = r && r.explain && r.explain.steps[0].math;
+    ok('pierwszy krok: lim … = 5', r && r.explain && /lim/.test(first) && r.explain.steps.some(st => /= 5$/.test(st.math)), r && r.explain);
+}
+ok('lim x→0 cos(x) = 1', text('lim x→0 cos(x)') === '1', text('lim x→0 cos(x)'));
+ok('niedokończone: granica (x^2+1', S.run('granica (x^2+1') === null, S.run('granica (x^2+1'));
+ok('niedokończone: granica', S.run('granica') === null);
+if (L && L._test) {
+    L._test.pushRule({ name: 'kłamca', test: () => true, apply: () => ({ kind: 'num', e: C.num(S._core.R(7)) }) });
+    ok('bramka: zły wynik reguły → NOPE', text('lim x→∞ 1/x') === NOPE, text('lim x→∞ 1/x'));
+    L._test.popRule();
+    const F = L._test.formatAnswer, E = C.E_CONST, R = S._core.R;
+    const ePow = r => C.cPow(E, r);
+    ok('format e^(−6) → 1/e⁶', F({ kind: 'num', e: ePow(R(-6)) }).text === '1/e⁶', F({ kind: 'num', e: ePow(R(-6)) }));
+    ok('format e^(1/2) → √e', F({ kind: 'num', e: ePow(R(1, 2)) }).text === '√e', F({ kind: 'num', e: ePow(R(1, 2)) }));
+    ok('format e^(−1) → 1/e', F({ kind: 'num', e: ePow(R(-1)) }).text === '1/e');
+    ok('format e^4 → e⁴', F({ kind: 'num', e: ePow(R(4)) }).text === 'e⁴');
+    const s3 = C.cMul(C.num(R(1, 3)), C.cPow(C.num(R(3)), R(1, 2)));
+    ok('format √3/3', F({ kind: 'num', e: s3 }).text === '√3/3', F({ kind: 'num', e: s3 }));
+    ok('format +∞', F({ kind: 'inf', sign: 1 }).text === '+∞' && F({ kind: 'inf', sign: 1 }).value === Infinity);
+    ok('format −∞', F({ kind: 'inf', sign: -1 }).text === '−∞' && F({ kind: 'inf', sign: -1 }).value === -Infinity);
+    ok('format nie istnieje', F({ kind: 'dne', why: '' }).text === 'granica nie istnieje' && F({ kind: 'dne', why: '' }).value === null);
+} else ok('_test istnieje', false);
+{
+    const t0 = Date.now();
+    S.run('lim n→∞ ((2n^2+3)^2(5n+2)^5(n+6))/((4n^3+5)^3(3n+7)^2)');
+    const dt = Date.now() - t0;
+    ok('czas 1g < 300 ms', dt < 300, dt + ' ms');
+}
+
 // ── Zestaw 58 zadań ─────────────────────────────────────────
 function agrees(got, want) {
     if (want === 'inf') return got === Infinity;

@@ -138,7 +138,117 @@
         return Math.abs(a.value - b.value) <= tol * (1 + Math.abs(a.value));
     }
 
-    var API = { numericLimit: numericLimit, _evalDec: evalDec };
+    // ── Wykrywanie komendy ───────────────────────────────────────────
+    var C = CALC._core, NotSupported = K.NotSupported, ONE = K.ONE;
+    var TARGET = '([+-]?(?:∞|inf(?:inity)?|nieskonczonosc[ia]?|nieskonczonosci)|-?\\d+(?:[.,]\\d+)?)\\s*(\\+|-|z\\s+prawej|z\\s+lewej|prawostronn\\w*|lewostronn\\w*)?';
+    var ARROW = '\\s*(?:→|do|dazy\\s+do|zmierza\\s+do)\\s*';
+    var HEAD_RE = new RegExp('^(?:oblicz\\s+)?(?:lim|limit|granica|granice|granicy)\\s*(?:_?\\{|\\(|_)?\\s*([a-z])' + ARROW + TARGET + '\\s*[})]?\\s+(.+)$');
+    var TAIL_RE = new RegExp('^(?:oblicz\\s+)?(?:lim|limit|granica|granice|granicy)(?:\\s+(?:ciagu|funkcji|of))?\\s+(.+?)\\s+(?:przy|dla|gdy|as|when|for)\\s+([a-z])' + ARROW + TARGET + '$');
+    function normalize(raw) {
+        return K.fold(raw)
+            .replace(/[−–]/g, '-').replace(/->|\\to\b/g, '→').replace(/\s*→\s*/g, '→')
+            .replace(/→\+?∞|→\+inf/g, function (m) { return m.replace('+', ''); });
+    }
+    function targetOf(tok, sideTok) {
+        var t = tok.replace(/^\+/, ''), side = 0;
+        if (sideTok) side = /^(?:\+|z\s+prawej|prawostronn)/.test(sideTok) ? 1 : -1;
+        if (/^-/.test(t) && /∞|inf|nieskon/.test(t)) return { at: '-inf', side: 0 };
+        if (/∞|inf|nieskon/.test(t)) return { at: 'inf', side: 0 };
+        var n = parseFloat(t.replace(',', '.'));
+        return isFinite(n) ? { at: n, side: side, src: t.replace(',', '.') } : null;
+    }
+    function detect(raw) {
+        var s = normalize(raw);
+        if (!s || s.length > K.MAX_INPUT || !/^(?:oblicz\s+)?(?:lim|granic)/.test(s)) return null;
+        var m = HEAD_RE.exec(s), body, v, tg, side;
+        if (m) { v = m[1]; tg = m[2]; side = m[3]; body = m[4]; }
+        else if ((m = TAIL_RE.exec(s))) { body = m[1]; v = m[2]; tg = m[3]; side = m[4]; }
+        else return null;
+        var target = targetOf(tg, side);
+        body = body.trim();
+        return target && body ? { src: body, v: v, target: target } : null;
+    }
+
+    // ── Wynik i jego pokaz ───────────────────────────────────────────
+    function targetText(t) {
+        if (t.at === 'inf') return '∞';
+        if (t.at === '-inf') return '−∞';
+        var a = String(t.src != null ? t.src : t.at).replace('-', '−').replace('.', ',');
+        return a + (t.side > 0 ? '⁺' : (t.side < 0 ? '⁻' : ''));
+    }
+    function limHead(v, t) { return 'lim(' + v + '→' + targetText(t) + ') '; }
+    function formatAnswer(ans) {
+        if (ans.kind === 'inf') return { text: ans.sign > 0 ? '+∞' : '−∞', value: ans.sign > 0 ? Infinity : -Infinity };
+        if (ans.kind === 'dne') return { text: 'granica nie istnieje', value: null };
+        return { text: C.show(ans.e), value: C.evalExpr(ans.e, {}) };
+    }
+    function agrees(ans, check) {
+        if (!check) return false;
+        if (ans.kind === 'inf') return check.kind === 'inf' && check.sign === ans.sign;
+        if (ans.kind === 'dne') return check.kind === 'sides';
+        if (check.kind !== 'num') return false;
+        var v = C.evalExpr(ans.e, {}), tol = Math.max(1e-9, 10 * (check.err || 0));
+        return isFinite(v) && Math.abs(v - check.value) <= tol * (1 + Math.abs(check.value));
+    }
+
+    // ── Reguły ───────────────────────────────────────────────────────
+    function line(log, label, math) { if (log) log.push({ label: label, math: math }); }
+    function isFiniteTarget(t) { return t.at !== 'inf' && t.at !== '-inf'; }
+    function pointExpr(t) { // [EN] punkt docelowy jako dokładna liczba (ułamek dziesiętny → wymierny)
+        return C.fromAst(K.parse(String(t.src != null ? t.src : t.at)));
+    }
+    function substitute(e, v, valueExpr) {
+        return C.mapExpr(e, function (a) { return a.k === 'var' && a.v === v ? valueExpr : null; });
+    }
+    var RULES = [
+        { // [EN] funkcja ciągła w punkcie: podstawiamy
+            name: 'substitution',
+            test: function (e, v, t) { return isFiniteTarget(t); },
+            apply: function (e, v, t, log) {
+                var at = substitute(e, v, pointExpr(t));
+                var val = C.evalExpr(at, {});
+                if (C.hasVar(at, v) || !isFinite(val)) throw new NotSupported();
+                line(log, 'Podstawiamy ' + v + ' = ' + targetText({ at: t.at, src: t.src, side: 0 }), limHead(v, t) + C.show(e) + ' = ' + C.show(at));
+                return { kind: 'num', e: at };
+            }
+        }
+    ];
+    var MAX_DEPTH = 8;
+    function limitOf(e, v, t, log, depth) {
+        if ((depth || 0) > MAX_DEPTH) throw new NotSupported();
+        for (var i = 0; i < RULES.length; i++) {
+            var rule = RULES[i];
+            if (!rule.test(e, v, t)) continue;
+            var mark = log ? log.length : 0;
+            try { return rule.apply(e, v, t, log, (depth || 0) + 1); }
+            catch (err) {
+                if (!(err instanceof NotSupported) && !(err instanceof RangeError)) throw err;
+                if (log) log.length = mark; // [EN] nieudana próba nie zostawia kroków
+            }
+        }
+        throw new NotSupported();
+    }
+    function run(d) {
+        var e = C.fromAst(K.parse(d.src));
+        C.setVar(d.v);
+        var steps = [{ label: 'Granica', math: limHead(d.v, d.target) + C.show(e) }];
+        var ans = limitOf(e, d.v, d.target, steps, 0);
+        if (!agrees(ans, numericLimit(e, d.v, d.target))) throw new NotSupported(); // [EN] nigdy błędnego wyniku
+        var out = formatAnswer(ans);
+        steps.push({ label: 'Wynik', math: limHead(d.v, d.target) + C.show(e) + ' = ' + out.text });
+        return K.done('Granica', out.text, out.value, steps);
+    }
+
+    var API = {
+        detect: detect, run: run, numericLimit: numericLimit, _evalDec: evalDec,
+        _test: {
+            formatAnswer: formatAnswer,
+            pushRule: function (r) { RULES.unshift(r); },
+            popRule: function () { RULES.shift(); }
+        },
+        _internal: { RULES: RULES, limitOf: limitOf, line: line, limHead: limHead, targetText: targetText, substitute: substitute, pointExpr: pointExpr, agrees: agrees }
+    };
+    STEPS.registerLimits(API);
     if (typeof window !== 'undefined') window.MATM0_LIMITS = API;
     if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

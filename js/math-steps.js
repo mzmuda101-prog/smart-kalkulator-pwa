@@ -884,7 +884,10 @@
     }
 
     var _calculus = null; // [EN] js/math-calculus.js: pochodne i całki
+    var _limits = null;   // [EN] js/math-limits.js: granice
     function run(raw) { // [EN] jawna komenda („rozwiąż …”); null = nie nasza
+        var l = _limits && _limits.detect(raw);
+        if (l) return memo('l:' + raw, function () { return _limits.run(l); });
         var c = _calculus && _calculus.detect(raw);
         if (c) return memo('d:' + raw, function () { return _calculus.run(c); });
         var d = detect(raw);
@@ -904,6 +907,7 @@
     var API = {
         detect: detect, run: run, runBare: runBare,
         registerCalculus: function (mod) { _calculus = mod; },
+        registerLimits: function (mod) { _limits = mod; },
         _core: {
             NotSupported: NotSupported, R: R, ZERO: ZERO, ONE: ONE, gcd: gcd, add: add, neg: neg, sub: sub,
             mul: mul, div: div, isZero: isZero, isInt: isInt, eq: eq, toNum: toNum, powR: powR,

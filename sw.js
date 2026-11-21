@@ -34,6 +34,7 @@ const ASSETS_TO_CACHE = [
     './js/synonyms.js',
     './js/math-steps.js',
     './js/math-calculus.js',
+    './js/math-limits.js',
     './js/hint-rules.js',
     './js/notepad-format.js',
     './js/notepad-engine.js',
