@@ -151,6 +151,23 @@ const WANT_TEXT = { '1a': '1/3', '1d': '0', '1e': '+∞', '7a': '√3/3', '7b': 
     ok('3e tekst = −3/2', text(byId['3e'].input) === '−3/2', text(byId['3e'].input));
 }
 
+// ── Task 6: sprzężenie ─────────────────────────────────────
+['4a', '4b', '4c', '4d', '4e', '4f', '4g', '4h', '5a', '5b', '5c', '5d', '5e', '7c', '7d', '7e'].forEach(id => {
+    const r = S.run(byId[id].input);
+    ok('zadanie ' + id, r && r.text !== NOPE && agrees(r.value, byId[id].value) && r.explain.steps.length >= 3, r && r.text);
+});
+{
+    const steps = id => { const r = S.run(byId[id].input); return r && r.explain ? r.explain.steps : []; };
+    const a = steps('4a');
+    ok('4a: Mnożymy przez sprzężenie', a.some(x => /^Mnożymy przez sprzężenie/.test(x.label)), a.map(x => x.label));
+    ok('4a: (2n + 5 − (2n + 1))/(√(2n + 5) + √(2n + 1))', a.some(x => x.math.includes('(2n + 5 − (2n + 1))/(√(2n + 5) + √(2n + 1))')), a.map(x => x.math));
+    ok('5a: wzór a³ − b³', steps('5a').some(x => x.label.includes('a³ − b³ = (a − b)(a² + ab + b²)')), steps('5a').map(x => x.label));
+    ok('5d: wzór a⁴ − b⁴', steps('5d').some(x => x.label.includes('a⁴ − b⁴')), steps('5d').map(x => x.label));
+    ok('4g: Rozbijamy na dwie różnice', steps('4g').some(x => x.label === 'Rozbijamy na dwie różnice'), steps('4g').map(x => x.label));
+    ok('4b tekst 2√3', text(byId['4b'].input) === '2√3', text(byId['4b'].input));
+    ok('7d tekst −3√2/4', text(byId['7d'].input) === '−3√2/4', text(byId['7d'].input));
+}
+
 // ── Zestaw 58 zadań ─────────────────────────────────────────
 let covered = 0, wrong = 0;
 const missing = [];

@@ -181,7 +181,7 @@
     function formatAnswer(ans) {
         if (ans.kind === 'inf') return { text: ans.sign > 0 ? '+∞' : '−∞', value: ans.sign > 0 ? Infinity : -Infinity };
         if (ans.kind === 'dne') return { text: 'granica nie istnieje', value: null };
-        return { text: C.show(rationalize(ans.e)), value: C.evalExpr(ans.e, {}) };
+        return { text: C.show(rationalize(fold(ans.e))), value: C.evalExpr(ans.e, {}) };
     }
     function rationalize(e) { // [EN] 1/√3 → √3/3: pierwiastek liczby w mianowniku przenosimy do licznika
         return e.map(function (t) {
@@ -235,6 +235,50 @@
         return { N: [C.term(t.c, up)], D: down.length ? [C.term(ONE, down)] : C.num(ONE) };
     }
     function isOne(e) { return C.isNumber(e) && K.eq(C.numberOf(e), ONE); }
+    /* (√2)² i ∛3·3^(2/3) zostają w wyrażeniu jako „liczba do potęgi całkowitej”, więc
+       4n² − 2·2n² się nie skraca. Liczby z wykładnikiem całkowitym wracają do współczynnika. */
+    function rootOut(k, d) { // [EN] największe m z mᵈ | k (√8 → 2√2); k całkowite dodatnie
+        if (k > 1000000n) return 1n;
+        for (var m = BigInt(Math.floor(Math.pow(Number(k), 1 / d) + 1e-9)); m > 1n; m--) {
+            if (k % (m ** BigInt(d)) === 0n) return m;
+        }
+        return 1n;
+    }
+    function fold(e) {
+        return e.reduce(function (acc, t) {
+            var c = t.c, fs = [], sums = {};
+            t.fs.forEach(function (f) {
+                if (f.b.k === 'num' && K.isInt(f.e)) {
+                    var pw = K.powR(f.b.v, Number(f.e.n < 0n ? -f.e.n : f.e.n));
+                    c = f.e.n < 0n ? K.div(c, pw) : K.mul(c, pw);
+                    return;
+                }
+                if (f.b.k === 'num' && f.b.v.d === 1n && f.b.v.n > 1n) { // [EN] √8 = 2√2
+                    var d = Number(f.e.d), m = rootOut(f.b.v.n, d);
+                    if (m > 1n) {
+                        var mp = K.powR(K.R(m), Number(f.e.n < 0n ? -f.e.n : f.e.n));
+                        c = f.e.n < 0n ? K.div(c, mp) : K.mul(c, mp);
+                        var restN = f.b.v.n / (m ** BigInt(d));
+                        if (restN > 1n) fs.push({ b: { k: 'num', v: K.R(restN) }, e: f.e });
+                        return;
+                    }
+                }
+                if (f.b.k === 'sum' && !K.isInt(f.e)) { // [EN] √a·√b = √(ab): jeden pierwiastek do sprzężenia
+                    var key = K.fmt(f.e);
+                    sums[key] = sums[key] ? { s: C.expandExpr(C.cMul(sums[key].s, fold(f.b.s))), e: f.e, many: true } : { s: fold(f.b.s), e: f.e };
+                    return;
+                }
+                if (f.b.k === 'sum') fs.push({ b: { k: 'sum', s: fold(f.b.s) }, e: f.e });
+                else fs.push(f);
+            });
+            var out = fs.length ? C.cMul(C.num(c), C.atomsProduct(fs)) : C.num(c);
+            Object.keys(sums).forEach(function (k2) {
+                var sm = sums[k2];
+                out = C.cMul(out, sm.many ? C.cPow(sm.s, sm.e) : C.atomsProduct([{ b: { k: 'sum', s: sm.s }, e: sm.e }]));
+            });
+            return C.cAdd(acc, out);
+        }, []);
+    }
 
     /* Wyłączanie najwyższej potęgi przy v → ±∞. Z u = sign·v (u → +∞):
        pull(e) = { p, rest, c } gdzie e = u^p · rest, a rest → c (stała ≠ 0, dokładnie).
@@ -261,7 +305,7 @@
                 var inner = pullExpr(a.s, v, sign);
                 p = K.add(p, K.mul(inner.p, r));
                 rest = C.cMul(rest, C.cPow(inner.rest, r));
-                c = C.cMul(c, C.cPow(inner.c, r));
+                c = fold(C.cMul(c, C.cPow(inner.c, r)));
                 return;
             }
             if (atomHasVar(a, v)) throw new NotSupported();
@@ -458,7 +502,116 @@
             return { kind: 'num', e: resE };
         }
     };
-    RULES.push(commonDenominator, logCombine, dominantPower);
+    // ── Sprzężenie: A − B = (Aᵏ − Bᵏ)/(Aᵏ⁻¹ + Aᵏ⁻²B + … + Bᵏ⁻¹) ────────────
+    var ROOT_K = { '1/2': 2, '1/3': 3, '1/4': 4 };
+    function rootDegree(t, v) { // [EN] c·∛3·∛(X) (wspólny dzielnik wyciągnięty spod pierwiastka) → k, inaczej 0
+        var k = 0, sums = 0;
+        for (var i = 0; i < t.fs.length; i++) {
+            var f = t.fs[i], kk = ROOT_K[K.fmt(f.e).replace(/\s/g, '')] || 0;
+            if (!kk) return 0;
+            if (k && kk !== k) return 0;
+            k = kk;
+            if (f.b.k === 'sum' && C.hasVar(f.b.s, v)) sums++;
+            else if (f.b.k !== 'num') return 0;
+        }
+        return sums === 1 ? k : 0;
+    }
+    function isPlain(t) { // [EN] bez pierwiastka z sumy (n, 3n², stała)
+        return t.fs.every(function (f) { return f.b.k !== 'sum' || K.isInt(f.e); });
+    }
+    function cancels(D, v, t) { // [EN] różnica daje symbol nieoznaczony (∞ − ∞ albo → 0 w punkcie)
+        if (!isFiniteTarget(t)) {
+            try { pullExpr(D, v, t.at === 'inf' ? 1 : -1); return false; }
+            catch (err) { return err instanceof NotSupported; }
+        }
+        var r = numericLimit(D, v, t);
+        return !!r && r.kind === 'num' && Math.abs(r.value) < 1e-9;
+    }
+    function conjPair(D, v) { // [EN] dwuwyrazowa różnica z pierwiastkiem → { A, B, k }
+        if (D.length === 3) { // [EN] √a + √b − 2n²: sprzężenie (√a + √b) i wyrazu bez pierwiastka
+            var roots = D.filter(function (t) { return rootDegree(t, v) === 2; });
+            var plain = D.filter(function (t) { return !rootDegree(t, v) && isPlain(t); });
+            if (roots.length === 2 && plain.length === 1) return { A: roots, B: C.cNeg(plain), k: 2 };
+            return null;
+        }
+        if (D.length !== 2) return null;
+        var ka = rootDegree(D[0], v), kb = rootDegree(D[1], v);
+        if (!ka && !kb) return null;
+        if (ka && kb && ka !== kb) return null;
+        if ((!ka && !isPlain(D[0])) || (!kb && !isPlain(D[1]))) return null;
+        return { A: [D[0]], B: C.cNeg([D[1]]), k: ka || kb };
+    }
+    function findDifference(e, v, t) {
+        if (e.length > 1) return conjPair(e, v) && cancels(e, v, t) ? { whole: true, D: e } : null;
+        var fs = e[0].fs;
+        for (var i = 0; i < fs.length; i++) {
+            var f = fs[i];
+            if (f.b.k !== 'sum' || !K.isInt(f.e) || (f.e.n !== 1n && f.e.n !== -1n)) continue;
+            if (conjPair(f.b.s, v) && cancels(f.b.s, v, t)) return { whole: false, idx: i, D: f.b.s, up: f.e.n === 1n };
+        }
+        return null;
+    }
+    var CONJ_LABEL = {
+        2: 'Mnożymy przez sprzężenie',
+        3: 'Mnożymy przez sprzężenie: a³ − b³ = (a − b)(a² + ab + b²)',
+        4: 'Mnożymy przez sprzężenie: a⁴ − b⁴ = (a − b)(a³ + a²b + ab² + b³)'
+    };
+    var conjugate = {
+        name: 'conjugate',
+        test: function (e, v, t) { return !!findDifference(e, v, t); },
+        apply: function (e, v, t, log, depth) {
+            var hit = findDifference(e, v, t), pair = conjPair(hit.D, v), k = pair.k;
+            var Ak = fold(C.cPow(pair.A, K.R(k))), Bk = fold(C.cPow(pair.B, K.R(k)));
+            var top = fold(C.expandExpr(fold(C.expandExpr(C.cSub(Ak, Bk))))); // [EN] (√a + √b)² → a + 2√(ab) + b
+            var S = [];
+            for (var i = 0; i < k; i++) S = C.cAdd(S, fold(C.cMul(C.cPow(pair.A, K.R(k - 1 - i)), C.cPow(pair.B, K.R(i)))));
+            var bShown = Bk.length > 1 || (Bk[0] && Bk[0].c.n < 0n) ? '(' + C.show(Bk) + ')' : C.show(Bk);
+            var raw = C.showInner(Ak) + ' − ' + bShown;
+            line(log, CONJ_LABEL[k], C.show(hit.D) + ' = (' + raw + ')/' + grp(S));
+            var frac = C.cMul(top, C.cPow(S, K.neg(ONE)));
+            var out;
+            if (hit.whole) out = frac;
+            else {
+                out = C.num(e[0].c);
+                e[0].fs.forEach(function (f, j) {
+                    if (j === hit.idx) out = C.cMul(out, hit.up ? frac : C.cPow(frac, K.neg(ONE)));
+                    else out = C.cMul(out, C.cPow(C.atomExpr(f.b), f.e));
+                });
+            }
+            out = fold(out);
+            line(log, 'Upraszczamy licznik', limOf(v, t, out));
+            return limitOf(out, v, t, log, depth);
+        }
+    };
+
+    // ── Trzy wyrazy, które się znoszą: rozbijamy środkowy na dwie połowy ──
+    function addAnswers(a, b) {
+        if (a.kind === 'num' && b.kind === 'num') return { kind: 'num', e: C.cAdd(a.e, b.e) };
+        if (a.kind === 'inf' && b.kind === 'num') return a;
+        if (b.kind === 'inf' && a.kind === 'num') return b;
+        if (a.kind === 'inf' && b.kind === 'inf' && a.sign === b.sign) return a;
+        throw new NotSupported();
+    }
+    var splitPairs = {
+        name: 'splitPairs',
+        test: function (e, v, t) {
+            return !isFiniteTarget(t) && e.length === 3 && cancels(e, v, t) &&
+                e.some(function (x) { return K.eq(x.c, K.R(2)) || K.eq(x.c, K.R(-2)); });
+        },
+        apply: function (e, v, t, log, depth) {
+            var mid = -1;
+            e.forEach(function (x, i) { if (mid < 0 && (K.eq(x.c, K.R(2)) || K.eq(x.c, K.R(-2)))) mid = i; });
+            var half = [C.term(K.div(e[mid].c, K.R(2)), e[mid].fs)];
+            var others = e.filter(function (x, i) { return i !== mid; });
+            var P = C.cAdd([others[0]], half), Q = C.cAdd([others[1]], half);
+            line(log, 'Rozbijamy na dwie różnice', limHead(v, t) + '[(' + C.show(P) + ') + (' + C.show(Q) + ')]');
+            var a = limitOf(P, v, t, log, depth), b = limitOf(Q, v, t, log, depth);
+            var sum = addAnswers(a, b);
+            if (sum.kind === 'num') line(log, 'Dodajemy granice', '→ ' + C.show(rationalize(a.e)) + ' + ' + C.show(rationalize(b.e)) + ' = ' + C.show(rationalize(sum.e)));
+            return sum;
+        }
+    };
+    RULES.push(commonDenominator, logCombine, conjugate, splitPairs, dominantPower);
 
     // ── Symbol nieoznaczony (do pierwszego kroku, jak na zajęciach) ──────
     function kindOf(x) {

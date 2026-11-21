@@ -807,7 +807,8 @@
             num: num, variable: variable, atomExpr: atomExpr, term: term, hasVar: hasVar,
             isNumber: isNumber, numberOf: numberOf, mapExpr: mapExpr, expandExpr: expandExpr,
             polyCoefs: polyCoefs, polyExpr: polyExpr, E_CONST: E_CONST, showAtom: showAtom,
-            showInner: showInner, asTerm: asTerm, setVar: function (v) { _var = v; }
+            showInner: showInner, asTerm: asTerm, setVar: function (v) { _var = v; },
+            atomsProduct: function (fs) { return [term(ONE, normFactors(fs))]; }
         }
     };
     STEPS.registerCalculus(API);
