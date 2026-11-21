@@ -58,6 +58,9 @@
         empty.append(emptyText, pick);
         const video = /** @type {HTMLVideoElement} */ (el('video')); video.hidden = true;
         video.playsInline = true; video.muted = true; video.autoplay = true; video.setAttribute('aria-label', 'Podgląd z aparatu');
+        // Podgląd na żywo rysujemy sami na canvasie (cover liczony w JS): WebKit na iOS dopasowuje warstwę wideo z kamery
+        // do NIEobróconej klatki i pokazuje ją pomniejszoną na środku, niezależnie od object-fit. <video> gra pod spodem.
+        const preview = document.createElement('canvas'); preview.className = 'scanner-preview'; preview.hidden = true; preview.setAttribute('aria-hidden', 'true');
         const canvas = document.createElement('canvas'); canvas.hidden = true;
         canvas.setAttribute('role', 'img'); canvas.setAttribute('aria-label', 'Wybrane zdjęcie');
         const frame = el('div', 'scanner-frame'); frame.hidden = true; frame.tabIndex = 0;
@@ -72,7 +75,7 @@
         const hint = el('p', 'scanner-hint'); hint.hidden = true; hint.setAttribute('aria-live', 'polite');
         const torch = /** @type {HTMLButtonElement} */ (el('button', 'scanner-torch', 'Latarka')); torch.type = 'button'; torch.hidden = true;
         torch.setAttribute('aria-pressed', 'false');
-        stage.append(empty, video, canvas, frame, hint, torch, pages);
+        stage.append(empty, video, canvas, preview, frame, hint, torch, pages);
 
         const error = el('p', 'scanner-error'); error.hidden = true; error.setAttribute('role', 'alert');
         const bar = el('div', 'scanner-bar');
@@ -87,7 +90,7 @@
         const input = /** @type {HTMLInputElement} */ (el('input')); input.type = 'file'; input.accept = 'image/*,application/pdf'; input.hidden = true;
         dlg.append(head, stage, error, bar, input);
         document.body.append(dlg);
-        return { dlg, title, pages, otherPage, close, stage, empty, emptyText, video, hint, torch, shoot, gallery, canvas, frame, handles, error, again, read, pick, input };
+        return { dlg, title, pages, otherPage, close, stage, empty, emptyText, video, preview, hint, torch, shoot, gallery, canvas, frame, handles, error, again, read, pick, input };
     }
 
     /** Sprawdza jednorazowo, że dialog zbudowany; reszta stanu żyje w open(). */
@@ -122,6 +125,7 @@
         camId: 0, // start kamery: spóźniony strumień po zamknięciu/zmianie trybu jest zatrzymywany
         /** @type {MediaStream|null} */ stream: null,
         /** @type {ReturnType<typeof setInterval>|null} */ timer: null,
+        raf: 0, // pętla rysowania podglądu
         torchOn: false,
         hintKind: '',
     };
@@ -162,6 +166,7 @@
     function stopCamera(/** @type {NonNullable<typeof ui>} */ u) {
         st.camId++;
         if (st.timer) { clearInterval(st.timer); st.timer = null; }
+        cancelAnimationFrame(st.raf); st.raf = 0; u.preview.hidden = true;
         if (st.stream) { st.stream.getTracks().forEach((t) => t.stop()); st.stream = null; }
         u.video.srcObject = null; u.torch.hidden = true; st.torchOn = false; u.torch.setAttribute('aria-pressed', 'false');
     }
@@ -187,6 +192,16 @@
             if (my !== st.camId) return;
             const v = u.video;
             useSource(u, { el: v, width: v.videoWidth, height: v.videoHeight, cover: true, snapshot: () => u.canvas });
+            const pctx2 = /** @type {CanvasRenderingContext2D} */ (u.preview.getContext('2d'));
+            const draw = () => {
+                if (my !== st.camId) return;
+                st.raf = requestAnimationFrame(draw);
+                if (st.source?.el !== v || v.readyState < 2) return;
+                syncVideo(u); // iOS potrafi zmienić wymiary (obrót) bez zdarzenia „resize”
+                const c = content(u), k = u.preview.width / Math.max(1, c.sw);
+                pctx2.drawImage(v, c.x * k, c.y * k, c.w * k, c.h * k);
+            };
+            draw();
             const track = s.getVideoTracks()[0], caps = track && track.getCapabilities && track.getCapabilities();
             // system zabrał kamerę (np. inna aplikacja): w trybie podglądu wznów, inaczej ignoruj
             if (track) track.addEventListener('ended', () => { if (my === st.camId && u.dlg.open && st.mode === 'camera' && !st.shot) startCamera(u); });
@@ -242,7 +257,7 @@
     /** Prostokąt widocznego obrazu w pikselach sceny (object-fit: contain, więc z marginesami). */
     function content(/** @type {NonNullable<typeof ui>} */ u) {
         const s = u.stage.getBoundingClientRect(), src = st.source;
-        if (!src) return { x: 0, y: 0, w: s.width, h: s.height, left: s.left, top: s.top, x0: 0, x1: 1, y0: 0, y1: 1 };
+        if (!src) return { x: 0, y: 0, w: s.width, h: s.height, left: s.left, top: s.top, sw: s.width, sh: s.height, x0: 0, x1: 1, y0: 0, y1: 1 };
         // contain (zdjęcie): obraz w całości, z marginesami. cover (kamera): obraz większy od sceny, przycięty z boków albo z góry i dołu.
         const k = src.cover ? Math.max(s.width / src.width, s.height / src.height) : Math.min((s.width - 2 * PAD) / src.width, (s.height - 2 * PAD) / src.height);
         const w = src.width * k, h = src.height * k, x = (s.width - w) / 2, y = (s.height - h) / 2;
@@ -250,12 +265,25 @@
         const lim = src.cover
             ? { x0: (PAD - x) / w, x1: (s.width - PAD - x) / w, y0: (PAD - y) / h, y1: (s.height - PAD - y) / h }
             : { x0: 0, x1: 1, y0: 0, y1: 1 };
-        return { x, y, w, h, left: s.left, top: s.top, ...lim };
+        return { x, y, w, h, left: s.left, top: s.top, sw: s.width, sh: s.height, ...lim };
+    }
+
+    /** Obrót telefonu zamienia wymiary strumienia: nowy kształt klatki, więc ramka od nowa. Wymiary zawsze bieżące z <video>. */
+    function syncVideo(/** @type {NonNullable<typeof ui>} */ u) {
+        const v = u.video, src = st.source;
+        if (!src || src.el !== v || !v.videoWidth || (src.width === v.videoWidth && src.height === v.videoHeight)) return;
+        src.width = v.videoWidth; src.height = v.videoHeight;
+        st.f = defaultFrame(u); layout(u);
     }
 
     function layout(/** @type {NonNullable<typeof ui>} */ u) {
         const c = content(u), f = st.f;
         Object.assign(/** @type {HTMLElement} */ (st.source ? st.source.el : u.canvas).style, { left: c.x + 'px', top: c.y + 'px', width: c.w + 'px', height: c.h + 'px' });
+        if (st.source && st.source.cover) { // podgląd = cała scena; bufor w pikselach ekranu (najwyżej 2x)
+            Object.assign(u.preview.style, { left: '0px', top: '0px', width: c.sw + 'px', height: c.sh + 'px' });
+            const dpr = Math.min(2, window.devicePixelRatio || 1), pw = Math.max(1, Math.round(c.sw * dpr)), ph = Math.max(1, Math.round(c.sh * dpr));
+            if (u.preview.width !== pw || u.preview.height !== ph) { u.preview.width = pw; u.preview.height = ph; }
+        }
         Object.assign(u.frame.style, { left: c.x + f.x * c.w + 'px', top: c.y + f.y * c.h + 'px', width: f.w * c.w + 'px', height: f.h * c.h + 'px' });
     }
 
@@ -437,7 +465,7 @@
     /** Wspólne wejście dla każdego źródła (zdjęcie, później kamera i PDF). */
     function useSource(/** @type {NonNullable<typeof ui>} */ u, /** @type {NonNullable<typeof st.source>} */ src) {
         st.source = src; st.readId++; clearBusy(u);
-        u.error.hidden = true; u.empty.hidden = true; u.canvas.hidden = src.el !== u.canvas; u.video.hidden = src.el !== u.video; u.frame.hidden = false;
+        u.error.hidden = true; u.empty.hidden = true; u.canvas.hidden = src.el !== u.canvas; u.video.hidden = u.preview.hidden = src.el !== u.video; u.frame.hidden = false;
         u.read.disabled = false;
         st.f = defaultFrame(u);
         layout(u);
@@ -512,12 +540,8 @@
             if (st.source.cover) clampFrame(st.f, content(u)); // obrót: scena ma inny kształt, ramka musi zostać w widocznej części
             layout(u);
         }).observe(u.stage);
-        // Obrót telefonu zamienia wymiary strumienia: nowy kształt klatki, więc ramka od nowa.
-        u.video.addEventListener('resize', () => {
-            if (!st.source || st.source.el !== u.video || !u.video.videoWidth) return;
-            st.source.width = u.video.videoWidth; st.source.height = u.video.videoHeight;
-            st.f = defaultFrame(u); layout(u);
-        });
+        u.video.addEventListener('resize', () => syncVideo(u));
+        u.video.addEventListener('loadedmetadata', () => syncVideo(u));
 
         // Przeciąganie: ramka = przesunięcie, uchwyt = zmiana rozmiaru. touch-action: none tylko tu.
         /** @type {null | { id: number, x: number, y: number, start: typeof st.f, corner: string|null }} */ let drag = null;

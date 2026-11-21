@@ -296,7 +296,7 @@ test.describe('ramka na zdjęciu', () => {
     await page.mouse.down();
     await page.mouse.move(2000, 2000, { steps: 3 });
     await page.mouse.up();
-    const img = await page.locator('.scanner-stage canvas').boundingBox();
+    const img = await page.locator('.scanner-stage canvas[role=img]').boundingBox();
     const out = await frame.boundingBox();
     expect(out.x + out.width).toBeLessThanOrEqual(img.x + img.width + 1);
     expect(out.y + out.height).toBeLessThanOrEqual(img.y + img.height + 1);

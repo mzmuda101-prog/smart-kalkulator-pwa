@@ -145,7 +145,7 @@ test.describe('aparat na żywo', () => {
   test('„Wybierz zdjęcie” z podglądu przełącza na plik i zatrzymuje kamerę', async ({ page }) => {
     await openCamera(page);
     await page.locator('dialog.scanner-dialog input[type=file]').setInputFiles({ name: 'w.png', mimeType: 'image/png', buffer: fixtureBuf('frac') });
-    await expect(page.locator('.scanner-stage canvas')).toBeVisible();
+    await expect(page.locator('.scanner-stage canvas[role=img]')).toBeVisible();
     await expect(page.locator('.scanner-stage video')).toBeHidden();
     await expect(page.getByRole('button', { name: 'Zrób', exact: true })).toBeHidden();
     expect(await live(page)).toBe(0);
@@ -168,4 +168,40 @@ test.describe('aparat na żywo', () => {
     const seen = await page.evaluate(() => window.__seen);
     expect(Math.abs(seen.w / seen.h / (f.width / f.height) - 1)).toBeLessThan(0.03);
   });
+});
+
+// ============================================================
+//  Strumień pionowy i poziomy (jak z iPhone'a): podgląd kryje scenę, ramka leży na widocznym obrazie
+// ============================================================
+test.describe('podgląd kryje scenę', () => {
+  for (const [W, H] of [[720, 1280], [1280, 720]]) {
+    test(`strumień ${W}x${H}`, async ({ page }, testInfo) => {
+      test.skip(testInfo.project.name !== 'mobile', 'telefon');
+      await page.addInitScript(([W, H]) => {
+        // klatka: szare tło, czarny kwadrat na środku; podmiana zamiast fałszywej kamery Chromium (ta gra 640x360)
+        navigator.mediaDevices.getUserMedia = async () => {
+          const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+          const draw = () => { g.fillStyle = '#c8c8c8'; g.fillRect(0, 0, W, H); g.fillStyle = '#000'; g.fillRect(W / 4, H / 4, W / 2, H / 2); };
+          draw(); setInterval(draw, 100);
+          return c.captureStream(10);
+        };
+      }, [W, H]);
+      await openScanner(page);
+      await expect(page.getByRole('button', { name: 'Zrób', exact: true })).toBeEnabled();
+      const box = (sel) => page.locator(sel).boundingBox();
+      const s = await box('.scanner-stage'), p = await box('.scanner-preview'), v = await box('.scanner-stage video'), f = await box('.scanner-frame');
+      for (const r of [p, v]) { // podgląd i samo wideo nie zostawiają pustej sceny
+        expect(r.x).toBeLessThanOrEqual(s.x + 1); expect(r.y).toBeLessThanOrEqual(s.y + 1);
+        expect(r.x + r.width).toBeGreaterThanOrEqual(s.x + s.width - 1); expect(r.y + r.height).toBeGreaterThanOrEqual(s.y + s.height - 1);
+      }
+      // ramka w całości na widocznym obrazie (podgląd = scena)
+      expect(f.x).toBeGreaterThanOrEqual(p.x - 1); expect(f.x + f.width).toBeLessThanOrEqual(p.x + p.width + 1);
+      expect(f.y).toBeGreaterThanOrEqual(p.y - 1); expect(f.y + f.height).toBeLessThanOrEqual(p.y + p.height + 1);
+      // podgląd naprawdę rysuje klatkę z cover: środek sceny = czarny środek klatki, róg sceny = szare tło (dla pionowej) lub dalej czarny/szary
+      await expect.poll(() => page.evaluate(() => {
+        const c = document.querySelector('.scanner-preview'), d = c.getContext('2d').getImageData(c.width >> 1, c.height >> 1, 1, 1).data;
+        return d[3] === 255 && d[0] < 40;
+      })).toBe(true);
+    });
+  }
 });
