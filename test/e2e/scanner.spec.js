@@ -472,3 +472,33 @@ test.describe('strona PDF', () => {
     await expect(page.locator('.scanner-stage > canvas:not([hidden])')).toHaveCount(1);
   });
 });
+
+test.describe('ustawienia: usuwanie modelu', () => {
+  test.use({ serviceWorkers: 'block' });
+  test.beforeEach(({}, testInfo) => test.skip(testInfo.project.name !== 'desktop', 'model testujemy raz'));
+
+  test('wiersz ukryty bez modelu, po pobraniu pokazuje rozmiar, Usuń + potwierdzenie kasuje', async ({ page }) => {
+    await open(page);
+    const row = page.locator('#settingsModelRow');
+    await page.evaluate(() => document.getElementById('settingsBtn').click());
+    await expect(page.locator('#settingsModal')).toBeVisible();
+    await expect(row).toBeHidden();
+    await page.evaluate(() => document.getElementById('settingsClose').click());
+    const result = page.evaluate(ENSURE(NAME));
+    await page.locator('dialog.model-dialog').getByRole('button', { name: 'Pobierz' }).click();
+    await expect(page.locator('dialog.model-dialog')).toHaveCount(0, { timeout: 60_000 });
+    expect((await result).ok).toBe(6);
+    await page.evaluate(() => document.getElementById('settingsBtn').click());
+    await expect(row).toBeVisible();
+    await expect(row).toContainText('52,9 MB');
+    await row.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: '.superpowers/sdd/2026-11-21-skaner-druku-etap-3/shots/task9-settings-light.png' });
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
+    await page.screenshot({ path: '.superpowers/sdd/2026-11-21-skaner-druku-etap-3/shots/task9-settings-dark.png' });
+    await page.locator('#settingsModelRemove').click();
+    await page.locator('#settingsModelConfirmYes').click();
+    await expect(row).toBeHidden();
+    expect((await page.evaluate(() => MATM0_MODELS.status('formulanet-s'))).ready).toBe(false);
+  });
+});

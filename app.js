@@ -9797,6 +9797,26 @@
             if (settingFxBackupRow) settingFxBackupRow.classList.toggle('is-na', isAuto);
         }
 
+        // Wiersz „Model odczytu wzorów”: widoczny tylko, gdy model jest pobrany (js/model-store.js).
+        var modelRow = $('#settingsModelRow'), modelConfirm = $('#settingsModelConfirm');
+        function syncModelRow() {
+            if (!modelRow || !window.MATM0_MODELS) return;
+            modelConfirm.hidden = true;
+            window.MATM0_MODELS.status('formulanet-s').then(function(st) {
+                modelRow.hidden = !st.ready;
+                if (st.ready) $('#settingsModelSize').textContent = (st.downloadBytes / 1e6).toFixed(1).replace('.', ',') + ' MB';
+            }, function() { modelRow.hidden = true; });
+        }
+        if (modelRow) {
+            $('#settingsModelRemove').addEventListener('click', function() { modelConfirm.hidden = false; });
+            $('#settingsModelConfirmNo').addEventListener('click', function() { modelConfirm.hidden = true; });
+            $('#settingsModelConfirmYes').addEventListener('click', function() {
+                window.MATM0_MODELS.remove('formulanet-s').then(function() {
+                    modelRow.hidden = true; modelConfirm.hidden = true;
+                    showToast('Model usunięty', 'success');
+                }, function() { showToast('Nie udało się usunąć modelu', 'error'); });
+            });
+        }
         function openSettings() {
             buildCurrencyOptions();
             syncUnitProfileSelect();
@@ -9817,6 +9837,7 @@
             if (settingUnitNames) settingUnitNames.value = STATE.settings.unitNames || 'typed';
             _npSyncFontSize(true);
             updateFxStatusLine();
+            syncModelRow();
             if (settingsVersion) settingsVersion.textContent = 'Wersja ' + (window.APP_VERSION || '—');
             document.body.classList.add('settings-open');
             settingsModal.setAttribute('aria-hidden', 'false'); settingsModal.inert = false;

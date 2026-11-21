@@ -372,6 +372,14 @@
                     { prose: '<kbd>Esc</kbd> — wyczyść pole; <kbd>⌘/Ctrl</kbd>+<kbd>Z</kbd> przywraca tekst. <strong>AC</strong> na padzie przy dłuższym działaniu pokazuje w dymku <strong>Cofnij</strong>.' },
                 ],
             },
+            {
+                title: 'Zdjęcie wzoru',
+                items: [
+                    { prose: 'Kalkulator odczyta wzór z wydruku lub zdjęcia i wstawi go do pola jako działanie.' },
+                    { prose: '1. Stuknij ikonę aparatu w polu. 2. Ustaw ramkę na jednym wzorze. 3. Stuknij <strong>Zrób</strong> (albo <strong>Wybierz zdjęcie lub PDF</strong>). 4. Odczytane działanie trafia do pola: sprawdź je i licz.' },
+                    { prose: 'Model pobiera się raz (52,9 MB, za zgodą). Zdjęcia nie opuszczają telefonu.' },
+                ],
+            },
         ],
         engineering: [
             {

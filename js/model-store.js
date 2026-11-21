@@ -44,7 +44,7 @@
         for (const u of extraUrls(m)) {
             if (!(await cache.match(u))) all = false;
         }
-        return { ready: all, haveBytes: have, gzBytes: m.gzBytes };
+        return { ready: all, haveBytes: have, gzBytes: m.gzBytes, downloadBytes: m.downloadBytes };
     }
 
     /** Pobiera url do cache (jak jest), zwraca bajty odebrane z sieci przez onChunk. */
