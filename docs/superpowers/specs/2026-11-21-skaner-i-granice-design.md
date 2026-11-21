@@ -216,6 +216,10 @@ granicę) → pierwsza niezgodna linia podświetlona z krótkim „tu wynik się
 
 ### 5.7 Etapy (każdy wydawany osobno, z testami)
 
+> **Zmiana kolejności (2026-11-21, decyzja Mateusza):** etap 1 wydany (v1.04.87). Dalej:
+> **skaner druku (dawny etap 3) → klawiatura do wzorów (nowy, 5.9) → SymPy (dawny etap 2) → pismo → sprawdzanie rozwiązania.**
+> Skaner nie zależy od SymPy: odczyt trafia do pola, liczy istniejący silnik.
+
 1. **Granice + pierwiastki, wpisywane ręcznie** (5.1–5.4, bez SymPy). Zestaw testowy:
    **58 zadań z „Granice ciągów i funkcji — zadania na ćwiczenia 2026”** (zestawy 1–9: wielomiany
    przy n → ∞, pierwiastki, różnice pierwiastków 2., 3. i 4. stopnia, logarytmy, 1^∞, x → ±∞,
@@ -234,6 +238,13 @@ granicę) → pierwsza niezgodna linia podświetlona z krótkim „tu wynik się
 
 **Szczegółowy plan** obejmuje etapy 1–2; etapy 3–5 jako zarys, rozpisywane po prototypach
 z sekcji 7 (decyzja Claude po recenzji).
+
+### 5.9 Klawiatura do wzorów (nowe, 2026-11-21)
+
+Wpisywanie złożonych granic palcem jest męczące; Mateusz chce trybu jak w Photomacie.
+Dwie drogi (do decyzji przy projektowaniu tego etapu, po skanerze):
+- **szybka:** dodatkowy rząd przycisków wstawiających kawałki zapisu (`lim x→`, `∞`, `√( )`, `∛`, `( )/( )`, `^`, `²`), pole zostaje tekstem;
+- **pełna:** edytor 2D (ułamek piętrowy, pierwiastek, wykładnik u góry) — np. biblioteka MathLive (MIT, offline, ok. 1 MB), wynik zamieniany na zapis parsera.
 
 ### 5.8 Dane testowe (odpowiedzi Mateusza)
 
