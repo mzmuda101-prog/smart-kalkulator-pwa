@@ -45,6 +45,7 @@ const ASSETS_TO_CACHE = [
     './js/formula-ocr-worker.js',
     './js/formula-image.js',
     './js/latex-to-expr.js',
+    './js/scanner.js',
     './js/notepad-format.js',
     './js/notepad-engine.js',
     './js/notepad-worker.js',

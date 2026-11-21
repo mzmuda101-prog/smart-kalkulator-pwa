@@ -61,6 +61,7 @@
             <symbol id="i-share" viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></symbol>
             <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
             <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
+            <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></symbol>
             <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
             <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></symbol>
             <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
@@ -154,6 +155,8 @@
                             inputmode="text" aria-label="Wyrażenie kalkulatora" placeholder="np. 100 zł + 23% vat"></textarea>
                         <!-- Pierwszy przykład STATYCZNIE — pierwszy paint bez migotania;
                              dalszą rotację przejmuje startPlaceholderExamples() w app.js. -->
+                        <button class="calc-scan-btn no-haptic" id="calcScanBtn" type="button" aria-label="Odczytaj wzór ze zdjęcia"
+                            data-hint="Odczytaj wzór ze zdjęcia"><svg class="ui-icon" aria-hidden="true"><use href="#i-camera"/></svg></button>
                         <span class="calc-ph" id="calcPh" aria-hidden="true"><span>np. 100 zł + 23% vat</span></span>
                         <div class="autocomplete-dropdown calc-ac-dropdown" id="calcExprAC" role="listbox" aria-label="Podpowiedzi wyrażenia"></div>
                     </div>
@@ -1416,6 +1419,8 @@
     <script defer src="js/hint-rules.js?v=v1.04.87"></script>
     <script defer src="js/model-store.js?v=v1.04.87"></script>
     <script defer src="js/formula-ocr.js?v=v1.04.87"></script>
+    <script defer src="js/formula-image.js?v=v1.04.87"></script>
+    <script defer src="js/scanner.js?v=v1.04.87"></script>
     <script defer src="js/notepad-format.js?v=v1.04.87"></script>
     <script defer src="js/notepad-engine.js?v=v1.04.87"></script>
     <script defer src="command-definitions.js?v=v1.04.87"></script>

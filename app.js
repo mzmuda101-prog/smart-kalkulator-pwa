@@ -2289,6 +2289,11 @@
                 _calcPh.classList.add('is-scrolling');
             }
         }
+        // Skaner wzoru ze zdjęcia (js/scanner.js): ikona aparatu w polu.
+        (function () {
+            var scanBtn = document.getElementById('calcScanBtn');
+            if (scanBtn) scanBtn.addEventListener('click', function () { if (window.MATM0_SCANNER) window.MATM0_SCANNER.open({ source: 'file' }); });
+        })();
         function setupPlaceholderMarquee() {
             _calcPh = document.getElementById('calcPh');
             if (!_calcPh || !calcExpr) return;

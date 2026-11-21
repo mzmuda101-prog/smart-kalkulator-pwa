@@ -230,3 +230,142 @@ test.describe('odczyt wzoru w workerze', () => {
     expect(await result).toBe('declined');
   });
 });
+
+// ============================================================
+//  Ramka na zdjęciu: ikona w polu, okno, odczyt do #calcExpr
+// ============================================================
+const FRAC = `test/fixtures/formulas/frac.png`;
+const fixtureBuf = (name) => require('fs').readFileSync(require('path').join(__dirname, '../fixtures/formulas', name + '.png'));
+
+async function openScanner(page) {
+  await page.goto('index.html', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => !!window.MATM0_OCR && !!window.MATM0_SCANNER);
+  const icon = page.getByRole('button', { name: 'Odczytaj wzór ze zdjęcia' });
+  await icon.click();
+  return { icon, dlg: page.locator('dialog.scanner-dialog') };
+}
+async function pickFile(page, buffer) {
+  await page.locator('dialog.scanner-dialog input[type=file]').setInputFiles({ name: 'w.png', mimeType: 'image/png', buffer });
+  await expect(page.locator('.scanner-frame')).toBeVisible();
+}
+
+test.describe('ramka na zdjęciu', () => {
+  test.use({ serviceWorkers: 'block' });
+
+  test('ikona w polu ma cel co najmniej 44x44, Escape zamyka okno i oddaje fokus ikonie', async ({ page }) => {
+    const { icon, dlg } = await openScanner(page);
+    await expect(dlg).toBeVisible();
+    await expect(dlg).toContainText('Ustaw ramkę na jednym wzorze');
+    const box = await icon.boundingBox();
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    await page.keyboard.press('Escape');
+    await expect(dlg).toBeHidden();
+    await expect(icon).toBeFocused();
+  });
+
+  test('przeciągnięcie uchwytu zmienia rozmiar ramki, przeciągnięcie ramki ją przesuwa, ramka zostaje na obrazie', async ({ page }) => {
+    const { dlg } = await openScanner(page);
+    await pickFile(page, fixtureBuf('frac'));
+    const frame = page.locator('.scanner-frame');
+    const before = await frame.boundingBox();
+    const h = await page.locator('.scanner-handle[data-corner="se"]').boundingBox();
+    await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(h.x + h.width / 2 - 40, h.y + h.height / 2 - 6, { steps: 4 });
+    await page.mouse.up();
+    const after = await frame.boundingBox();
+    expect(after.width).toBeLessThan(before.width - 30);
+    expect(after.height).toBeLessThan(before.height);
+    expect(after.x).toBeCloseTo(before.x, 0);
+    // przesunięcie całej ramki
+    const c = { x: after.x + after.width / 2, y: after.y + after.height / 2 };
+    await page.mouse.move(c.x, c.y);
+    await page.mouse.down();
+    await page.mouse.move(c.x + 15, c.y + 5, { steps: 3 });
+    await page.mouse.up();
+    const moved = await frame.boundingBox();
+    expect(moved.x).toBeGreaterThan(after.x + 10);
+    // strzałka przesuwa ramkę o 8 px
+    await frame.focus();
+    await page.keyboard.press('ArrowLeft');
+    const kb = await frame.boundingBox();
+    expect(Math.round(moved.x - kb.x)).toBe(8);
+    // poza obrazem: ciągnięcie w skrajny róg nie wypycha ramki
+    await page.mouse.move(moved.x + 5, moved.y + 5);
+    await page.mouse.down();
+    await page.mouse.move(2000, 2000, { steps: 3 });
+    await page.mouse.up();
+    const img = await page.locator('.scanner-stage canvas').boundingBox();
+    const out = await frame.boundingBox();
+    expect(out.x + out.width).toBeLessThanOrEqual(img.x + img.width + 1);
+    expect(out.y + out.height).toBeLessThanOrEqual(img.y + img.height + 1);
+  });
+
+  test('obraz-śmieć: komunikat, pole bez zmian, okno zostaje; „Odczytaj” nie jest wyłączone w trakcie', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'model testujemy raz');
+    test.setTimeout(180_000);
+    await page.goto('index.html', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => !!window.MATM0_SCANNER);
+    await page.locator('#calcExpr').fill('2+2');
+    await page.getByRole('button', { name: 'Odczytaj wzór ze zdjęcia' }).click();
+    const noise = await page.evaluate(async () => {
+      const c = document.createElement('canvas'); c.width = 240; c.height = 120;
+      const x = c.getContext('2d'); const d = x.createImageData(240, 120);
+      for (let i = 0; i < d.data.length; i += 4) { const v = Math.random() * 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255; }
+      x.putImageData(d, 0, 0);
+      const b = await new Promise((r) => c.toBlob(r, 'image/png'));
+      return Array.from(new Uint8Array(await b.arrayBuffer()));
+    });
+    await pickFile(page, Buffer.from(noise));
+    const read = page.getByRole('button', { name: 'Odczytaj', exact: true });
+    await read.click();
+    await page.locator('dialog.model-dialog').getByRole('button', { name: 'Pobierz' }).click();
+    await expect(read).toHaveAttribute('aria-busy', 'true');
+    await expect(read).toBeEnabled();
+    await expect(page.locator('.scanner-error')).toContainText('Nie odczytałem wzoru. Ustaw ramkę ciaśniej wokół jednego wzoru.', { timeout: 90_000 });
+    await expect(page.locator('dialog.scanner-dialog')).toBeVisible();
+    await expect(page.locator('#calcExpr')).toHaveValue('2+2');
+  });
+
+  test('odczyt frac.png: wartość trafia do pola i wynik się liczy', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'model testujemy raz');
+    test.setTimeout(180_000);
+    const { dlg } = await openScanner(page);
+    await pickFile(page, fixtureBuf('frac'));
+    // ramka na całym obrazie: fixture to już przycięty wzór
+    await page.evaluate(() => MATM0_SCANNER._setFrame(0, 0, 1, 1));
+    await page.getByRole('button', { name: 'Odczytaj', exact: true }).click();
+    await page.locator('dialog.model-dialog').getByRole('button', { name: 'Pobierz' }).click();
+    await expect(dlg).toBeHidden({ timeout: 90_000 });
+    await expect(page.locator('#calcExpr')).toHaveValue(FIXTURES[0][1]);
+    await expect(page.locator('#calcResult')).not.toHaveText('0');
+    await expect(page.getByRole('button', { name: 'Odczytaj wzór ze zdjęcia' })).toBeFocused();
+  });
+
+  test('odmowa zgody zamyka okno po cichu, pole bez zmian', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'model testujemy raz');
+    await page.goto('index.html', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => !!window.MATM0_SCANNER);
+    await page.evaluate(() => MATM0_MODELS.remove('formulanet-s'));
+    await page.getByRole('button', { name: 'Odczytaj wzór ze zdjęcia' }).click();
+    await pickFile(page, fixtureBuf('frac'));
+    await page.getByRole('button', { name: 'Odczytaj', exact: true }).click();
+    await page.locator('dialog.model-dialog').getByRole('button', { name: 'Nie teraz' }).click();
+    await expect(page.locator('dialog.scanner-dialog')).toBeHidden();
+    await expect(page.locator('#calcExpr')).toHaveValue('');
+  });
+
+  test('cropToImage: przycina w pikselach źródła i zmniejsza dłuższy bok do 2000', async ({ page }) => {
+    await page.goto('index.html', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => !!window.MATM0_SCANNER);
+    const r = await page.evaluate(() => {
+      const c = document.createElement('canvas'); c.width = 4000; c.height = 1000;
+      const x = c.getContext('2d'); x.fillStyle = '#00f'; x.fillRect(0, 0, 4000, 1000); x.fillStyle = '#f00'; x.fillRect(0, 0, 1000, 1000);
+      const a = MATM0_SCANNER.cropToImage(c, { x: 0, y: 0, w: 1000, h: 500 });
+      const b = MATM0_SCANNER.cropToImage(c, { x: 1000, y: 0, w: 4000, h: 1000 });
+      return [a.width, a.height, a.data[0], a.data[2], b.width, b.height, b.data[0] < 30, b.data[2] > 225];
+    });
+    expect(r).toEqual([1000, 500, 255, 0, 2000, 667, true, true]);
+  });
+});

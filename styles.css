@@ -770,10 +770,23 @@
             min-height: 1.75rem;
             box-sizing: border-box;
         }
+        /* Ikona skanera: 44x44, na końcu pierwszej linii; pole ma na nią miejsce. */
+        .calc-scan-btn {
+            position: absolute; inset-block-start: 0; inset-inline-end: 0; z-index: 2;
+            inline-size: 44px; block-size: 44px; padding: 0; border: 0; border-radius: var(--radius);
+            background: transparent; color: var(--text-muted); cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center;
+        }
+        .calc-scan-btn .ui-icon { inline-size: 22px; block-size: 22px; }
+        .calc-scan-btn:active { transform: scale(0.94); color: var(--primary); }
+        @media (hover: hover) { .calc-scan-btn:hover { color: var(--primary); } }
+        .calc-scan-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+        .calc-expr-wrap { min-block-size: 44px; }
+        .calc-expr-wrap .calc-expression { padding-inline-end: 44px; }
         .calc-expr-wrap.has-ph .calc-expression::placeholder { color: transparent; }
         .calc-ph {
             position: absolute;
-            inset: 0;
+            inset: 0 44px 0 0; /* prawy skraj zajmuje ikona skanera */
             display: none;
             align-items: flex-end;
             justify-content: flex-end;
@@ -5667,3 +5680,64 @@ body.kb-open.notepad-open .np-total-bar { margin-top: 6px; padding-top: 2px; pad
     .model-dialog-btn.primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
 }
 .model-dialog-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+
+/* ===== Skaner wzoru: okno z ramką na obrazie (js/scanner.js) ===== */
+.scanner-dialog {
+    margin: 0; padding: 0; border: 0;
+    inline-size: 100vw; max-inline-size: none; block-size: 100dvh; max-block-size: none;
+    background: var(--bg); color: var(--text);
+}
+.scanner-dialog[open] {
+    display: flex; flex-direction: column;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    box-sizing: border-box;
+}
+.scanner-dialog::backdrop { background: rgba(15, 23, 42, 0.55); }
+.scanner-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 8px 8px 16px; flex: 0 0 auto; }
+.scanner-title { margin: 0; font-size: 1.0625rem; }
+.scanner-close {
+    inline-size: 44px; block-size: 44px; border: 0; border-radius: var(--radius); background: transparent; color: var(--text);
+    display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.scanner-close:active { transform: scale(0.94); }
+@media (hover: hover) { .scanner-close:hover { background: var(--border); } }
+.scanner-stage { position: relative; flex: 1 1 auto; min-block-size: 0; overflow: hidden; background: var(--card-bg); }
+.scanner-stage canvas { position: absolute; display: block; }
+.scanner-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px; text-align: center; }
+.scanner-empty-text { margin: 0; max-inline-size: 32ch; color: var(--text-secondary); line-height: 1.5; }
+.scanner-frame {
+    position: absolute; box-sizing: border-box; touch-action: none; cursor: move;
+    border: 2px solid var(--primary); border-radius: 2px;
+    box-shadow: 0 0 0 100vmax rgba(15, 23, 42, 0.55); /* przyciemnia wszystko poza ramką; scena ma overflow: hidden */
+}
+.scanner-frame:focus-visible { outline: 3px solid var(--text-on-accent); outline-offset: 2px; }
+.scanner-handle {
+    position: absolute; inline-size: 44px; block-size: 44px; padding: 0; border: 0; background: transparent;
+    touch-action: none; display: flex; align-items: center; justify-content: center; cursor: nwse-resize;
+}
+.scanner-knob { inline-size: 16px; block-size: 16px; border-radius: 50%; background: var(--primary); border: 2px solid var(--text-on-accent); box-sizing: border-box; }
+.scanner-handle:focus-visible .scanner-knob { outline: 2px solid var(--text-on-accent); outline-offset: 2px; }
+.scanner-handle[data-corner="nw"] { inset: -22px auto auto -22px; }
+.scanner-handle[data-corner="ne"] { inset: -22px -22px auto auto; cursor: nesw-resize; }
+.scanner-handle[data-corner="sw"] { inset: auto auto -22px -22px; cursor: nesw-resize; }
+.scanner-handle[data-corner="se"] { inset: auto -22px -22px auto; }
+.scanner-error { margin: 8px 16px 0; padding: 8px 12px; border-inline-start: 4px solid var(--danger); background: var(--card-bg); color: var(--text); line-height: 1.4; overflow-wrap: anywhere; }
+.scanner-bar { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding: 12px 16px; flex: 0 0 auto; }
+.scanner-btn {
+    min-block-size: 44px; min-inline-size: 44px; padding: 0 20px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    border: 1.5px solid var(--border); border-radius: var(--radius); background: var(--bg); color: var(--text); font: inherit; font-weight: 600; cursor: pointer;
+}
+.scanner-btn.primary { background: var(--primary); border-color: var(--primary); color: var(--text-on-accent); }
+.scanner-btn:active { transform: scale(0.97); }
+@media (hover: hover) {
+    .scanner-btn:hover { border-color: var(--border-focus); }
+    .scanner-btn.primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+}
+.scanner-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.scanner-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.scanner-btn.primary.is-busy { pointer-events: none; } /* pełna siła, tylko bez ponownego kliknięcia */
+.scanner-spinner { display: none; inline-size: 16px; block-size: 16px; border-radius: 50%; border: 2px solid currentColor; border-inline-end-color: transparent; }
+.is-busy .scanner-spinner { display: inline-block; animation: scannerSpin 0.8s linear infinite; }
+@keyframes scannerSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .is-busy .scanner-spinner { animation-duration: 3s; } }
