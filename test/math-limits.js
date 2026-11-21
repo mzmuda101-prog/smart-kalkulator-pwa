@@ -200,6 +200,28 @@ const WANT_TEXT = { '1a': '1/3', '1d': '0', '1e': '+∞', '7a': '√3/3', '7b': 
     ok('9e tekst −1/96', text(byId['9e'].input) === '−1/96', text(byId['9e'].input));
 }
 
+// ── Task 9: granice znane, jednostronne, de l'Hospital ─────
+{
+    const lab = q => { const r = S.run(q); return r && r.explain ? r.explain.steps : []; };
+    ok('sin(x)/x = 1', text('lim x→0 sin(x)/x') === '1', text('lim x→0 sin(x)/x'));
+    ok('sin(3x)/x = 3', text('lim x→0 sin(3x)/x') === '3', text('lim x→0 sin(3x)/x'));
+    const st = lab('lim x→0 sin(3x)/x');
+    ok('sin(3x)/x: krok sin u/u → 1 z u = 3x', st.some(x => x.label.includes('sin u/u → 1') && x.math.includes('u = 3x')), st.map(x => x.label + ': ' + x.math));
+    ok('(eˣ−1)/x = 1', text('lim x→0 (e^x-1)/x') === '1', text('lim x→0 (e^x-1)/x'));
+    ok('ln(1+2x)/x = 2', text('lim x→0 ln(1+2x)/x') === '2', text('lim x→0 ln(1+2x)/x'));
+    ok('x/sin(x) = 1', text('lim x→0 x/sin(x)') === '1', text('lim x→0 x/sin(x)'));
+    ok('(1+x)^(1/x) = e', text('lim x→0 (1+x)^(1/x)') === 'e', text('lim x→0 (1+x)^(1/x)'));
+    ok('(x − sin x)/x³ = 1/6', text('lim x→0 (x - sin(x))/x^3') === '1/6', text('lim x→0 (x - sin(x))/x^3'));
+    ok('de l\'Hospital w krokach', lab('lim x→0 (x - sin(x))/x^3').some(x => x.label === "Reguła de l'Hospitala"), lab('lim x→0 (x - sin(x))/x^3').map(x => x.label));
+    ok('1/x przy 0⁺ = +∞', text('lim x→0+ 1/x') === '+∞', text('lim x→0+ 1/x'));
+    ok('1/x przy 0⁻ = −∞', text('lim x→0- 1/x') === '−∞', text('lim x→0- 1/x'));
+    ok('1/x przy 0 — nie istnieje', text('lim x→0 1/x') === 'granica nie istnieje', text('lim x→0 1/x'));
+    const dn = lab('lim x→0 1/x');
+    ok('nie istnieje: krok z obiema stronami', dn.some(x => x.math.includes('0⁻') && x.math.includes('0⁺')), dn.map(x => x.math));
+    ok('1/x² przy 0 = +∞', text('lim x→0 1/x^2') === '+∞', text('lim x→0 1/x^2'));
+    ok('sin(1/x) przy 0 → NOPE', text('lim x→0 sin(1/x)') === NOPE, text('lim x→0 sin(1/x)'));
+}
+
 // ── Przegląd kontrolny (po Task 3): błędy znalezione przez recenzenta ──
 ok('C1: lim x→−1 √(x²) ≠ −1 (|x|, nie x)', text('lim x→-1 sqrt(x^2)') !== '−1', text('lim x→-1 sqrt(x^2)'));
 ok('C1: pochodna √(x²) ≠ 1', text('pochodna sqrt(x^2)') !== 'f′(x) = 1', text('pochodna sqrt(x^2)'));

@@ -704,7 +704,8 @@
             if (!p || !C.hasVar(p.g, v)) return false;
             var fb = numericLimit(p.f, v, t), gx = numericLimit(p.g, v, t);
             // [EN] podstawa → 1 bywa wolna (1 − 3/√n), więc próg zależy od zbieżności; wynik i tak jest sprawdzany
-            return !!fb && fb.kind === 'num' && Math.abs(fb.value - 1) <= Math.max(1e-6, 10 * (fb.err || 0)) && !!gx && gx.kind === 'inf';
+            var gInf = !!gx && (gx.kind === 'inf' || (gx.kind === 'sides' && gx.left.kind === 'inf' && gx.right.kind === 'inf'));
+            return !!fb && fb.kind === 'num' && Math.abs(fb.value - 1) <= Math.max(1e-6, 10 * (fb.err || 0)) && gInf;
         },
         apply: function (e, v, t, log, depth) {
             var p = expOf(e), h = minusOne(p.f), a = C.cPow(h, K.neg(ONE));
@@ -768,11 +769,14 @@
         test: function (e, v, t) {
             if (!isFiniteTarget(t) || e.length !== 1) return false;
             var a = C.numberOf(pointExpr(t));
-            return e[0].fs.some(function (f) {
-                if (f.e.n >= 0n || !K.isInt(f.e)) return false;
-                var c = C.polyCoefs(C.atomExpr(f.b), v);
-                return !!c && c.length > 1 && K.isZero(hornerAt(c, a));
-            });
+            var rootIn = function (down) { // [EN] (x − a) musi być i w liczniku, i w mianowniku — inaczej nie ma czego skracać
+                return e[0].fs.some(function (f) {
+                    if ((f.e.n < 0n) !== down || !K.isInt(f.e)) return false;
+                    var c = C.polyCoefs(C.atomExpr(f.b), v);
+                    return !!c && c.length > 1 && K.isZero(hornerAt(c, a));
+                });
+            };
+            return rootIn(true) && rootIn(false);
         },
         apply: function (e, v, t, log, depth) {
             var a = C.numberOf(pointExpr(t)), xa = C.polyExpr([K.neg(a), ONE], v);
@@ -806,7 +810,104 @@
         var s = x.length > 1 ? '(' + C.show(x) + ')' : C.show(x);
         return pow > 1 ? (x.length > 1 ? s : '(' + s + ')') + K.sup(String(pow)) : s;
     }
-    RULES.push(commonDenominator, logCombine, factorCancel, conjugate, splitPairs, sameExponent, eLimit, dominantPower);
+    // ── Granice znane: sin u/u, tg u/u, (eᵘ − 1)/u, ln(1 + u)/u, arcsin u/u, arctg u/u → 1 ──
+    var KNOWN_FN = { sin: 'sin u/u → 1', tan: 'tg u/u → 1', asin: 'arcsin u/u → 1', atan: 'arctg u/u → 1' };
+    function isE(x) { return x.length === 1 && K.eq(x[0].c, ONE) && x[0].fs.length === 1 && x[0].fs[0].b.k === 'const' && x[0].fs[0].b.v === 'e' && K.eq(x[0].fs[0].e, ONE); }
+    function knownPart(x, v, t) { // [EN] x = sin(u) | tg(u) | eᵘ − 1 | ln(1 + u), u → 0 → { u, label }
+        var hit = null;
+        if (x.length === 1 && x[0].fs.length === 1 && K.eq(x[0].fs[0].e, ONE) && x[0].fs[0].b.k === 'fn') {
+            var a = x[0].fs[0].b;
+            var top1 = [C.term(ONE, x[0].fs)];
+            if (KNOWN_FN[a.f]) hit = { u: a.a, label: KNOWN_FN[a.f], c: x[0].c, top: top1 };
+            else if (a.f === 'ln') hit = { u: fold(C.expandExpr(C.cSub(a.a, C.num(ONE)))), label: 'ln(1 + u)/u → 1', c: x[0].c, top: top1 };
+        } else if (x.length === 2) {
+            var ex = x.filter(function (tt) { return tt.fs.length === 1 && tt.fs[0].b.k === 'exp' && isE(tt.fs[0].b.b) && K.eq(tt.fs[0].e, ONE); });
+            var cst = x.filter(function (tt) { return !tt.fs.length; });
+            if (ex.length === 1 && cst.length === 1 && K.eq(cst[0].c, K.neg(ex[0].c))) hit = { u: ex[0].fs[0].b.x, label: '(eᵘ − 1)/u → 1', c: ex[0].c, top: C.cAdd([C.term(ONE, ex[0].fs)], C.num(K.neg(ONE))) };
+        }
+        if (!hit || !C.hasVar(hit.u, v)) return null;
+        var ul = numericLimit(hit.u, v, t);
+        return ul && ul.kind === 'num' && Math.abs(ul.value) < 1e-9 ? hit : null;
+    }
+    var knownLimits = {
+        name: 'knownLimits',
+        test: function (e, v, t) {
+            if (e.length !== 1) return false;
+            var fr = splitFraction(e);
+            return !!(knownPart(fr.N, v, t) || (!isOne(fr.D) && knownPart(fr.D, v, t)));
+        },
+        apply: function (e, v, t, log, depth) {
+            var fr = splitFraction(e), up = knownPart(fr.N, v, t), hit = up || knownPart(fr.D, v, t);
+            var u = hit.u, uText = C.show(u);
+            var rest = up ? C.cMul(C.num(hit.c), C.cMul(u, C.cPow(fr.D, K.neg(ONE))))
+                : C.cMul(fr.N, C.cPow(C.cMul(C.num(hit.c), u), K.neg(ONE)));
+            rest = fold(rest);
+            var bracket = up ? '[' + C.paren(hit.top) + '/' + grp(u) + ']' : '[' + C.paren(u) + '/' + grp(hit.top) + ']';
+            line(log, 'Granica znana: ' + hit.label, 'u = ' + uText + ' → 0:  ' + limHead(v, t) + bracket + ' · ' + C.show(rest));
+            line(log, 'Nawias kwadratowy → 1', limOf(v, t, rest));
+            return limitOf(rest, v, t, log, depth);
+        }
+    };
+
+    // ── Mianownik → 0, licznik → c ≠ 0: granice jednostronne ──────────
+    function sideSign(D, v, t, side) { // [EN] znak mianownika tuż obok punktu
+        var D0 = Dec(), x = new D0(t.at).add(new D0(10).pow(-30).mul(side));
+        var r = valueAt(function (xx) { var env = {}; env[v] = xx; return evalDec(D, env); }, x);
+        return r && !r.isZero() ? (r.isNeg() ? -1 : 1) : 0;
+    }
+    var oneSided = {
+        name: 'oneSided',
+        test: function (e, v, t) {
+            if (!isFiniteTarget(t) || e.length !== 1) return false;
+            var fr = splitFraction(e);
+            if (isOne(fr.D)) return false;
+            var d = numericLimit(fr.D, v, t), n = numericLimit(fr.N, v, t);
+            return !!d && d.kind === 'num' && Math.abs(d.value) < 1e-9 && !!n && n.kind === 'num' && Math.abs(n.value) > 1e-6;
+        },
+        apply: function (e, v, t, log, depth) {
+            var fr = splitFraction(e);
+            var N = limitOf(fr.N, v, { at: t.at, src: t.src, side: t.side }, null, depth);
+            if (N.kind !== 'num') throw new NotSupported();
+            var nv = numVal(N.e), cText = C.show(rationalize(fold(N.e)));
+            function oneSide(side) {
+                var sg = sideSign(fr.D, v, t, side);
+                if (!sg) throw new NotSupported();
+                var tt = { at: t.at, src: t.src, side: side };
+                line(log, 'Granica jednostronna ' + targetText(tt), 'licznik → ' + cText + ', mianownik → 0' + (sg > 0 ? '⁺' : '⁻') + ',  ' + limOf(v, tt, e) + ' = ' + ((nv > 0) === (sg > 0) ? '+∞' : '−∞'));
+                return (nv > 0) === (sg > 0) ? 1 : -1;
+            }
+            if (t.side) return { kind: 'inf', sign: oneSide(t.side) };
+            var L = oneSide(-1), Rr = oneSide(1);
+            if (L === Rr) return { kind: 'inf', sign: L };
+            line(log, 'Granice jednostronne są różne', 'lim(' + v + '→' + targetText({ at: t.at, src: t.src, side: -1 }) + ') = ' + (L > 0 ? '+∞' : '−∞') +
+                ',  lim(' + v + '→' + targetText({ at: t.at, src: t.src, side: 1 }) + ') = ' + (Rr > 0 ? '+∞' : '−∞'));
+            return { kind: 'dne', why: 'sides' };
+        }
+    };
+
+    // ── Reguła de l'Hospitala dla [0/0] i [∞/∞] (najwyżej 3 razy) ──────
+    var _lhCount = 0;
+    var lHospital = {
+        name: 'lHospital',
+        test: function (e, v, t) {
+            if (e.length !== 1 || _lhCount >= 3) return false;
+            var ind = indeterminate(e, v, t);
+            return ind === '0/0' || ind === '∞/∞';
+        },
+        apply: function (e, v, t, log, depth) {
+            var fr = splitFraction(e);
+            var dN = fold(C.dExpr(fr.N, v, null)), dD = fold(C.dExpr(fr.D, v, null));
+            if (!dD.length) throw new NotSupported();
+            var out = fold(C.cMul(dN, C.cPow(dD, K.neg(ONE))));
+            if (C.show(out).length > 4 * C.show(e).length + 40) throw new NotSupported(); // [EN] wyrażenie się komplikuje
+            _lhCount++;
+            try {
+                line(log, "Reguła de l'Hospitala", limHead(v, t) + '(' + C.showInner(fr.N) + ')′/(' + C.showInner(fr.D) + ')′ = ' + limOf(v, t, out));
+                return limitOf(out, v, t, log, depth);
+            } finally { _lhCount--; }
+        }
+    };
+    RULES.push(commonDenominator, logCombine, factorCancel, knownLimits, conjugate, splitPairs, sameExponent, eLimit, dominantPower, oneSided, lHospital);
 
     // ── Symbol nieoznaczony (do pierwszego kroku, jak na zajęciach) ──────
     function kindOf(x) {
