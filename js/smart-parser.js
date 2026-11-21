@@ -2161,6 +2161,15 @@
             return pre + 'e^(' + sup.replace('⁻', '-').replace(/[⁰-⁹¹²³]/g, function (c) { return String(SUPD.indexOf(c)); }) + ')';
         });
         out = out.replace(/√e(?![A-Za-zÀ-ſ])/g, 'sqrt(e)');
+        // [EN] pierwiastki 3./4. stopnia i log o podstawie z wyników granic: ∛2, ∜3, log₂(3)
+        out = out.replace(/([∛∜])\s*(\([^()]*\)|[\d.,]+|[a-zπ])/g, function (_, r, x) {
+            var arg = x.charAt(0) === '(' ? x : '(' + x + ')';
+            return '(' + arg + '^(1/' + (r === '∛' ? 3 : 4) + '))';
+        });
+        out = out.replace(/log([₀₁₂₃₄₅₆₇₈₉]+)\(([^()]*)\)/g, function (_, b, u) {
+            var base = b.replace(/[₀-₉]/g, function (c) { return String(c.charCodeAt(0) - 0x2080); });
+            return '(ln(' + u + ')/ln(' + base + '))';
+        });
         // indeks górny: przy jednostce to cyfra (km² → km2), przy liczbie to potęga (5² → 5^2)
         out = out.replace(/([A-Za-zÀ-ſ])\u00b2/g, '$12').replace(/([A-Za-zÀ-ſ])\u00b3/g, '$13');
         out = out.replace(/(\d)\s*\u00b2/g, '$1^2').replace(/(\d)\s*\u00b3/g, '$1^3');

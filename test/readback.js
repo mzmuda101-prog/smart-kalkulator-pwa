@@ -81,7 +81,8 @@ const EXTRA = [
     ['1/e⁶', true], ['e⁴', true], ['√e', true], ['√3/3', true], ['−√3/3', true], ['1/e', true],
     ['+∞', false], ['granica nie istnieje', false],   // tekst — nie liczy, ale nie wywraca
 ];
-[['1/e⁶', Math.exp(-6)], ['e⁴', Math.exp(4)], ['√e', Math.sqrt(Math.E)], ['2e³', 2 * Math.exp(3)]].forEach(function (pair) {
+[['1/e⁶', Math.exp(-6)], ['e⁴', Math.exp(4)], ['√e', Math.sqrt(Math.E)], ['2e³', 2 * Math.exp(3)],
+ ['∛2', Math.cbrt(2)], ['∜3', Math.pow(3, 0.25)], ['2∛(x)'.replace('(x)', '5'), 2 * Math.cbrt(5)], ['log₂(3)', Math.log2(3)], ['∛2/2', Math.cbrt(2) / 2]].forEach(function (pair) {
     const r = api.evalCalcExpression(pair[0]);
     const okv = r && typeof r.value === 'number' && Math.abs(r.value - pair[1]) <= 1e-9 * (1 + Math.abs(pair[1]));
     if (okv) pass++;
