@@ -51,7 +51,7 @@ test.describe('model: pobieranie za zgodą', () => {
     expect(got[got.length - 1][0]).toBe(total);
     for (let i = 1; i < got.length; i++) expect(got[i][0]).toBeGreaterThanOrEqual(got[i - 1][0]);
     const st = await page.evaluate(() => MATM0_MODELS.status('formulanet-s'));
-    expect(st).toMatchObject({ ready: true, haveBytes: 37428903, gzBytes: 37428903 });
+    expect(st).toMatchObject({ ready: true, haveBytes: total, gzBytes: 37428903 }); // haveBytes: kawałki + vocab + silnik
     // gotowy model: bez okna, bez sieci
     const again = await page.evaluate(ENSURE(NAME));
     expect(again.ok).toBe(6);
@@ -492,13 +492,176 @@ test.describe('ustawienia: usuwanie modelu', () => {
     await expect(row).toBeVisible();
     await expect(row).toContainText('52,9 MB');
     await row.scrollIntoViewIfNeeded();
-    await page.screenshot({ path: '.superpowers/sdd/2026-11-21-skaner-druku-etap-3/shots/task9-settings-light.png' });
+    await page.screenshot({ path: test.info().outputPath('settings-light.png') });
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
-    await page.screenshot({ path: '.superpowers/sdd/2026-11-21-skaner-druku-etap-3/shots/task9-settings-dark.png' });
+    await page.screenshot({ path: test.info().outputPath('settings-dark.png') });
     await page.locator('#settingsModelRemove').click();
     await page.locator('#settingsModelConfirmYes').click();
     await expect(row).toBeHidden();
     expect((await page.evaluate(() => MATM0_MODELS.status('formulanet-s'))).ready).toBe(false);
+  });
+});
+
+// ============================================================
+//  Ścieżka produkcyjna: SW aktywny i kontroluje stronę (bez blokady), offline, czyszczenie cache
+// ============================================================
+test.describe('produkcja: service worker aktywny', () => {
+  test.beforeEach(({}, testInfo) => test.skip(testInfo.project.name !== 'desktop', 'model testujemy raz'));
+
+  test('pobranie → odczyt; offline po przeładowaniu skaner z ikony czyta; „Wyczyść cache” zostawia model', async ({ page, context }) => {
+    test.setTimeout(300_000);
+    // apka na localhost wyrejestrowuje SW; ten znacznik każe jej zachować się jak w produkcji (sama rejestruje sw.js)
+    await page.addInitScript(() => localStorage.setItem('matm0_sw_local', '1'));
+    await page.goto('index.html', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, { timeout: 30_000 });
+    // druga wizyta online: skrypty strony (?v=…) przechodzą przez SW i trafiają do cache apki
+    await page.reload({ waitUntil: 'load' });
+    await page.waitForFunction(() => !!navigator.serviceWorker.controller);
+
+    // 1. zgoda → pobranie → odczyt w workerze, wszystko przez SW
+    const first = page.evaluate(async () => {
+      const bmp = await createImageBitmap(await (await fetch('test/fixtures/formulas/frac.png')).blob());
+      const ctx = new OffscreenCanvas(bmp.width, bmp.height).getContext('2d');
+      ctx.drawImage(bmp, 0, 0);
+      const d = ctx.getImageData(0, 0, bmp.width, bmp.height);
+      return MATM0_OCR.read({ data: d.data, width: d.width, height: d.height }).then((r) => ({ expr: r.expr }), (e) => ({ err: e.message }));
+    });
+    await page.locator('dialog.model-dialog').getByRole('button', { name: 'Pobierz' }).click();
+    expect(await first).toEqual({ expr: FIXTURES[0][1] });
+
+    // 2. offline + przeładowanie: ikona aparatu ładuje skaner z cache, odczyt działa bez okna zgody
+    const readViaIcon = async () => {
+      await page.waitForFunction(() => !!window.MATM0_OCR && !!window.loadScanner, null, { timeout: 30_000 });
+      await page.locator('#calcExpr').fill('');
+      await page.getByRole('button', { name: 'Odczytaj wzór ze zdjęcia' }).click();
+      const dlg = page.locator('dialog.scanner-dialog');
+      await expect(dlg).toBeVisible();
+      await pickFile(page, fixtureBuf('frac'));
+      await page.getByRole('button', { name: 'Odczytaj', exact: true }).click();
+      await expect(dlg).toBeHidden({ timeout: 90_000 });
+      await expect(page.locator('#calcExpr')).toHaveValue(FIXTURES[0][1]);
+      await expect(page.locator('dialog.model-dialog')).toHaveCount(0);
+    };
+    await context.setOffline(true);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await readViaIcon();
+
+    // 3. „Wyczyść cache i przeładuj” (ta sama ścieżka co aktualizacja: purge-caches w SW + purgeAppCaches)
+    await context.setOffline(false);
+    const nav = page.waitForURL(/refresh=/, { timeout: 30_000 });
+    await page.evaluate(() => document.getElementById('cacheRefreshBtn').click());
+    await nav;
+    await page.waitForFunction(() => !!window.MATM0_MODELS);
+    expect(await page.evaluate(() => caches.keys())).toContain('matm0-models-v1');
+    expect((await page.evaluate(() => MATM0_MODELS.status('formulanet-s'))).ready).toBe(true);
+    await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, { timeout: 30_000 });
+    await context.setOffline(true);
+    await readViaIcon();
+  });
+});
+
+// ============================================================
+//  Odporność: start workera z limitem, komunikaty błędów, ładowanie skanera, bezczynny worker
+// ============================================================
+const readFrac = (page) => page.evaluate(async () => {
+  const bmp = await createImageBitmap(await (await fetch('test/fixtures/formulas/frac.png')).blob());
+  const ctx = new OffscreenCanvas(bmp.width, bmp.height).getContext('2d');
+  ctx.drawImage(bmp, 0, 0);
+  const d = ctx.getImageData(0, 0, bmp.width, bmp.height);
+  return MATM0_OCR.read({ data: d.data, width: d.width, height: d.height }).then((r) => ({ expr: r.expr }), (e) => ({ err: e.message }));
+});
+
+test.describe('odporność skanera', () => {
+  test.use({ serviceWorkers: 'block' });
+  test.beforeEach(({}, testInfo) => test.skip(testInfo.project.name !== 'desktop', 'model testujemy raz'));
+
+  test('zawieszony start workera: po limicie „timeout”, worker zamknięty, następny odczyt działa', async ({ page }) => {
+    test.setTimeout(120_000);
+    await open(page);
+    const engine = '**/js/formula-ocr-worker.js';
+    await page.route(engine, (r) => r.fulfill({ status: 200, contentType: 'text/javascript',
+      headers: { 'Cross-Origin-Embedder-Policy': 'require-corp' }, body: 'self.onmessage = () => {};' }));
+    await page.evaluate(() => { MATM0_OCR._t.init = 1500; });
+    const first = readFrac(page);
+    await page.locator('dialog.model-dialog').getByRole('button', { name: 'Pobierz' }).click();
+    expect(await first).toEqual({ err: 'timeout' });
+    expect(await page.evaluate(() => MATM0_OCR._workers())).toBe(0);
+    await page.unroute(engine);
+    await page.evaluate(() => { MATM0_OCR._t.init = 60000; });
+    expect(await readFrac(page)).toEqual({ expr: FIXTURES[0][1] });
+  });
+
+  test('model nie rusza (manifest 500): „Nie udało się uruchomić odczytu…”, nie komunikat o ramce', async ({ page }) => {
+    await page.route('**/models/formulanet-s/manifest.json', (r) => r.fulfill({ status: 500, body: 'x' }));
+    const { dlg } = await openScanner(page);
+    await pickFile(page, fixtureBuf('frac'));
+    await page.getByRole('button', { name: 'Odczytaj', exact: true }).click();
+    await expect(page.locator('.scanner-error')).toHaveText('Nie udało się uruchomić odczytu. Sprawdź połączenie i spróbuj ponownie.');
+    await expect(dlg).toBeVisible();
+  });
+
+  test('skaner nie wczytał się: toast; potem ładuje się bez ?v (adres z precache SW)', async ({ page }) => {
+    const reqs = [];
+    page.on('request', (r) => reqs.push(r.url()));
+    await page.goto('index.html', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => !!window.loadScanner);
+    await page.route('**/js/scanner.js*', (r) => r.abort());
+    const icon = page.getByRole('button', { name: 'Odczytaj wzór ze zdjęcia' });
+    await icon.click();
+    await expect(page.locator('#toast')).toContainText('Nie udało się wczytać skanera. Sprawdź połączenie.');
+    await expect(page.locator('dialog.scanner-dialog')).toHaveCount(0);
+    await page.unroute('**/js/scanner.js*');
+    await icon.click();
+    await expect(page.locator('dialog.scanner-dialog')).toBeVisible();
+    const loaded = reqs.filter((u) => /\/js\/(scanner|formula-image)\.js/.test(u));
+    expect(loaded.length).toBeGreaterThan(0);
+    for (const u of loaded) expect(new URL(u).search).toBe('');
+  });
+
+  test('worker znika po zamknięciu skanera; ponowne otwarcie w czasie go trzyma; odczyt po zamknięciu startuje od nowa', async ({ page }) => {
+    test.setTimeout(180_000);
+    const { icon, dlg } = await openScanner(page);
+    await page.evaluate(() => { MATM0_OCR._t.idle = 1000; });
+    const readOnce = async () => {
+      await pickFile(page, fixtureBuf('frac'));
+      await page.getByRole('button', { name: 'Odczytaj', exact: true }).click();
+      await expect(dlg).toBeHidden({ timeout: 90_000 });
+      await expect(page.locator('#calcExpr')).toHaveValue(FIXTURES[0][1]);
+    };
+    const first = readOnce();
+    await page.locator('dialog.model-dialog').getByRole('button', { name: 'Pobierz' }).click();
+    await first;
+    expect(await page.evaluate(() => MATM0_OCR._workers())).toBe(1);
+    await page.waitForFunction(() => MATM0_OCR._workers() === 0, null, { timeout: 10_000 });
+    await icon.click();
+    await readOnce();
+    expect(await page.evaluate(() => MATM0_OCR._workers())).toBe(1);
+    await icon.click(); // otwarte znowu przed upływem limitu: worker zostaje
+    await page.waitForTimeout(2000);
+    expect(await page.evaluate(() => MATM0_OCR._workers())).toBe(1);
+  });
+
+  test('przerwane pobieranie: wiersz w Ustawieniach pokazuje zajęte MB i pozwala je usunąć', async ({ page }) => {
+    test.setTimeout(120_000);
+    await open(page);
+    await page.route('**/model.onnx.part3.gz', (r) => r.fulfill({ status: 500, body: 'x' }));
+    const result = page.evaluate(ENSURE(NAME));
+    const dlg = page.locator('dialog.model-dialog');
+    await dlg.getByRole('button', { name: 'Pobierz' }).click();
+    await expect(dlg).toContainText('Nie udało się pobrać');
+    await dlg.getByRole('button', { name: 'Zamknij' }).click();
+    expect((await result).err).toBeTruthy();
+    const st = await page.evaluate(() => MATM0_MODELS.status('formulanet-s'));
+    expect(st.ready).toBe(false);
+    expect(st.haveBytes).toBeGreaterThan(0);
+    const row = page.locator('#settingsModelRow');
+    await page.evaluate(() => document.getElementById('settingsBtn').click());
+    await expect(row).toBeVisible();
+    await expect(row).toContainText((st.haveBytes / 1e6).toFixed(1).replace('.', ',') + ' MB');
+    await page.locator('#settingsModelRemove').click();
+    await page.locator('#settingsModelConfirmYes').click();
+    await expect(row).toBeHidden();
+    expect(await page.evaluate(async () => (await (await caches.open('matm0-models-v1')).keys()).length)).toBe(0);
   });
 });

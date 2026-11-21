@@ -14,9 +14,10 @@ async function init(/** @type {ArrayBuffer[]} */ parts) {
         fetch(base + 'manifest.json').then(r => r.json()),
         fetch(base + 'vocab.json').then(r => r.json()),
     ]);
+    ort.env.logLevel = 'error';
     ort.env.wasm.numThreads = self.crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 1) : 1;
-    // względny napis rozwiązałby się względem modułu i podwoił ścieżkę (jak w próbie technicznej)
-    ort.env.wasm.wasmPaths = new URL('/vendor/onnxruntime-web/', location.href).href;
+    // pełny adres od położenia tego modułu (działa też, gdy apka nie leży w korzeniu domeny)
+    ort.env.wasm.wasmPaths = new URL('../vendor/onnxruntime-web/', import.meta.url).href;
     const buf = new Uint8Array(parts.reduce((n, p) => n + p.byteLength, 0));
     let off = 0;
     for (const p of parts) { buf.set(new Uint8Array(p), off); off += p.byteLength; }

@@ -98,6 +98,7 @@
         const opener = /** @type {HTMLElement|null} */ (document.activeElement);
         st.opener = opener && opener !== document.body ? opener : document.querySelector('.calc-scan-btn');
         resetUi(u);
+        if (win.MATM0_OCR) win.MATM0_OCR.keep();
         if (!u.dlg.open) u.dlg.showModal();
         if (opts.source !== 'file' && win.navigator.mediaDevices && win.navigator.mediaDevices.getUserMedia) startCamera(u);
         else showFallback(u, opts.source === 'file' ? 'Wybierz zdjęcie z jednym wydrukowanym wzorem. Potem ustawisz ramkę na wzorze.' : undefined);
@@ -284,7 +285,6 @@
 
     const isPdf = (/** @type {File} */ f) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
 
-    /** Zwalnia PDF: dokument, zadania renderu, miniatury (canvasy). */
     /** Miniatury: odłącz obserwatora, przerwij ich rendery, zwolnij canvasy. */
     function releaseThumbs(/** @type {NonNullable<typeof ui>} */ u) {
         if (st.thumbs) { st.thumbs.disconnect(); st.thumbs = null; }
@@ -298,6 +298,7 @@
         if (t) { try { t.task.cancel(); } catch {} t.canvas.width = t.canvas.height = 0; }
     }
 
+    /** Zwalnia PDF: dokument, zadania renderu, miniatury (canvasy). */
     function leavePdf(/** @type {NonNullable<typeof ui>} */ u) {
         cancelPick(); releaseThumbs(u);
         u.pages.hidden = true; st.picking = false;
@@ -476,14 +477,14 @@
             const m = e && /** @type {Error} */ (e).message;
             if (m === 'declined') closeDlg(u);
             else if (m === 'timeout') showError(u, 'Odczyt trwa za długo. Spróbuj z mniejszą ramką.');
-            else showError(u, 'Nie odczytałem wzoru. Ustaw ramkę ciaśniej wokół jednego wzoru.');
+            else showError(u, 'Nie udało się uruchomić odczytu. Sprawdź połączenie i spróbuj ponownie.'); // pobieranie, offline, worker, silnik
         }
     }
 
     function wire(/** @type {NonNullable<typeof ui>} */ u) {
         u.close.addEventListener('click', () => closeDlg(u));
         u.dlg.addEventListener('cancel', (e) => { e.preventDefault(); closeDlg(u); }); // Escape
-        u.dlg.addEventListener('close', () => { st.token++; stopCamera(u); leavePdf(u); });
+        u.dlg.addEventListener('close', () => { st.token++; stopCamera(u); leavePdf(u); if (win.MATM0_OCR) win.MATM0_OCR.idle(); });
         const choose = () => u.input.click();
         u.pick.addEventListener('click', choose); u.gallery.addEventListener('click', choose);
         u.again.addEventListener('click', () => { if (st.mode === 'camera') startCamera(u); else choose(); });
