@@ -14621,6 +14621,12 @@
                 { expr: '2 * (3 + 4)^2 krok po kroku', value: 98 },
                 { expr: 'całka x^2 od 0 do 3', value: 9, tol: 1e-9 },
                 { expr: 'całka od 0 do pi sin(x)', value: 2, tol: 1e-9 },
+                // granice (MATM0_LIMITS): rozkład 0/0, najwyższa potęga, liczba e, pierwiastki
+                { expr: 'lim x→4 (x^2-6x+8)/(3x^2-10x-8)', value: 1 / 7, tol: 1e-9 },
+                { expr: 'lim n→∞ (2n+1)/(6n+5)', value: 1 / 3, tol: 1e-9 },
+                { expr: 'lim n→∞ (n/(n+3))^(2n)', value: Math.exp(-6), tol: 1e-12 },
+                { expr: 'granica sin(3x)/x przy x → 0', value: 3, tol: 1e-9 },
+                { expr: 'uprość √8', value: 2 * Math.SQRT2, tol: 1e-9 },
                 // parser dalej wygrywa ze zwykłymi działaniami
                 { expr: '2+2', value: 4 },
             ];

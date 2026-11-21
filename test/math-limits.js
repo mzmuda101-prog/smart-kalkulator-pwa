@@ -10,7 +10,7 @@ let L = null;
 try { L = require(path.join(__dirname, '..', 'js', 'math-limits.js')); } catch (e) { if (e.code !== 'MODULE_NOT_FOUND') throw e; }
 const ZESTAW = require('./limits-zestaw.json');
 
-const MIN_COVERED = 0;
+const MIN_COVERED = 47; // [EN] ≥ 80% z 58 (spec 5.7, etap 1)
 const NOPE = 'Jeszcze tego nie rozwiążę';
 let pass = 0, fail = 0;
 function ok(name, cond, got) {
@@ -264,8 +264,12 @@ ok('minor: lim x→−8 ∛x nie daje złego wyniku', ['−2', NOPE].includes(te
 // ── Zestaw 58 zadań ─────────────────────────────────────────
 let covered = 0, wrong = 0;
 const missing = [];
+let slowest = { id: '', ms: 0 };
 for (const z of ZESTAW) {
+    const t0 = Date.now();
     const r = S.run(z.input);
+    const ms = Date.now() - t0;
+    if (ms > slowest.ms) slowest = { id: z.id, ms };
     if (!r || r.text === NOPE) { missing.push(z.id); continue; }
     if (!agrees(r.value, z.value)) { wrong++; console.log('  ✗ BŁĘDNY WYNIK', z.id, r.text, 'chcę', z.sympy); continue; }
     if (r.explain && r.explain.steps.length >= 2) covered++; else missing.push(z.id);
@@ -273,6 +277,9 @@ for (const z of ZESTAW) {
 console.log(`zestaw: ${covered}/${ZESTAW.length} z krokami, ${wrong} błędnych` + (missing.length ? ` · bez: ${missing.join(' ')}` : ''));
 ok('zestaw: 0 błędnych', wrong === 0, wrong);
 ok('zestaw: pokrycie ≥ ' + MIN_COVERED, covered >= MIN_COVERED, covered);
+console.log(`zestaw: najwolniejsze ${slowest.id} — ${slowest.ms} ms`);
+// [EN] liczone przy każdym znaku — budżet 300 ms (pomiar zimny: wynik nie z pamięci podręcznej)
+ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
 
 console.log(`math-limits: ${pass} OK, ${fail} błędów`);
 process.exit(fail ? 1 : 0);

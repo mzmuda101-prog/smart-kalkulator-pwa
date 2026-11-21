@@ -113,7 +113,10 @@
         'round(23,456; 1)', 'max(3; 7; 2)', 'zaokrąglij 1234 do setek', '3,3 do najbliższej ćwiartki',
         '1,75 jako ułamek', '255 na hex', '255 na bin',
         '5:00 min/km na km/h', '12 km/h na tempo', '10 km w tempie 5:00', '1 TB przy 100 Mbps',
-        'prędkość światła w km/s', 'a4 na hz', 'masa molowa H2O'
+        'prędkość światła w km/s', 'a4 na hz', 'masa molowa H2O',
+        // granice krok po kroku (js/math-limits.js)
+        'granica (x^2-6x+8)/(3x^2-10x-8) przy x → 4', 'lim n→∞ (n/(n+3))^(2n)', 'lim x→-∞ x/sqrt(3x^2+5)',
+        'lim x→0+ 1/x', 'granica sin(3x)/x przy x → 0', 'uprość √8'
     ];
 
     function getLiveHints(expr) {

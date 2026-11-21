@@ -197,6 +197,11 @@
                     { syntax: 'pochodna funkcji po t', command: 'pochodna a * t^2 po t', yields: 'f′(t) = 2at', description: 'inne litery to stałe' },
                     { syntax: 'całka funkcji', syntaxAlt: ['całka z …', 'integral of'], command: 'całka x * e^x', yields: 'x · e^x − e^x + C', description: 'podstawienie, przez części, ułamki proste' },
                     { syntax: 'całka funkcji od a do b', syntaxAlt: 'integral … from a to b', command: 'całka x^2 od 0 do 1', yields: '1/3', description: 'całka oznaczona' },
+                    { syntax: 'granica … przy x → a', syntaxAlt: ['lim x→a …', 'limit … as x->a'], command: 'granica (x^2-6x+8)/(3x^2-10x-8) przy x → 4', yields: '1/7', description: 'rozkład na czynniki, sprzężenie, de l\'Hospital' },
+                    { syntax: 'granica ciągu', syntaxAlt: ['lim n→∞ …', 'n→inf'], command: 'lim n→∞ (n/(n+3))^(2n)', yields: '1/e⁶', description: 'najwyższa potęga, liczba e, [1^∞]' },
+                    { syntax: 'granica w −∞', syntaxAlt: 'lim x→-∞ …', command: 'lim x→-∞ x/sqrt(3x^2+5)', yields: '−√3/3', description: '√(x²) = |x| = −x' },
+                    { syntax: 'granica jednostronna', syntaxAlt: ['x→0+', 'x do 0 z lewej'], command: 'lim x→0+ 1/x', yields: '+∞', description: 'bez znaku: „granica nie istnieje”, gdy strony różne' },
+                    { syntax: 'uprość pierwiastek', syntaxAlt: ['∛ ∜', 'cbrt(…)'], command: 'uprość √8', yields: '2√2', description: 'też 1/(√3 − 1) → (√3 + 1)/2' },
                 ],
             },
             {
