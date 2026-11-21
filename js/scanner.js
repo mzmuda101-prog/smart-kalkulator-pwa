@@ -493,7 +493,7 @@
             // ramka znormalizowana do widocznego obrazu = ułamek pikseli źródła (letterboxing już odjęty w content())
             const crop = cropToImage(src, { x: f.x * src.width, y: f.y * src.height, w: f.w * src.width, h: f.h * src.height });
             if (checkBlur && win.MATM0_FIMG.blurScore(crop) < win.MATM0_FIMG.BLUR_MIN) setHint(u, 'Rozmazane — przytrzymaj telefon nieruchomo', 'blur');
-            const res = await win.MATM0_OCR.read(win.MATM0_FIMG.trimEdgeBlobs(crop));
+            const res = await win.MATM0_OCR.read(crop); // białe tło i skrawki: w workerze
             if (!done()) return;
             if (res && res.expr && !res.error) {
                 const field = /** @type {HTMLTextAreaElement|null} */ (document.getElementById('calcExpr'));

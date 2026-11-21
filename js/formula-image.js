@@ -19,6 +19,54 @@
         return g;
     }
 
+    /**
+     * Tło → białe (model zna ciemny druk na białym papierze): tło szacowane w kafelkach (90. centyl każdego kanału,
+     * potem maksimum z sąsiadów, interpolacja dwuliniowa), piksel dzielony przez tło (kartka = 255, ciepłe światło też),
+     * na koniec łagodne rozciągnięcie liniowe (czarny i biały punkt z centyli jasności). Bez progowania. Czysty skan zostaje bez zmian.
+     * @param {Img} img @returns {Img}
+     */
+    function whitenBackground(img) {
+        const { width: w, height: h } = img, d = img.data, out = new Uint8ClampedArray(d);
+        const B = Math.max(8, Math.round(Math.min(w, h) / 3)); // ok. 3 kafelki na wysokość wzoru: tuszu w kafelku zwykle < 10%
+        const bw = Math.ceil(w / B), bh = Math.ceil(h / B), step = Math.max(1, Math.floor(B / 24));
+        const tile = [0, 1, 2].map(() => new Float32Array(bw * bh)), hist = new Uint32Array(256);
+        for (let by = 0; by < bh; by++) for (let bx = 0; bx < bw; bx++) for (let c = 0; c < 3; c++) {
+            hist.fill(0); let n = 0;
+            for (let y = by * B; y < Math.min(h, (by + 1) * B); y += step) for (let x = bx * B; x < Math.min(w, (bx + 1) * B); x += step) { hist[d[(y * w + x) * 4 + c]]++; n++; }
+            let k = 255, acc = 0;
+            while (k > 0 && acc + hist[k] < n * 0.1) acc += hist[k--];
+            tile[c][by * bw + bx] = k;
+        }
+        // kafelek gęsty od tuszu bierze jasność najjaśniejszego sąsiada
+        const bg = tile.map((t) => t.map((_, i) => {
+            const bx = i % bw, by = (i / bw) | 0; let m = 0;
+            for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+                const x = bx + dx, y = by + dy;
+                if (x >= 0 && y >= 0 && x < bw && y < bh) m = Math.max(m, t[y * bw + x]);
+            }
+            return Math.max(32, m);
+        }));
+        for (let y = 0; y < h; y++) {
+            const fy = Math.min(bh - 1, Math.max(0, y / B - 0.5)), y0 = Math.min(Math.floor(fy), Math.max(0, bh - 2)), y1 = Math.min(y0 + 1, bh - 1), ay = fy - y0;
+            for (let x = 0; x < w; x++) {
+                const fx = Math.min(bw - 1, Math.max(0, x / B - 0.5)), x0 = Math.min(Math.floor(fx), Math.max(0, bw - 2)), x1 = Math.min(x0 + 1, bw - 1), ax = fx - x0;
+                const o = (y * w + x) * 4;
+                for (let c = 0; c < 3; c++) {
+                    const m = bg[c];
+                    const b = (m[y0 * bw + x0] * (1 - ax) + m[y0 * bw + x1] * ax) * (1 - ay) + (m[y1 * bw + x0] * (1 - ax) + m[y1 * bw + x1] * ax) * ay;
+                    out[o + c] = d[o + c] * 255 / b;
+                }
+            }
+        }
+        hist.fill(0);
+        for (let i = 0; i < w * h; i++) hist[Math.round(out[i * 4] * 0.299 + out[i * 4 + 1] * 0.587 + out[i * 4 + 2] * 0.114)]++;
+        const pct = (/** @type {number} */ q) => { let v = 0, acc = 0; while (v < 255 && acc + hist[v] < w * h * q) acc += hist[v++]; return v; };
+        // czarny punkt: 0,5. centyl; biały: 80. centyl (kartka; szum i reszta gradientu), o ile to już jasne tło, nie tusz
+        const lo = pct(0.005), pw = pct(0.8), hi = pw >= 180 ? pw : 255;
+        if ((lo > 0 || hi < 255) && hi - lo >= 64) for (let i = 0; i < out.length; i++) if ((i & 3) !== 3) out[i] = (out[i] - lo) * 255 / (hi - lo);
+        return { data: out, width: w, height: h };
+    }
+
     /** Wybiela plamy tuszu (8-sąsiedztwo) dotykające górnej lub dolnej krawędzi (skrawki sąsiednich wzorów). */
     function trimEdgeBlobs(img) {
         const { width: w, height: h } = img, g = stretched(img);
@@ -152,7 +200,7 @@
 
     /** Próg: frac.png ma ok. 4170, z rozmyciem Gaussa sigma=1 ok. 350, sigma=2 ok. 45, sigma=3 ok. 10. */
     const BLUR_MIN = 100;
-    const API = { blurScore: blurScore, BLUR_MIN: BLUR_MIN, trimEdgeBlobs: trimEdgeBlobs, toTensor: toTensor, decodeTokens: decodeTokens };
+    const API = { blurScore: blurScore, BLUR_MIN: BLUR_MIN, whitenBackground: whitenBackground, trimEdgeBlobs: trimEdgeBlobs, toTensor: toTensor, decodeTokens: decodeTokens };
     /** @type {any} */ (typeof window !== 'undefined' ? window : globalThis).MATM0_FIMG = API; // w Workerze nie ma window
     if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

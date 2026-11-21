@@ -1,6 +1,6 @@
 // @ts-check
 // Worker odczytu wzoru (moduł ES): onnxruntime-web + model FormulaNet. Nie dotyka DOM-u.
-// Wiadomości: {type:'init', parts:ArrayBuffer[]} -> {type:'ready'}; {type:'read', id, img} -> {id, result}|{id, error}.
+// Wiadomości: {type:'init', parts:ArrayBuffer[]} -> {type:'ready'}; {type:'read', id, img, debug?} -> {id, result}|{id, error}.
 import * as ort from '../vendor/onnxruntime-web/ort.wasm.min.mjs';
 
 /** @type {Promise<any>|null} */
@@ -37,11 +37,15 @@ self.onmessage = async (/** @type {MessageEvent} */ e) => {
             const { session, manifest, vocab } = await ready;
             const t0 = performance.now();
             const g = /** @type {any} */ (globalThis);
-            const x = g.MATM0_FIMG.toTensor(m.img, { size: manifest.inputShape[2], mean: manifest.mean, std: manifest.std });
+            // tu, nie na stronie: wątek główny wolny. Najpierw białe tło (na szarym tle przycinanie brało całe tło za tusz).
+            const img = g.MATM0_FIMG.trimEdgeBlobs(g.MATM0_FIMG.whitenBackground(m.img));
+            const x = g.MATM0_FIMG.toTensor(img, { size: manifest.inputShape[2], mean: manifest.mean, std: manifest.std });
             const out = await session.run({ [manifest.input]: new ort.Tensor('float32', x, manifest.inputShape) });
             const latex = g.MATM0_FIMG.decodeTokens(out[session.outputNames[0]].data, vocab, manifest.eosId);
             const conv = g.MATM0_LATEX.latexToExpr(latex);
-            self.postMessage({ id: m.id, result: { latex, ...conv, ms: Math.round(performance.now() - t0) } });
+            const result = { latex, ...conv, ms: Math.round(performance.now() - t0) };
+            if (m.debug) self.postMessage({ id: m.id, result: { ...result, img } }, [img.data.buffer]); // ?debug=1: obraz, który widział model
+            else self.postMessage({ id: m.id, result });
         }
     } catch (err) {
         self.postMessage({ id: m.id, error: String(err && /** @type {Error} */ (err).message || err) });

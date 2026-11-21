@@ -5,7 +5,7 @@ const fs = require('fs');
 const zlib = require('zlib');
 const path = require('path');
 const root = path.join(__dirname, '..');
-const { blurScore, BLUR_MIN, trimEdgeBlobs, toTensor, decodeTokens } = require(path.join(root, 'js', 'formula-image.js'));
+const { blurScore, BLUR_MIN, whitenBackground, trimEdgeBlobs, toTensor, decodeTokens } = require(path.join(root, 'js', 'formula-image.js'));
 const vocab = require(path.join(root, 'models', 'formulanet-s', 'vocab.json'));
 
 let pass = 0, fail = 0;
@@ -29,6 +29,29 @@ const px = (img, x, y) => img.data[(y * img.width + x) * 4];
     ok('trim: górna plama wybielona', px(r, 25, 2) === 255, px(r, 25, 2));
     ok('trim: środkowa zostaje', px(r, 65, 20) === 0, px(r, 65, 20));
     ok('trim: wejście bez zmian', px(im, 25, 2) === 0);
+}
+
+// whitenBackground: szare tło z gradientem (zdjęcie ekranu / kartki w pokoju) → białe, kreski zostają ciemne
+{
+    const im = blank(300, 90);
+    for (let y = 0; y < 90; y++) for (let x = 0; x < 300; x++) {
+        const i = (y * 300 + x) * 4, v = 115 + 64 * x / 299; // 0,45 → 0,7 jasności od lewej do prawej
+        im.data[i] = im.data[i + 1] = im.data[i + 2] = v;
+    }
+    for (const x0 of [30, 120, 210]) { rect(im, x0, 30, 40, 4, 20); rect(im, x0 + 18, 15, 4, 40, 20); } // trzy „plusy”
+    const r = whitenBackground(im);
+    const bgv = []; let inkMax = 0;
+    for (let y = 0; y < 90; y++) for (let x = 0; x < 300; x++) {
+        const v = px(r, x, y), stroke = [30, 120, 210].some(x0 => (y >= 30 && y < 34 && x >= x0 && x < x0 + 40) || (x >= x0 + 18 && x < x0 + 22 && y >= 15 && y < 55));
+        const nearStroke = [30, 120, 210].some(x0 => x >= x0 - 3 && x < x0 + 43 && y >= 12 && y < 58);
+        if (stroke) inkMax = Math.max(inkMax, v); else if (!nearStroke) bgv.push(v);
+    }
+    ok('whiten: tło >= 240', Math.min(...bgv) >= 240, Math.min(...bgv));
+    ok('whiten: kreski <= 60', inkMax <= 60, inkMax);
+    const clean = blank(200, 60); rect(clean, 20, 20, 100, 10, 0);
+    const rc = whitenBackground(clean);
+    ok('whiten: czysty skan bez zmian', rc.data.every((v, i) => v === clean.data[i]));
+    ok('whiten: wejście bez zmian', px(im, 0, 0) === 115);
 }
 
 // toTensor

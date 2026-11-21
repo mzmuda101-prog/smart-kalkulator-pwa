@@ -1,5 +1,5 @@
 // @ts-check
-// Strona: MATM0_OCR.read(img) -> Promise<{latex, expr?, error?, ms}>. Worker powstaje leniwie, raz.
+// Strona: MATM0_OCR.read(img, {debug?}) -> Promise<{latex, expr?, error?, ms, img?}>. Worker powstaje leniwie, raz.
 (function () {
     'use strict';
     /** @type {Worker|null} */ let worker = null;
@@ -48,14 +48,15 @@
         return starting;
     }
 
-    /** @param {{data: Uint8ClampedArray, width: number, height: number}} img */
-    async function read(img) {
+    /** Worker sam wybiela tło i przycina skrawki; debug: wynik niesie też ten obraz (img).
+     * @param {{data: Uint8ClampedArray, width: number, height: number}} img @param {{debug?: boolean}} [opt] */
+    async function read(img, opt) {
         const w = await start();
         return new Promise((resolve, reject) => {
             const id = ++seq;
             const timer = setTimeout(() => reset(new Error('timeout')), T.read);
             pending.set(id, { resolve: v => { clearTimeout(timer); resolve(v); }, reject: e => { clearTimeout(timer); reject(e); } });
-            w.postMessage({ type: 'read', id, img }, [img.data.buffer]);
+            w.postMessage({ type: 'read', id, img, debug: !!(opt && opt.debug) }, [img.data.buffer]);
         });
     }
 
