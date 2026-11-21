@@ -168,13 +168,17 @@
             catch (e) { if (e && /** @type {Error} */ (e).name === 'OverconstrainedError') s = await md.getUserMedia({ video: true, audio: false }); else throw e; }
             if (my !== st.camId) { s.getTracks().forEach((t) => t.stop()); return; }
             st.stream = s; u.video.srcObject = s;
-            if (!u.video.videoWidth) await new Promise((ok) => { u.video.onloadedmetadata = () => ok(null); });
+            if (!u.video.videoWidth) { // zamknięcie w trakcie startu (srcObject = null) wysyła „emptied”, więc obietnica nie wisi
+                await new Promise((ok) => { const done = () => { u.video.removeEventListener('loadedmetadata', done); u.video.removeEventListener('emptied', done); ok(null); }; u.video.addEventListener('loadedmetadata', done); u.video.addEventListener('emptied', done); });
+            }
             if (my !== st.camId) return;
             await u.video.play().catch(() => {});
             if (my !== st.camId) return;
             const v = u.video;
             useSource(u, { el: v, width: v.videoWidth, height: v.videoHeight, cover: true, snapshot: () => u.canvas });
             const track = s.getVideoTracks()[0], caps = track && track.getCapabilities && track.getCapabilities();
+            // system zabrał kamerę (np. inna aplikacja): w trybie podglądu wznów, inaczej ignoruj
+            if (track) track.addEventListener('ended', () => { if (my === st.camId && u.dlg.open && st.mode === 'camera' && !st.shot) startCamera(u); });
             u.torch.hidden = !(caps && /** @type {any} */ (caps).torch);
             u.shoot.disabled = false; u.shoot.focus();
             const probe = document.createElement('canvas'); probe.width = 64; probe.height = 36;
@@ -358,7 +362,17 @@
         });
         u.input.addEventListener('change', () => { const f = u.input.files && u.input.files[0]; if (f) loadFile(f); });
         u.read.addEventListener('click', () => doRead(u));
-        new ResizeObserver(() => { if (st.source) layout(u); }).observe(u.stage);
+        new ResizeObserver(() => {
+            if (!st.source) return;
+            if (st.source.cover) clampFrame(st.f, content(u)); // obrót: scena ma inny kształt, ramka musi zostać w widocznej części
+            layout(u);
+        }).observe(u.stage);
+        // Obrót telefonu zamienia wymiary strumienia: nowy kształt klatki, więc ramka od nowa.
+        u.video.addEventListener('resize', () => {
+            if (!st.source || st.source.el !== u.video || !u.video.videoWidth) return;
+            st.source.width = u.video.videoWidth; st.source.height = u.video.videoHeight;
+            st.f = defaultFrame(u); layout(u);
+        });
 
         // Przeciąganie: ramka = przesunięcie, uchwyt = zmiana rozmiaru. touch-action: none tylko tu.
         /** @type {null | { id: number, x: number, y: number, start: typeof st.f, corner: string|null }} */ let drag = null;

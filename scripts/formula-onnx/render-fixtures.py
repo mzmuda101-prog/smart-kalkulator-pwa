@@ -19,8 +19,8 @@ for name, tex in FORMULAS.items():
     fig.savefig(os.path.join(out, name + ".png"), dpi=200, bbox_inches="tight", pad_inches=0.15, facecolor="white")
     plt.close(fig)
 
-# frac.y4m: fałszywa kamera Chromium (--use-file-for-fake-video-capture). frac.png na białym tle 640x360, 1 s, 5 kl./s. (mały plik w repo)
+# frac.y4m: fałszywa kamera Chromium (--use-file-for-fake-video-capture). frac.png na białym tle 640x360, 1 klatka (Chromium zapętla; mały plik w repo)
 import shutil, subprocess
 if shutil.which("ffmpeg"):
-    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-loop", "1", "-i", os.path.join(out, "frac.png"), "-t", "1", "-r", "5",
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-loop", "1", "-i", os.path.join(out, "frac.png"), "-frames:v", "1",
                     "-vf", "pad=640:360:(ow-iw)/2:(oh-ih)/2:white,format=yuv420p", os.path.join(out, "frac.y4m")], check=True)

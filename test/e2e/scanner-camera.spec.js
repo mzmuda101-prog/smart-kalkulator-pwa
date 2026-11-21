@@ -150,4 +150,22 @@ test.describe('aparat na żywo', () => {
     await expect(page.getByRole('button', { name: 'Zrób', exact: true })).toBeHidden();
     expect(await live(page)).toBe(0);
   });
+
+  test('obrót w trakcie podglądu: ramka zostaje w widocznej scenie, wycinek ma proporcje ramki', async ({ page }) => {
+    await openCamera(page);
+    await page.evaluate(() => {
+      window.__seen = null;
+      MATM0_OCR.read = async (img) => { window.__seen = { w: img.width, h: img.height }; return { latex: '', expr: '', ms: 1 }; };
+    });
+    const vp = page.viewportSize();
+    await page.setViewportSize({ width: vp.height, height: vp.width });
+    await page.waitForTimeout(500);
+    const stage = await page.locator('.scanner-stage').boundingBox(), f = await page.locator('.scanner-frame').boundingBox();
+    expect(f.x).toBeGreaterThanOrEqual(stage.x - 1); expect(f.x + f.width).toBeLessThanOrEqual(stage.x + stage.width + 1);
+    expect(f.y).toBeGreaterThanOrEqual(stage.y - 1); expect(f.y + f.height).toBeLessThanOrEqual(stage.y + stage.height + 1);
+    await page.getByRole('button', { name: 'Zrób', exact: true }).click();
+    await expect.poll(() => page.evaluate(() => window.__seen)).not.toBeNull();
+    const seen = await page.evaluate(() => window.__seen);
+    expect(Math.abs(seen.w / seen.h / (f.width / f.height) - 1)).toBeLessThan(0.03);
+  });
 });
