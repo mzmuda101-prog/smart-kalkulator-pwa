@@ -70,3 +70,6 @@ playwright-report/
 
 # Lokalny plan QoL / notatki sesji — tylko na dysku, nie na GitHub
 ROADMAP-QOL.md
+### Granice / skaner — materiały lokalne i narzędzia dev ###
+test/fixtures-local/
+scripts/limits-reference/.venv/
