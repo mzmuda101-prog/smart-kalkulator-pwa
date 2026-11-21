@@ -303,7 +303,12 @@
         })(e);
         return found;
     }
-    function quotientText(n, d) { return isOne(d) ? C.show(n) : C.paren(n) + '/' + C.paren(d); }
+    function grp(e) { // [EN] nawias także dla iloczynu kilku czynników: /((2n + 1)(4n + 5))
+        if (e.length > 1) return '(' + C.show(e) + ')';
+        var t = e[0];
+        return t && (t.fs.length > 1 || (t.fs.length && !K.eq(t.c, ONE))) ? '(' + C.show(e) + ')' : C.show(e);
+    }
+    function quotientText(n, d) { return isOne(d) ? C.show(n) : C.paren(n) + '/' + grp(d); }
     function pulledText(v, sign, x) { // [EN] u^p · (reszta); liczba jako współczynnik: −(−x), nie (−x)−1
         if (K.isZero(x.p)) return C.paren(x.rest);
         var u = uText(v, sign, x.p);
@@ -312,6 +317,11 @@
             if (K.eq(c, ONE)) return u;
             if (K.eq(c, K.neg(ONE))) return '−' + u;
             return C.show(x.rest) + u;
+        }
+        if (x.rest.length === 1 && !K.eq(x.rest[0].c, ONE)) { // [EN] 3n²(1 + …), nie n²3(1 + …)
+            var k = x.rest[0].c, inner = [C.term(ONE, x.rest[0].fs)];
+            var kt = K.eq(k, K.neg(ONE)) ? '−' : K.fmt(k);
+            return kt + u + C.paren(inner);
         }
         return u + C.paren(x.rest);
     }
@@ -327,11 +337,12 @@
             var same = K.eq(N.p, D.p), alone = isOne(fr.D);
             var label = (same || alone) && !K.isZero(N.p) ? 'Wyłączamy ' + uText(v, sign, N.p) + ' przed nawias' : 'Wyłączamy najwyższe potęgi przed nawias';
             var pn = pulledText(v, sign, N), pd = pulledText(v, sign, D);
-            line(log, label, head + (alone ? pn : pn + '/' + (K.isZero(D.p) ? pd : '(' + pd + ')')));
+            var pdWrapped = K.isZero(D.p) ? grp(D.rest) : '(' + pd + ')';
+            line(log, label, head + (alone ? pn : pn + '/' + pdWrapped));
             var q = K.sub(N.p, D.p);
             if (same && !K.isZero(N.p)) line(log, 'Skracamy ' + uText(v, sign, N.p), head + quotientText(N.rest, D.rest));
             var cval = C.cMul(N.c, C.cPow(D.c, K.neg(ONE)));
-            var cv = C.evalExpr(cval, {}), cText = quotientText(N.c, D.c);
+            var cv = C.evalExpr(cval, {}), cText = C.show(rationalize(cval));
             if (K.isZero(q)) {
                 line(log, 'Wyrazy z ' + v + ' w mianowniku dążą do 0', '→ ' + cText);
                 return { kind: 'num', e: cval };
@@ -342,7 +353,112 @@
             return neg ? { kind: 'num', e: [] } : { kind: 'inf', sign: infSign };
         }
     };
-    RULES.push(dominantPower);
+    // ── Wspólny mianownik (różnica ułamków, ułamek piętrowy) ───────────
+    function keyOf(f) { return C.showAtom(f.b); }
+    function hasFracTerm(sumE, v) {
+        return sumE.length > 1 && sumE.some(function (t) {
+            return t.fs.some(function (f) { return f.e.n < 0n && atomHasVar(f.b, v); });
+        });
+    }
+    function combine(sumE) { // [EN] Σ tᵢ → (Σ tᵢ·D) / D, D = iloczyn różnych mianowników
+        var dens = {}, order = [];
+        sumE.forEach(function (t) {
+            t.fs.forEach(function (f) {
+                if (f.e.n >= 0n || !C.hasVar(C.atomExpr(f.b), _curVar)) return;
+                var k = keyOf(f), need = K.neg(f.e);
+                if (!dens[k]) { dens[k] = { b: f.b, e: need }; order.push(k); }
+                else if (K.toNum(need) > K.toNum(dens[k].e)) dens[k].e = need;
+            });
+        });
+        var D = C.num(ONE);
+        order.forEach(function (k) { D = C.cMul(D, C.cPow(C.atomExpr(dens[k].b), dens[k].e)); });
+        var top = [];
+        sumE.forEach(function (t) { top = C.cAdd(top, C.expandExpr(C.cMul([t], D))); });
+        return { top: top, D: D };
+    }
+    var _curVar = 'x';
+    var commonDenominator = {
+        name: 'commonDenominator',
+        test: function (e, v) {
+            _curVar = v;
+            if (hasFracTerm(e, v)) return true;
+            return e.length === 1 && e[0].fs.some(function (f) { return f.b.k === 'sum' && hasFracTerm(f.b.s, v); });
+        },
+        apply: function (e, v, t, log, depth) {
+            _curVar = v;
+            var out;
+            if (hasFracTerm(e, v)) {
+                var cb = combine(e);
+                out = C.cMul(cb.top, C.cPow(cb.D, K.neg(ONE)));
+                line(log, 'Sprowadzamy do wspólnego mianownika', limHead(v, t) + C.paren(cb.top) + '/' + grp(cb.D));
+            } else {
+                var only = e[0], rest = C.num(only.c), shown = '';
+                only.fs.forEach(function (f) {
+                    if (f.b.k === 'sum' && hasFracTerm(f.b.s, v)) {
+                        var c2 = combine(f.b.s), frac = C.cMul(c2.top, C.cPow(c2.D, K.neg(ONE)));
+                        shown = C.show(f.b.s) + ' = ' + C.paren(c2.top) + '/' + grp(c2.D);
+                        rest = C.cMul(rest, C.cPow(frac, f.e));
+                    } else rest = C.cMul(rest, C.cPow(C.atomExpr(f.b), f.e));
+                });
+                out = rest;
+                line(log, 'Sprowadzamy do wspólnego mianownika', shown);
+                line(log, 'Upraszczamy', limOf(v, t, out));
+            }
+            return limitOf(out, v, t, log, depth);
+        }
+    };
+
+    // ── Logarytmy: log f − log g = log(f/g), k·log f = log f^k ──────────
+    function logParts(e) { // [EN] Σ kᵢ·log(uᵢ) z jednym rodzajem logarytmu albo null
+        var kind = null, parts = [];
+        for (var i = 0; i < e.length; i++) {
+            var t = e[i];
+            if (t.fs.length !== 1 || t.fs[0].b.k !== 'fn' || !K.eq(t.fs[0].e, ONE)) return null;
+            var a = t.fs[0].b, key = a.f + (a.base ? K.fmt(a.base) : '');
+            if (['ln', 'log', 'logb'].indexOf(a.f) < 0) return null;
+            if (kind && kind.key !== key) return null;
+            kind = { key: key, f: a.f, base: a.base };
+            parts.push({ k: t.c, u: a.a });
+        }
+        return parts.length > 1 ? { kind: kind, parts: parts } : null;
+    }
+    function exactLog(fnName, base, q) { // [EN] log o podstawie b z liczby wymiernej, gdy wynik wymierny
+        var b = fnName === 'log' ? K.R(10) : (fnName === 'ln' ? null : base);
+        if (!b || q.n <= 0n) return null;
+        var k = Math.log(K.toNum(q)) / Math.log(K.toNum(b));
+        for (var den = 1; den <= 12; den++) {
+            var m = Math.round(k * den);
+            if (Math.abs(k * den - m) > 1e-9) continue;
+            var lhs = K.powR(b, Math.abs(m)), rhs = K.powR(q, den); // [EN] b^m = q^den
+            if (m < 0) lhs = K.div(ONE, lhs);
+            if (K.eq(lhs, rhs)) return K.R(m, den);
+        }
+        return null;
+    }
+    var logCombine = {
+        name: 'logCombine',
+        test: function (e) { return !!logParts(e); },
+        apply: function (e, v, t, log, depth) {
+            var lp = logParts(e), inner = C.num(ONE);
+            lp.parts.forEach(function (p) { inner = C.cMul(inner, C.cPow(p.u, p.k)); });
+            var combined = C.cFn(lp.kind.f, inner, lp.kind.base);
+            line(log, 'Łączymy logarytmy: log f − log g = log(f/g), k·log f = log fᵏ', limOf(v, t, combined));
+            var inn = limitOf(inner, v, t, log, depth);
+            if (inn.kind === 'inf') {
+                if (inn.sign < 0) throw new NotSupported();
+                line(log, 'Logarytm rośnie bez ograniczeń', '→ +∞');
+                return { kind: 'inf', sign: 1 };
+            }
+            if (inn.kind !== 'num') throw new NotSupported();
+            var val = C.evalExpr(inn.e, {});
+            if (!(val > 0)) throw new NotSupported();
+            var res = C.isNumber(inn.e) ? exactLog(lp.kind.f, lp.kind.base, C.numberOf(inn.e)) : null;
+            var resE = res ? C.num(res) : C.cFn(lp.kind.f, inn.e, lp.kind.base);
+            line(log, 'Logarytm jest ciągły', '→ ' + C.show(C.cFn(lp.kind.f, inn.e, lp.kind.base)) + (res ? ' = ' + C.show(resE) : ''));
+            return { kind: 'num', e: resE };
+        }
+    };
+    RULES.push(commonDenominator, logCombine, dominantPower);
 
     // ── Symbol nieoznaczony (do pierwszego kroku, jak na zajęciach) ──────
     function kindOf(x) {

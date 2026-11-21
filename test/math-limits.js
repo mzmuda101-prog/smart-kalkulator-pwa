@@ -136,6 +136,21 @@ const WANT_TEXT = { '1a': '1/3', '1d': '0', '1e': '+∞', '7a': '√3/3', '7b': 
     ok('7b: krok √(x²) = |x| = −x', sb.some(x => /√\(x²\) = \|x\| = −x/.test(x.math)), sb.map(x => x.math));
 }
 
+// ── Task 5: wspólny mianownik i logarytmy ──────────────────
+['3b', '3c', '3d', '3e'].forEach(id => {
+    const r = S.run(byId[id].input);
+    ok('zadanie ' + id, r && r.text !== NOPE && agrees(r.value, byId[id].value) && r.explain.steps.length >= 3, r && r.text);
+});
+{
+    const r = S.run('lim x→0 (1/(x+1) - 1)/x'), st = r && r.explain ? r.explain.steps : [];
+    ok('ułamek piętrowy = −1', r && r.text === '−1', r && r.text);
+    ok('ułamek piętrowy: krok wspólnego mianownika', st.some(x => x.label === 'Sprowadzamy do wspólnego mianownika'), st.map(x => x.label));
+    const d = S.run(byId['3d'].input), sd = d && d.explain ? d.explain.steps : [];
+    ok('3d: krok log₂((8n + 1)/(n + 6))', sd.some(x => /log₂\(\(8n \+ 1\)\/\(n \+ 6\)\)/.test(x.math)), sd.map(x => x.math));
+    ok('3d tekst = 3', d && d.text === '3', d && d.text);
+    ok('3e tekst = −3/2', text(byId['3e'].input) === '−3/2', text(byId['3e'].input));
+}
+
 // ── Zestaw 58 zadań ─────────────────────────────────────────
 let covered = 0, wrong = 0;
 const missing = [];
