@@ -1293,12 +1293,15 @@
             var opt = el && el.closest ? el.closest('.calc-alt-opt') : null;
             _fkSetHot(h, opt && _fkPop.contains(opt) ? opt : null);
         }
-        function _fkPointerUp() {
+        function _fkPointerUp(e) {
             var h = _fkHold;
             if (!h || h.sticky) return;
             if (h.timer) { clearTimeout(h.timer); _fkHold = null; _fkDo(h.key); return; } // krótkie stuknięcie = główny znak
             if (h.hot) { var alt = h.key.alts[+h.hot.dataset.alt]; _fkClosePop(); _fkDo(alt); return; } // przesunięcie na wariant
-            h.sticky = true; // puszczone bez wyboru: dymek zostaje, wariant można stuknąć
+            // puszczone na dymku albo na klawiszu: dymek zostaje do stuknięcia; gdzie indziej (rozmyślił się) — zamknij
+            var el = e && document.elementFromPoint(e.clientX, e.clientY);
+            if (el && ((_fkPop && _fkPop.contains(el)) || h.btn.contains(el))) h.sticky = true;
+            else _fkClosePop();
         }
         function _fkPointerCancel() {
             var h = _fkHold;

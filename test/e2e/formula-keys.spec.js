@@ -17,7 +17,11 @@ const gridBox = (page) => page.evaluate(() => { const r = document.getElementByI
 
 test('przełącznik: Wzory ↔ Liczby, ta sama wysokość, wybór zapamiętany', async ({ page }) => {
   await open(page);
-  await expect.poll(async () => { const a = await gridBox(page); await page.waitForTimeout(150); return JSON.stringify(a) === JSON.stringify(await gridBox(page)); }).toBe(true); // strona się ułożyła
+  // strona układa się kilka razy (na komputerze do ~3 s): trzy pomiary co 300 ms muszą się zgadzać
+  await expect.poll(async () => {
+    const r = []; for (let i = 0; i < 3; i++) { r.push(JSON.stringify(await gridBox(page))); await page.waitForTimeout(300); }
+    return new Set(r).size === 1;
+  }, { timeout: 15000 }).toBe(true);
   const before = await gridBox(page);
   await toggle(page).click();
   await expect(toggle(page)).toHaveAttribute('aria-pressed', 'true');
@@ -62,6 +66,22 @@ test('przytrzymanie: przesunięcie na wariant wstawia go; puszczenie bez wyboru 
   await page.locator('.calc-alt-opt', { hasText: /^t$/ }).click();
   await expect(page.locator('#calcExpr')).toHaveValue('∛(sqrt(t');
   await expect(page.locator('.calc-alt-pop')).toHaveCount(0);
+  // rozmyślił się: przytrzymał, wyjechał poza dymek i klawisz, puścił — dymek znika, nic się nie wstawia
+  const n = await key(page, 'n').boundingBox(), plus = await key(page, '+').boundingBox(); // „+” w prawym dolnym rogu — z dala od dymku
+  await page.mouse.move(n.x + n.width / 2, n.y + n.height / 2);
+  await page.mouse.down(); await page.waitForTimeout(500);
+  await expect(page.locator('.calc-alt-pop')).toBeVisible();
+  await page.mouse.move(plus.x + plus.width / 2, plus.y + plus.height / 2, { steps: 5 });
+  await page.mouse.up();
+  await expect(page.locator('.calc-alt-pop')).toHaveCount(0);
+  await expect(page.locator('#calcExpr')).toHaveValue('∛(sqrt(t');
+  // puszczenie na dymku (między wariantami / na tle) zostawia go otwartego
+  await page.mouse.move(n.x + n.width / 2, n.y + n.height / 2);
+  await page.mouse.down(); await page.waitForTimeout(500);
+  const pop = await page.locator('.calc-alt-pop').boundingBox();
+  await page.mouse.move(pop.x + pop.width / 2, pop.y + pop.height - 3, { steps: 4 }); // tło dymku pod wariantami (róg jest zaokrąglony)
+  await page.mouse.up();
+  await expect(page.locator('.calc-alt-pop')).toBeVisible();
 });
 
 test('znaczki w rogach, karta „Funkcje”, powrót „123”, klawiatura fizyczna', async ({ page }) => {
