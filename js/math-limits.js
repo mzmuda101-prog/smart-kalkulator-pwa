@@ -308,7 +308,10 @@
     }
 
     // ── Reguły ───────────────────────────────────────────────────────
-    function line(log, label, math) { if (log) log.push({ label: label, math: math }); }
+    // [EN] formula = id wzoru ze słownika (js/step-formulas.js); fragment w ⟦…⟧ jest wtedy podkreślony i do stuknięcia
+    function line(log, label, math, formula) {
+        if (log) log.push(formula ? { label: label, math: math, formula: { id: formula } } : { label: label, math: math });
+    }
     function isFiniteTarget(t) { return t.at !== 'inf' && t.at !== '-inf'; }
     function pointExpr(t) { // [EN] punkt docelowy jako dokładna liczba (ułamek dziesiętny → wymierny)
         return C.fromAst(K.parse(String(t.src != null ? t.src : t.at)));
@@ -513,7 +516,8 @@
             var head = limHead(v, t);
             // [EN] √(x²) = |x| tylko, gdy wyłączamy całe potęgi; przy √(−x) wystarczy: x < 0, więc −x > 0
             if (sign < 0 && hasEvenRoot(e, v)) line(log, 'Dla ' + v + ' → −∞', K.isInt(N.p) && K.isInt(D.p)
-                ? '√(' + v + '²) = |' + v + '| = −' + v : v + ' < 0, więc −' + v + ' > 0');
+                ? '⟦√(' + v + '²)⟧ = |' + v + '| = −' + v : v + ' < 0, więc −' + v + ' > 0',
+                K.isInt(N.p) && K.isInt(D.p) ? 'pierwiastek-z-kwadratu' : null);
             var same = K.eq(N.p, D.p), alone = isOne(fr.D);
             var label = (same || alone) && !K.isZero(N.p) ? 'Wyłączamy ' + uText(v, sign, N.p) + ' przed nawias' : 'Wyłączamy najwyższe potęgi przed nawias';
             var pn = pulledText(v, sign, N), pd = pulledText(v, sign, D);
@@ -623,7 +627,7 @@
             var lp = logParts(e), inner = C.num(ONE);
             lp.parts.forEach(function (p) { inner = C.cMul(inner, C.cPow(p.u, p.k)); });
             var combined = C.cFn(lp.kind.f, inner, lp.kind.base);
-            line(log, 'Łączymy logarytmy: log f − log g = log(f/g), k·log f = log fᵏ', limOf(v, t, combined));
+            line(log, 'Łączymy logarytmy w jeden', limHead(v, t) + '⟦' + C.show(combined) + '⟧', 'log-iloraz');
             var inn = limitOf(inner, v, t, log, depth);
             if (inn.kind === 'inf') {
                 if (inn.sign < 0) throw new NotSupported();
@@ -688,11 +692,7 @@
         }
         return null;
     }
-    var CONJ_LABEL = {
-        2: 'Mnożymy przez sprzężenie',
-        3: 'Mnożymy przez sprzężenie: a³ − b³ = (a − b)(a² + ab + b²)',
-        4: 'Mnożymy przez sprzężenie: a⁴ − b⁴ = (a − b)(a³ + a²b + ab² + b³)'
-    };
+    var CONJ_FORMULA = { 2: 'sprzezenie', 3: 'roznica-szescianow', 4: 'roznica-czwartych' }; // [EN] wzór w dymku, nie w etykiecie
     var conjugate = {
         name: 'conjugate',
         test: function (e, v, t) { return !!findDifference(e, v, t); },
@@ -704,7 +704,7 @@
             for (var i = 0; i < k; i++) S = C.cAdd(S, fold(C.cMul(C.cPow(pair.A, K.R(k - 1 - i)), C.cPow(pair.B, K.R(i)))));
             var bShown = Bk.length > 1 || (Bk[0] && Bk[0].c.n < 0n) ? '(' + C.show(Bk) + ')' : C.show(Bk);
             var raw = C.showInner(Ak) + ' − ' + bShown;
-            line(log, CONJ_LABEL[k], C.show(hit.D) + ' = (' + raw + ')/' + grp(S));
+            line(log, 'Mnożymy przez sprzężenie', C.show(hit.D) + ' = (⟦' + raw + '⟧)/' + grp(S), CONJ_FORMULA[k]);
             var frac = C.cMul(top, C.cPow(S, K.neg(ONE)));
             var out;
             if (hit.whole) out = frac;
@@ -833,7 +833,7 @@
             var P = asAtom(fold(C.expandExpr(C.cPow(A.b.b, kk)))), Q = asAtom(fold(C.expandExpr(B.b.b)));
             var ratio = flip ? C.cMul(P, C.cPow(Q, K.neg(ONE))) : C.cMul(P, Q);
             var combined = C.cMul(C.num(e[0].c), C.cExp(ratio, g));
-            line(log, 'Sprowadzamy do wspólnego wykładnika: aᵍ/bᵍ = (a/b)ᵍ', limOf(v, t, combined));
+            line(log, 'Zapisujemy oba wykładniki tak samo', limHead(v, t) + '⟦' + C.show(combined) + '⟧', 'potega-ilorazu');
             return limitOf(combined, v, t, log, depth);
         }
     };
@@ -897,7 +897,7 @@
         return pow > 1 ? (x.length > 1 ? s : '(' + s + ')') + K.sup(String(pow)) : s;
     }
     // ── Granice znane: sin u/u, tg u/u, (eᵘ − 1)/u, ln(1 + u)/u, arcsin u/u, arctg u/u → 1 ──
-    var KNOWN_FN = { sin: 'sin u/u → 1', tan: 'tg u/u → 1', asin: 'arcsin u/u → 1', atan: 'arctg u/u → 1' };
+    var KNOWN_FN = { sin: 'sinu', tan: 'tgu', asin: 'arcsinu', atan: 'arctgu' }; // [EN] id wzoru w słowniku
     function isE(x) { return x.length === 1 && K.eq(x[0].c, ONE) && x[0].fs.length === 1 && x[0].fs[0].b.k === 'const' && x[0].fs[0].b.v === 'e' && K.eq(x[0].fs[0].e, ONE); }
     function knownPart(x, v, t) { // [EN] x = sin(u) | tg(u) | eᵘ − 1 | ln(1 + u), u → 0 → { u, label }
         var hit = null;
@@ -907,11 +907,11 @@
             var a = x[0].fs[0].b;
             var top1 = [C.term(ONE, x[0].fs)];
             if (KNOWN_FN[a.f]) hit = { u: a.a, label: KNOWN_FN[a.f], c: x[0].c, top: top1 };
-            else if (a.f === 'ln') hit = { u: fold(C.expandExpr(C.cSub(a.a, C.num(ONE)))), label: 'ln(1 + u)/u → 1', c: x[0].c, top: top1 };
+            else if (a.f === 'ln') hit = { u: fold(C.expandExpr(C.cSub(a.a, C.num(ONE)))), label: 'ln1u', c: x[0].c, top: top1 };
         } else if (x.length === 2) {
             var ex = x.filter(function (tt) { return tt.fs.length === 1 && tt.fs[0].b.k === 'exp' && isE(tt.fs[0].b.b) && K.eq(tt.fs[0].e, ONE); });
             var cst = x.filter(function (tt) { return !tt.fs.length; });
-            if (ex.length === 1 && cst.length === 1 && K.eq(cst[0].c, K.neg(ex[0].c))) hit = { u: ex[0].fs[0].b.x, label: '(eᵘ − 1)/u → 1', c: ex[0].c, top: C.cAdd([C.term(ONE, ex[0].fs)], C.num(K.neg(ONE))) };
+            if (ex.length === 1 && cst.length === 1 && K.eq(cst[0].c, K.neg(ex[0].c))) hit = { u: ex[0].fs[0].b.x, label: 'eu', c: ex[0].c, top: C.cAdd([C.term(ONE, ex[0].fs)], C.num(K.neg(ONE))) };
         }
         if (!hit || !C.hasVar(hit.u, v)) return null;
         var ul = numericLimit(hit.u, v, t);
@@ -930,9 +930,9 @@
             var rest = up ? C.cMul(C.num(hit.c), C.cMul(u, C.cPow(fr.D, K.neg(ONE))))
                 : C.cMul(fr.N, C.cPow(C.cMul(C.num(hit.c), u), K.neg(ONE)));
             rest = fold(rest);
-            var bracket = up ? '[' + C.paren(hit.top) + '/' + grp(u) + ']' : '[' + C.paren(u) + '/' + grp(hit.top) + ']';
-            line(log, 'Granica znana: ' + hit.label, 'u = ' + uText + ' → 0:  ' + limHead(v, t) + bracket + ' · ' + C.show(rest));
-            line(log, 'Nawias kwadratowy → 1', limOf(v, t, rest));
+            var bracket = up ? '[⟦' + C.paren(hit.top) + '/' + grp(u) + '⟧]' : '[⟦' + C.paren(u) + '/' + grp(hit.top) + '⟧]';
+            line(log, 'Korzystamy ze znanej granicy', 'u = ' + uText + ' → 0:  ' + limHead(v, t) + bracket + ' · ' + C.show(rest), hit.label);
+            line(log, 'Podkreślony ułamek dąży do 1', limOf(v, t, rest));
             return limitOf(rest, v, t, log, depth);
         }
     };
@@ -990,7 +990,7 @@
             if (C.show(out).length > 4 * C.show(e).length + 40) throw new NotSupported(); // [EN] wyrażenie się komplikuje
             _lhCount++;
             try {
-                line(log, "Reguła de l'Hospitala", limHead(v, t) + '(' + C.showInner(fr.N) + ')′/(' + C.showInner(fr.D) + ')′ = ' + limOf(v, t, out));
+                line(log, "Reguła de l'Hospitala", limHead(v, t) + '⟦(' + C.showInner(fr.N) + ')′/(' + C.showInner(fr.D) + ')′⟧ = ' + limOf(v, t, out), 'lhospital');
                 return limitOf(out, v, t, log, depth);
             } finally { _lhCount--; }
         }
@@ -1097,7 +1097,8 @@
         _work = 0; _budget = WORK_BUDGET;
         try {
             ind = indeterminate(e, d.v, d.target);
-            steps = [{ label: 'Granica', math: userLim(d, e) + (ind ? '  [' + ind + ']' : '') }];
+            // [EN] symbol nieoznaczony do stuknięcia: dymek „co to znaczy” (słownik: nieoznaczone)
+            steps = [ind ? { label: 'Granica', math: userLim(d, e) + '  [⟦' + ind + '⟧]', formula: { id: 'nieoznaczone' } } : { label: 'Granica', math: userLim(d, e) }];
             var quick = null;
             if (!ind && !isFiniteTarget(d.target)) {
                 ans = limitOf(e, d.v, d.target, null, 0);

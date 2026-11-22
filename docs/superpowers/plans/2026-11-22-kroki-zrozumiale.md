@@ -85,3 +85,13 @@ Wszystkie propozycje przyjęte: „dlaczego” zawsze widoczne; kolorowanie zmia
 - Test `test/step-why.js`: 418 kroków (zestaw, ściąga, dodatkowe) — każdy ma zdanie, ≤ 25 słów, bez zapisu z klawiatury.
 - Agent „słaby uczeń” przeczytał zdania: 7 niepasujących dopasowań poprawionych warunkami, 5 trudnych zdań uproszczonych.
 - Zostaje: `[∞ · 0]` silnik nie nazywa (zdanie neutralne), „Wzór z tablicy” bez nazwy wzoru — w 3d dymki ze słownika.
+
+## 3d (granice) — zrobione (v1.05.09)
+- Wzory wyjęte z etykiet granic do słownika `js/step-formulas.js` (15 wpisów): sprzężenie, a³ − b³, a⁴ − b⁴,
+  √(x²) = |x|, różnica logarytmów, potęga ilorazu, sin/tg/arcsin/arctg u/u, ln(1 + u)/u, (eᵘ − 1)/u, de l'Hospital,
+  symbol nieoznaczony (+ e z 3a). Teksty z raportów agentów (sprawdzone merytorycznie).
+- W kroku podkreślony fragment ⟦…⟧ (`line(log, label, math, formula)`), etykiety krótkie: „Mnożymy przez sprzężenie”,
+  „Korzystamy ze znanej granicy”, „Podkreślony ułamek dąży do 1”, „Łączymy logarytmy w jeden”,
+  „Zapisujemy oba wykładniki tak samo”; symbol `[0/0]` w kroku 1 do stuknięcia.
+- Testy: żadna etykieta granicy nie zawiera wzoru; każdy wpis słownika użyty w prawdziwym kroku (490 kroków).
+- Pochodne, całki i równania (Δ, wzory na x₁ x₂, tablice, przez części, Newton-Leibniz) — razem z 3e.

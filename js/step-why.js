@@ -6,7 +6,7 @@
     // Reguła: [wzorzec etykiety, zdanie | (krok, tytuł) => zdanie, tytuł zadania (opcjonalnie)].
     // Kawałki między $…$ to LaTeX (rysowane jak na kartce). Kroki-stwierdzenia (Wynik, Równanie…) — bez zdania.
 
-    /** @typedef {{label: string, math: string}} Step */
+    /** @typedef {{label: string, math: string, formula?: {id: string}}} Step */
     // [EN] sprzężenie = ten sam nawias z przeciwnym znakiem (raz suma, raz różnica); powód zależy od celu granicy
     const SPRZ_INF = 'Różnica z pierwiastkiem daje $\\infty-\\infty$. Mnożymy przez ten sam nawias z przeciwnym znakiem, bo $(a-b)(a+b)=a^{2}-b^{2}$ i pierwiastek znika.';
     const SPRZ_NUM = 'Pierwiastek nie pozwala skrócić. Mnożymy przez ten sam nawias z przeciwnym znakiem, bo $(a-b)(a+b)=a^{2}-b^{2}$ i pierwiastek znika.';
@@ -26,7 +26,7 @@
         [/^(Wynik|Odpowiedź|Równanie|Funkcja|Całka|Działanie|Wyrażenie|Wynik w przybliżeniu)$/, ''],
         // ── granice ──
         [/^Granica$/, (s, _t, c) => {
-            const m = /\s\s\[([^\]]+)\]$/.exec(s.math);
+            const m = /\s\s\[⟦?([^\]⟧]+)⟧?\]$/.exec(s.math);
             if (m && TAG[m[1]]) return TAG[m[1]];
             if (c.next && /^Dorabiamy jedynkę/.test(c.next.label)) return TAG['1^∞']; // [EN] silnik nie zawsze nazywa 1^∞ (próg)
             // [EN] bez symbolu nie obiecujemy „nic nie przeszkadza” — silnik nie każdy kłopot nazywa (np. 0 · ∞)
@@ -44,9 +44,12 @@
         [/^Skracamy \(/, (_s, _t, c) => c.atInf ? 'To samo stoi w liczniku i w mianowniku, więc się skraca.'
             : 'Ten sam nawias jest w liczniku i mianowniku. Zmienna tylko zbliża się do celu, więc nawias nie jest zerem i wolno skrócić.'],
         [/^Skracamy /, 'To samo stoi w liczniku i w mianowniku, więc się skraca.'],
-        [/^Mnożymy przez sprzężenie: a³/, 'Przy pierwiastkach trzeciego stopnia pomaga wzór $a^{3}-b^{3}=(a-b)(a^{2}+ab+b^{2})$: po wymnożeniu pierwiastki znikają.'],
-        [/^Mnożymy przez sprzężenie: a⁴/, 'Przy pierwiastkach czwartego stopnia pomaga wzór na $a^{4}-b^{4}$: po wymnożeniu pierwiastki znikają.'],
-        [/^Mnożymy przez sprzężenie$/, (_s, _t, c) => c.atInf ? SPRZ_INF : SPRZ_NUM],
+        [/^Mnożymy przez sprzężenie$/, (s, _t, c) => {
+            const id = s.formula && s.formula.id;
+            if (id === 'roznica-szescianow') return 'Przy pierwiastkach trzeciego stopnia pomaga wzór $a^{3}-b^{3}=(a-b)(a^{2}+ab+b^{2})$: po wymnożeniu pierwiastki znikają.';
+            if (id === 'roznica-czwartych') return 'Przy pierwiastkach czwartego stopnia pomaga wzór na $a^{4}-b^{4}$: po wymnożeniu pierwiastki znikają.';
+            return c.atInf ? SPRZ_INF : SPRZ_NUM;
+        }],
         [/^Upraszczamy( licznik)?$/, (_s, _t, c) => c.prev && /sprzężenie/.test(c.prev.label)
             ? 'Wymnażamy: tam, gdzie była różnica z pierwiastkiem, pierwiastki się skasowały.'
             : 'Wymnażamy i zbieramy podobne wyrazy, żeby wyrażenie było krótsze.'],
@@ -57,11 +60,11 @@
         [/^Składamy wynik$/, 'Podstawa dąży do $e$, a wykładnik do liczby z poprzedniego kroku, więc całość dąży do $e$ do tej potęgi.'],
         [/^Potęga e$/, 'Liczba $e$ do coraz większej potęgi rośnie bez końca, a do coraz bardziej ujemnej spada do 0.'],
         [/^Dla \w → −∞$/, 'Gdy zmienna dąży do $-\\infty$, jest ujemna. Pierwiastek nigdy nie daje liczby ujemnej, więc pilnujemy znaku.'],
-        [/^Granica znana/, 'To znany wynik: gdy $u\\to 0$, ten ułamek dąży do 1. Dopasowujemy wyrażenie do tego kształtu.'],
-        [/^Nawias kwadratowy → 1$/, 'Nawias kwadratowy to znana granica, więc zastępujemy go jedynką.'],
+        [/^Korzystamy ze znanej granicy$/, 'To znany wynik: gdy $u\\to 0$, podkreślony ułamek dąży do 1. Dopasowujemy wyrażenie do tego kształtu.'],
+        [/^Podkreślony ułamek dąży do 1$/, 'Zastępujemy podkreślony ułamek jedynką i zostaje prostsze wyrażenie.'],
         [/^Reguła de l'Hospitala$/, 'Wyszło $\\frac{0}{0}$ albo $\\frac{\\infty}{\\infty}$, więc wolno zamiast ułamka liczyć ułamek pochodnych licznika i mianownika.'],
         [/^Sprowadzamy do wspólnego mianownika$/, 'Ułamki można dodać albo odjąć dopiero wtedy, gdy mają ten sam mianownik.'],
-        [/^Sprowadzamy do wspólnego wykładnika/, 'Gdy wykładniki są takie same, iloraz potęg to potęga ilorazu, a granicę ilorazu już umiemy policzyć.'],
+        [/^Zapisujemy oba wykładniki tak samo$/, 'Gdy wykładniki są takie same, iloraz potęg to potęga ilorazu, a granicę ilorazu już umiemy policzyć.'],
         [/^Rozbijamy na dwie różnice$/, 'Dzielimy wyrażenie na dwie części, z których każda jest zwykłą różnicą pierwiastków.'],
         [/^Dodajemy granice$/, 'Obie części mają skończone granice, więc granica sumy to suma granic.'],
         [/^Łączymy logarytmy/, 'Różnica logarytmów to logarytm ilorazu, a granicę ilorazu już umiemy policzyć.'],

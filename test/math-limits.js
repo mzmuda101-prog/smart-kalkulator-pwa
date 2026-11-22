@@ -130,10 +130,10 @@ const WANT_TEXT = { '1a': '1/3', '1d': '0', '1e': '+∞', '7a': '√3/3', '7b': 
 });
 {
     const r = S.run(byId['1b'].input), st = r && r.explain ? r.explain.steps : [];
-    ok('1b: pierwszy krok kończy się [∞/∞]', st.length && /\[∞\/∞\]$/.test(st[0].math), st[0]);
+    ok('1b: pierwszy krok kończy się [∞/∞]', st.length && /\[⟦∞\/∞⟧\]$/.test(st[0].math), st[0]);
     ok('1b: krok „Wyłączamy n² przed nawias”', st.some(x => x.label === 'Wyłączamy n² przed nawias'), st.map(x => x.label));
     const b = S.run(byId['7b'].input), sb = b && b.explain ? b.explain.steps : [];
-    ok('7b: krok √(x²) = |x| = −x', sb.some(x => /√\(x²\) = \|x\| = −x/.test(x.math)), sb.map(x => x.math));
+    ok('7b: krok √(x²) = |x| = −x', sb.some(x => /⟦√\(x²\)⟧ = \|x\| = −x/.test(x.math)), sb.map(x => x.math));
 }
 
 // ── Task 5: wspólny mianownik i logarytmy ──────────────────
@@ -160,9 +160,9 @@ const WANT_TEXT = { '1a': '1/3', '1d': '0', '1e': '+∞', '7a': '√3/3', '7b': 
     const steps = id => { const r = S.run(byId[id].input); return r && r.explain ? r.explain.steps : []; };
     const a = steps('4a');
     ok('4a: Mnożymy przez sprzężenie', a.some(x => /^Mnożymy przez sprzężenie/.test(x.label)), a.map(x => x.label));
-    ok('4a: (2n + 5 − (2n + 1))/(√(2n + 5) + √(2n + 1))', a.some(x => x.math.includes('(2n + 5 − (2n + 1))/(√(2n + 5) + √(2n + 1))')), a.map(x => x.math));
-    ok('5a: wzór a³ − b³', steps('5a').some(x => x.label.includes('a³ − b³ = (a − b)(a² + ab + b²)')), steps('5a').map(x => x.label));
-    ok('5d: wzór a⁴ − b⁴', steps('5d').some(x => x.label.includes('a⁴ − b⁴')), steps('5d').map(x => x.label));
+    ok('4a: (2n + 5 − (2n + 1))/(√(2n + 5) + √(2n + 1))', a.some(x => x.math.includes('(⟦2n + 5 − (2n + 1)⟧)/(√(2n + 5) + √(2n + 1))')), a.map(x => x.math));
+    ok('5a: wzór a³ − b³', steps('5a').some(x => x.formula && x.formula.id === 'roznica-szescianow'), steps('5a').map(x => x.label));
+    ok('5d: wzór a⁴ − b⁴', steps('5d').some(x => x.formula && x.formula.id === 'roznica-czwartych'), steps('5d').map(x => x.label));
     ok('4g: Rozbijamy na dwie różnice', steps('4g').some(x => x.label === 'Rozbijamy na dwie różnice'), steps('4g').map(x => x.label));
     ok('4b tekst 2√3', text(byId['4b'].input) === '2√3', text(byId['4b'].input));
     ok('7d tekst −3√2/4', text(byId['7d'].input) === '−3√2/4', text(byId['7d'].input));
@@ -177,7 +177,7 @@ const WANT_TEXT = { '1a': '1/3', '1d': '0', '1e': '+∞', '7a': '√3/3', '7b': 
         if (WANT6[id]) ok('zadanie ' + id + ' tekst', r && r.text === WANT6[id], r && r.text);
     });
     const r = S.run(byId['6d'].input), st = r && r.explain ? r.explain.steps : [];
-    ok('6d: [1^∞] w pierwszym kroku', st.length && st[0].math.includes('[1^∞]'), st[0]);
+    ok('6d: [1^∞] w pierwszym kroku', st.length && st[0].math.includes('[⟦1^∞⟧]'), st[0]);
     // spec 5.12: bez osobnego kroku „Wzór na e” — wzór podkreślony (⟦…⟧) w kroku, w którym działa
     ok('6d: bez kroku „Wzór na e”', !st.some(x => x.label === 'Wzór na e'), st.map(x => x.label));
     ok('6d: krok z podkreślonym wzorem na e', st.some(x => x.formula && x.formula.id === 'e' && /⟦\(1 \+ .*⟧/.test(x.math)), st.map(x => x.label + ': ' + x.math));
@@ -201,12 +201,12 @@ const WANT_TEXT = { '1a': '1/3', '1d': '0', '1e': '+∞', '7a': '√3/3', '7b': 
 {
     const st8 = (S.run(byId['8a'].input) || {}).explain;
     const s8 = st8 ? st8.steps : [];
-    ok('8a: [0/0] w pierwszym kroku', s8.length && /\[0\/0\]$/.test(s8[0].math), s8[0]);
+    ok('8a: [0/0] w pierwszym kroku', s8.length && /\[⟦0\/0⟧\]$/.test(s8[0].math), s8[0]);
     ok('8a: Rozkładamy na czynniki (x − 4)(x − 2)/((x − 4)(3x + 2))', s8.some(x => x.label === 'Rozkładamy na czynniki' && x.math.includes('(x − 4)(x − 2)/((x − 4)(3x + 2))')), s8.map(x => x.label + ': ' + x.math));
     ok('8a: Skracamy (x − 4)', s8.some(x => x.label === 'Skracamy (x − 4)'), s8.map(x => x.label));
     ok('8a tekst 1/7', text(byId['8a'].input) === '1/7', text(byId['8a'].input));
     const s9 = ((S.run(byId['9e'].input) || {}).explain || { steps: [] }).steps;
-    ok('9e: sprzężenie a⁴ − b⁴', s9.some(x => x.label.includes('a⁴ − b⁴')), s9.map(x => x.label));
+    ok('9e: sprzężenie a⁴ − b⁴', s9.some(x => x.formula && x.formula.id === 'roznica-czwartych'), s9.map(x => x.label));
     ok('9e tekst −1/96', text(byId['9e'].input) === '−1/96', text(byId['9e'].input));
 }
 
@@ -216,7 +216,7 @@ const WANT_TEXT = { '1a': '1/3', '1d': '0', '1e': '+∞', '7a': '√3/3', '7b': 
     ok('sin(x)/x = 1', text('lim x→0 sin(x)/x') === '1', text('lim x→0 sin(x)/x'));
     ok('sin(3x)/x = 3', text('lim x→0 sin(3x)/x') === '3', text('lim x→0 sin(3x)/x'));
     const st = lab('lim x→0 sin(3x)/x');
-    ok('sin(3x)/x: krok sin u/u → 1 z u = 3x', st.some(x => x.label.includes('sin u/u → 1') && x.math.includes('u = 3x')), st.map(x => x.label + ': ' + x.math));
+    ok('sin(3x)/x: krok sin u/u → 1 z u = 3x', st.some(x => x.formula && x.formula.id === 'sinu' && x.math.includes('u = 3x')), st.map(x => x.label + ': ' + x.math));
     ok('(eˣ−1)/x = 1', text('lim x→0 (e^x-1)/x') === '1', text('lim x→0 (e^x-1)/x'));
     ok('ln(1+2x)/x = 2', text('lim x→0 ln(1+2x)/x') === '2', text('lim x→0 ln(1+2x)/x'));
     ok('x/sin(x) = 1', text('lim x→0 x/sin(x)') === '1', text('lim x→0 x/sin(x)'));
@@ -338,6 +338,24 @@ ok('minor: lim x→−8 ∛x nie daje złego wyniku', ['−2', NOPE].includes(te
     // (eˣ − 1)/x znaną granicą, nie de l'Hospitalem (błędne koło)
     const sE = steps('lim x→0 (e^x-1)/x');
     ok("3b: (eˣ − 1)/x bez de l'Hospitala", sE.length && !sE.some(x => /Hospital/.test(x.label)), show(sE));
+}
+
+// ── Etap 3d: wzory ze słownika zamiast tekstu w etykietach ──
+{
+    const all = q => { const r = S.run(q); return r && r.explain ? r.explain.steps : []; };
+    const labelsWithFormula = [];
+    for (const z of ZESTAW.concat([{ input: 'lim x→0 sin(3x)/x' }, { input: "lim x→0 (x - sin(x))/x^3" }])) {
+        for (const st of all(z.input)) if (/: .*=|u\/u|log f|ᵍ|′/.test(st.label)) labelsWithFormula.push(st.label);
+    }
+    ok('3d: etykiety granic bez wzorów', labelsWithFormula.length === 0, [...new Set(labelsWithFormula)]);
+    const has = (q, id) => all(q).some(x => x.formula && x.formula.id === id && /⟦.+⟧/.test(x.math));
+    ok('3d: sprzężenie podkreślone', has(byId['4a'].input, 'sprzezenie'));
+    ok('3d: a³ − b³ podkreślone', has(byId['5a'].input, 'roznica-szescianow'));
+    ok('3d: sin u/u podkreślone', has('lim x→0 sin(3x)/x', 'sinu'));
+    ok('3d: (eᵘ − 1)/u podkreślone', has('lim x→0 (e^x-1)/x', 'eu'));
+    ok("3d: de l'Hospital podkreślony", has('lim x→0 (x - sin(x))/x^3', 'lhospital'));
+    ok('3d: symbol [0/0] do stuknięcia', has(byId['8a'].input, 'nieoznaczone'));
+    ok('3d: √(x²) = |x| podkreślone', has('lim x→-∞ x/sqrt(3x^2+5)', 'pierwiastek-z-kwadratu'));
 }
 
 // ── Zestaw 58 zadań ─────────────────────────────────────────

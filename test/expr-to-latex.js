@@ -70,7 +70,10 @@ ok('zestaw: 58/58 rysunków wraca do tego samego zadania', bad.length === 0, bad
         .concat([...defs.matchAll(/command: '((?:[^'\\]|\\.)*)'/g)].map(m => m[1].replace(/\\'/g, "'")));
     const used = new Set(), leaks = [];
     let steps = 0;
-    for (const q of ZESTAW.map(z => z.input).concat(sciaga)) {
+    // znane granice i de l'Hospital — po jednym przykładzie na każdy wzór słownika
+    const extra = ['lim x→0 sin(3x)/x', 'lim x→0 tan(2x)/x', 'lim x→0 arcsin(2x)/x', 'lim x→0 arctg(3x)/x', 'lim x→0 ln(1+2x)/x',
+        'lim x→0 (e^x-1)/x', 'lim x→0 (x - sin(x))/x^3'];
+    for (const q of ZESTAW.map(z => z.input).concat(sciaga, extra)) {
         let r; try { r = S.run(q); } catch { continue; }
         if (!r || !r.explain || !r.explain.steps) continue;
         for (const st of r.explain.steps) {
