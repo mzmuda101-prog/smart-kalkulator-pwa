@@ -389,6 +389,23 @@ test.describe('ramka na zdjęciu', () => {
     await expect(panel.getByRole('button', { name: 'Zapisz wycinek' })).toBeHidden();
   });
 
+  test('niepewny znak: komunikat bez zmiany pola, „Wstaw i popraw” wstawia i zaznacza „?”', async ({ page }) => {
+    const { dlg } = await openScanner(page);
+    await page.evaluate(() => { document.getElementById('calcExpr').value = '2+2'; });
+    await page.evaluate(() => { window.MATM0_OCR.read = async () => ({ latex: '5n \\| 8', expr: 'lim n→∞ ((5n+7)/(5n ? 8))^n', uncertain: true, ms: 1 }); });
+    await pickFile(page, fixtureBuf('frac'));
+    await page.getByRole('button', { name: 'Odczytaj', exact: true }).click();
+    await expect(page.locator('.scanner-error')).toContainText('Odczytałem z niepewnym miejscem (?)');
+    await expect(page.locator('.scanner-error-expr')).toHaveText('lim n→∞ ((5n+7)/(5n ? 8))^n');
+    await expect(page.locator('#calcExpr')).toHaveValue('2+2'); // nic do pola bez stuknięcia
+    await page.getByRole('button', { name: 'Wstaw i popraw' }).click();
+    await expect(dlg).toBeHidden();
+    const field = page.locator('#calcExpr');
+    await expect(field).toHaveValue('lim n→∞ ((5n+7)/(5n ? 8))^n');
+    await expect(field).toBeFocused();
+    expect(await field.evaluate((f) => f.value.slice(f.selectionStart, f.selectionEnd))).toBe('?');
+  });
+
   test('cropToImage: przycina w pikselach źródła i zmniejsza dłuższy bok do 2000', async ({ page }) => {
     await page.goto('index.html', { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!window.loadScanner);

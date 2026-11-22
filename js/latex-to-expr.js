@@ -2,7 +2,8 @@
 (function () {
     'use strict';
     // LaTeX z PP-FormulaNet → zapis parsera kalkulatora („lim n→∞ (2n+1)/(6n+5)”).
-    // Zwraca { expr } albo { error } — nigdy nie zgaduje po cichu.
+    // Zwraca { expr } albo { error } — nigdy nie zgaduje po cichu. Nieznana komenda (np. minus odczytany jako \\|)
+    // daje „?” w zapisie i { uncertain: true }: skaner pokaże to i wstawi do pola dopiero po zgodzie.
     const SKIP = new Set(['\\,', '\\;', '\\:', '\\!', '\\ ', '\\quad', '\\qquad', '\\displaystyle', '\\textstyle',
         '\\scriptstyle', '\\left', '\\right', '\\big', '\\Big', '\\bigg', '\\Bigg', '\\bigl', '\\bigr', '\\Bigl', '\\Bigr',
         '\\biggl', '\\biggr', '\\Biggl', '\\Biggr', '~', '\\limits', '\\nolimits']);
@@ -25,7 +26,7 @@
         // znane potknięcia modelu: \\left, \\(, „sqrt” bez ukośnika
         const t = tokenize(latex.replace(/\\\\(?=left|right)/g, '\\').replace(/\\\\([()])/g, '$1')
             .replace(/(^|[^\\a-zA-Z])(sqrt|frac)(?![a-zA-Z])/g, '$1\\$2'));
-        let i = 0;
+        let i = 0, unsure = false;
         const peek = () => t[i];
         const fail = (/** @type {string} */ why) => { throw new Error(why); };
 
@@ -95,7 +96,8 @@
             }
             if (x === '\\underset') { const sub = arg(); const what = arg(); if (what.trim() !== 'lim') fail('underset bez lim'); t.splice(i, 0, '_', '{', ...tokenize(sub), '}'); return limit(); }
             if (/^\\[a-zA-Z]+$/.test(x) && FUNCS.has(x.slice(1))) return func(x.slice(1));
-            if (x.startsWith('\\')) fail('nieznana komenda ' + x);
+            if (x === '\\begin' || x === '\\end') fail('nieobsługiwane ' + x); // tablice, układy — to nie jeden znak
+            if (x.startsWith('\\')) { unsure = true; return ' ? '; }
             if (x === '[' ) return '(';
             if (x === ']') return ')';
             return x;
@@ -119,12 +121,13 @@
         }
         try {
             let s = seq('').trim().replace(/[.,;^]+$/, '').trim();
-            if (!s) fail('pusty odczyt');
+            if (unsure) s = s.replace(/\s{2,}/g, ' ').replace(/\( \?/g, '(?').replace(/\? \)/g, '?)');
+            if (!s || /^[\s?]*$/.test(s)) fail('pusty odczyt');
             if (/\(\)|\(\s*$/.test(s)) fail('pusty nawias');
             let depth = 0;
             for (const c of s) { depth += c === '(' ? 1 : c === ')' ? -1 : 0; if (depth < 0) fail('nawiasy'); }
             if (depth) fail('nawiasy');
-            return { expr: s };
+            return unsure ? { expr: s, uncertain: true } : { expr: s };
         } catch (e) { return { error: /** @type {Error} */ (e).message }; }
     }
 

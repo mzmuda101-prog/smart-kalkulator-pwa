@@ -39,6 +39,19 @@ function evalKind(expr) {
   }
 }
 
+// ── 0. Każdy chip pod „dziś”/„dzis”/„today” prowadzi do daty (chip „za 3 tygodnie” dawał „Nie rozumiem”) ──
+{
+  require('../js/hint-rules.js');
+  const H = global.window.MATM0_HINT;
+  const bad = [];
+  for (const base of ['dziś', 'dzis', 'today']) for (const c of H.getLiveHints(base)) {
+    const ex = base + c.insert;
+    if (evalKind(ex) !== 'date' || !evalText(ex)) bad.push(ex + ' → ' + evalText(ex));
+  }
+  if (bad.length) { console.error('❌ chipy po „dziś” bez daty:', bad); process.exitCode = 1; }
+  else console.log('  ✓ chipy po „dziś”: każdy daje datę');
+}
+
 // ── 1. Twardy snapshot — konkretne wyrażenia z helpa + warianty bez spacji ──
 const CASES = [
   // zgłoszone przez użytkownika
@@ -56,6 +69,12 @@ const CASES = [
   { expr: 'dziś+ 5 dni', text: '6.7.2026 (poniedziałek)', kind: 'date' },
   // za / temu — kompakt
   { expr: 'za 3 tygodnie', text: '22.7.2026 (środa)', kind: 'date' },
+  { expr: 'dziś za 3 tygodnie', text: '22.7.2026 (środa)', kind: 'date' },
+  { expr: 'dzis za 3 tygodnie', text: '22.7.2026 (środa)', kind: 'date' },
+  { expr: 'dzisiaj za 2 dni', text: '3.7.2026 (piątek)', kind: 'date' },
+  { expr: 'jutro za 3 dni', text: '5.7.2026 (niedziela)', kind: 'date' },
+  { expr: 'today in 3 weeks', text: '22.7.2026 (środa)', kind: 'date' },
+  { expr: 'dziś - 2 dni', text: '29.6.2026 (poniedziałek)', kind: 'date' },
   { expr: 'za3tygodnie', text: '22.7.2026 (środa)', kind: 'date' },
   { expr: 'za 3 tyg', text: '22.7.2026 (środa)', kind: 'date' },
   { expr: '3 dni temu', text: '28.6.2026 (niedziela)', kind: 'date' },
@@ -203,4 +222,4 @@ parser.clearNowForTests();
 
 const totalFail = fail + spFail + (propFail ? 1 : 0) + guardFail + spanFail;
 console.log('\n=== dates-regression: ' + (totalFail ? 'FAIL' : 'OK') + ' ===');
-process.exit(totalFail ? 1 : 0);
+process.exit(totalFail || process.exitCode ? 1 : 0);

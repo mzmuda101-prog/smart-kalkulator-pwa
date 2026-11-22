@@ -821,6 +821,12 @@
                 return { text: _fmtDate(dWdOff), value: null };
             }
         }
+        // Kotwica dnia + offset: „dziś za 3 tygodnie" / „jutro za 2 dni" / „today in 3 weeks" (chip pod „dziś")
+        if ((m = low.match(/^(dzis|dzisiaj|today|jutro|tomorrow|pojutrze|wczoraj|yesterday)\s+(?:za|in)\s*([\d.,]+)\s*([a-z]+)\s*$/)) && _isDateUnit(m[3])) {
+            var dAnc = _parseDateToken(m[1]).d;
+            _applyDateUnit(dAnc, parseFloat(m[2].replace(',', '.')), m[3], 1);
+            return { text: _fmtDate(dAnc), value: null };
+        }
         // „jaki/który/which/what day … <data>"
         if ((m = low.match(/^(?:jaki|ktory|which|what)\s+(?:to\s+)?(?:day(?:\s+of\s+week)?|dzien(?:\s+tygodnia)?)\s+(?:jest\s+|is\s+|to\s+|wypada\s+|bedzie\s+)?(.+)$/))) {
             var dWd = _parseDateToken(m[1].trim());

@@ -727,12 +727,21 @@
         },
         apply: function (e, v, t, log, depth) {
             var p = expOf(e), h = minusOne(p.f), a = C.cPow(h, K.neg(ONE));
-            var onePlus = '1 ' + (/^−/.test(C.show(h)) ? '− ' + C.show(C.cNeg(h)) : '+ ' + C.show(h));
-            line(log, 'Dorabiamy jedynkę', C.show(p.f) + ' = ' + onePlus + ',  aₙ = ' + C.show(a));
+            var sa = C.show(a), pa = /^(\d+(\.\d+)?|[a-zA-Z])$/.test(sa) ? sa : '(' + sa + ')';
+            // [EN] zawsze „1 + …”: 1 − 1/n = 1 + 1/(−n), 1 − 3/(n + 3) = 1 + (−3/(n + 3)); f już w tej postaci → 1 + 1/aₙ
+            var sh = C.show(h), neg = /^−/.test(sh);
+            var onePlus = neg && /^1\//.test(C.show(C.cNeg(h))) ? '1 + 1/' + pa : neg ? '1 + (' + sh + ')' : '1 + ' + sh;
+            if (onePlus === C.show(p.f)) onePlus = '1 + 1/' + pa;
+            line(log, 'Dorabiamy jedynkę', (onePlus === C.show(p.f) ? onePlus : C.show(p.f) + ' = ' + onePlus) + ',  aₙ = ' + sa);
             var gh = fold(C.cMul(p.g, h));
-            line(log, 'Wzór na e', '(1 + 1/aₙ)^aₙ → e, więc ' + limHead(v, t) + '[(' + onePlus + ')^(' + C.show(a) + ')]^(' + C.show(gh) + ')');
-            line(log, 'Granica wykładnika', limOf(v, t, gh));
+            var sgh = C.show(gh);
+            line(log, 'Wzór na e', '(1 + 1/aₙ)^aₙ → e, więc ' + limHead(v, t) + (sgh === '1' ? '(' + onePlus + ')^' + pa : '[(' + onePlus + ')^' + pa + ']^(' + sgh + ')'));
+            var mark = log ? log.length : 0, still = !C.hasVar(gh, v);
+            if (log) line(log, still ? 'Wykładnik' : 'Granica wykładnika', still ? sgh : limOf(v, t, gh));
             var L = limitOf(gh, v, t, log, depth);
+            // [EN] wykładnik bez kroków pośrednich (stała, prosta granica): jeden krok zamiast dwóch
+            var single = !!log && log.length === mark + 1 && L.kind === 'num';
+            if (single && !still) log[mark].math += ' = ' + C.show(rationalize(fold(L.e)));
             var coef = C.num(p.c);
             if (L.kind === 'inf') {
                 line(log, 'Potęga e', L.sign > 0 ? '→ e^(+∞) = +∞' : '→ e^(−∞) = 0');
@@ -741,7 +750,7 @@
                 return { kind: 'inf', sign: 1 };
             }
             if (L.kind !== 'num') throw new NotSupported();
-            line(log, 'Wykładnik', '→ ' + C.show(rationalize(fold(L.e))));
+            if (!single) line(log, 'Wykładnik', '→ ' + C.show(rationalize(fold(L.e))));
             return { kind: 'num', e: C.cMul(coef, C.cExp(C.E_CONST, L.e)) };
         }
     };

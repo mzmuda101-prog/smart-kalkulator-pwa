@@ -15501,7 +15501,9 @@
             results.push({ expr: 'ile dni do 1.09 (liczba)', pass: typeof evalCalcExpression('ile dni do 1.09').value === 'number', got: evalCalcExpression('ile dni do 1.09').text });
             // regresja: kompaktowe zapisy i godziny na „dziś" (wcześniej zwracały null)
             function rdKind(ex) { try { var r = evalCalcExpression(ex); return r && r.kind || ''; } catch (e) { return 'ERR'; } }
-            ['dziś + 90 dni', 'dzis+5dni', 'dzis-2dni', 'dziś + 20h', 'dzis + 20h', 'za3tygodnie', '3dnitemu'].forEach(function(ex) {
+            // „dziś za 3 tygodnie” — chip pod „dziś” dokleja „za 3 tygodnie”; każdy chip po „dziś” ma dawać datę
+            ['dziś + 90 dni', 'dzis+5dni', 'dzis-2dni', 'dziś + 20h', 'dzis + 20h', 'za3tygodnie', '3dnitemu',
+                'dziś za 3 tygodnie', 'dzis za 3 tygodnie', 'dziś - 2 dni', 'today in 3 weeks'].forEach(function(ex) {
                 var rd = evalCalcExpression(ex);
                 results.push({ expr: ex + ' (data/kompakt)', pass: rd && rd.kind === 'date' && !!rd.text, got: rd && rd.text });
             });

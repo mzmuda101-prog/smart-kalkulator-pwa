@@ -33,8 +33,13 @@ const PAIRS = [
     ['n\\cdot\\left(\\sqrt{4n^{2}+7}\\right)', 'n*(sqrt(4n^2+7))'],
     ['n+1,', 'n+1'], ['n+1.', 'n+1'], ['n+1^', 'n+1'],
 ];
-for (const [l, e] of PAIRS) { const r = latexToExpr(l); ok(l, r.expr === e, r); }
-for (const l of ['\\begin{array}{l}x\\end{array}', '\\frac{1}{', '\\lim_{n\\to\\infty}\\left(\\frac{n}{n+3}\\right', ''])
+for (const [l, e] of PAIRS) { const r = latexToExpr(l); ok(l, r.expr === e && !r.uncertain, r); }
+// jeden nieznany znak (minus odczytany jako \|) nie odrzuca wzoru: „?” w zapisie + uncertain
+for (const [l, e] of [
+    ['\\lim_{n\\to\\infty}\\left(\\frac{5n+7}{5n \\| 8}\\right)^{n}', 'lim n→∞ ((5n+7)/(5n ? 8))^n'],
+    ['\\frac{\\|}{2}', '(?)/2'],
+]) { const r = latexToExpr(l); ok('niepewne: ' + l, r.expr === e && r.uncertain === true, r); }
+for (const l of ['\\begin{array}{l}x\\end{array}', '\\alpha', '\\| \\|', '\\frac{1}{', '\\lim_{n\\to\\infty}\\left(\\frac{n}{n+3}\\right', ''])
     ok('błąd: ' + l, typeof latexToExpr(l).error === 'string', latexToExpr(l));
 
 // ── zestaw: ta sama zmienna, cel i wartości ciała w punktach próbnych ──

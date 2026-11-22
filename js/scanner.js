@@ -482,7 +482,34 @@
     }
 
     function showError(/** @type {NonNullable<typeof ui>} */ u, /** @type {string} */ msg) {
+        u.error.classList.remove('is-unsure');
         u.error.textContent = msg; u.error.hidden = false;
+    }
+
+    /** @param {string} expr @returns {HTMLTextAreaElement|null} */
+    function insertExpr(expr) {
+        const field = /** @type {HTMLTextAreaElement|null} */ (document.getElementById('calcExpr'));
+        if (field) { field.value = expr; field.dispatchEvent(new Event('input', { bubbles: true })); }
+        return field;
+    }
+
+    /** Odczyt z „?” w miejscu nieznanego znaku: pokazujemy go i wstawiamy dopiero po „Wstaw i popraw”. */
+    function showUnsure(/** @type {NonNullable<typeof ui>} */ u, /** @type {string} */ expr) {
+        showError(u, '');
+        u.error.classList.add('is-unsure');
+        const text = el('span', 'scanner-error-text', 'Odczytałem z niepewnym miejscem (?):');
+        text.append(el('span', 'scanner-error-expr', expr));
+        u.error.append(text);
+        const fix = /** @type {HTMLButtonElement} */ (el('button', 'scanner-btn', 'Wstaw i popraw')); fix.type = 'button';
+        fix.addEventListener('click', () => {
+            const field = insertExpr(expr);
+            closeDlg(u);
+            if (!field) return;
+            const at = expr.indexOf('?');
+            field.focus();
+            field.setSelectionRange(at, at + 1); // zaznaczony „?” — wystarczy wpisać właściwy znak
+        });
+        u.error.append(fix);
     }
 
     function closeDlg(/** @type {NonNullable<typeof ui>} */ u) {
@@ -505,9 +532,9 @@
             const res = await win.MATM0_OCR.read(crop, { debug: DEBUG }); // białe tło i skrawki: w workerze
             if (!done()) return;
             if (u.debug) showDebug(u.debug, res);
-            if (res && res.expr && !res.error) {
-                const field = /** @type {HTMLTextAreaElement|null} */ (document.getElementById('calcExpr'));
-                if (field) { field.value = res.expr; field.dispatchEvent(new Event('input', { bubbles: true })); }
+            if (res && res.expr && !res.error && res.uncertain) showUnsure(u, res.expr); // do pola dopiero po stuknięciu
+            else if (res && res.expr && !res.error) {
+                insertExpr(res.expr);
                 if (!u.debug) closeDlg(u); // diagnostyka: okno zostaje, żeby było widać odczyt
             } else showError(u, 'Nie odczytałem wzoru. Ustaw ramkę ciaśniej wokół jednego wzoru.');
         } catch (e) {
