@@ -35,7 +35,13 @@ Bierzemy pomysły na przepływ, nie wygląd tamtej aplikacji.
    Pomiar: czas pierwszego rysunku na iPhonie, rozmiar w cache.
 2. **Edytor 2D + klawiatura** — szuflada, układ klawiatury po polsku (karty: Podstawowe / Funkcje / Granice i całki:
    `lim`, `∞`, ułamek, `√`, `∛`, potęga, `log`, `sin`…), „Gotowe” → pole tekstowe. Test e2e na telefonie (emulacja + prawdziwy iPhone).
-3. **Kroki graficznie + dymki wzorów** (5.12) — kroki rysowane tą samą biblioteką; wzór szkolny podkreślony, stuknięcie → dymek.
+3. **Kroki graficznie + dymki wzorów** (spec 5.12) — wymagania Mateusza (2026-11-22):
+   - **każdy krok i wynik rysowany jak na kartce** — nigdzie `sqrt(…)`, `^(…)`, `/` z klawiatury
+     (szuflada kroków, rozpisanie na komputerze, dymki); kroki dostają LaTeX z drzewa obok tekstu;
+   - **bez osobnego kroku „użyto wzoru”** — fragment, w którym wzór działa, jest podkreślony w swoim kroku;
+   - **stuknięcie** → dymek (wzór, „po co tu”, poziom szkoły); dłuższe wyjaśnienie → „Więcej” → osobny widok
+     z przyciskiem „Wróć” do tego samego miejsca;
+   - test: żaden krok z zestawu 58 granic i ze ściągi nie zawiera `sqrt(` ani `^(` w tym, co widać.
 
 ## Decyzje Mateusza (2026-11-22)
 1. Układ: **rysunek nad wynikiem + ołówek → edytor 2D** (propozycja przyjęta).

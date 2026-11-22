@@ -415,6 +415,17 @@ mnożenia, szkoła podstawowa”).
   gdyby w testach przeszkadzało.
 - Dobrze łączy się z 5.9 (wzór w dymku narysowany graficznie, jak na kartce) — robić po nim.
 - Testy: każdy wzór ze słownika ma przykład, w którym krok go używa (smoke-test, że dymek ma treść).
+- **Bez marnowania kroku na „użyto wzoru” (Mateusz, 2026-11-22, przypomnienie).** Dziś bywa osobny krok
+  tylko po to, żeby powiedzieć „wzór na e” albo „a³ − b³ = …”. Docelowo ten krok znika: przekształcenie
+  zostaje w kroku, w którym wzór jest użyty, a **użyty fragment jest w nim podkreślony i do stuknięcia**.
+- **Co daje stuknięcie:** dymek z wzorem (narysowanym), „po co tu” i poziomem szkoły; przy dłuższym
+  wyjaśnieniu w dymku „Więcej” → osobny widok z pełnym wyjaśnieniem (np. skąd się bierze wzór na e,
+  przykład) i przyciskiem/gestem **„Wróć”** do tego samego miejsca w krokach.
+- **Wszystkie kroki rysowane jak na kartce (Mateusz, 2026-11-22).** Żaden krok ani wynik nie pokazuje
+  zapisu z klawiatury (`sqrt(…)`, `^(…)`, `∛(…)`, `/`) — pierwiastek z kreską, ułamek piętrowy, potęga u góry,
+  `lim` z `n→∞` pod spodem; tak samo w szufladzie kroków, w rozpisaniu na komputerze i w dymkach wzorów.
+  Kroki budują dziś tekst (`C.show`, `limHead`) — trzeba im dać drugie wyjście: LaTeX z tego samego drzewa
+  (jak `js/expr-to-latex.js`), rysowany tym samym rendererem co wzór obok wyniku (v1.04.95).
 
 ## 6. Zostawione wykonawcy
 
