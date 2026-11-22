@@ -73,7 +73,8 @@ ok('zestaw: 58/58 rysunków wraca do tego samego zadania', bad.length === 0, bad
     // znane granice i de l'Hospital — po jednym przykładzie na każdy wzór słownika
     const extra = ['lim x→0 sin(3x)/x', 'lim x→0 tan(2x)/x', 'lim x→0 arcsin(2x)/x', 'lim x→0 arctg(3x)/x', 'lim x→0 ln(1+2x)/x',
         'lim x→0 (e^x-1)/x', 'lim x→0 (x - sin(x))/x^3', 'rozwiąż x^2 - 4x + 4 = 0', 'rozłóż x^2 - 9', 'rozwiąż x^2 - 2x - 1 = 0',
-        'rozwiąż x^2 = 9', 'kroki 3/4 - 1/6'];
+        'rozwiąż x^2 = 9', 'kroki 3/4 - 1/6', 'pochodna x/(x+1)', 'pochodna sin(x^2)', 'całka 1/(x^2+4)', 'całka sin(x)^2',
+        'całka cos(x)^2', 'całka tan(x)^2', 'całka x^2 od 0 do 1'];
     for (const q of ZESTAW.map(z => z.input).concat(sciaga, extra)) {
         let r; try { r = S.run(q); } catch { continue; }
         if (!r || !r.explain || !r.explain.steps) continue;
@@ -105,6 +106,8 @@ ok('zestaw: 58/58 rysunków wraca do tego samego zadania', bad.length === 0, bad
     try { many = stepToLatex(Array(16).fill('∞').join(' · ')); } catch (e) { thrown = e.message; }
     ok('kroki: za dużo grup → tekst, nie wyjątek', !thrown && many && many.length === 1, thrown || many);
     ok('kroki: druga linia kroku zaczyna się znacznikiem', JSON.stringify(stepToLatex('x₁ = 2\nx₂ = 3')) === JSON.stringify(['x_{1}', '=2', '\n', 'x_{2}', '=3']), stepToLatex('x₁ = 2\nx₂ = 3'));
+    ok('kroki: (sin(x))′ z nawiasem, nie sin′ x', stepToLatex('(sin(x))′ = cos(x)')[0] === '\\left(\\sin x\\right)^{\\prime}', stepToLatex('(sin(x))′ = cos(x)'));
+    ok('kroki: całka z granicami', stepToLatex('∫(0→1) x² dx').join('') === '\\int_{0}^{1} x^{2}\\,dx', stepToLatex('∫(0→1) x² dx'));
     ok('kroki: W(1) to zapis funkcji, nie iloczyn', stepToLatex('W(1) = 0').join('') === 'W\\left(1\\right)=0', stepToLatex('W(1) = 0'));
     ok('kroki: przecinek zostaje przy wzorze', stepToLatex('1 − 1/n = 1 + 1/(−n),  aₙ = −n').join('|') === '1-\\frac{1}{n}|=1+\\frac{1}{-n},|a_{n}|=-n');
 }

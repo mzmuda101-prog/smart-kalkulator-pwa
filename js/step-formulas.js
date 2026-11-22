@@ -192,6 +192,128 @@
             level: 'Szkoła podstawowa i liceum: wzory skróconego mnożenia',
             more: ['Najczęstszy błąd: $(x+1)^{2}$ to nie $x^{2}+1$. Brakuje środka $2\\cdot x\\cdot 1=2x$.'],
         },
+        'pochodna-potegi': {
+            name: 'Pochodna potęgi',
+            tex: '\\left(x^{n}\\right)^{\\prime}=n\\cdot x^{n-1}',
+            why: 'Wykładnik schodzi przed $x$, a nowy wykładnik jest o 1 mniejszy, np. $\\left(x^{3}\\right)^{\\prime}=3x^{2}$.',
+            level: 'Liceum, zakres rozszerzony: rachunek różniczkowy',
+            more: [
+                'Szczególne przypadki: $(x)^{\\prime}=1$, bo $x=x^{1}$ i $1\\cdot x^{0}=1$; pochodna stałej to $0$.',
+                'Wzór działa też dla wykładników ujemnych i ułamkowych, np. $\\left(\\frac{1}{x}\\right)^{\\prime}=\\left(x^{-1}\\right)^{\\prime}=-x^{-2}$.',
+                'Stała przy potędze zostaje: $\\left(5x^{2}\\right)^{\\prime}=5\\cdot 2x=10x$.',
+            ],
+        },
+        'pochodna-iloczynu': {
+            name: 'Pochodna iloczynu',
+            tex: '(f\\cdot g)^{\\prime}=f^{\\prime}\\cdot g+f\\cdot g^{\\prime}',
+            why: 'Funkcja to iloczyn dwóch czynników zależnych od $x$. Pochodna to: pochodna pierwszego razy drugi plus pierwszy razy pochodna drugiego.',
+            level: 'Liceum, zakres rozszerzony: rachunek różniczkowy',
+            more: [
+                'To nie jest $f^{\\prime}\\cdot g^{\\prime}$. Na przykład $(x\\cdot x)^{\\prime}=\\left(x^{2}\\right)^{\\prime}=2x$, a $1\\cdot 1=1$.',
+                'Kolejność składników nie zmienia wyniku, ale łatwiej sprawdzać, gdy trzymamy się wzoru.',
+            ],
+        },
+        'pochodna-ilorazu': {
+            name: 'Pochodna ilorazu',
+            tex: '\\left(\\frac{f}{g}\\right)^{\\prime}=\\frac{f^{\\prime}\\cdot g-f\\cdot g^{\\prime}}{g^{2}}',
+            why: 'Licznik $f$ i mianownik $g$ zależą od $x$. Wstawiamy $f$, $g$, $f^{\\prime}$ i $g^{\\prime}$ do wzoru.',
+            level: 'Liceum, zakres rozszerzony: pochodne funkcji wymiernych',
+            more: [
+                'W liczniku jest minus, więc kolejność ma znaczenie: najpierw $f^{\\prime}\\cdot g$, potem odejmujemy $f\\cdot g^{\\prime}$.',
+                'Mianownik to $g$ do kwadratu. Zwykle zostawiamy go w nawiasie, np. $(x+1)^{2}$, bez wymnażania.',
+            ],
+        },
+        'pochodna-zlozona': {
+            name: 'Pochodna funkcji złożonej',
+            tex: '\\left(f(g(x))\\right)^{\\prime}=f^{\\prime}(g(x))\\cdot g^{\\prime}(x)',
+            why: 'W środku funkcji siedzi inne wyrażenie, np. $\\sin\\left(x^{2}\\right)$. Liczymy pochodną zewnętrznej (środek bez zmian) i mnożymy przez pochodną środka.',
+            level: 'Studia: analiza matematyczna (w liceum zwykle poza programem)',
+            more: [
+                'Najczęstszy błąd: zapomnieć o pochodnej środka. $\\left(\\sin\\left(x^{2}\\right)\\right)^{\\prime}=\\cos\\left(x^{2}\\right)\\cdot 2x$, a nie samo $\\cos\\left(x^{2}\\right)$.',
+                'Tak samo z potęgą nawiasu: $\\left((3x+1)^{5}\\right)^{\\prime}=5(3x+1)^{4}\\cdot 3$.',
+            ],
+        },
+        'tablica-pochodnych': {
+            name: 'Tablica pochodnych',
+            tex: '(\\sin x)^{\\prime}=\\cos x,\\ (\\cos x)^{\\prime}=-\\sin x,\\ \\left(e^{x}\\right)^{\\prime}=e^{x},\\ (\\ln x)^{\\prime}=\\frac{1}{x}',
+            why: 'Tę pochodną znamy na pamięć z tablicy pochodnych podstawowych funkcji. Stała daje $0$.',
+            level: 'Potęgi: liceum rozszerzenie. Funkcje trygonometryczne, $e^{x}$, $\\ln x$: studia',
+            more: [
+                'Dalsze: $(\\operatorname{tg}x)^{\\prime}=\\frac{1}{\\cos^{2}x}$, $\\left(a^{x}\\right)^{\\prime}=a^{x}\\ln a$, $(\\operatorname{arctg}x)^{\\prime}=\\frac{1}{1+x^{2}}$.',
+                'Uwaga na znak przy cosinusie: pochodna cosinusa jest ujemna.',
+            ],
+        },
+        'calka-potegi': {
+            name: 'Całka potęgi',
+            tex: '\\int x^{n}\\,dx=\\frac{x^{n+1}}{n+1}\\quad (n\\ne -1)',
+            why: 'Podnosimy wykładnik o 1 i dzielimy przez nowy wykładnik, np. $\\int x^{2}\\,dx=\\frac{x^{3}}{3}$.',
+            level: 'Studia: analiza matematyczna',
+            more: [
+                'To działanie odwrotne do pochodnej potęgi: $\\left(\\frac{x^{3}}{3}\\right)^{\\prime}=x^{2}$.',
+                'Dla $n=-1$ wzór dzieliłby przez zero, dlatego $\\int\\frac{1}{x}\\,dx=\\ln|x|$ jest osobnym wzorem.',
+            ],
+        },
+        'tablica-calek': {
+            name: 'Tablica całek',
+            tex: '\\int e^{x}dx=e^{x},\\ \\int\\frac{1}{x}dx=\\ln|x|,\\ \\int\\sin x\\,dx=-\\cos x,\\ \\int\\cos x\\,dx=\\sin x',
+            why: 'Tę całkę znamy na pamięć. To pochodne z tablicy czytane od tyłu: szukamy funkcji, której pochodna daje to, co pod całką.',
+            level: 'Studia: analiza matematyczna',
+            more: [
+                'Każdy wynik można sprawdzić, licząc pochodną, np. $(-\\cos x)^{\\prime}=\\sin x$.',
+                'Przy $\\frac{1}{x}$ jest wartość bezwzględna, bo logarytm jest określony tylko dla liczb dodatnich.',
+                'Do wyniku całki nieoznaczonej dopisujemy $+C$.',
+            ],
+        },
+        'calka-arctg': {
+            name: 'Całka z arcus tangensem',
+            tex: '\\int\\frac{1}{x^{2}+a^{2}}\\,dx=\\frac{1}{a}\\operatorname{arctg}\\frac{x}{a}',
+            why: 'Pod całką jest jedynka przez $x^{2}$ plus liczba. Zapisujemy tę liczbę jako $a^{2}$ i wstawiamy $a$ do wzoru.',
+            level: 'Studia: analiza matematyczna',
+            more: ['Przykład: $4=2^{2}$, więc $\\int\\frac{1}{x^{2}+4}\\,dx=\\frac{1}{2}\\operatorname{arctg}\\frac{x}{2}$.'],
+        },
+        'przez-czesci': {
+            name: 'Całkowanie przez części',
+            tex: '\\int u\\,dv=u\\cdot v-\\int v\\,du',
+            why: 'Pod całką jest iloczyn. Jedną część ($u$) różniczkujemy, drugą ($dv$) całkujemy, tak żeby nowa całka $\\int v\\,du$ była prostsza.',
+            level: 'Studia: analiza matematyczna',
+            more: [
+                'Za $u$ wybieramy to, co po zróżniczkowaniu się upraszcza: logarytm, potem potęgę $x$. Za $dv$ to, co łatwo scałkować: $e^{x}$, $\\sin x$, $\\cos x$.',
+                '$du$ to pochodna $u$ razy $dx$, a $v$ to całka z $dv$ (bez $+C$).',
+                'Wzór wynika z pochodnej iloczynu: $(uv)^{\\prime}=u^{\\prime}v+uv^{\\prime}$, po scałkowaniu obu stron.',
+            ],
+        },
+        'newton-leibniz': {
+            name: 'Wzór Newtona-Leibniza',
+            tex: '\\int_{a}^{b}f(x)\\,dx=F(b)-F(a)',
+            why: '$F$ to wynik całki bez granic. Wstawiamy górną granicę $b$, potem dolną $a$ i odejmujemy.',
+            level: 'Studia: analiza matematyczna',
+            more: [
+                'Wynik to liczba, nie funkcja, więc $+C$ nie dopisujemy: i tak by się odjęło.',
+                'Gdy $f\\ge 0$, wynik to pole pod wykresem $f$ między $x=a$ a $x=b$.',
+                'Kolejność ma znaczenie: zawsze górna minus dolna.',
+            ],
+        },
+        'sin-kwadrat': {
+            name: 'Sinus do kwadratu',
+            tex: '\\sin^{2}x=\\frac{1-\\cos 2x}{2}',
+            why: 'Kwadratu sinusa nie umiemy scałkować wprost. Zamieniamy go na wyrażenie bez kwadratu, które jest w tablicy.',
+            level: 'Liceum rozszerzenie: trygonometria; całka: studia',
+            more: ['Wzór wynika z $\\cos 2x=1-2\\sin^{2}x$. Całka z $\\cos 2x$ to $\\frac{\\sin 2x}{2}$, stąd w wyniku $\\frac{\\sin 2x}{4}$.'],
+        },
+        'cos-kwadrat': {
+            name: 'Cosinus do kwadratu',
+            tex: '\\cos^{2}x=\\frac{1+\\cos 2x}{2}',
+            why: 'Kwadratu cosinusa nie umiemy scałkować wprost. Zamieniamy go na wyrażenie bez kwadratu, które jest w tablicy.',
+            level: 'Liceum rozszerzenie: trygonometria; całka: studia',
+            more: ['Wzór wynika z $\\cos 2x=2\\cos^{2}x-1$.'],
+        },
+        'tg-kwadrat': {
+            name: 'Tangens do kwadratu',
+            tex: '\\operatorname{tg}^{2}x=\\frac{1}{\\cos^{2}x}-1',
+            why: 'Zamieniamy $\\operatorname{tg}^{2}x$ na dwie całki z tablicy: $\\frac{1}{\\cos^{2}x}$ daje $\\operatorname{tg}x$, a $1$ daje $x$.',
+            level: 'Liceum rozszerzenie: trygonometria; całka: studia',
+            more: ['Wzór wynika z $\\sin^{2}x+\\cos^{2}x=1$, po podzieleniu przez $\\cos^{2}x$.'],
+        },
     };
     // tg, arcsin, arctg: ten sam pomysł co sin u/u, inny wzór w dymku
     for (const [id, fn, name] of [['tgu', '\\operatorname{tg}', 'tg'], ['arcsinu', '\\arcsin', 'arcsin'], ['arctgu', '\\operatorname{arctg}', 'arctg']]) {

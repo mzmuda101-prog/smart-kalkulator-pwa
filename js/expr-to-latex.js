@@ -55,8 +55,10 @@
                 // ∛u, ∜u (parser: u^(1/n)) — rysujemy jako pierwiastek, jak na kartce
                 if (e.k === 'num' && e.v.n === 1n && e.v.d > 1n && e.v.d <= 9n && !e.dec)
                     return e.v.d === 2n ? '\\sqrt{' + node(n.a) + '}' : '\\sqrt[' + e.v.d + ']{' + node(n.a) + '}';
-                const base = n.a.k === 'fn' ? fnTex(n.a, '^{' + node(e) + '}') : tex(n.a, 6);
-                return n.a.k === 'fn' ? base : base + '^{' + node(e) + '}';
+                // sin²(x) — potęga przy nazwie; (sin(x))′ z jawnym nawiasem — potęga za nawiasem
+                const fnSup = n.a.k === 'fn' && !n.a.paren;
+                const base = fnSup ? fnTex(n.a, '^{' + node(e) + '}') : n.a.k === 'fn' ? big(node(n.a)) : tex(n.a, 6);
+                return fnSup ? base : base + '^{' + node(e) + '}';
             }
             case 'fn': return fnTex(n, '');
             default: throw new Error('nieznany węzeł ' + n.k);
@@ -186,10 +188,13 @@
                 s += hold(fx[1] + (fx[2] ? '^{\\prime}' : '') + '\\left(' + inner + '\\right)'); i = j + 1; continue;
             }
             if (/[A-Z]/.test(c) && !/[a-zA-Z]/.test(p[i + 1] || '')) { s += hold(c); i++; continue; } // L, P (lewa/prawa strona)
-            if (c === '∫') { // ∫ … dx (do najbliższego „ dx” na tym samym poziomie)
-                const m = /^∫\s*([\s\S]*?)\s+d([a-z])(?![a-z])/.exec(p.slice(i)), inner = m && pieceTex(m[1], fid);
+            if (c === '∫') { // ∫ … dx (do najbliższego „ dx” na tym samym poziomie); ∫(0→1) … dx — z granicami
+                const m = /^∫(?:\(([^→)]*)→([^)]*)\))?\s*([\s\S]*?)\s+d([a-z])(?![a-z])/.exec(p.slice(i)), inner = m && pieceTex(m[3], fid);
                 if (inner == null) return null;
-                s += hold('\\int ' + inner + '\\,d' + /** @type {RegExpExecArray} */ (m)[2]); i += /** @type {RegExpExecArray} */ (m)[0].length; continue;
+                const lo = m[1] != null ? pieceTex(m[1], fid) : '', hi = m[2] != null ? pieceTex(m[2], fid) : '';
+                if (lo == null || hi == null) return null;
+                const lim = m[1] != null ? '_{' + lo + '}^{' + hi + '}' : '';
+                s += hold('\\int' + lim + ' ' + inner + '\\,d' + m[4]); i += m[0].length; continue;
             }
             if (c === 'd' && /^d[a-z](?![a-z])/.test(p.slice(i)) && !/[a-zA-Z]/.test(p[i - 1] || '')) { s += hold((i ? '\\,' : '') + 'd' + p[i + 1]); i += 2; continue; } // dx, dv — różniczka, nie d·x
             if (c === '⁺' || c === '⁻') { s += '^' + hold(c === '⁺' ? '+' : '-'); i++; continue; }

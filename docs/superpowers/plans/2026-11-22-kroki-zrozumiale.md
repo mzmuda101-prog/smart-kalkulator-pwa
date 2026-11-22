@@ -110,3 +110,17 @@ Wszystkie propozycje przyjęte: „dlaczego” zawsze widoczne; kolorowanie zmia
 - Zostaje (z raportu ucznia): `5 = 2x − 7` (zamiana stron zamiast ujemnych liczb), `x/2 + 1 = 3` (mnożenie przez 2
   zamiast dzielenia przez 1/2), miejsca zerowe w rozkładzie bez rachunku (Δ), `x − 3 = 0` przy `x(x − 3) = 0`,
   skąd wspólny mianownik.
+
+## 3e-2 — pochodne i całki (v1.05.12)
+- Iloczyn/iloraz: „Rozpoznaję iloczyn” (`f = x³,  g = sin(x)`), pochodne części, „Wstawiam do wzoru” z `f′`, `g′`
+  w kolejności wzoru (`⟦f′ · g + f · g′⟧ = 3x² · sin(x) + x³ · cos(x)`), dymki pochodna-iloczynu / pochodna-ilorazu.
+- Nazwy kroków bez wzorów: „Liczę pochodną potęgi”, „Korzystam z tablicy pochodnych”, „Liczę pochodną złożoną”,
+  „Całkuję potęgę”, „Korzystam z tablicy całek”, „Korzystam z tożsamości”, „Całkuję przez części”, „Liczę F(b) − F(a)”;
+  13 nowych wpisów słownika (teksty agenta C).
+- Stała przy samej zmiennej (`a · t²`) też wyłączana; wyłączona stała przed całką wraca krokiem „Mnożę przez wyłączoną stałą”.
+- Całka oznaczona: granice w kroku 1 (`∫(0→1) x² dx`, rysowane z granicami), π zamiast „pi”; `∫ (3x² + 2) dx` w nawiasie.
+- arctg: `4 = 2², a = 2` przed wzorem; sin²/cos²/tg²: tożsamość widać wprost.
+- Rysunek: `(sin(x))′` z nawiasem (wcześniej `sin′ x`).
+- Agent „słaby uczeń”: wszystkie wyniki poprawne; 6 błędów zapisu poprawionych.
+- Zostaje: nazwy u i v zamiast f i g w iloczynie (f to też cała funkcja), `√x` przez `x^(1/2)`, `5 · 3 = 15` w złożonej,
+  uproszczenie licznika ilorazu, F(b) i F(a) wyliczone, rozkład na ułamki proste z liczeniem A i B.
