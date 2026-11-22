@@ -1,4 +1,4 @@
-# Przekazanie: kroki rozwiązania zrozumiałe — stan na 2026-11-23, v1.05.15
+# Przekazanie: kroki rozwiązania zrozumiałe — stan na 2026-11-23, v1.05.16
 
 Dla nowej rozmowy. Najpierw: `AGENTS.md`, `../ZASADY-AGENTOW.md`, plan `docs/superpowers/plans/2026-11-22-kroki-zrozumiale.md`
 (etapy 3b–3f, decyzje Mateusza, co zostało), raporty agentów `docs/superpowers/research/raport-{A,B,C}-*.md`.
@@ -17,6 +17,7 @@ Starsze przekazanie: `docs/superpowers/HANDOFF-wzory.md` (rysunek wzoru, klawiat
 | v1.05.13 | 3f: bez minusa na początku sumy, `n√n`, symbol `[0 · ∞]` |
 | v1.05.14 | 5b/5c uproszczone (3/4, 5/9), 4f bez podwójnej kreski, 6e bez pustego kroku; **kolor zamiast podkreślenia** |
 | v1.05.15 | raporty D/E: „dlaczego” mówi o zadaniu, dymek o regule (bramka dubli w `test/step-why.js`); pochodne u/v, `u′ =`/`v′ =` w krokach, √x i 1/x jako potęga (też w całce), „Mnożę przez pochodną środka/stałą”, licznik ilorazu wymnożony, wynik w kolejności z rachunku; kolor na podstawieniu (iloczyn, iloraz, tożsamości); „Kolorowa potęga dąży do e”; bez `[ ]` wokół koloru |
+| v1.05.16 | całki (raport E): F(b), F(a) z wstawieniem (`−cos(π) − (−cos(0))`), ułamki proste z A i B, przez części bez podwójnego minusa + „Wstawiam policzoną całkę”, tożsamość i „Całkuję każdą część” osobno, `dx = dt/2`, `1/2 · arctg(x/2)`, reszta z dzielenia w nawiasach |
 
 ## Jak to działa (mapa)
 - Krok = `{ label, math, formula?: { id } }`. Fragment w `⟦…⟧` = miejsce użycia wzoru: rysowany kolorem akcentu,
@@ -37,8 +38,7 @@ skoki, niepasujące zdania; poprawki; zrzut z telefonu (Playwright 390×844); wy
 Skrypt do zrzutu kroków do JSON: wzór w `HANDOFF` niżej (pliki w scratchpadzie znikają między rozmowami).
 
 ## Do zrobienia (raporty `research/raport-D-granice-kolor.md`, `raport-E-reszta-kolor.md`; zrobione w v1.05.15 pominięte)
-1. Całki: F(b), F(a) wyliczone (`−cos(π) = 1`, C1); ułamki proste z A i B (C2); przez części bez podwójnego minusa
-   i krok „Składam wynik” (C3, C4); tożsamość: osobny krok z całką każdej części (C5); `dx = dt/2` (C6); arctg jako `(1/2) · arctg(x/2)` (C7).
+1. Całki: zrobione w v1.05.16; zostało `∫ x²/2 · 1/x dx = ∫ x/2 dx` w przez części (C4) i `x² + 2x + 5` w arctg (wzór z `x + 1`).
 2. Równania: Δ z `25 − 24` i `−(−5)` (R1); `5 = 2x − 7` zamiana stron (R2); `x/2 + 1 = 3` mnożenie przez 2 (R3);
    `x² − 3x = 0` bez martwego kroku, z `x − 3 = 0` (R4); rozkład z rachunkiem miejsc zerowych (R5); Bezout z dzielnikami i dzieleniem (R6).
 3. Ułamki: skąd wspólny mianownik i dodawanie liczników z rachunkiem (U1, U2); kwadrat sumy w postaci wzoru (K1 w E).

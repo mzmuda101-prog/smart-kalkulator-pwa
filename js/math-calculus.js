@@ -618,7 +618,11 @@
         if (IDENT[fid]) {
             var id = IDENT[fid].replace(/#/g, v), eqAt = id.indexOf(' = ');
             // [EN] kolor na tym, co wstawiamy (prawa strona tożsamości)
-            line(log, label, id.slice(0, eqAt + 3) + '⟦' + id.slice(eqAt + 3) + '⟧,  ' + integralText(e, v) + ' = ' + show(res), fid);
+            line(log, label, id.slice(0, eqAt + 3) + '⟦' + id.slice(eqAt + 3) + '⟧', fid);
+            // [EN] potem każda część osobno (raport E, C5): skąd /4 przy sin(2x)
+            var PARTS = { 'sin-kwadrat': '∫ 1/2 d# = #/2\n∫ cos(2#)/2 d# = sin(2#)/4', 'cos-kwadrat': '∫ 1/2 d# = #/2\n∫ cos(2#)/2 d# = sin(2#)/4',
+                'tg-kwadrat': '∫ 1/cos²(#) d# = tg(#)\n∫ 1 d# = #' };
+            line(log, 'Całkuję każdą część', PARTS[fid].replace(/#/g, v) + '\n' + integralText(e, v) + ' = ' + show(res));
         } else if (fid === 'calka-potegi' && !(isInt(f.e) && f.e.n > 0n)) { // [EN] √x = x^(1/2), 1/x² = x^(−2): najpierw potęga, potem wzór
             var signed = function (r) { return (r.n < 0n ? '−' : '') + fmt(r.n < 0n ? neg(r) : r); };
             var pw = function (r) { return v + '^(' + signed(r) + ')'; }, n1t = signed(add(f.e, ONE));
@@ -669,7 +673,9 @@
             var inner = [];
             var solved = attempt(inner, function (b) { return integ(inT, tv, depth + 1, b); });
             if (!solved) continue;
-            line(log, 'Podstawienie: ' + tv + ' = ' + key, 'd' + tv + ' = ' + paren(dg) + ' d' + v + '\n' + integralText(e, v) + ' = ' + integralText(inT, tv));
+            // [EN] dt = 2 dx, więc dx = dt/2 — skąd dzielenie przez 2 (raport E, C6)
+            var solveFor = dg.length === 1 && !eq(dg[0].c, ONE) ? ', więc ' + (dg[0].fs.length ? show([term(ONE, dg[0].fs)]) + ' ' : '') + 'd' + v + ' = d' + tv + '/' + (isInt(dg[0].c) && dg[0].c.n > 0n ? fmt(dg[0].c) : '(' + fmt(dg[0].c) + ')') : '';
+            line(log, 'Podstawienie: ' + tv + ' = ' + key, 'd' + tv + ' = ' + paren(dg) + ' d' + v + solveFor + '\n' + integralText(e, v) + ' = ' + integralText(inT, tv));
             inner.forEach(function (s) { log.push(s); });
             var back = mapExpr(solved, function (a) { return a.k === 'var' && a.v === tv ? g : null; });
             line(log, 'Wracam do zmiennej ' + v, show(back));
@@ -697,12 +703,17 @@
         var inner = [];
         var bigV = integ(dv, v, depth + 1, null);
         var next = expandExpr(cMul(bigV, du));
-        var rest = integ(next, v, depth + 1, inner);
+        // [EN] − ∫ −cos(x) dx = + ∫ cos(x) dx: minus razy minus od razu, bez wyłączania −1 (raport E, C3)
+        var flip = next.length === 1 && next[0].c.n < 0n, small = flip ? cNeg(next) : next;
+        var rest = integ(small, v, depth + 1, inner);
+        var uv = show(cMul(u, bigV)), sign = flip ? ' + ' : ' − ';
         line(log, 'Całkuję przez części',
             'u = ' + show(u) + ', dv = ' + show(dv) + ' d' + v + '\ndu = ' + paren(du) + ' d' + v + ', v = ' + show(bigV));
-        line(log, 'Podstawiam do wzoru', '⟦u · v − ∫ v du⟧ = ' + show(cMul(u, bigV)) + ' − ' + integralText(next, v), 'przez-czesci');
+        line(log, 'Podstawiam do wzoru', 'u · v − ∫ v du = ⟦' + uv + ' − ' + integralText(next, v) + '⟧' + (flip ? ' = ' + uv + sign + integralText(small, v) : ''), 'przez-czesci');
         inner.forEach(function (s) { log.push(s); });
-        return cSub(cMul(u, bigV), rest);
+        var out = flip ? cAdd(cMul(u, bigV), rest) : cSub(cMul(u, bigV), rest);
+        line(log, 'Wstawiam policzoną całkę', uv + sign + (rest.length > 1 ? '(' + show(rest) + ')' : show(rest)) + (sameText(uv + sign + show(rest), show(out)) ? '' : ' = ' + show(out)));
+        return out;
     }
 
     function overText(c, f) { // [EN] (1/2)/(x − 1), nie 1/2/(x − 1)
@@ -727,7 +738,7 @@
         if (quotient.length) {
             for (var j = 0; j < quotient.length; j++) if (!quotient[j]) quotient[j] = ZERO;
             whole = polyExpr(quotient, v);
-            line(log, 'Dzielę licznik przez mianownik', 'całość: ' + show(whole) + '\nreszta: ' + show(polyExpr(n, v)) + ' / ' + show(polyExpr(q, v)));
+            line(log, 'Dzielę licznik przez mianownik', 'całość: ' + show(whole) + '\nreszta: ' + paren(polyExpr(n, v)) + '/' + paren(polyExpr(q, v)));
         }
         var n0 = n[0] || ZERO, n1 = n[1] || ZERO, a = q[2], b = q[1], c = q[0];
         var delta = sub(mul(b, b), mul(R(4), mul(a, c)));
@@ -738,6 +749,16 @@
             var r1 = div(sub(neg(b), root), mul(R(2), a)), r2 = div(add(neg(b), root), mul(R(2), a));
             var A = div(add(mul(n1, r1), n0), mul(a, sub(r1, r2))), B = div(add(mul(n1, r2), n0), mul(a, sub(r2, r1)));
             var f1 = cSub(x, num(r1)), f2 = cSub(x, num(r2));
+            // [EN] skąd A i B (raport E, C2): rozkład mianownika, równość liczników, wstawienie pierwiastków
+            var aPre = eq(a, ONE) ? '' : fmt(a) + ' · ', numText = show(polyExpr([n0, n1], v));
+            var times = function (k, L) { return eq(k, ONE) ? L : eq(k, neg(ONE)) ? '−' + L : (isInt(k) ? fmt(k) : '(' + fmt(k) + ')') + L; };
+            line(log, 'Rozkładam mianownik', show(polyExpr(q, v)) + ' = ' + aPre + paren(f1) + paren(f2));
+            var numE = polyExpr([n0, n1], v), den = aPre + paren(f1) + paren(f2);
+            line(log, 'Zapisuję ułamki proste', paren(numE) + '/(' + den + ') = A/' + (aPre ? '(' + aPre + paren(f1) + ')' : paren(f1)) + ' + B/' + paren(f2)
+                + '\n' + numText + ' = ' + aPre + 'A' + paren(f2) + ' + ' + aPre + 'B' + paren(f1));
+            var atR = function (r) { return fmt(add(n0, mul(n1, r))); };
+            line(log, 'Wyznaczam A i B', v + ' = ' + fmt(r1) + ':  ' + atR(r1) + ' = ' + times(mul(a, sub(r1, r2)), 'A') + ',  A = ' + fmt(A)
+                + '\n' + v + ' = ' + fmt(r2) + ':  ' + atR(r2) + ' = ' + times(mul(a, sub(r2, r1)), 'B') + ',  B = ' + fmt(B));
             line(log, 'Rozkład na ułamki proste', overText(A, f1) + (B.n < 0n ? ' − ' + overText(neg(B), f2) : ' + ' + overText(B, f2)));
             res = cAdd(cMul(num(A), cFn('lnabs', f1)), cMul(num(B), cFn('lnabs', f2)));
             line(log, 'Każdy ułamek daje logarytm', show(res));
@@ -760,7 +781,11 @@
             if (!isZero(shiftP)) line(log, 'Δ < 0, więc dopełniam do kwadratu', show(polyExpr([qq, p, ONE], v)) + ' = ' + paren(inside) + '² + ' + fmt(s2));
             res = cAdd(lnPart, atanPart);
             var aT = show(s), aSq = /^\d+$/.test(aT) ? aT + '²' : '(' + aT + ')²'; // [EN] 4 = 2², a = 2 — skąd a we wzorze
-            line(log, 'Korzystam z tablicy całek', fmt(s2) + ' = ' + aSq + ',  a = ' + aT + ':  ⟦∫ 1/(x² + a²) dx⟧ = ' + show(res), 'calka-arctg');
+            // [EN] sama 1/(x² + a²): wynik w kształcie wzoru, 1/2 · arctg(x/2), potem uproszczony (raport E, C7)
+            var plainAt = isZero(m) && eq(k, ONE) && isZero(shiftP);
+            var put = plainAt ? '1/' + aT + ' · arctg(' + v + '/' + aT + ')' : show(res);
+            line(log, 'Korzystam z tablicy całek', fmt(s2) + ' = ' + aSq + ',  a = ' + aT + ':  ∫ 1/(' + v + '² + a²) d' + v + ' = ⟦' + put + '⟧'
+                + (put !== show(res) ? ' = ' + show(res) : ''), 'calka-arctg');
         }
         if (whole.length) {
             var wholeInt = integ(whole, v, depth + 1, log);
@@ -867,11 +892,21 @@
         var res = exact ? fmt(exact) : (whole ? fmt(R(Math.round(value))) : '≈ ' + K.fmtApprox(value));
         steps.push({
             label: 'Liczę F(b) − F(a)', formula: { id: 'newton-leibniz' },
-            math: 'F(' + v + ') = ' + show(F) + '\n⟦F(' + hi.text + ') − F(' + lo.text + ')⟧ = ' + (b ? fmt(b) : K.fmtApprox(evalExpr(F, atHi))) + ' − ' +
-                (a ? fmt(a) : K.fmtApprox(evalExpr(F, atLo))).replace(/^−(.*)$/, '(−$1)')
+            math: 'F(' + v + ') = ' + show(F) + '\nF(' + hi.text + ') − F(' + lo.text + ') = ⟦' + putIn(F, v, hi.text) + ' − ' + putIn(F, v, lo.text) + '⟧ = '
+                + (b ? fmt(b) : K.fmtApprox(evalExpr(F, atHi))) + ' − ' + (a ? fmt(a) : K.fmtApprox(evalExpr(F, atLo))).replace(/^−(.*)$/, '(−$1)') + (/^≈/.test(res) ? ' ' : ' = ') + res
         });
         steps.push({ label: 'Wynik', math: res });
         return K.done('Całka oznaczona', res, value, steps);
+    }
+    // [EN] F z granicą w miejscu zmiennej: x³/3 → 1³/3, −cos(x) → (−cos(π)), 2x → 2 · 3; zmienna tylko jako osobna litera (nie t w tg)
+    function putIn(F, v, at) {
+        var val = /^[\dπe]+$/.test(at) ? at : '(' + at + ')';
+        var out = show(F).replace(new RegExp('(\\d?)(?<![a-zA-Z])' + v + '(?![a-zA-Z])', 'g'), function (m, d, i, str) {
+            var bare = str[i + d.length - 1] === '(' && str[i + m.length] === ')' || str[i + d.length - 1] === '|' && str[i + m.length] === '|'; // [EN] sin(π/2), nie sin((π/2))
+            var x = bare ? at : val;
+            return d ? d + ' · ' + x : x;
+        });
+        return /^−| [+−] /.test(out) ? '(' + out + ')' : out;
     }
     function run(d) {
         var e = fromAst(K.parse(d.src));

@@ -151,6 +151,19 @@ pass += 2;
     ok('3g: całka 1/x² przez x^(−2)', has('całka 1/x^2', 'Całkuję potęgę', '1/x² = x^(−2)\n⟦∫ x^(−2) dx⟧ = x^(−1)/(−1) = −1/x'), show('całka 1/x^2'));
     ok('3g: ujemny czynnik w nawiasie przy stałej całki', has('całka 3/x^3', 'Mnożę przez wyłączoną stałą', '3 · (−1/(2x²)) = −3/(2x²)'), show('całka 3/x^3'));
     ok('3g: tożsamość — kolor na tym, co wstawiamy', st('całka sin(x)^2').some(x => x.math.startsWith('sin²(x) = ⟦(1 − cos(2x))/2⟧')), show('całka sin(x)^2'));
+    // 3h: całki bez skoków (raport E, C1): granice wstawione do F i policzone
+    ok('3h: F(π) − F(0) z wstawieniem', has('całka sin(x) od 0 do π', 'Liczę F(b) − F(a)', 'F(x) = −cos(x)\nF(π) − F(0) = ⟦(−cos(π)) − (−cos(0))⟧ = 1 − (−1) = 2'), show('całka sin(x) od 0 do π'));
+    ok('3h: F(1) − F(0) z wstawieniem', has('całka x^2 od 0 do 1', 'Liczę F(b) − F(a)', 'F(x) = x³/3\nF(1) − F(0) = ⟦1³/3 − 0³/3⟧ = 1/3 − 0 = 1/3'), show('całka x^2 od 0 do 1'));
+    ok('3h: liczba przed zmienną dostaje kropkę (2 · 3)', st('całka 2x+1 od 1 do 3').some(x => x.math.includes('⟦(3² + 3) − (1² + 1)⟧')), show('całka 2x+1 od 1 do 3'));
+    ok('3h: przez części — minus razy minus od razu', has('całka x*sin(x)', 'Podstawiam do wzoru', 'u · v − ∫ v du = ⟦−x · cos(x) − ∫ −cos(x) dx⟧ = −x · cos(x) + ∫ cos(x) dx') && !has('całka x*sin(x)', 'Stałą wyłączam przed całkę'), show('całka x*sin(x)'));
+    ok('3h: przez części — wstawiam policzoną całkę', has('całka x*e^x', 'Wstawiam policzoną całkę', 'x · e^x − e^x'), show('całka x*e^x'));
+    ok('3h: tożsamość, potem każda część osobno', has('całka sin(x)^2', 'Całkuję każdą część', '∫ 1/2 dx = x/2\n∫ cos(2x)/2 dx = sin(2x)/4\n∫ sin²(x) dx = x/2 − sin(2x)/4'), show('całka sin(x)^2'));
+    ok('3h: ułamki proste — A i B wyliczone', has('całka 1/(x^2-1)', 'Rozkładam mianownik', 'x² − 1 = (x + 1)(x − 1)')
+        && has('całka 1/(x^2-1)', 'Zapisuję ułamki proste', '1/((x + 1)(x − 1)) = A/(x + 1) + B/(x − 1)\n1 = A(x − 1) + B(x + 1)')
+        && has('całka 1/(x^2-1)', 'Wyznaczam A i B', 'x = −1:  1 = −2A,  A = −1/2\nx = 1:  1 = 2B,  B = 1/2'), show('całka 1/(x^2-1)'));
+    ok('3h: podstawienie — dx = dt/2', st('całka (2x+1)^3').some(x => x.math.startsWith('dt = 2 dx, więc dx = dt/2')), show('całka (2x+1)^3'));
+    ok('3h: arctg w kształcie wzoru 1/a · arctg(x/a)', st('całka 1/(x^2+4)').some(x => x.math.includes('= ⟦1/2 · arctg(x/2)⟧ = arctg(x/2)/2')), show('całka 1/(x^2+4)'));
+    ok('3h: reszta z dzielenia w nawiasach', st('całka x^3/(x^2-1)').some(x => x.math.includes('reszta: x/(x² − 1)')), show('całka x^3/(x^2-1)'));
     ok('3e2: etykiety bez wzorów', bad.length === 0, [...new Set(bad)]);
 }
 

@@ -137,7 +137,7 @@
         [/^Nie ma wspólnego czynnika/, 'Żaden czynnik nie powtarza się we wszystkich wyrazach.'],
         [/^Zmienna się skróciła/, 'Po uproszczeniu zostało zdanie fałszywe, więc żadna liczba nie spełnia równania.'],
         [/^Brak rozwiązań$/, 'Żadna liczba nie spełnia równania.'],
-        [/^Wyznaczam /, 'Chcę mieć tę niewiadomą samą po jednej stronie.'],
+        [/^Wyznaczam (?!A i B$)/, 'Chcę mieć tę niewiadomą samą po jednej stronie.'],
         [/^Mianownik jest kwadratem$/, 'Kwadrat nie jest ujemny, więc wystarczy sprawdzić, kiedy jest zerem.'],
         [/^Zmiana znaku$|^Zmieniam znak$/, 'Minus przed liczbą zmienia jej znak na przeciwny.'],
         // ── ułamki i kolejność działań ──
@@ -167,6 +167,8 @@
             return 'Tu $n=' + texRat(n[0], n[1]) + '$, a nowy wykładnik to $' + texRat(n[0] - n[1], n[1]) + '$.';
         }],
         [/^Korzystam z tablicy pochodnych$/, 'Pod funkcją stoi samo $x$, więc nic więcej nie trzeba liczyć.'],
+        [/^Wstawiam policzoną całkę$/, 'Mała całka jest już policzona, więc wstawiam ją na jej miejsce we wzorze.'],
+        [/^Całkuję każdą część$/, (s) => /cos\(2/.test(s.math) ? 'W $\\cos 2x$ jest w środku $2x$, więc całkując, dzielę jeszcze przez 2.' : 'Obie części są w tablicy całek, więc wyniki od razu przepisuję.'],
         [/^Składam całość$/, 'Dopisuję czynnik, który wcześniej wyłączyłem przed nawias.'],
         [/^Składam wynik$/, 'Wstawiam policzone części do wzoru i zapisuję całość.'],
         // ── całki ──
@@ -186,7 +188,12 @@
             return 'Tu $n=' + texRat(n[0], n[1]) + '$, więc w wyniku jest $' + x + '^{' + m + '}$ i dzielenie przez $' + m + '$.';
         }],
         [/^Korzystam z tablicy całek$/, 'Ta funkcja jest w tablicy całek, więc wynik od razu przepisuję.'],
-        [/^Korzystam z tożsamości$/, 'Po zamianie zostają dwie łatwe całki: ze stałej i z $\\cos 2x$.'],
+        [/^Korzystam z tożsamości$/, (s) => s.formula && s.formula.id === 'tg-kwadrat'
+            ? 'Po zamianie nie ma już kwadratu tangensa, a obie części umiemy scałkować.'
+            : 'Po zamianie zostają dwie łatwe całki: ze stałej i z $\\cos 2x$.'],
+        [/^Rozkładam mianownik$/, 'Mianownik ma dwa miejsca zerowe, więc rozkłada się na dwa nawiasy; każdy da osobny, prostszy ułamek.'],
+        [/^Zapisuję ułamki proste$/, 'Szukam liczb $A$ i $B$. Mnożę obie strony przez mianownik, żeby pozbyć się ułamków.'],
+        [/^Wyznaczam A i B$/, 'Wstawiam miejsca zerowe mianownika: wtedy jeden nawias jest zerem i zostaje tylko jedna niewiadoma.'],
         [/^Rozkład na ułamki proste$/, 'Dzielimy ułamek na prostsze części, z których każdą umiemy scałkować.'],
         [/^Liczę F\(b\) − F\(a\)$/, 'Najpierw górna granica, potem dolna; kolejność jest ważna, bo odejmujemy.'],
     ];

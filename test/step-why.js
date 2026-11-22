@@ -23,7 +23,9 @@ const defs = fs.readFileSync(path.join(root, 'command-definitions.js'), 'utf8');
 const sciaga = [...defs.matchAll(/command: '((?:[^'\\]|\\.)*)'/g)].map(m => m[1].replace(/\\'/g, "'"));
 const extra = ['lim n→∞ (1-1/n)^2', 'lim x→-∞ sqrt(7-2x)(sqrt(15-8x)-sqrt(3-8x))', 'lim x→0 sin(3x)/x', 'lim x→0 (e^x-1)/x',
     'lim x→0+ 1/x', 'lim n→∞ 5(1+1/n)^n', 'rozwiąż 2x + 3 = 11', 'rozwiąż x^2 = 9', 'kroki 3/4 - 1/6', 'pochodna sin(x^2)',
-    'pochodna x/(x+1)', 'całka 1/(x^2+4)', 'całka sin(x)^2', 'rozwiąż x^2 + 1 = 0', 'pochodna 3x^2'];
+    'pochodna x/(x+1)', 'całka 1/(x^2+4)', 'całka sin(x)^2', 'rozwiąż x^2 + 1 = 0', 'pochodna 3x^2',
+    'całka 1/(x^2-1)', 'całka x*sin(x)', 'całka (2x+1)^3', 'całka tan(x)^2', 'całka √x', 'całka sin(x) od 0 do pi', 'pochodna (3x+1)^5',
+    'pochodna √x', 'pochodna 5x^3', 'pochodna (x^2+1)/(x-1)', 'pochodna x^2*e^x', 'całka x^3/(x^2-1)'];
 
 const missing = new Set(), bad = [], dubs = new Set();
 const { FORMULAS } = require(path.join(root, 'js', 'step-formulas.js'));
@@ -69,6 +71,7 @@ ok('sprzężenie przy n → ∞ mówi o ∞ − ∞', /infty-\\infty/.test(whyOf
 ok('„Skracamy (−x)” przy −∞ bez „nawias nie jest zerem”', !/nie jest zerem/.test(whyOf('lim x→-∞ x/sqrt(3x^2+5)', 'Skracamy (') || 'nie jest zerem'));
 ok('„dążą do 0” z wynikiem +∞ mówi o nieskończoności', /bez końca/.test(whyOf(ZESTAW.find(z => z.id === '1e').input, 'Wyrazy z') || ''));
 ok('krok 1 przed „Dorabiamy jedynkę” mówi o 1^∞', /1\^\{\\infty\}/.test(whyOf('lim n→∞ ((2n+sqrt(n))/(2n+7sqrt(n)))^(2+sqrt(n))', 'Granica') || ''));
+ok('A i B: zdanie o wstawianiu miejsc zerowych', /miejsca zerowe/.test(whyOf('całka 1/(x^2-1)', 'Wyznaczam A i B') || ''));
 // „Sprawdzenie” zależy od zadania
 ok('Sprawdzenie w całce ≠ w równaniu', whyFor({ label: 'Sprawdzenie', math: '' }, 'Całka') !== whyFor({ label: 'Sprawdzenie', math: '' }, 'Równanie'));
 
