@@ -188,3 +188,12 @@ Co ewentualnie warto z nich wziąć:
   (pod przytrzymaniem albo na karcie „Funkcje”).
 - fx-991CW: mniej klawiszy, a więcej w menu (CATALOG, TOOLS, FUNCTION), okrągłe klawisze cyfr. To ten sam kierunek
   co nasza karta „Funkcje”.
+
+## Miejsce na rysunek wzoru (Mateusz, 2026-11-22, v1.05.08)
+- Rysunek obok wyniku większy (1,6 rem zamiast 1,25 rem); okienko wyniku rośnie płynnie (200 ms) tylko wtedy, gdy
+  rysunek by się zmniejszył, najwyżej o 56 px — klawisze oddają to miejsce (`FX_ROOM`, `_setFormulaRoom` w `app.js`).
+  Płaski wzór i zwykłe liczenie: układ bez zmian (e2e `formula-drawing.spec.js`).
+- Ustawienie „Zawsze więcej miejsca na wzór” (`calcFormulaRoomAlways`): okienko stale +56 px.
+- Próg chowania rysunku liczony w px (~10 px), nie w skali — większa czcionka nie chowa wzorów, które się mieściły.
+- Telefon: bez podpisu „Wpisz po polsku. Wynik od razu.” w nagłówku; dolny pasek bez dodatkowych 6 px nad paskiem
+  iPhone'a (`max(6px, safe-bottom)`).

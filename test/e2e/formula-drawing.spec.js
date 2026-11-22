@@ -26,29 +26,76 @@ test('wzór rysowany, proste działanie i pieniądze bez rysunku', async ({ page
   }
 });
 
-test('rysunek nie zmienia układu: wynik bez zawijania, klawisze w miejscu', async ({ page }) => {
-  await page.goto('index.html', { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => !!window.MATM0_TEX);
-  const geo = () => page.evaluate(() => {
-    const r = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return [Math.round(b.top), Math.round(b.height)]; };
-    return { disp: r('.card .calc-display'), grid: r('#calcGrid'), wrap: document.querySelector('.card .calc-display').classList.contains('calc-result-wrap'), sw: document.documentElement.scrollWidth, iw: innerWidth };
-  });
-  await type(page, 'lim n→∞ ((5n+7)/(5n-8))^n');
-  await page.evaluate(() => { window.MATM0_TEX = null; }); // ten sam wzór bez rysunku — wzorzec układu
-  await type(page, 'lim n→∞ ((5n+7)/(5n-8))^n ');
-  const bez = await geo();
+const geoOf = (page) => page.evaluate(() => {
+  const r = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return [Math.round(b.top), Math.round(b.height)]; };
+  return { disp: r('.card .calc-display'), grid: r('#calcGrid'), wrap: document.querySelector('.card .calc-display').classList.contains('calc-result-wrap'), sw: document.documentElement.scrollWidth, iw: innerWidth };
+});
+// wzorzec układu: ten sam zapis bez rysunku
+async function bezRysunku(page, q) {
+  await type(page, q);
+  await page.evaluate(() => { window.MATM0_TEX = null; });
+  await type(page, q + ' ');
+  await page.waitForTimeout(400);
+  const g = await geoOf(page);
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => !!window.MATM0_TEX);
-  await type(page, 'lim n→∞ ((5n+7)/(5n-8))^n ');
+  return g;
+}
+
+test('płaski wzór nie zmienia układu: wynik bez zawijania, klawisze w miejscu', async ({ page }) => {
+  await page.goto('index.html', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => !!window.MATM0_TEX);
+  const q = 'lim n→∞ (2n+1)/(6n+5)';
+  const bez = await bezRysunku(page, q);
+  await type(page, q + ' ');
   await expect(formula(page)).toBeVisible();
-  await page.waitForTimeout(400);
-  const z = await geo();
+  await page.waitForTimeout(600);
+  const z = await geoOf(page);
   expect(z.wrap).toBe(false);
   expect(z.disp).toEqual(bez.disp);
   expect(z.grid).toEqual(bez.grid);
   expect(z.sw).toBeLessThanOrEqual(z.iw);
+});
+
+test('wysoki wzór: okienko rośnie najwyżej o 56 px, klawisze oddają miejsce, rysunek bez zmniejszania', async ({ page }) => {
+  await page.goto('index.html', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => !!window.MATM0_TEX);
+  const q = 'lim n→∞ ((5n+7)/(5n-8))^n';
+  const bez = await bezRysunku(page, q);
+  await type(page, q + ' ');
+  await expect(formula(page)).toBeVisible();
+  await page.waitForTimeout(600); // płynne rośnięcie 200 ms + układ
+  const z = await geoOf(page);
+  const grow = z.disp[1] - bez.disp[1];
+  expect(grow).toBeGreaterThan(0);
+  expect(grow).toBeLessThanOrEqual(56);
+  expect(z.grid[0] + z.grid[1]).toBe(bez.grid[0] + bez.grid[1]); // dół klawiatury w miejscu — klawisze tylko niższe
+  expect(z.wrap).toBe(false);
+  expect(z.sw).toBeLessThanOrEqual(z.iw);
   await expect(page.locator('#calcResult')).toHaveText('e³');
+  const scale = await page.locator('.calc-formula-ink').evaluate(el => +getComputedStyle(el).getPropertyValue('--fx-scale'));
+  if (await page.evaluate(() => innerWidth < 640)) expect(scale).toBe(1);
   // rysunek kończy się przed wynikiem i „Kroki”
   const [f, tip] = await Promise.all([formula(page).boundingBox(), page.locator('#calcExplainTip').boundingBox()]);
   expect(f.x + f.width).toBeLessThanOrEqual(tip.x);
+  // wzór usunięty → okienko wraca
+  await type(page, '2+2');
+  await page.waitForTimeout(600);
+  expect((await geoOf(page)).disp[1]).toBe(bez.disp[1]);
+});
+
+test('ustawienie „Zawsze więcej miejsca na wzór”: okienko stale wyższe o 56 px', async ({ page }) => {
+  await page.goto('index.html', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => !!window.MATM0_TEX);
+  await type(page, '2+2');
+  await page.waitForTimeout(400);
+  const przed = await geoOf(page);
+  await page.evaluate(() => { const el = document.getElementById('settingCalcFormulaRoom'); el.checked = true; el.dispatchEvent(new Event('change')); });
+  await page.waitForTimeout(600);
+  const po = await geoOf(page);
+  expect(po.disp[1] - przed.disp[1]).toBe(56);
+  expect(po.wrap).toBe(false);
+  await page.evaluate(() => { const el = document.getElementById('settingCalcFormulaRoom'); el.checked = false; el.dispatchEvent(new Event('change')); });
+  await page.waitForTimeout(600);
+  expect((await geoOf(page)).disp[1]).toBe(przed.disp[1]);
 });

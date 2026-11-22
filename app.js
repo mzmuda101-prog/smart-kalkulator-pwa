@@ -73,6 +73,7 @@
                         standardLiveHintDefaultV2: true, // znacznik jednorazowej migracji domyślnej (patrz loadState)
                         standardAutocomplete: false, // T4-16: lista podpowiedzi Standard
                         suggestOnEmpty: true, // T4-19: fuzzy gdy brak wyniku — domyślnie ON od v1.02.81
+                        calcFormulaRoomAlways: false, // [EN] okienko wyniku stale wyższe pod rysunek wzoru (domyślnie: rośnie, gdy trzeba)
                         suggestOnEmptyDefaultV2: true, // znacznik jednorazowej migracji domyślnej (patrz loadState)
                         currencyCompactSymbols: true, // T4-20: $ € zamiast kodów ISO
                         unitNames: 'typed', // K10: nazwy jednostek w wyniku: typed (jak wpisano) / short / long
@@ -174,6 +175,7 @@
         const settingStandardLiveHint = $('#settingStandardLiveHint');
         const settingStandardAutocomplete = $('#settingStandardAutocomplete');
         const settingSuggestOnEmpty = $('#settingSuggestOnEmpty');
+        const settingCalcFormulaRoom = $('#settingCalcFormulaRoom');
         const settingCurrencyCompactSymbols = $('#settingCurrencyCompactSymbols');
         const settingUnitNames = $('#settingUnitNames');
         const settingUnitSelects = Array.prototype.slice.call(document.querySelectorAll('#settingDefaultUnits select[data-unit-cat]'));
@@ -361,6 +363,7 @@
                     if (typeof stObj.standardLiveHint === 'boolean') STATE.settings.standardLiveHint = stObj.standardLiveHint;
                     if (typeof stObj.standardAutocomplete === 'boolean') STATE.settings.standardAutocomplete = stObj.standardAutocomplete;
                     if (typeof stObj.suggestOnEmpty === 'boolean') STATE.settings.suggestOnEmpty = stObj.suggestOnEmpty;
+                    if (typeof stObj.calcFormulaRoomAlways === 'boolean') STATE.settings.calcFormulaRoomAlways = stObj.calcFormulaRoomAlways;
                     // [EN] Migracja T4-19 (v1.02.81): do v1.02.80 opcja była domyślnie OFF i zapisywała się
                     //      jako false u KAŻDEGO, kto ruszył cokolwiek w ⚙️ — sama zmiana domyślnej by ich ominęła.
                     //      Podnosimy ją raz; świadome wyłączenie PO migracji zostaje (znacznik już zapisany).
@@ -3776,7 +3779,7 @@
                 card.style.height = '';
                 card.style.setProperty('--calc-card-min-h', availH + 'px');
             }
-            var displayH = budget.height + _calcAssistExtraPx();
+            var displayH = budget.height + _calcAssistExtraPx() + _fxExtra; // [EN] + miejsce na rysunek wzoru
             // [EN] wrap 2 linii — realokacja w środku ekranika, bez podbijania wysokości displayH
             display.style.flex = '0 0 auto';
             display.style.height = displayH + 'px';
@@ -3870,6 +3873,24 @@
         // Rysunek wzoru jak na kartce (spec 5.9, etap 1): zapis → LaTeX z drzewa parsera (MATM0_TEX),
         // rysuje MathLive (sam renderer, 111 KB gzip) wczytany leniwie przy pierwszym wzorze; SW trzyma go potem offline.
         var _fxLib = null, _fxLatex = null, _fxObs = null;
+        // Miejsce na rysunek (decyzja Mateusza 2026-11-22): okienko rośnie tylko, gdy wzór by się zmniejszył
+        // (najwyżej o FX_ROOM), klawisze oddają to miejsce; ustawienie „zawsze” daje pełne FX_ROOM na stałe.
+        var FX_ROOM = 56, _fxExtra = 0;
+        function _fxRoomAlways() { return !!(STATE.settings && STATE.settings.calcFormulaRoomAlways); }
+        function _setFormulaRoom(px) {
+            px = _fxRoomAlways() ? FX_ROOM : px;
+            if (px === _fxExtra) return;
+            _fxExtra = px;
+            var row = calcFormula && calcFormula.parentElement;
+            if (row) row.style.minHeight = px ? 'calc(var(--calc-result-row-min, calc(var(--calc-result-font, 2.5rem) * 1.1)) + ' + px + 'px)' : '';
+            var disp = row && row.closest('.calc-display');
+            if (disp) { // [EN] płynnie tylko ta zmiana; inne (obrót, klawiatura) bez animacji — kod układu mierzy od razu
+                disp.classList.add('fx-anim');
+                clearTimeout(_setFormulaRoom._t);
+                _setFormulaRoom._t = setTimeout(function () { disp.classList.remove('fx-anim'); requestAnimationFrame(fitCalcDisplay); }, 260);
+            }
+            requestAnimationFrame(fitCalcLayout);
+        }
         function _loadFormulaLib() {
             if (!_fxLib) {
                 var css = document.createElement('link');
@@ -3879,7 +3900,7 @@
             }
             return _fxLib;
         }
-        function _fitCalcFormula() { // [EN] szerokość = wolne miejsce na lewo od wyniku; skala do niego; poniżej 0,5 — chowamy
+        function _fitCalcFormula() { // [EN] szerokość = wolne miejsce na lewo od wyniku; skala do niego; poniżej ~10 px — chowamy
             if (!calcFormula || calcFormula.hidden) return;
             var row = calcFormula.parentElement, left = row.getBoundingClientRect().left, edge = Infinity;
             for (var i = 0; i < row.children.length; i++) {
@@ -3893,15 +3914,20 @@
             var ink = calcFormula.firstElementChild, w = ink.offsetWidth, h = ink.offsetHeight;
             if (!w || !h) return;
             var s = Math.min(1, free / w, calcFormula.clientHeight / h);
-            calcFormula.classList.toggle('is-tight', s < 0.5);
-            ink.style.setProperty('--fx-scale', String(Math.max(s, 0.5)));
+            // [EN] próg chowania liczony w px, nie w skali: rysunek 1,6 rem nie znika tam, gdzie 1,25 rem się mieścił (min ≈ 10 px)
+            var minS = 10 / (parseFloat(getComputedStyle(ink).fontSize) || 20);
+            calcFormula.classList.toggle('is-tight', s < minS);
+            ink.style.setProperty('--fx-scale', String(Math.max(s, minS)));
+            // [EN] ile wysokości brakuje, żeby wzór nie malał (szerokość i tak może go zmniejszyć); drobiazg < 8 px — bez ruszania klawiszy
+            var lack = Math.ceil(h * Math.min(1, free / w) - (calcFormula.clientHeight - _fxExtra));
+            _setFormulaRoom(lack >= 8 ? Math.min(FX_ROOM, lack) : 0);
         }
         function updateCalcFormula(raw) {
             if (!calcFormula) return;
             var latex = raw && window.MATM0_TEX ? window.MATM0_TEX.exprToLatex(raw) : null;
             if (latex === _fxLatex) return;
             _fxLatex = latex;
-            if (!latex) { calcFormula.hidden = true; return; }
+            if (!latex) { calcFormula.hidden = true; _setFormulaRoom(0); return; }
             _loadFormulaLib().then(function (ml) {
                 if (_fxLatex !== latex) return; // [EN] spóźnione wczytanie — pole już ma inny wzór
                 calcFormula.firstElementChild.innerHTML = ml.convertLatexToMarkup(latex); // [EN] LaTeX z naszego drzewa (litery, liczby)
@@ -3913,7 +3939,7 @@
                 }
                 _fitCalcFormula();
                 if (document.fonts) document.fonts.ready.then(_fitCalcFormula); // [EN] czcionki KaTeX zmieniają rozmiar
-            }).catch(function () { calcFormula.hidden = true; _fxLatex = null; }); // [EN] offline bez cache — bez rysunku
+            }).catch(function () { calcFormula.hidden = true; _fxLatex = null; _setFormulaRoom(0); }); // [EN] offline bez cache — bez rysunku
         }
         // Rozpisanie wyniku (PIT, pensja…) — tytuł „jak to zrozumiałem" + wiersze kwot.
         // Pokazujemy tylko, gdy silnik je dał; zwykłe działania zostają bez zmian.
@@ -10230,6 +10256,7 @@
             if (settingStandardLiveHint) settingStandardLiveHint.checked = !!STATE.settings.standardLiveHint;
             if (settingStandardAutocomplete) settingStandardAutocomplete.checked = !!STATE.settings.standardAutocomplete;
             if (settingSuggestOnEmpty) settingSuggestOnEmpty.checked = !!STATE.settings.suggestOnEmpty;
+            if (settingCalcFormulaRoom) settingCalcFormulaRoom.checked = !!STATE.settings.calcFormulaRoomAlways;
             if (settingCurrencyCompactSymbols) settingCurrencyCompactSymbols.checked = STATE.settings.currencyCompactSymbols !== false;
             if (settingUnitNames) settingUnitNames.value = STATE.settings.unitNames || 'typed';
             _npSyncFontSize(true);
@@ -13284,6 +13311,9 @@
         _bindAssistSetting(settingStandardLiveHint, 'standardLiveHint', function () { updateCalcLiveHint(); });
         _bindAssistSetting(settingStandardAutocomplete, 'standardAutocomplete');
         _bindAssistSetting(settingSuggestOnEmpty, 'suggestOnEmpty', function () { liveEval(); });
+        // [EN] „zawsze” od razu daje pełne miejsce; wyłączenie — wraca do tego, ile potrzebuje bieżący wzór
+        _bindAssistSetting(settingCalcFormulaRoom, 'calcFormulaRoomAlways', function () { _setFormulaRoom(0); _fitCalcFormula(); });
+        _setFormulaRoom(0); // [EN] start: przy „zawsze” od razu wyższe okienko
         _bindAssistSetting(settingCurrencyCompactSymbols, 'currencyCompactSymbols', function () { liveEval(); });
         if (settingUnitNames) {
             settingUnitNames.addEventListener('change', function() {

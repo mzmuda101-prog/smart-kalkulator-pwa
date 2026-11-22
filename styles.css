@@ -1097,8 +1097,11 @@
         .calc-formula { position: absolute; inset-block: 0; inset-inline-start: 0; inline-size: var(--fx-w, 0px); overflow: hidden; pointer-events: none; color: var(--text); }
         .calc-formula[hidden] { display: none; }
         .calc-formula.is-tight .calc-formula-ink { visibility: hidden; }
-        .calc-formula-ink { position: absolute; inset-inline-start: 0; inset-block-start: 50%; font-size: 1.25rem; line-height: 1; white-space: nowrap; transform-origin: left center; transform: translateY(-50%) scale(var(--fx-scale, 1)); }
+        .calc-formula-ink { position: absolute; inset-inline-start: 0; inset-block-start: 50%; font-size: var(--fx-font, 1.6rem); /* większy rysunek — okienko rośnie pod wysoki wzór (FX_ROOM w app.js) */ line-height: 1; white-space: nowrap; transform-origin: left center; transform: translateY(-50%) scale(var(--fx-scale, 1)); }
         body.calc-sentence .calc-formula { display: none; } /* tryb „Zdanie”: wynik stoi po lewej — rysunek dopiero z edytorem (etap 2) */
+        /* okienko rośnie pod wysoki wzór płynnie (wysokość ustawia fitCalcLayout); bez ruchu, gdy użytkownik go nie chce */
+        #panel-calculator .calc-display.fx-anim { transition: height 200ms cubic-bezier(0.23, 1, 0.32, 1), min-height 200ms cubic-bezier(0.23, 1, 0.32, 1), max-height 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+        @media (prefers-reduced-motion: reduce) { #panel-calculator .calc-display.fx-anim { transition: none; } }
         .calc-result-row {
             position: relative; /* [EN] kotwica .calc-formula */
             display: flex;
@@ -5103,6 +5106,8 @@
         @media (max-width: 639px) {
             .app-header { padding-top: calc(9px + var(--safe-top)); padding-bottom: 9px; }
             .calc-btn { border-radius: 11px; }
+            /* telefon: podpis „Wpisz po polsku…” chowamy — ok. 18 px więcej na klawisze (decyzja Mateusza 2026-11-22) */
+            .app-header .subtitle { display: none; }
         }
 
         /* Wąskie telefony: cztery akcje w nagłówku są przydatne, więc zamiast je
@@ -5423,7 +5428,8 @@ body.calc-sentence .calc-display { --tape-bg: var(--surface-2, #f6f8fb); }
         flex: 0 0 auto;
         justify-content: space-around;
         gap: 4px;
-        padding: 6px calc(8px + var(--safe-right)) calc(6px + var(--safe-bottom)) calc(8px + var(--safe-left));
+        /* pasek iPhone'a (safe-bottom) już daje odstęp od dołu — bez dokładania 6 px; bez niego (Android, komputer) zostaje 6 px */
+        padding: 4px calc(8px + var(--safe-right)) max(6px, var(--safe-bottom)) calc(8px + var(--safe-left));
         border-top: 1px solid var(--border);
         background: var(--card-bg);
         z-index: 90;
