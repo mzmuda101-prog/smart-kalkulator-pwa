@@ -1,5 +1,17 @@
 # TODO / Do przemyślenia
 
+## Długi wzór na rysunku jest za mały (Mateusz, 2026-11-23) — na później, najpierw plan
+
+Problem: rysunek obok pola zmniejsza się, żeby się zmieścić; długa całka albo granica jest ledwo czytelna.
+Pomysł Mateusza: schować zapis tekstowy i edytować wprost na rysunku. Możliwe drogi (od najmniejszej):
+- [ ] A. Rysunek nie schodzi poniżej czytelnego rozmiaru: zamiast się zmniejszać, zajmuje cały wiersz albo przewija się w bok
+      (z widocznym znakiem, że jest więcej). Mała zmiana, od razu pomaga.
+- [ ] B. Stuknięcie w rysunek → powiększony podgląd na cały ekran (tylko do czytania).
+- [ ] C. Edycja na rysunku (edytor 2D): `vendor/mathlive` umie nie tylko rysować, ale też edytować (mathfield). Tekst zostaje
+      źródłem prawdy (rysunek → `latexToExpr` → tekst), więc parser, historia i notatnik się nie zmieniają. Do ustalenia:
+      czy tekst chowamy całkiem, czy przełącznik „tekst / wzór”; klawiatura „Wzory” na telefonie; kursor i zaznaczanie.
+Kolejność do decyzji: A teraz, C jako cel po klawiaturze „Wzory” i podręczniku.
+
 ## Granice — odłożone drobiazgi (etap 1, v1.04.87)
 
 Żaden nie daje złego wyniku — najwyżej „Jeszcze tego nie rozwiążę” albo nieładny zapis kroku.
