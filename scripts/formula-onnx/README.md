@@ -15,7 +15,12 @@ Kolejność:
 Test na wydruku (pliki w `test/fixtures-local/`, poza gitem):
 - `crop.py <pdf> <folder>` — każdy wzór (a), (b)… do PNG; `trim.py <z> <do>` — usuwa skrawki z brzegów.
 - `run.py <onnx> <folder> <wynik.json> [paddle]` — odczyt (i porównanie z Paddle); zapisuje też `tokenizer.json`.
-- `node score.js <repo> <wynik.json> [-v]` — trafienia względem `test/limits-zestaw.json`.
+- `node score.js <repo> <wynik.json> [-v]` — trafienia względem `test/limits-zestaw.json` (`<repo>` jako ścieżka bezwzględna).
+- **Pomiar kodem apki (zalecany):** `npm run dev`, potem `node app-read.mjs <folder> <wynik.json> [...]` — Chrome,
+  `MATM0_OCR.read` (worker, białe tło, przycinanie, model z `models/`), wynik w formacie `run.py` dla `score.js`.
+  `run.py` ma inne przygotowanie obrazu i daje gorsze wyniki niż apka.
+- Udawane zdjęcia: `node prep.js <z> <do> persp,blur,shadow,screen,jpeg,loose,tight,dega,degb` (opis w pliku);
+  luźna ramka na prawdziwej stronie: `crop.py <pdf> <folder> --pad=0.3`. Wyniki: spec §5.10b.
 - Tłumacz LaTeX → zapis parsera: `js/latex-to-expr.js` (ten sam, którego używa apka; `score.js` go wczytuje).
 - `web/` — pomiar w onnxruntime-web: `bench.mjs` (Node), `serve.mjs` + `index.html` (przeglądarka, COOP/COEP);
   `web/` potrzebuje obok `model.onnx`, `ort/` (pliki z `onnxruntime-web/dist`) i `x/*.bin` (tensory z `run.py`).

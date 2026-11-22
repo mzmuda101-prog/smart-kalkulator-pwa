@@ -23,8 +23,14 @@
 
     /** @param {string} latex */
     function latexToExpr(latex) {
-        // znane potknięcia modelu: \\left, \\(, „sqrt” bez ukośnika
-        const t = tokenize(latex.replace(/\\\\(?=left|right)/g, '\\').replace(/\\\\([()])/g, '$1')
+        // znane potknięcia modelu: \\left, \\(, „sqrt” bez ukośnika; głowa granicy ze zdjęcia pod kątem
+        // (\mathop\{ {lim} }, {mathop\mathrm{lim}}, \ operatorname\* {l i i}, \mathop\underset…) → \lim; reszta bez zmian
+        // na początku same litery/polecenia (bez cyfr, nawiasów, \\frac, \\sqrt), potem _{x \\to …} — to zawsze granica
+        // resztka etykiety „(b)” z lewej krawędzi ramki: samotne ) | . : przed głową granicy
+        const head = latex.replace(/^\s*[)|.:](?=[\s\\{]*(?:\\lim|\\mathop|\\operatorname|\\mathrm|operatorname|\\underset))/, '').replace(/^(?![^_]*\\(?:frac|sqrt|left|begin))[\s{}*~\\a-zA-Z]{0,60}?[\s}]*(?=_\s*\{+\s*[a-z]\s*\\(?:to|rightarrow)(?![a-zA-Z]))/, '\\lim')
+            .replace(/^\s*\\mathop\s*(?=\\underset)/, '');
+        // model podwaja ukośnik: \\\\frac, \\\\left, \\\\( → \\frac, \\left, (
+        const t = tokenize(head.replace(/\\\\(?=[a-zA-Z])/g, '\\').replace(/\\\\([()])/g, '$1').replace(/\\(frac|sqrt)(?:\1)+(?![a-zA-Z])/g, '\\$1') // \\fracfrac
             .replace(/(^|[^\\a-zA-Z])(sqrt|frac)(?![a-zA-Z])/g, '$1\\$2'));
         let i = 0, unsure = false;
         const peek = () => t[i];
@@ -86,7 +92,7 @@
                 return a + '^(1/' + n + ')';
             }
             if (x === '\\lim') return limit();
-            if (x === '\\operatorname' || x === '\\mathrm' || x === '\\text') {
+            if (x === '\\operatorname' || x === '\\mathrm' || x === '\\text' || x === '\\mathop') { // \\mathop{lim}: zdjęcie pod kątem
                 if (peek() === '*') i++;
                 const nm = name();
                 if (nm === 'lim') return limit();
@@ -94,7 +100,7 @@
                 if (/^[a-z]$/.test(nm)) return nm;
                 fail('nieznana nazwa ' + nm);
             }
-            if (x === '\\underset') { const sub = arg(); const what = arg(); if (what.trim() !== 'lim') fail('underset bez lim'); t.splice(i, 0, '_', '{', ...tokenize(sub), '}'); return limit(); }
+            if (x === '\\underset') { const sub = arg(); const what = arg(); if (what.replace(/\s+/g, '') !== 'lim') fail('underset bez lim'); t.splice(i, 0, '_', '{', ...tokenize(sub), '}'); return limit(); }
             if (/^\\[a-zA-Z]+$/.test(x) && FUNCS.has(x.slice(1))) return func(x.slice(1));
             if (x === '\\begin' || x === '\\end') fail('nieobsługiwane ' + x); // tablice, układy — to nie jeden znak
             if (x.startsWith('\\')) { unsure = true; return ' ? '; }
@@ -121,9 +127,17 @@
         }
         try {
             let s = seq('').trim().replace(/[.,;^]+$/, '').trim();
-            if (unsure) s = s.replace(/\s{2,}/g, ' ').replace(/\( \?/g, '(?').replace(/\? \)/g, '?)');
+            if (unsure) {
+                s = s.replace(/\s{2,}/g, ' ').replace(/\( \?/g, '(?').replace(/\? \)/g, '?)').replace(/[\s?.,;]+$/, '').trim(); // „?” na końcu: śmieć po wzorze
+                const q = (s.match(/\?/g) || []).length;
+                // rozsypane litery („? f r a c”) albo kilka „?” — to nie jeden zły znak, tylko zły odczyt
+                if (q > 2 || /(?:^|[^a-zA-Z])[a-zA-Z] [a-zA-Z] [a-zA-Z](?![a-zA-Z])/.test(s)) fail('za dużo niepewnych miejsc');
+                unsure = q > 0;
+            }
             if (!s || /^[\s?]*$/.test(s)) fail('pusty odczyt');
             if (/\(\)|\(\s*$/.test(s)) fail('pusty nawias');
+            // śmieci z rozsypanego odczytu: (+), (.), --, +*, działanie na końcu
+            if (/\(\s*[+\-*/.^]\s*\)|[+\-*/]\s*[+\-*/]|[+\-*/^]$/.test(s)) fail('śmieci w odczycie');
             let depth = 0;
             for (const c of s) { depth += c === '(' ? 1 : c === ')' ? -1 : 0; if (depth < 0) fail('nawiasy'); }
             if (depth) fail('nawiasy');

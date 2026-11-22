@@ -337,6 +337,48 @@ onnxruntime 1.32). Wycinki: 58 wzorów z PDF-u (200 dpi) w `test/fixtures-local/
   **Wniosek: próba techniczna zaliczona** — w apce WASM + 4 wątki (nagłówki COOP/COEP
   w `vercel.json` do sprawdzenia z resztą strony), WebGPU niepotrzebne.
 
+### 5.10b Udawane zdjęcia — bramka etapu (2026-11-22)
+
+Pomiar **kodem apki**: `scripts/formula-onnx/app-read.mjs` (Chrome, `MATM0_OCR.read` — ten sam worker,
+białe tło, przycinanie i model 59 MB co na telefonie) → `score.js`. Baza: `wzory-przyciete` (58 wycinków
+z PDF, 200 dpi, ze skrawkami sąsiadów u góry). Warianty z `prep.js` (psucie) i `crop.py --pad` (luźna
+ramka na prawdziwej stronie). Próg etapu: ≥ 80% = 47/58.
+
+| wariant | trafienia | bramka |
+|---|---|---|
+| wycinek ze strony (bez psucia) | 52/58 (90%) | tak |
+| baza `wzory-przyciete` | 50/58 (86%) | tak |
+| rozmycie (sigma 1,2 px) | 50/58 | tak |
+| szare tło | 49/58 | tak |
+| ciepła lampa + winieta | 51/58 | tak |
+| cień ręki (do 50% jasności) | 51/58 | tak |
+| zdjęcie ekranu (mora, subpiksele) | 49/58 | tak |
+| JPEG ok. jakości 35 | 48/58 | tak |
+| pod kątem (15% trapez strony, obrót 2,5°) | 49/58 | tak |
+| ramka za luźna (puste pole 35%) | 48/58 | tak |
+| pod kątem + rozmycie + JPEG | 43/58 (74%) | nie |
+| cień + lampa + JPEG | 45/58 (78%) | nie |
+| ramka za ciasna (3 px w głąb tuszu) | 42/58 (72%) | nie |
+| **ramka +30% wysokości na ciasnej stronie** | **18/58 (31%)** | **nie** |
+
+Wnioski:
+- Pojedyncze zakłócenia zdjęcia przechodzą bramkę; spadki dopiero przy kilku naraz i przy złym kadrze.
+- **Największa dziura to dwa wzory w ramce.** Na ciasno złożonej stronie ramka o 30% za wysoka łapie
+  cały sąsiedni wzór; `trimEdgeBlobs` usuwa tylko plamy dotykające krawędzi, więc model czyta oba
+  (30 z 40 pudeł to `\begin{array}` albo dwa „lim”). Propozycja (do decyzji): w workerze podzielić tusz
+  na wiersze po pustych pasach i zostawić wiersz najbliżej środka ramki (z progiem przerwy względem
+  wysokości znaku, żeby nie rozcinać ułamków).
+- Tłumacz LaTeX dostał poprawki na typowe potknięcia modelu przy zdjęciach: głowa granicy
+  (`\mathop{lim}`, `\ operatorname\* {l i i}`, `{mathop\mathrm{lim}}`) → `\lim`, resztka etykiety „(b)”
+  przed `lim`, podwojony ukośnik (`\\frac`), sklejone `\fracfrac`. Na tych samych odczytach
+  (754 = 13 wariantów × 58): dobre 618 → 647, złe wstawiane bez ostrzeżenia 38 → 37, „niepewne” 30 → 9
+  (śmieci typu `? f r a c` są teraz zwykłym błędem; zostają prawdziwe pojedyncze znaki jak `n^(?)`).
+- `run.py` (Python) daje na tych samych wycinkach ok. 25/58 — jego przygotowanie obrazu odbiega od apki;
+  do pomiarów używać `app-read.mjs`. Folder `wzory-czyste` ma obcięte pierwiastki i nawiasy (stare
+  przycinanie w Pythonie) — nie nadaje się na bazę.
+- Prawdziwe zdjęcia z telefonu nadal potrzebne do potwierdzenia (zestaw syntetyczny nie pokaże np.
+  odbić światła na błyszczącym papierze ani zagięcia kartki). Później: UniMER-Test jako druga próba.
+
 ### 5.11 Na później: odczyt na żywo w ramce (pomysł Mateusza, 2026-11-22)
 
 Cel dalekiego etapu (po piśmie i „Sprawdź moje rozwiązanie”): podgląd aparatu z ramką **czyta
@@ -347,6 +389,23 @@ sam, bez „Zrób”** — gdy wzór w ramce jest czytelny, apka go łapie albo 
 - Koszt: bateria i grzanie — odczyt tylko gdy obraz stoi (mała zmiana między klatkami),
   przerwa po kilku nieudanych, wyłączenie przy niskiej baterii / `prefers-reduced-data`.
 - Przed decyzją: pomiar zużycia baterii i temperatury na iPhonie w 2–3 min podglądu.
+
+### 5.12 Na później: wzory w krokach — podświetlenie i dymek (pomysł Mateusza, 2026-11-22)
+
+Gdy krok rozwiązania korzysta ze znanego wzoru (podstawówka, liceum, studia — np. a² − b²,
+(a + b)², wzór na e, pochodna xⁿ, całka z tablicy), miejsce użycia jest **wyróżnione** i można je
+**stuknąć**: dymek pokazuje sam wzór, jedno zdanie „po co tu” i skąd jest (np. „wzór skróconego
+mnożenia, szkoła podstawowa”).
+- Podstawa już jest: kroki nazywają wzory w etykietach (`'Wzór na e'`, `'a³ − b³ = …'`,
+  `'Wzór z tablicy'` w `math-limits.js` / `math-calculus.js`), a dymek na stuknięcie to
+  `data-hint-tap` z `js/cursor-hint.js`. Do zrobienia: pole `formula` w kroku
+  (`{ id, wzór, poCo, poziom }`), jeden słownik wzorów zamiast tekstu rozsianego po etykietach,
+  wyróżnienie w szufladzie kroków (podkreślenie + ikona, nie sam kolor) i dymek.
+- Propozycja Claude: **zawsze dostępne, ale dyskretne** (podkreślenie, nie krzykliwy kolor), bez
+  osobnego ustawienia „czasami/często/zawsze” — kto nie stuka, ten nie widzi dymka. Ustawienie dopiero,
+  gdyby w testach przeszkadzało.
+- Dobrze łączy się z 5.9 (wzór w dymku narysowany graficznie, jak na kartce) — robić po nim.
+- Testy: każdy wzór ze słownika ma przykład, w którym krok go używa (smoke-test, że dymek ma treść).
 
 ## 6. Zostawione wykonawcy
 

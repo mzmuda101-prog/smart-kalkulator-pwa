@@ -11,6 +11,13 @@ i plan `docs/superpowers/plans/2026-11-21-skaner-druku-etap-3.md`.
 - Test Mateusza na iPhonie (22.11, rano): podgląd aparatu wypełnia okno; `lim n→∞ (1−1/n)^n` zeskanowane
   i policzone (1/e, kroki). Kolejność etapów: skaner → klawiatura do wzorów (5.9) → SymPy → pismo → „Sprawdź rozwiązanie”.
 
+## Postęp 22.11 (po południu)
+- Zadania 1–3 wydane w v1.04.92.
+- Zadanie 4 zrobione (spec §5.10b): pojedyncze zakłócenia zdjęcia przechodzą bramkę 80%;
+  dziury: dwa wzory w ramce (18/58), ciasna ramka (42/58), kilka zakłóceń naraz (43–45/58).
+  Tłumacz LaTeX odporniejszy na potknięcia modelu (nowe testy w `test/latex-to-expr.js`).
+  Do decyzji Mateusza: wybór wzoru najbliżej środka ramki (`TODO.md`). Następne: zadanie 5.
+
 ## ToDo uzgodnione z Mateuszem (w tej kolejności)
 1. **Skaner: jeden zły znak nie odrzuca całego wzoru.** Przypadek: wzór (f) `lim ((5n+7)/(5n−8))^n` zdjęty
    z ekranu → model czyta minus jako `\|` (`\frac{5n+7}{5n \| 8}`), tłumacz zwraca błąd → „Nie odczytałem…

@@ -16,6 +16,18 @@
 - [ ] Bardzo złożone zadania (`tan(tan x) − sin(sin x)`) przekraczają budżet pracy → NOPE
 - [ ] Sprawdzić szybkość na prawdziwym telefonie (pomiary tylko z Maca)
 
+## Kroki rozwiązań — pomysły na później
+
+- [ ] Wzory w krokach: wyróżnione miejsce użycia znanego wzoru (a² − b², wzór na e, tablica całek…),
+      stuknięcie → dymek z wzorem, „po co tu” i poziomem szkoły (spec §5.12; po klawiaturze 5.9)
+
+## Skaner — z pomiaru udawanych zdjęć (spec §5.10b, 2026-11-22)
+
+- [ ] **Dwa wzory w ramce** (ramka +30% na ciasnej stronie: 18/58): w workerze zostawić wiersz tuszu
+      najbliżej środka ramki (próg przerwy względem wysokości znaku, żeby nie rozciąć ułamka) — do decyzji
+- [ ] Ramka za ciasna (42/58): podpowiedź „ramka ucina wzór”, gdy tusz dotyka góry/dołu na dużej długości
+- [ ] Potwierdzić na prawdziwych zdjęciach z telefonu (odbicia, zagięcia, pismo nie z PDF)
+
 ## Skaner — odłożone drobiazgi (etap 3, v1.04.91)
 
 Z recenzji zadań; żaden nie psuje odczytu w zwykłym użyciu.

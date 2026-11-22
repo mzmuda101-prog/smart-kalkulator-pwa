@@ -1,4 +1,6 @@
 # Wycina każdy wzór (a), (b)… z PDF-u zadań do osobnego PNG (200 dpi), bez etykiety.
+# --pad=U: ramka powiększona w górę i w dół o U wysokości wzoru (i 5% szerokości na boki) — luźna ramka
+#          na prawdziwej stronie, łapie kawałki sąsiednich wzorów.
 import re, sys, pymupdf
 pdf, out = sys.argv[1], sys.argv[2]
 cy = lambda r: (r.y0 + r.y1) / 2
@@ -24,7 +26,9 @@ for page in pymupdf.open(pdf):
         if box is None:
             continue
         n += 1
-        clip = box + (-4, -4, 4, 4)
+        pad = next((float(a[6:]) for a in sys.argv if a.startswith("--pad=")), 0)
+        dy, dx = pad * box.height, 0.05 * box.width if pad else 0
+        clip = (box + (-4 - dx, -4 - dy, 4 + dx, 4 + dy)) & page.rect
         pix = page.get_pixmap(dpi=200, clip=clip)
         if "--clean" in sys.argv:  # wybiel wszystko poza prostokątami tego wzoru (skrawki sąsiadów)
             from PIL import Image, ImageDraw
