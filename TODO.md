@@ -16,6 +16,26 @@
 - [ ] Bardzo złożone zadania (`tan(tan x) − sin(sin x)`) przekraczają budżet pracy → NOPE
 - [ ] Sprawdzić szybkość na prawdziwym telefonie (pomiary tylko z Maca)
 
+## Skaner — odłożone drobiazgi (etap 3, v1.04.91)
+
+Z recenzji zadań; żaden nie psuje odczytu w zwykłym użyciu.
+
+- [ ] Cała apka offline dopiero po 2. wizycie online: SWR w `sw.js` bez `ignoreSearch`, a strona prosi `?v=`
+      (przy tej poprawce wrócić `?v` do skryptów skanera albo precache z `cache: 'reload'`)
+- [ ] Pamięć: szczyt w workerze = 2× model (części + złożony bufor); `readParts` trzyma 6×10 MB naraz;
+      `stretched()`/`trimEdgeBlobs` duże bufory przy ogromnej plamie; brak limitu dla wycinka 1×3000
+- [ ] Silnik ORT w cache bez wersji — zmiana modelu/ORT = podbić `MODELS_CACHE` (komentarz jest)
+- [ ] QuotaExceeded na iOS jako ogólny błąd; `remove()` nieatomowe; wyścig `status()` przy szybkim otwieraniu ustawień
+- [ ] Dostępność okien: fokus po ukryciu przycisku/po błędzie, `aria-describedby`, uchwyty ramki jako button bez Enter/Space
+- [ ] Twarde kolory: przyciemnienie `rgba(15,23,42,…)`, `::backdrop`, tło wideo `#000`
+- [ ] Kamera: błąd latarki bez informacji; podgląd bez `requestVideoFrameCallback` (rysuje 60 Hz); podwójne stuknięcie
+      podczas leniwego ładowania → `open()` 2×
+- [ ] PDF 100+ stron: przewinięte miniatury zostają w pamięci (~13 MB/100 stron)
+- [ ] Negatyw ciemnego motywu: wycinek > 50% tuszu odwracany; ciemny ekran z < 1% jasnych kresek nieodwracany
+- [ ] Testy: COEP przez `requestfailed`, brak testu bez `navigator.mediaDevices`, położenie wycinka (nie tylko proporcje),
+      skrypt `npm run serve` nadal na `python http.server` (bez COOP/COEP)
+- [ ] CSP strony: sprawdzić, czy `'wasm-unsafe-eval'` i `worker-src blob:` są potrzebne na stronie (ORT działa w workerze)
+
 ## Funkcje online na żądanie (pomysł na później)
 
 **Status:** zaplanować później (decyzja 2026-11-14, inspiracja: Raycast 2.12). NIE teraz.

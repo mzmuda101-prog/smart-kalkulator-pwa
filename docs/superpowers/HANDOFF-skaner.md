@@ -1,51 +1,56 @@
-# Przekazanie: skaner druku — stan na 2026-11-22 (noc)
+# Przekazanie: skaner i poprawki po teście — stan na 2026-11-22
 
 Dla nowej rozmowy / agenta. Najpierw przeczytaj `AGENTS.md`, `../ZASADY-AGENTOW.md`,
-projekt `docs/superpowers/specs/2026-11-21-skaner-i-granice-design.md` (5.5, 5.10, 5.11)
+projekt `docs/superpowers/specs/2026-11-21-skaner-i-granice-design.md` (5.5, 5.9, 5.10, 5.11)
 i plan `docs/superpowers/plans/2026-11-21-skaner-druku-etap-3.md`.
 
-## Decyzja Mateusza (kolejność)
-Skaner wydruków → klawiatura do wzorów (5.9) → SymPy → pismo → „Sprawdź moje rozwiązanie”.
+## Stan
+- **Skaner wzorów z druku wydany w v1.04.91** (`main`, Vercel produkcja). Gałąź `feat/skaner-druku`
+  scalona fast-forward. Stary katalog roboczy `../smart-kalkulator-pwa-skaner` można usunąć
+  (`git worktree remove --force ../smart-kalkulator-pwa-skaner`) — nowa praca na nowej gałęzi z `main`.
+- Test Mateusza na iPhonie (22.11, rano): podgląd aparatu wypełnia okno; `lim n→∞ (1−1/n)^n` zeskanowane
+  i policzone (1/e, kroki). Kolejność etapów: skaner → klawiatura do wzorów (5.9) → SymPy → pismo → „Sprawdź rozwiązanie”.
 
-## Gdzie jest praca
-- Gałąź **`feat/skaner-druku`** (wypchnięta na GitHub), osobny katalog roboczy
-  `../smart-kalkulator-pwa-skaner` (git worktree). `main` nietknięty (v1.04.87).
-- Podgląd Vercela (HTTPS, wymaga logowania do Vercela):
-  `https://kalkulator-by-matm0-git-feat-893bfa-mateuszs-projects-ff80359a.vercel.app`
-- Rejestr postępu z wszystkimi decyzjami i odłożonymi drobiazgami (poza gitem):
-  `../smart-kalkulator-pwa-skaner/.superpowers/sdd/2026-11-21-skaner-druku-etap-3/progress.md`.
+## ToDo uzgodnione z Mateuszem (w tej kolejności)
+1. **Skaner: jeden zły znak nie odrzuca całego wzoru.** Przypadek: wzór (f) `lim ((5n+7)/(5n−8))^n` zdjęty
+   z ekranu → model czyta minus jako `\|` (`\frac{5n+7}{5n \| 8}`), tłumacz zwraca błąd → „Nie odczytałem…
+   ustaw ramkę ciaśniej” (mylące — ramka była dobra). Zrobić: nieznany znak/komenda w `js/latex-to-expr.js`
+   → `?` w zapisie (np. `lim n→∞ ((5n+7)/(5n ? 8))^n`), w oknie skanera komunikat „Odczytałem z niepewnym
+   miejscem” + przycisk „Wstaw i popraw” → pole z zaznaczonym `?` (nic do pola bez stuknięcia; reguła spec:
+   nigdy śmieci w polu bez zgody). Tłumacz nadal zwraca `error` przy nawiasach/`\begin{array}` itp.
+   Wycinek do testu: zrzut z telefonu, ramka na (f); `?debug=1` pokazuje surowy LaTeX.
+2. **Kroki granicy `(1 − 1/n)^n`** (`js/math-limits.js`): krok 2 „Dorabiamy jedynkę” pokazuje `1 − 1/n = 1 − 1/n`
+   zamiast `1 − 1/n = 1 + 1/(−n)`; krok 3 („Wzór na e”) ucięty — długi zapis nie zawija się w okienku kroków.
+   Kroki 4–5 („Granica wykładnika lim −1”, „Wykładnik → −1”) dublują się — rozważyć jeden krok.
+3. **„dziś za 3 tygodnie” / „dzis za 3 tygodnie” → „Nie rozumiem”**, a podpowiedź-chip pod „dzis”
+   sama dopisuje „za 3 tygodnie”. Obsłużyć jako datę za 3 tygodnie od dziś (oba zapisy, z „ś” i bez);
+   sprawdzić, czy inne chipy po „dziś” nie prowadzą do nieobsługiwanych zapisów. Smoke-testy w `app.js`.
+4. **Zestaw „udawanych zdjęć”** (bramka etapu ≥ 80%): z 58 wzorów PDF (`test/fixtures-local/`) wersje:
+   perspektywa, rozmycie, nierówne światło/cień, ciepłe światło, zdjęcie ekranu (mora), JPEG, ramka za
+   ciasna/luźna/z sąsiadem. Narzędzia: `scripts/formula-onnx/prep.js` (kod apki), `run.py`, `score.js`.
+   Obecnie (/58): czyste 52, szare 49, lampa 51, ciasna ramka 40 (49/51 to górna granica).
+   Wynik do spec 5.10. Później: UniMER-Test jako druga próba.
+5. **Klawiatura do wzorów (spec 5.9)** — następny etap; wymaganie od Mateusza: **zeskanowany wzór
+   wyświetla się graficznie** (ułamki, pierwiastki, potęgi jak na kartce), nie tylko tekstem.
 
-## Co jest zrobione
-- Plan etapu 3: wszystkie 9 kroków, każdy po recenzji; końcowy przegląd całej gałęzi + poprawki
-  (silnik w cache z nagłówkami, model przeżywa aktualizację, limity czasu, offline).
-- Pierwszy test na iPhonie (00:11) → poprawki: podgląd kamery rysowany na canvasie (iOS pokazywał
-  go pomniejszonego), białe tło przed odczytem, ostrożniejsze przycinanie krawędzi, tryb `?debug=1`.
-  Wyniki na zestawie 58 wzorów (/58): czyste 52, szare tło 49, lampa 51, ciasna ramka 40.
-- Wersja w gałęzi: v1.04.90 (jeszcze niewydana).
+Mediana: zgłoszenie wyjaśnione — wyniki poprawne (mediana nie zmienia się, gdy rośnie największa liczba).
 
-## Następne kroki
-1. Jeśli recenzja poprawek z telefonu („phone-fix” w rejestrze) zostawiła uwagi — poprawić je.
-2. **Zestaw „udawanych zdjęć”** (decyzja Mateusza zamiast 30 ręcznych zdjęć): z 58 wzorów PDF
-   (`test/fixtures-local/`, rendery 200 dpi) wersje: perspektywa, rozmycie, nierówne światło/cień,
-   ciepłe światło, zdjęcie ekranu (mora), JPEG, niedokładna ramka (za ciasno/luźno/z sąsiadem).
-   Skrypt w `scripts/formula-onnx/` (bazy: `scripts/ocr-bench/bench.py` → `photo`, `perspective`;
-   `scripts/formula-onnx/prep.js` przepuszcza przez kod apki). Bramka etapu: ≥ 80% bez poprawek.
-   Wynik dopisać do spec 5.10.
-3. Podbić wersję w gałęzi (+1) i `npm run sync-version`, żeby telefony dostały poprawki; krótki test
-   Mateusza na iPhonie (podgląd kamery wypełnia okno, odczyt druku, tryb samolotowy po 2. wizycie).
-4. Połączenie z `main` — **zapytać Mateusza przed scaleniem** (`superpowers:finishing-a-development-branch`).
-
-## Później
-- UniMER-Test (część zdjęć ekranu) jako druga próba; notatki pisane z `~/Downloads/6 dokumentów/` → etap 4.
-- Odczyt na żywo w ramce bez „Zrób” — spec 5.11.
-- Cała apka: offline działa dopiero po 2. wizycie online (SWR bez `ignoreSearch`, `?v=`) — do TODO.
+## Decyzje podjęte w etapie 3 bez pytania (do wglądu Mateusza)
+- Testy telefonu tylko przez HTTPS (przez `http` Safari ~14× wolniej).
+- Zgoda na pobranie pokazuje prawdziwą sumę 52,9 MB (plan mówił 37 MB — bez silnika).
+- Model w cache `matm0-models-v1`, cache-first w SW; przeżywa aktualizację i „Wyczyść cache” (usuwanie w Ustawieniach).
+- Worker z modelem kończony 60 s po zamknięciu skanera; limit startu i odczytu 60 s.
+- Domyślna ramka: całe zdjęcie, gdy obraz niski lub szeroki (≥ 1,9:1); inaczej pas 80% × 25%.
+- Białe tło przed odczytem (zamiast czekać na wynik < 80%); tryb diagnostyczny tylko pod `?debug=1`.
+- Negatyw tylko dla ciemnego motywu; wycinek > 50% tuszu może zostać odwrócony (akceptowane).
+- Zamiast 30 zdjęć Mateusza — syntetyczny zestaw z PDF (decyzja wspólna).
+- Odłożone drobiazgi skanera: `TODO.md` → „Skaner — odłożone drobiazgi”.
 
 ## Ograniczenia do pamiętania
-- iPhone mierzyć **tylko przez HTTPS** (przez `http` Safari liczy ~14× wolniej, brak WebGPU i wątków).
+- iPhone mierzyć **tylko przez HTTPS**; serwer testowy z COOP/COEP: `npm run dev` (`scripts/dev-server.mjs`).
 - Środowisko Pythona do modelu: `~/.venvs/paddle-onnx` (Python 3.12); budowa modelu: `scripts/formula-onnx/README.md`.
-- Zdjęcie nie wychodzi z telefonu; model pobierany raz, za zgodą (52,9 MB).
+- Wersja +1 i `npm run sync-version` przy każdym wydaniu; commity bez dopisków o AI.
 
 ## Sposób pracy, który się sprawdził
 Projekt → plan (`docs/superpowers/plans/`) → osobna gałąź/worktree → zadanie po zadaniu z recenzją
-każdego → końcowy przegląd → test na telefonie → połączenie z main. Commity bez dopisków o AI,
-wersja +1 i `npm run sync-version`.
+każdego (subagent-driven) → końcowy przegląd całej gałęzi → test na telefonie → połączenie z main.

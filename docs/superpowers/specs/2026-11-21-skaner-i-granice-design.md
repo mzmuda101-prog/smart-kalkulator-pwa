@@ -266,6 +266,8 @@ Wpisywanie złożonych granic palcem jest męczące; Mateusz chce trybu jak w Ph
 Dwie drogi (do decyzji przy projektowaniu tego etapu, po skanerze):
 - **szybka:** dodatkowy rząd przycisków wstawiających kawałki zapisu (`lim x→`, `∞`, `√( )`, `∛`, `( )/( )`, `^`, `²`), pole zostaje tekstem;
 - **pełna:** edytor 2D (ułamek piętrowy, pierwiastek, wykładnik u góry) — np. biblioteka MathLive (MIT, offline, ok. 1 MB), wynik zamieniany na zapis parsera.
+- **Wymaganie Mateusza (2026-11-22, po teście skanera):** zeskanowany wzór wyświetla się w polu graficznie
+  (ułamki, pierwiastki, potęgi jak na kartce), nie tylko liniowym tekstem — przemawia za drogą „pełną”.
 
 ### 5.8 Dane testowe (odpowiedzi Mateusza)
 
