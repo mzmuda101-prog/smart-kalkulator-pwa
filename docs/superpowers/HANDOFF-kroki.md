@@ -54,4 +54,4 @@ Skrypt do zrzutu kroków do JSON: wzór w `HANDOFF` niżej (pliki w scratchpadzi
 - Zmiana domyślnego ustawienia = migracja ze znacznikiem (`calcFormulaRoomDefaultV2` jako wzór).
 - Zmiany w `show()` (math-calculus) działają w całym silniku — po nich pełne `npm test` i porównanie wyników zestawu.
 - 5 błędów `npm run check` w `js/math-limits.js` są stare.
-- Commity bez dopisków o AI; po zmianie wersji `npm run sync-version`; push dopiero po „wysyłaj”.
+- Commity bez dopisków o AI; po zmianie wersji `npm run sync-version`; Mateusz pozwolił (2026-11-22) wysyłać bez pytania po zielonych testach — pytaj tylko przy ryzykownych zmianach (dane, migracje).
