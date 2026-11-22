@@ -153,3 +153,38 @@ poza granicami/krokami): nie działają `tg`, `ctg`, `arctg` (działa tylko `tan
 - iPhone: pole 2D i systemowa klawiatura potrafią się gryźć (fokus, przewijanie) — sprawdzić na telefonie w etapie 2.
 - 0,5 MB do pobrania przy pierwszym wzorze — mało przy 37 MB modelu skanera, ale offline dopiero po pierwszym użyciu online.
 - Rysunek musi pokazywać dokładnie to, co liczy parser (np. `1/2n` = `1/(2n)`?) — rysunek z drzewa parsera, nie z tekstu, więc pokaże prawdziwą kolejność działań (to też pomoc: widać pomyłkę w nawiasach).
+
+## Etap 3 — pierwszy przykład (2026-11-22, czeka na zrzut/akceptację Mateusza, niewydane)
+- **Rysowanie kroków jednym konwerterem**: `stepToLatex` w `js/expr-to-latex.js` dzieli tekst kroku na kawałki
+  („ = ”, „ → ”, „, ”, „: ”, „ ≈ ”) i każdy puszcza przez parser → to samo drzewo co rysunek obok wyniku. Nie trzeba
+  było przepisywać ~60 miejsc w `math-limits/calculus/steps`. Zna też `lim(n→∞)`, `[…]`, `|…|`, `aₙ`, `x₁`, `n¹⁰`,
+  `log₄(`, `f′(t)`, `F(1)`, `∫ … dx`, `dx`, `0⁺`, `+∞`, `Δ`, `L`/`P`. Słowa zostają tekstem.
+  Kawałki zawijają się między „=” jak na kartce; przecinek zostaje przy wzorze.
+- **Bez kroku „Wzór na e”**: krok „Podstawa dąży do e”, fragment `⟦…⟧` + `formula: { id: 'e' }`; stały wykładnik
+  dopisany w tym samym kroku (`= e^(−1)`), bez osobnego „Wykładnik”.
+- **Słownik**: `js/step-formulas.js` (`name, tex, why, level, more`; w zdaniach wzory w `$…$`, rysowane).
+- **Szuflada** (`renderStepsView` w `app.js`): rysunek `aria-hidden` + zapis dla czytnika; podkreślenie przerywane
+  w kolorze akcentu; stuknięcie → dymek pod krokiem ze strzałką do fragmentu; „Więcej” → widok z „Wróć do kroków”
+  (to samo miejsce, dymek otwarty, fokus wraca). Klawiatura: niewidoczny przycisk, fokus rysuje obwódkę na fragmencie.
+- Testy: `test/expr-to-latex.js` — 454 kroki (58 granic + przykłady ściągi) bez `sqrt(`, `^(`, `/` w tekście;
+  każdy wzór ze słownika użyty w kroku; e2e `test/e2e/steps-drawing.spec.js`.
+- **Zostało (po akceptacji)**: etykiety kroków nadal mają wzory tekstem („Wzór: (xⁿ)′ = n·xⁿ⁻¹”,
+  „(−b ∓ √Δ) / 2a”, „Granica znana: sin u/u → 1”) — zamienić je na podkreślone fragmenty + wpisy w słowniku
+  (a² − b², sprzężenie a³ − b³, pochodne i całki z tablicy, Δ, de l'Hospital).
+
+## Kontekst od Mateusza (2026-11-22): klawiatury Casio fx-991CEX i fx-991CW
+Zdjęcia z sieci, jako inspiracja (nie kopia) do klawiatury „Wzory”. **Zasada (Mateusz):** Casio miał trudniej,
+bo klawisze są fizyczne i stałe, więc wszystko musiało się zmieścić w jednym mądrym układzie. U nas to ekran
+(telefon, komputer): klawiatura może się zmieniać (karty, układ zależny od tego, co wpisujesz, dymki), więc
+bierzemy pomysły, nie ograniczenia. **Lekka inspiracja** — nie przesadzać, nie przerabiać klawiatury pod Casio.
+Co ewentualnie warto z nich wziąć:
+- **Druga funkcja nad klawiszem, kolorem** (SHIFT żółty, ALPHA czerwony): to samo co nasze znaczki w rogach
+  pod przytrzymaniem. Casio pokazuje je stale i czytelnie, więc warto sprawdzić, czy nasze znaczki nie są za blade.
+- **Klawisze-szablony z pustymi kratkami**: `■/■` (ułamek), `√■`, `x■`, `log■□`, `∫■`, `d/dx■`. Na klawiszu widać,
+  co powstanie i gdzie wpiszesz liczby. Pasuje do edytora 2D (ołówek przy rysunku, później).
+- **S⇔D**: jeden klawisz przełącza wynik dokładny i dziesiętny (`1/e` ↔ `0,3679`). U nas jest „≈” w dymku, więc
+  do rozważenia jako stuknięcie w wynik.
+- **Ans**, osobny **(−)** dla minusa przed liczbą, **x⁻¹**, **x!**, **Abs**, **×10ˣ**: w większości już u nas
+  (pod przytrzymaniem albo na karcie „Funkcje”).
+- fx-991CW: mniej klawiszy, a więcej w menu (CATALOG, TOOLS, FUNCTION), okrągłe klawisze cyfr. To ten sam kierunek
+  co nasza karta „Funkcje”.

@@ -178,17 +178,19 @@ const WANT_TEXT = { '1a': '1/3', '1d': '0', '1e': '+∞', '7a': '√3/3', '7b': 
     });
     const r = S.run(byId['6d'].input), st = r && r.explain ? r.explain.steps : [];
     ok('6d: [1^∞] w pierwszym kroku', st.length && st[0].math.includes('[1^∞]'), st[0]);
-    ok('6d: krok „Wzór na e” z (1 + 1/aₙ)^aₙ → e', st.some(x => x.label === 'Wzór na e' && x.math.includes('(1 + 1/aₙ)^aₙ → e')), st.map(x => x.label + ': ' + x.math));
+    // spec 5.12: bez osobnego kroku „Wzór na e” — wzór podkreślony (⟦…⟧) w kroku, w którym działa
+    ok('6d: bez kroku „Wzór na e”', !st.some(x => x.label === 'Wzór na e'), st.map(x => x.label));
+    ok('6d: krok z podkreślonym wzorem na e', st.some(x => x.formula && x.formula.id === 'e' && /⟦\(1 \+ .*⟧/.test(x.math)), st.map(x => x.label + ': ' + x.math));
     ok('6d: krok z aₙ = ', st.some(x => x.math.includes('aₙ = ')), st.map(x => x.math));
     ok('6d: wykładnik → −6', st.some(x => /→ −6$/.test(x.math)), st.map(x => x.math));
     // (1 − 1/n)^n: jedynka dorobiona naprawdę, długi krok bez ucięcia, wykładnik stały = jeden krok
     const e1 = (S.run('lim n→∞ (1-1/n)^n') || {}).explain, s1 = e1 ? e1.steps : [];
     ok('(1−1/n)^n: 1 − 1/n = 1 + 1/(−n)', s1.some(x => x.label === 'Dorabiamy jedynkę' && x.math.startsWith('1 − 1/n = 1 + 1/(−n),')), s1.map(x => x.math));
-    ok('(1−1/n)^n: wzór na e z (1 + 1/(−n))^(−n)', s1.some(x => x.label === 'Wzór na e' && x.math.includes('[(1 + 1/(−n))^(−n)]^(−1)')), s1.map(x => x.math));
-    ok('(1−1/n)^n: jeden krok wykładnika', s1.filter(x => /^(Granica wykładnika|Wykładnik)$/.test(x.label)).length === 1, s1.map(x => x.label));
+    ok('(1−1/n)^n: podstawa → e w jednym kroku z wykładnikiem', s1.some(x => x.label === 'Podstawa dąży do e' && x.math.endsWith('[⟦(1 + 1/(−n))^(−n)⟧]^(−1) = e^(−1)')), s1.map(x => x.math));
+    ok('(1−1/n)^n: stały wykładnik bez osobnego kroku', !s1.some(x => /^(Granica wykładnika|Wykładnik)$/.test(x.label)), s1.map(x => x.label));
     ok('6d: 1 + (−3/(n + 3))', st.some(x => x.label === 'Dorabiamy jedynkę' && x.math.includes('= 1 + (−3/(n + 3))')), st.map(x => x.math));
     const s2 = ((S.run('lim n→∞ (1+1/(2n))^n') || {}).explain || { steps: [] }).steps;
-    ok('(1+1/(2n))^n: bez tautologii, aₙ w nawiasie', s2.some(x => x.math === '1 + 1/(2n),  aₙ = 2n') && s2.some(x => x.math.includes('^(2n)]^(1/2)')), s2.map(x => x.math));
+    ok('(1+1/(2n))^n: bez tautologii, aₙ w nawiasie', s2.some(x => x.math === '1 + 1/(2n),  aₙ = 2n') && s2.some(x => x.math.includes('^(2n)⟧]^(1/2)')), s2.map(x => x.math));
 }
 
 // ── Task 8: punkt skończony 0/0 ────────────────────────────

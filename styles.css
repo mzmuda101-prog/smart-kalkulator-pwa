@@ -2118,6 +2118,52 @@
             overflow-wrap: anywhere;
             -webkit-overflow-scrolling: touch;
         }
+        /* Kroki jak na kartce (spec 5.12): rysunek MathLive, kawałki zawijają się na „=”; czytnik czyta .steps-sr */
+        .steps-math { position: relative; }
+        .steps-sr, .steps-formula-sr { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; padding: 0; border: 0; }
+        .steps-ink.is-drawn { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 0.3em; row-gap: 6px; white-space: normal; font-weight: 400; font-size: 1.15rem; }
+        .steps-chunk { max-inline-size: 100%; }
+        /* miejsce użycia wzoru: podkreślenie przerywane + kursor, nie sam kolor; cel dotykowy powiększony w pionie */
+        .steps-ink [data-formula] { cursor: pointer; border-radius: 4px; text-decoration: none; -webkit-tap-highlight-color: transparent; }
+        .steps-ink [data-formula] .underline-line { color: var(--primary); }
+        .steps-ink [data-formula] .underline-line::before, .steps-ink [data-formula] .underline-line::after { border-bottom-style: dashed; border-bottom-width: 2px; }
+        .steps-math.is-open .steps-ink [data-formula] .underline-line::before, .steps-math.is-open .steps-ink [data-formula] .underline-line::after { border-bottom-style: solid; }
+        .steps-math:has(.steps-formula-sr:focus-visible) .steps-ink [data-formula] { outline: 2px solid var(--primary); outline-offset: 2px; }
+        @media (hover: hover) { .steps-ink [data-formula]:hover .underline-line::before, .steps-ink [data-formula]:hover .underline-line::after { border-bottom-style: solid; } }
+        .steps-pop {
+            position: relative; margin-top: 12px; padding: 10px 12px;
+            border: 1px solid var(--border-focus); border-radius: var(--radius-sm, 10px);
+            background: var(--surface); box-shadow: var(--shadow);
+            color: var(--text); font-size: 0.875rem; line-height: 1.45; font-weight: 400;
+            transform-origin: var(--pop-x, 50%) top;
+            transition: opacity 180ms cubic-bezier(0.23, 1, 0.32, 1), transform 180ms cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        @starting-style { .steps-pop { opacity: 0; transform: translateY(-4px) scale(0.97); } }
+        @media (prefers-reduced-motion: reduce) { .steps-pop { transition: opacity 120ms ease; transform: none; } }
+        .steps-pop::before { /* strzałka do podkreślonego fragmentu */
+            content: ""; position: absolute; inset-block-start: -6px; inset-inline-start: calc(var(--pop-x, 50%) - 6px);
+            inline-size: 10px; block-size: 10px; background: var(--surface);
+            border-inline-start: 1px solid var(--border-focus); border-block-start: 1px solid var(--border-focus);
+            transform: rotate(45deg);
+        }
+        .steps-pop-name { font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary); }
+        .steps-pop-tex { margin: 6px 0; font-size: 1.1rem; overflow-x: auto; overflow-y: hidden; }
+        .steps-pop-why, .steps-more-p { margin: 0; }
+        .steps-tex { white-space: nowrap; }
+        .steps-pop-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+        .steps-pop-level { color: var(--text-secondary); font-size: 0.8125rem; }
+        .steps-pop-more, .steps-back {
+            display: inline-flex; align-items: center; gap: 4px; min-block-size: 44px; padding: 0 12px;
+            border: 1px solid var(--border); border-radius: var(--radius-sm, 10px); background: var(--surface-2);
+            color: var(--text); font: inherit; font-weight: 600; cursor: pointer;
+            transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        .steps-pop-more:active, .steps-back:active { transform: scale(0.97); }
+        .steps-pop-more:focus-visible, .steps-back:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+        .steps-more { display: grid; gap: 12px; color: var(--text); font-size: 0.9375rem; line-height: 1.55; }
+        .steps-back { justify-self: start; padding-inline-start: 8px; }
+        .steps-more-name { margin: 0; font-size: 1.125rem; }
+        .steps-more-tex { font-size: 1.2rem; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-md, 12px); text-align: center; }
         .command-help-content h4 {
             color: var(--text);
             font-size: 0.875rem;

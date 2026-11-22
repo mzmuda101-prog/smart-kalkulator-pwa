@@ -39,8 +39,9 @@
             case 'num': return num(n.v, n.dec);
             case 'var': return n.v;
             case 'const': return n.v === 'pi' ? '\\pi' : 'e';
-            case 'add': return tex(n.a, 1) + '+' + tex(n.b, 1);
-            case 'sub': return tex(n.a, 1) + '-' + tex(n.b, 2);
+            // a + (−b), a − (−b): minus po plusie/minusie zawsze w nawiasie, jak na kartce
+            case 'add': return tex(n.a, 1) + '+' + (n.b.k === 'neg' ? big(node(n.b)) : tex(n.b, 1));
+            case 'sub': return tex(n.a, 1) + '-' + (n.b.k === 'neg' ? big(node(n.b)) : tex(n.b, 2));
             case 'neg': return '-' + tex(n.a, 3);
             case 'mul': {
                 const a = tex(n.a, 3), b = tex(n.b, 3);
@@ -98,7 +99,130 @@
         } catch { return null; } // nie parsuje się (jednostki, pieniądze, tekst) — bez rysunku
     }
 
-    const API = { exprToLatex: exprToLatex };
+    // ── Kroki rozwiązania jak na kartce (spec 5.12) ───────────────────────────────
+    // Kroki budują tekst z drzewa (C.show, limHead), który parser czyta z powrotem — więc rysujemy
+    // z tego samego drzewa: każdy kawałek między „ = ”, „ → ”, „, ” idzie przez parse → node.
+    // Kawałek, którego parser nie zna (słowa, „brak rozwiązań”), zostaje tekstem.
+    // ⟦…⟧ = fragment, w którym działa wzór (step.formula) — rysowany podkreślony, do stuknięcia.
+    const SEPS = [[', więc ', ',\\ \\text{więc}\\ '], [' lub ', '\\quad\\text{lub}\\quad '], [':  ', ':\\quad '],
+        [': ', ':\\quad '], [',  ', ',\\quad '], [', ', ',\\ '], [' = ', '='], [' ≈ ', '\\approx '], [' → ', '\\to '],
+        [' ✓', '\\ \\checkmark']];
+    const OPEN = '([⟦', CLOSE = ')]⟧';
+    const SUBS = { '₀': '0', '₁': '1', '₂': '2', '₃': '3', 'ₙ': 'n', 'ₖ': 'k' };
+    const SUPS = { '⁺': '+', '⁻': '-' };
+    // słowo = 3+ litery albo krótkie polskie słowo; „at”, „2ab” to iloczyny
+    const WORD = /[a-ząćęłńóśźż]{3,}|(?:^|[^a-z])(?:do|od|na|to|po|ze|że|i)(?![a-z])/i, FNWORDS = /arcsin|arccos|arctan|arctg|sin|cos|tan|tg|ctg|cot|ln|log|exp|sqrt|cbrt|lim/g;
+    const textTex = (/** @type {string} */ s) => '\\text{' + s.replace(/[\\{}$&#^_%~]/g, '\\$&') + '}';
+
+    /** dzieli na kawałki na poziomie 0 nawiasów @param {string} s @returns {{sep: string, part: string}[]} */
+    function splitTop(s) {
+        const out = []; let depth = 0, start = 0, sep = '';
+        if (s.startsWith('→ ')) { sep = '\\to '; start = 2; }
+        for (let i = start; i < s.length; i++) {
+            const c = s[i];
+            if (OPEN.includes(c)) depth++;
+            else if (CLOSE.includes(c)) depth--;
+            else if (depth === 0) {
+                if (s.startsWith('  [', i)) { out.push({ sep, part: s.slice(start, i) }); sep = '\\quad '; start = i + 2; i++; continue; }
+                const hit = SEPS.find(p => s.startsWith(p[0], i));
+                if (hit) { out.push({ sep, part: s.slice(start, i) }); sep = hit[1]; start = i + hit[0].length; i = start - 1; }
+            }
+        }
+        out.push({ sep, part: s.slice(start) });
+        return out.filter(p => p.part.trim() || p.sep);
+    }
+
+    /** cel granicy z tekstu kroku: ∞, −∞, 0⁺, 2,5 */
+    const targetTex = (/** @type {string} */ t) => t.replace('−', '-').replace('∞', '\\infty ').replace(',', '{,}')
+        .replace(/[⁺⁻]$/, m => '^{' + SUPS[/** @type {'⁺'} */ (m)] + '}');
+
+    /** jeden kawałek wzoru → LaTeX; null, gdy parser go nie zna @param {string} p @param {string} fid @returns {string|null} */
+    function pieceTex(p, fid) {
+        p = p.trim();
+        if (!p) return '';
+        const lim = /^lim\((\w)→([^)]*)\)\s*([\s\S]*)$/.exec(p);
+        if (lim) {
+            const rest = pieceTex(lim[3], fid);
+            return rest == null ? null : '\\lim_{' + lim[1] + '\\to ' + targetTex(lim[2]) + '}' + rest;
+        }
+        if (p[0] === '±' || p[0] === '+') { const r = pieceTex(p.slice(1), fid); return r == null ? null : (p[0] === '+' ? '+' : '\\pm ') + r; }
+        if (WORD.test(p.replace(FNWORDS, ''))) return null;
+        // n¹⁰ → n^(10) (tokenizer zna tylko jedną cyfrę ²…⁹), log₄( → log_4(
+        p = p.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]{2,}|[⁰¹]/g, m => '^(' + m.split('').map(ch => '⁰¹²³⁴⁵⁶⁷⁸⁹'.indexOf(ch)).join('') + ')')
+            .replace(/log([₀-₉]+)\(/g, (m, b) => 'log_' + b.split('').map((/** @type {string} */ ch) => ch.charCodeAt(0) - 0x2080).join('') + '(');
+        // grupy, których parser nie zna ([…], ⟦…⟧, |…|, aₙ, ∞, Δ), zastępujemy wolną literą i wstawiamy po narysowaniu
+        const free = 'qwzjkuyvhgfdsr'.split('').filter(ch => !p.includes(ch));
+        /** @type {Record<string, string>} */ const ph = {};
+        const hold = (/** @type {string} */ texOut) => { const ch = free.shift(); if (!ch) throw new Error('brak liter'); ph[ch] = texOut; return ch; };
+        let s = '', i = 0;
+        while (i < p.length) {
+            const c = p[i];
+            if (c === '[' || c === '⟦') {
+                let d = 0, j = i;
+                for (; j < p.length; j++) { if (OPEN.includes(p[j])) d++; else if (CLOSE.includes(p[j]) && --d === 0) break; }
+                const inner = pieceTex(p.slice(i + 1, j), fid);
+                if (inner == null) return null;
+                s += hold(c === '[' ? '\\left[' + inner + '\\right]' : '\\htmlData{formula=' + fid + '}{\\underline{' + inner + '}}');
+                i = j + 1; continue;
+            }
+            if (c === '|') {
+                const j = p.indexOf('|', i + 1), inner = j > 0 ? pieceTex(p.slice(i + 1, j), fid) : null;
+                if (inner == null) return null;
+                s += hold('\\left|' + inner + '\\right|'); i = j + 1; continue;
+            }
+            if (/[a-z]/.test(c) && SUBS[/** @type {'ₙ'} */ (p[i + 1])]) {
+                let j = i + 1, sub = '';
+                while (SUBS[/** @type {'ₙ'} */ (p[j])]) sub += SUBS[/** @type {'ₙ'} */ (p[j++])];
+                s += hold(c + '_{' + sub + '}'); i = j; continue;
+            }
+            if (c === '∞') { s += hold('\\infty '); i++; continue; }
+            // f(x), F(1), f′(t) — zapis funkcji, nie iloczyn f·x
+            const fx = /^([fghFG])(′?)\(/.exec(p.slice(i));
+            if (fx && !/[a-zA-Z]/.test(p[i - 1] || '')) {
+                let d = 0, j = i + fx[0].length - 1;
+                for (; j < p.length; j++) { if (p[j] === '(') d++; else if (p[j] === ')' && --d === 0) break; }
+                const inner = pieceTex(p.slice(i + fx[0].length, j), fid);
+                if (inner == null) return null;
+                s += hold(fx[1] + (fx[2] ? '^{\\prime}' : '') + '\\left(' + inner + '\\right)'); i = j + 1; continue;
+            }
+            if (/[A-Z]/.test(c) && !/[a-zA-Z]/.test(p[i + 1] || '')) { s += hold(c); i++; continue; } // L, P (lewa/prawa strona)
+            if (c === '∫') { // ∫ … dx (do najbliższego „ dx” na tym samym poziomie)
+                const m = /^∫\s*([\s\S]*?)\s+d([a-z])(?![a-z])/.exec(p.slice(i)), inner = m && pieceTex(m[1], fid);
+                if (inner == null) return null;
+                s += hold('\\int ' + inner + '\\,d' + /** @type {RegExpExecArray} */ (m)[2]); i += /** @type {RegExpExecArray} */ (m)[0].length; continue;
+            }
+            if (c === 'd' && /^d[a-z](?![a-z])/.test(p.slice(i)) && !/[a-zA-Z]/.test(p[i - 1] || '')) { s += hold((i ? '\\,' : '') + 'd' + p[i + 1]); i += 2; continue; } // dx, dv — różniczka, nie d·x
+            if (c === '⁺' || c === '⁻') { s += '^' + hold(c === '⁺' ? '+' : '-'); i++; continue; }
+            if (c === 'Δ') { s += hold('\\Delta '); i++; continue; }
+            if (c === '′') { s += '^' + hold('\\prime'); i++; continue; }
+            s += c; i++;
+        }
+        let out;
+        try { out = node(S._core.parse(s)); } catch { return null; }
+        return out.replace(/(^|[^\\a-zA-Z])([a-z])(?![a-zA-Z])/g, (m, pre, ch) => ph[ch] != null ? pre + ph[ch] : m);
+    }
+
+    /**
+     * tekst kroku → kawałki LaTeX (każdy z własnym znakiem na początku, żeby długi krok zawijał się
+     * między „=” jak na kartce) @param {string} math @param {string} [fid] id wzoru z ⟦…⟧
+     * @returns {string[]}
+     */
+    function stepToLatex(math, fid) {
+        if (!S || !math) return [];
+        return String(math).split('\n').flatMap(lineText => {
+            /** @type {string[]} */ const out = [];
+            for (const { sep, part } of splitTop(lineText)) {
+                const t = pieceTex(part, fid || ''), body = t != null ? t : textTex(part.replace(/[⟦⟧]/g, ''));
+                // przecinek i dwukropek zostają przy poprzednim kawałku (zawijanie nie zostawi ich na początku linii)
+                const punct = /^[,:]/.test(sep) && out.length ? sep[0] : '';
+                if (punct) out[out.length - 1] += punct;
+                out.push((punct ? sep.slice(1).replace(/^\\quad |^\\ /, '') : sep) + body);
+            }
+            return out;
+        });
+    }
+
+    const API = { exprToLatex: exprToLatex, stepToLatex: stepToLatex };
     g.MATM0_TEX = API;
     if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

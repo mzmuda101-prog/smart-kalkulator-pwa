@@ -58,5 +58,46 @@ for (const z of ZESTAW) {
 }
 ok('zestaw: 58/58 rysunków wraca do tego samego zadania', bad.length === 0, bad);
 
+// ── kroki jak na kartce (spec 5.12): żaden krok z zestawu i ze ściągi nie pokazuje zapisu z klawiatury ──
+{
+    const { stepToLatex } = require(path.join(root, 'js', 'expr-to-latex.js'));
+    const { FORMULAS } = require(path.join(root, 'js', 'step-formulas.js'));
+    require(path.join(root, 'js', 'math-limits.js'));
+    const html = require('fs').readFileSync(path.join(root, 'index.html'), 'utf8');
+    const decode = t => t.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+    const defs = require('fs').readFileSync(path.join(root, 'command-definitions.js'), 'utf8');
+    const sciaga = [...html.matchAll(/data-command="([^"]*)"/g)].map(m => decode(m[1]))
+        .concat([...defs.matchAll(/command: '((?:[^'\\]|\\.)*)'/g)].map(m => m[1].replace(/\\'/g, "'")));
+    const used = new Set(), leaks = [];
+    let steps = 0;
+    for (const q of ZESTAW.map(z => z.input).concat(sciaga)) {
+        let r; try { r = S.run(q); } catch { continue; }
+        if (!r || !r.explain || !r.explain.steps) continue;
+        for (const st of r.explain.steps) {
+            steps++;
+            const fid = st.formula && st.formula.id;
+            const tex = stepToLatex(st.math, fid).join(' ');
+            // słowa zostają tekstem (L, „pasuje”), ale bez zapisu z klawiatury: ułamka z „/”, potęgi z „^”, „√(”
+            const words = (tex.match(/\\text\{[^}]*\}/g) || []).filter(w => /[/^²³]|\\\^|√\(|∛\(|sqrt/.test(w));
+            if (words.length || /sqrt\(|\^\(|√\(|∛\(/.test(tex)) leaks.push(q + ' | ' + st.math + ' → ' + tex);
+            if (/[⟦⟧]/.test(st.math) && !(fid && FORMULAS[fid] && tex.includes('\\htmlData{formula=' + fid + '}'))) leaks.push('wzór bez słownika: ' + st.math);
+            if (fid) used.add(fid);
+        }
+    }
+    console.log('  kroki sprawdzone:', steps, '(ściąga: ' + sciaga.length + ' przykładów)');
+    ok('kroki: ' + steps + ' kroków (zestaw + ściąga) narysowanych bez zapisu z klawiatury', steps > 300 && leaks.length === 0, leaks.slice(0, 8));
+    // każdy wzór ze słownika ma przykład, w którym krok go używa, i treść dymku
+    for (const [id, f] of Object.entries(FORMULAS)) {
+        ok('wzór ' + id + ': użyty w kroku', used.has(id));
+        ok('wzór ' + id + ': ma treść dymku', !!(f.name && f.tex && f.why && f.level));
+        ok('wzór ' + id + ': dymek bez zapisu z klawiatury', ![f.why].concat(f.more).some(t => /\^\(|sqrt\(|√\(/.test(t.replace(/\$[^$]*\$/g, ''))));
+    }
+    ok('kroki: 1 + (−b) z nawiasem', stepToLatex('1 + (−3/(n + 3))')[0] === '1+\\left(-\\frac{3}{n+3}\\right)', stepToLatex('1 + (−3/(n + 3))'));
+    ok('kroki: f′(t), ∫ … dx, 0⁺, +∞', stepToLatex('f′(t) = 2at').join('') === 'f^{\\prime}\\left(t\\right)=2a t'
+        && stepToLatex('∫ x² dx = x³/3').join('') === '\\int x^{2}\\,dx=\\frac{x^{3}}{3}'
+        && stepToLatex('lim(x→0⁺) 1/x = +∞').join('') === '\\lim_{x\\to 0^{+}}\\frac{1}{x}=+\\infty ', stepToLatex('f′(t) = 2at'));
+    ok('kroki: przecinek zostaje przy wzorze', stepToLatex('1 − 1/n = 1 + 1/(−n),  aₙ = −n').join('|') === '1-\\frac{1}{n}|=1+\\frac{1}{-n},|a_{n}|=-n');
+}
+
 console.log(fail ? '❌ ' + fail + ' błędów, ' + pass + ' ok' : '✅ expr-to-latex: ' + pass + ' ok');
 process.exit(fail ? 1 : 0);

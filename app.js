@@ -5892,9 +5892,119 @@
             });
         }
 
+        // Kroki rysowane jak na kartce (spec 5.12): tekst kroku → kawałki LaTeX (MATM0_TEX.stepToLatex, z drzewa parsera),
+        // rysuje ten sam MathLive co wzór obok wyniku. Bez biblioteki (offline bez cache) zostaje tekst.
+        // Fragment ⟦…⟧ to miejsce użycia wzoru: podkreślony, stuknięcie → dymek, „Więcej” → widok z „Wróć”.
+        var _stepsBack = null; // [EN] { list, scroll, id } — gdzie wrócić z widoku „Więcej”
+        function _stepsFormulas() { return (window.MATM0_FORMULAS && window.MATM0_FORMULAS.FORMULAS) || {}; }
+        function _stepsRich(el, ml, text) { // [EN] tekst z $…$ → zdania z narysowanymi wzorami (bez zapisu z klawiatury)
+            String(text).split('$').forEach(function (part, i) {
+                if (!(i % 2)) { el.appendChild(document.createTextNode(part)); return; }
+                var tex = document.createElement('span');
+                tex.className = 'steps-tex';
+                if (ml) tex.innerHTML = ml.convertLatexToMarkup(part); // [EN] LaTeX z naszego słownika
+                else tex.textContent = part.replace(/\\[a-z]+|[{}]/gi, ' '); // shortcut: offline bez biblioteki — surowy zapis, rzadki przypadek
+                el.appendChild(tex);
+            });
+            return el;
+        }
+        function _stepsEl(tag, cls, text) {
+            var el = document.createElement(tag);
+            el.className = cls;
+            if (text != null) el.textContent = text;
+            return el;
+        }
+        function _stepsScroller() { return stepsView && stepsView.closest('.command-help-content'); }
+        function _closeStepsPop() {
+            if (!stepsView) return;
+            stepsView.querySelectorAll('.steps-pop').forEach(function (p) { p.remove(); });
+            stepsView.querySelectorAll('.steps-formula-sr[aria-expanded="true"]').forEach(function (b) { b.setAttribute('aria-expanded', 'false'); });
+            stepsView.querySelectorAll('.steps-math.is-open').forEach(function (m) { m.classList.remove('is-open'); });
+        }
+        function _openStepsPop(li, id) {
+            var f = _stepsFormulas()[id], math = li.querySelector('.steps-math');
+            if (!f || !math) return;
+            var wasOpen = math.classList.contains('is-open');
+            _closeStepsPop();
+            if (wasOpen) return; // [EN] drugie stuknięcie w ten sam fragment zamyka dymek
+            _loadFormulaLib().catch(function () { return null; }).then(function (ml) {
+                var pop = _stepsEl('div', 'steps-pop');
+                pop.setAttribute('role', 'group');
+                pop.setAttribute('aria-label', f.name);
+                pop.appendChild(_stepsEl('div', 'steps-pop-name', f.name));
+                var tex = _stepsEl('div', 'steps-pop-tex');
+                tex.setAttribute('aria-hidden', 'true');
+                if (ml) tex.innerHTML = ml.convertLatexToMarkup(f.tex);
+                pop.appendChild(tex);
+                pop.appendChild(_stepsRich(_stepsEl('p', 'steps-pop-why'), ml, f.why));
+                var foot = _stepsEl('div', 'steps-pop-foot');
+                foot.appendChild(_stepsEl('span', 'steps-pop-level', f.level));
+                if (f.more && f.more.length) {
+                    var more = _stepsEl('button', 'steps-pop-more', 'Więcej');
+                    more.type = 'button';
+                    more.dataset.formulaMore = id;
+                    foot.appendChild(more);
+                }
+                pop.appendChild(foot);
+                // [EN] strzałka dymku i punkt, z którego rośnie, celują w podkreślony fragment
+                var hit = math.querySelector('.steps-ink [data-formula]') || math;
+                var lr = li.getBoundingClientRect(), hr = hit.getBoundingClientRect();
+                pop.style.setProperty('--pop-x', Math.max(16, Math.min(lr.width - 16, hr.left + hr.width / 2 - lr.left)) + 'px');
+                math.after(pop);
+                math.classList.add('is-open');
+                var sr = math.querySelector('.steps-formula-sr');
+                if (sr) sr.setAttribute('aria-expanded', 'true');
+            });
+        }
+        function _openStepsMore(id) {
+            var f = _stepsFormulas()[id], scroller = _stepsScroller();
+            if (!f || !stepsView.firstChild) return;
+            _stepsBack = { list: stepsView.firstChild, scroll: scroller ? scroller.scrollTop : 0, id: id };
+            _loadFormulaLib().catch(function () { return null; }).then(function (ml) {
+                var view = _stepsEl('div', 'steps-more');
+                var back = _stepsEl('button', 'steps-back');
+                back.type = 'button';
+                back.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>';
+                back.appendChild(document.createTextNode('Wróć do kroków'));
+                view.appendChild(back);
+                view.appendChild(_stepsEl('h4', 'steps-more-name', f.name));
+                var tex = _stepsEl('div', 'steps-pop-tex steps-more-tex');
+                tex.setAttribute('aria-hidden', 'true');
+                if (ml) tex.innerHTML = ml.convertLatexToMarkup(f.tex);
+                view.appendChild(tex);
+                [f.why].concat(f.more).forEach(function (t) { view.appendChild(_stepsRich(_stepsEl('p', 'steps-more-p'), ml, t)); });
+                view.appendChild(_stepsEl('p', 'steps-pop-level', f.level));
+                stepsView.textContent = '';
+                stepsView.appendChild(view);
+                if (scroller) scroller.scrollTop = 0;
+                back.focus();
+            });
+        }
+        function _closeStepsMore() {
+            if (!_stepsBack) return;
+            var b = _stepsBack, scroller = _stepsScroller();
+            _stepsBack = null;
+            stepsView.textContent = '';
+            stepsView.appendChild(b.list);
+            if (scroller) scroller.scrollTop = b.scroll; // [EN] to samo miejsce w krokach, dymek dalej otwarty
+            var sr = b.list.querySelector('.steps-math.is-open .steps-formula-sr');
+            if (sr) sr.focus({ preventScroll: true });
+        }
+        if (stepsView) stepsView.addEventListener('click', function (e) {
+            var t = e.target;
+            if (t.closest('.steps-back')) { _closeStepsMore(); return; }
+            var more = t.closest('[data-formula-more]');
+            if (more) { _openStepsMore(more.dataset.formulaMore); return; }
+            if (t.closest('.steps-pop')) return;
+            var hit = t.closest('[data-formula]');
+            if (hit) { _openStepsPop(hit.closest('.steps-item'), hit.dataset.formula); return; }
+            _closeStepsPop();
+        });
         function renderStepsView(explain) {
+            _stepsBack = null;
             var list = document.createElement('ol');
             list.className = 'steps-list';
+            var formulas = _stepsFormulas(), toDraw = [];
             explain.steps.forEach(function(step, i) {
                 var li = document.createElement('li');
                 li.className = 'steps-item' + (step.final ? ' is-final' : '');
@@ -5903,13 +6013,38 @@
                 label.textContent = (i + 1) + '. ' + step.label;
                 var math = document.createElement('div');
                 math.className = 'steps-math';
-                math.textContent = step.math;
+                var plain = String(step.math).replace(/[⟦⟧]/g, '');
+                var sr = _stepsEl('span', 'steps-sr', plain); // [EN] czytnik czyta zapis, rysunek jest aria-hidden
+                var ink = _stepsEl('span', 'steps-ink', plain);
+                ink.setAttribute('aria-hidden', 'true');
+                math.appendChild(sr);
+                math.appendChild(ink);
+                var fid = step.formula && formulas[step.formula.id] ? step.formula.id : '';
+                if (fid) { // [EN] klawiatura i czytnik: niewidoczny przycisk; fokus rysuje obwódkę na podkreślonym fragmencie
+                    var btn = _stepsEl('button', 'steps-formula-sr', formulas[fid].name + ', wyjaśnienie');
+                    btn.type = 'button';
+                    btn.dataset.formula = fid;
+                    btn.setAttribute('aria-expanded', 'false');
+                    math.appendChild(btn);
+                }
                 li.appendChild(label);
                 li.appendChild(math);
                 list.appendChild(li);
+                toDraw.push({ ink: ink, step: step, fid: fid });
             });
             stepsView.textContent = '';
             stepsView.appendChild(list);
+            if (!window.MATM0_TEX || !window.MATM0_TEX.stepToLatex) return;
+            _loadFormulaLib().then(function (ml) {
+                toDraw.forEach(function (d) {
+                    var parts = window.MATM0_TEX.stepToLatex(d.step.math, d.fid);
+                    if (!parts.length) return;
+                    d.ink.innerHTML = parts.map(function (tex) { // [EN] kawałek na „=”: długi krok zawija się jak na kartce
+                        return '<span class="steps-chunk">' + ml.convertLatexToMarkup(tex) + '</span>';
+                    }).join('');
+                    d.ink.classList.add('is-drawn');
+                });
+            }).catch(function () {}); // [EN] offline bez cache — zostaje tekst
         }
         function openStepsView(explain) { // [EN] ta sama szuflada co ściąga: Esc, tło, × i przeciąganie już działają
             if (!stepsView || !commandHelpDrawer) return;

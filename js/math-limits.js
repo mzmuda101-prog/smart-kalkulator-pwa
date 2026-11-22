@@ -482,7 +482,7 @@
             }
             var neg = K.toNum(q) < 0, infSign = cv > 0 ? 1 : -1;
             var tail = neg ? ' → 0' : ' → ' + (infSign > 0 ? '+∞' : '−∞');
-            line(log, 'Wyrazy z ' + v + ' w mianowniku dążą do 0', '→ ' + (cText === '1' ? '' : cText + ' · ') + uText(v, sign, neg ? K.neg(q) : q) + (neg ? ' w mianowniku' : '') + tail);
+            line(log, 'Wyrazy z ' + v + ' w mianowniku dążą do 0', '→ ' + (cText === '1' ? '' : cText + ' · ') + (neg ? '1/' : '') + uText(v, sign, neg ? K.neg(q) : q) + tail);
             return neg ? { kind: 'num', e: [] } : { kind: 'inf', sign: infSign };
         }
     };
@@ -734,13 +734,17 @@
             if (onePlus === C.show(p.f)) onePlus = '1 + 1/' + pa;
             line(log, 'Dorabiamy jedynkę', (onePlus === C.show(p.f) ? onePlus : C.show(p.f) + ' = ' + onePlus) + ',  aₙ = ' + sa);
             var gh = fold(C.cMul(p.g, h));
-            var sgh = C.show(gh);
-            line(log, 'Wzór na e', '(1 + 1/aₙ)^aₙ → e, więc ' + limHead(v, t) + (sgh === '1' ? '(' + onePlus + ')^' + pa : '[(' + onePlus + ')^' + pa + ']^(' + sgh + ')'));
-            var mark = log ? log.length : 0, still = !C.hasVar(gh, v);
-            if (log) line(log, still ? 'Wykładnik' : 'Granica wykładnika', still ? sgh : limOf(v, t, gh));
-            var L = limitOf(gh, v, t, log, depth);
-            // [EN] wykładnik bez kroków pośrednich (stała, prosta granica): jeden krok zamiast dwóch
-            var single = !!log && log.length === mark + 1 && L.kind === 'num';
+            var sgh = C.show(gh), still = !C.hasVar(gh, v);
+            // [EN] bez osobnego kroku „Wzór na e” (spec 5.12): fragment ⟦…⟧ jest podkreślony, stuknięcie → dymek ze wzorem
+            var core = '⟦(' + onePlus + ')^' + pa + '⟧';
+            line(log, 'Podstawa dąży do e', limHead(v, t) + (sgh === '1' ? core + ' = e'
+                : '[' + core + ']^(' + sgh + ')' + (still ? ' = e^(' + sgh + ')' : '')));
+            if (log) log[log.length - 1].formula = { id: 'e' };
+            var mark = log ? log.length : 0;
+            if (!still) line(log, 'Granica wykładnika', limOf(v, t, gh));
+            var L = limitOf(gh, v, t, still ? null : log, depth); // [EN] stały wykładnik jest już w kroku wyżej
+            // [EN] wykładnik bez kroków pośrednich (prosta granica): jeden krok zamiast dwóch
+            var single = still || (!!log && log.length === mark + 1 && L.kind === 'num');
             if (single && !still) log[mark].math += ' = ' + C.show(rationalize(fold(L.e)));
             var coef = C.num(p.c);
             if (L.kind === 'inf') {
