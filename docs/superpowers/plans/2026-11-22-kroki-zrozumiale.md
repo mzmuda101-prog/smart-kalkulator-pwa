@@ -124,3 +124,10 @@ Wszystkie propozycje przyjęte: „dlaczego” zawsze widoczne; kolorowanie zmia
 - Agent „słaby uczeń”: wszystkie wyniki poprawne; 6 błędów zapisu poprawionych.
 - Zostaje: nazwy u i v zamiast f i g w iloczynie (f to też cała funkcja), `√x` przez `x^(1/2)`, `5 · 3 = 15` w złożonej,
   uproszczenie licznika ilorazu, F(b) i F(a) wyliczone, rozkład na ułamki proste z liczeniem A i B.
+
+## 3f (część) — zapis jak w zeszycie (v1.05.13)
+- Suma bez minusa na początku, gdy jest wyraz dodatni (`15 − 8x`, `√(n² + n) − n`, `sin(x) − x · cos(x) + C`) —
+  w całym silniku (`show` w math-calculus.js). Przy okazji zniknął zbędny „Zapisujemy inaczej” w 7e.
+- `n^(3/2)` → `n√n`, `n^(5/2)` → `n²√n`; w mianowniku z nawiasem (`2/(n√n)`), bo `2/n√n` czyta się inaczej.
+- Symbol `[0 · ∞]` dla iloczynu (4c, 7e); próg „zero/jeden” uwzględnia błąd próbek — przy okazji 6g dostało `[1^∞]`.
+- Zostaje z 3f: wyniki 5b i 5c nieuproszczone, zapis `…/8/(…)` w 4f, zbędne kroki w 6e.

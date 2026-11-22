@@ -1001,7 +1001,8 @@
     function kindOf(x) {
         if (!x) return null;
         if (x.kind === 'inf') return '∞';
-        if (x.kind === 'num') return Math.abs(x.value) < 1e-9 ? '0' : (Math.abs(x.value - 1) < 1e-9 ? '1' : 'c');
+        // [EN] próg z błędem próbek: wolno zbieżne (√a − √b przy x → −∞) też liczą się jako 0 / 1
+        if (x.kind === 'num') { var tol = Math.max(1e-9, 10 * (x.err || 0)); return Math.abs(x.value) < tol ? '0' : (Math.abs(x.value - 1) < tol ? '1' : 'c'); }
         return null;
     }
     function indeterminate(e, v, t) {
@@ -1019,7 +1020,10 @@
                 return null;
             }
             var fr = splitFraction(e);
-            if (isOne(fr.D)) return null;
+            if (isOne(fr.D)) { // [EN] iloczyn: jeden czynnik rośnie bez końca, drugi maleje do 0 → [0 · ∞]
+                var kinds = only.fs.map(function (f) { return kindOf(numericLimit([C.term(ONE, [f])], v, t)); });
+                return kinds.indexOf('∞') >= 0 && kinds.indexOf('0') >= 0 ? '0 · ∞' : null;
+            }
             var n = kindOf(numericLimit(fr.N, v, t)), d = kindOf(numericLimit(fr.D, v, t));
             if (n === '0' && d === '0') return '0/0';
             if (n === '∞' && d === '∞') return '∞/∞';
@@ -1097,6 +1101,10 @@
         _work = 0; _budget = WORK_BUDGET;
         try {
             ind = indeterminate(e, d.v, d.target);
+            if (!ind && ast.k === 'mul') { // [EN] iloczyn wpisany przez użytkownika — silnik mógł go już rozpisać na sumę
+                var ka = kindOf(numericLimitAst(ast.a, d.v, d.target)), kb = kindOf(numericLimitAst(ast.b, d.v, d.target));
+                if ((ka === '∞' && kb === '0') || (ka === '0' && kb === '∞')) ind = '0 · ∞';
+            }
             // [EN] symbol nieoznaczony do stuknięcia: dymek „co to znaczy” (słownik: nieoznaczone)
             steps = [ind ? { label: 'Granica', math: userLim(d, e) + '  [⟦' + ind + '⟧]', formula: { id: 'nieoznaczone' } } : { label: 'Granica', math: userLim(d, e) }];
             var quick = null;

@@ -41,7 +41,7 @@ const NOPE = 'Jeszcze tego nie rozwiążę';
     ['całka 1/x', 'ln|x| + C'],
     ['całka x*e^x', 'x · e^x − e^x + C'],
     ['całka x^2*e^x', 'x² · e^x − 2x · e^x + 2 · e^x + C'],
-    ['całka x*sin(x)', '−x · cos(x) + sin(x) + C'],
+    ['całka x*sin(x)', 'sin(x) − x · cos(x) + C'], // bez minusa na początku (3f)
     ['całka ln(x)', 'x · ln(x) − x + C'],
     ['całka 1/(x^2+1)', 'arctg(x) + C'],
     ['całka x/(x^2+1)', 'ln|x² + 1|/2 + C'],

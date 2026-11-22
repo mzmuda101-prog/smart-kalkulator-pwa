@@ -340,6 +340,17 @@ ok('minor: lim x→−8 ∛x nie daje złego wyniku', ['−2', NOPE].includes(te
     ok("3b: (eˣ − 1)/x bez de l'Hospitala", sE.length && !sE.some(x => /Hospital/.test(x.label)), show(sE));
 }
 
+// ── 3f: zapis jak w zeszycie ──
+{
+    const all = q => { const r = S.run(q); return r && r.explain ? r.explain.steps : []; };
+    const sN = all('lim n→∞ (n sqrt(n) + 2)/(3n^2+1)');
+    ok('3f: n^(3/2) jako n√n', sN.some(x => x.math.includes('n√n(')) && !sN.some(x => /\^\(3\/2\)/.test(x.math)), sN.map(x => x.math));
+    ok('3f: n√n w mianowniku w nawiasie', sN.some(x => x.math.includes('2/(n√n)')), sN.map(x => x.math));
+    const sB = all('lim x→-∞ sqrt(7-2x)(sqrt(15-8x)-sqrt(3-8x))');
+    ok('3f: symbol [0 · ∞] w kroku 1', sB[0] && sB[0].math.endsWith('[⟦0 · ∞⟧]') && all(byId['4c'].input)[0].math.endsWith('[⟦0 · ∞⟧]'), [sB[0], all(byId['4c'].input)[0]]);
+    ok('3f: bez minusa na początku: 15 − 8x', sB.some(x => x.math.includes('√(15 − 8x) − √(3 − 8x) = ')) && !sB.some(x => /\(−8x \+ 15\)/.test(x.math)), sB.map(x => x.math));
+}
+
 // ── Etap 3d: wzory ze słownika zamiast tekstu w etykietach ──
 {
     const all = q => { const r = S.run(q); return r && r.explain ? r.explain.steps : []; };

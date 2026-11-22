@@ -260,6 +260,10 @@
             return (FN_SHOW[a.f] || a.f) + sup(e.n.toString()) + '(' + showInner(a.a) + ')';
         }
         if (a.k === 'exp') return '(' + showAtom(a) + ')' + supFrac(e);
+        if (a.k === 'var' && e.d === 2n && e.n > 2n) { // [EN] n^(3/2) → n√n, n^(5/2) → n²√n (nie zapis z klawiatury)
+            var whole = (e.n - 1n) / 2n;
+            return a.v + (whole > 1n ? sup(whole.toString()) : '') + '√' + a.v;
+        }
         return showAtom(a) + supFrac(e);
     }
     function joinFactors(list) {
@@ -285,12 +289,18 @@
         if (q === 1n && !downs.length) return top;
         var bottom = joinFactors(downs);
         if (q !== 1n) bottom = q.toString() + (bottom ? (downs[0].b.k === 'fn' || downs[0].b.k === 'exp' ? ' · ' : '') + bottom : '');
-        var many = (q !== 1n && downs.length > 0) || downs.length > 1;
+        // [EN] n√n w mianowniku to dwa czynniki: 2/(n√n), bo 2/n√n czyta się jak (2/n)·√n
+        var many = (q !== 1n && downs.length > 0) || downs.length > 1 || /^[a-z][²³⁴⁵⁶⁷⁸⁹]*√/.test(bottom);
         return top + '/' + (many ? '(' + bottom + ')' : bottom);
     }
     function show(e) {
         var list = sortedTerms(e);
         if (!list.length) return '0';
+        // [EN] bez minusa na początku, gdy jest wyraz dodatni: 15 − 8x, √(n² + n) − n (jak w zeszycie)
+        if (list[0].c.n < 0n) {
+            var pos = list.findIndex(function (t) { return t.c.n > 0n; });
+            if (pos > 0) list = [list[pos]].concat(list.slice(0, pos), list.slice(pos + 1));
+        }
         return list.map(function (t, i) {
             var negative = t.c.n < 0n;
             if (!i) return (negative ? '−' : '') + showTerm(t);
