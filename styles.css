@@ -932,6 +932,18 @@
             .calc-start::-webkit-scrollbar { display: none; }
         }
         .calc-start-track { display: flex; align-items: center; gap: 6px; padding: 2px 28px 2px 12px; width: max-content; }
+        /* pusty ekran z dodatkowym miejscem na wzór (fx-room): przykłady w dwóch rzędach zamiast pustej dziury;
+           bez przewijania w bok i bez uciętych chipów — co się nie mieści w 2 rzędach, jest ukryte w całości */
+        @media (max-width: 1023px) {
+            .calc-display.fx-room.is-empty .calc-start {
+                overflow: hidden;
+                max-height: calc(2 * 34px + 8px + 4px);
+                -webkit-mask-image: none;
+                mask-image: none;
+            }
+            .calc-display.fx-room .calc-start-track { flex-wrap: wrap; width: auto; row-gap: 8px; padding-inline: 4px; }
+            .calc-display.fx-room .calc-start-cat { display: none; } /* ikonka kategorii zostawała sama na końcu rzędu */
+        }
         .calc-start-cat { display: inline-flex; color: var(--primary); margin-left: 6px; }
         .calc-start-cat:first-child { margin-left: 0; }
         .calc-start-cat .ui-icon { width: 16px; height: 16px; }

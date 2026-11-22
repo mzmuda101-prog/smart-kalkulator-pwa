@@ -197,3 +197,12 @@ Co ewentualnie warto z nich wziąć:
 - Próg chowania rysunku liczony w px (~10 px), nie w skali — większa czcionka nie chowa wzorów, które się mieściły.
 - Telefon: bez podpisu „Wpisz po polsku. Wynik od razu.” w nagłówku; dolny pasek bez dodatkowych 6 px nad paskiem
   iPhone'a (`max(6px, safe-bottom)`).
+
+## Poprawki po teście na iPhonie (v1.05.10)
+- „Zawsze więcej miejsca na wzór” domyślnie włączone (Mateusz) — jednorazowa migracja `calcFormulaRoomDefaultV2`
+  (w v1.05.08–09 domyślne OFF zapisywało się w ustawieniach); świadome wyłączenie po migracji zostaje.
+- Dodatkowe miejsce tylko na telefonie (szerokość < 640 px) i nie na niskim (< 700 px, np. SE): 56 px od 780 px
+  wysokości, 40 px poniżej. Tablet i komputer mają duże okienko — dopłata psuła tam układ (testy layout-guard).
+- Tryb „dopasuj”: próg 4 px — inne metryki czcionek na iPhonie nie bujają okienkiem o 1–2 px.
+- Pusty ekran z dodatkowym miejscem: przykłady w dwóch rzędach (bez ikon kategorii, które zostawały same
+  na końcu rzędu), trzeci rząd ukryty w całości — nic nie jest ucięte.

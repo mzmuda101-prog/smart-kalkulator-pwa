@@ -73,7 +73,8 @@
                         standardLiveHintDefaultV2: true, // znacznik jednorazowej migracji domyślnej (patrz loadState)
                         standardAutocomplete: false, // T4-16: lista podpowiedzi Standard
                         suggestOnEmpty: true, // T4-19: fuzzy gdy brak wyniku — domyślnie ON od v1.02.81
-                        calcFormulaRoomAlways: false, // [EN] okienko wyniku stale wyższe pod rysunek wzoru (domyślnie: rośnie, gdy trzeba)
+                        calcFormulaRoomAlways: true, // [EN] okienko wyniku stale wyższe pod rysunek wzoru — domyślnie ON od v1.05.10 (Mateusz)
+                        calcFormulaRoomDefaultV2: true, // znacznik jednorazowej migracji domyślnej (patrz loadState)
                         suggestOnEmptyDefaultV2: true, // znacznik jednorazowej migracji domyślnej (patrz loadState)
                         currencyCompactSymbols: true, // T4-20: $ € zamiast kodów ISO
                         unitNames: 'typed', // K10: nazwy jednostek w wyniku: typed (jak wpisano) / short / long
@@ -364,6 +365,12 @@
                     if (typeof stObj.standardAutocomplete === 'boolean') STATE.settings.standardAutocomplete = stObj.standardAutocomplete;
                     if (typeof stObj.suggestOnEmpty === 'boolean') STATE.settings.suggestOnEmpty = stObj.suggestOnEmpty;
                     if (typeof stObj.calcFormulaRoomAlways === 'boolean') STATE.settings.calcFormulaRoomAlways = stObj.calcFormulaRoomAlways;
+                    // [EN] Migracja v1.05.10: „Zawsze więcej miejsca na wzór” domyślnie ON; w v1.05.08–09 OFF zapisywało się
+                    //      u każdego, kto ruszył ⚙️ — podnosimy raz, świadome wyłączenie po migracji zostaje.
+                    if (stObj.calcFormulaRoomDefaultV2 !== true) {
+                        STATE.settings.calcFormulaRoomAlways = true;
+                        _settingsNeedMigrationSave = true;
+                    }
                     // [EN] Migracja T4-19 (v1.02.81): do v1.02.80 opcja była domyślnie OFF i zapisywała się
                     //      jako false u KAŻDEGO, kto ruszył cokolwiek w ⚙️ — sama zmiana domyślnej by ich ominęła.
                     //      Podnosimy ją raz; świadome wyłączenie PO migracji zostaje (znacznik już zapisany).
@@ -3876,14 +3883,23 @@
         // Miejsce na rysunek (decyzja Mateusza 2026-11-22): okienko rośnie tylko, gdy wzór by się zmniejszył
         // (najwyżej o FX_ROOM), klawisze oddają to miejsce; ustawienie „zawsze” daje pełne FX_ROOM na stałe.
         var FX_ROOM = 56, _fxExtra = 0;
+        // [EN] mały ekran (iPhone SE 667 px): mniej miejsca, żeby klawisze nie zeszły poniżej ~50 px
+        // [EN] tylko telefon: tablet i komputer mają duże okienko z własnym zapasem; niski telefon (SE) — bez dopłaty,
+        //      bo 6 rzędów „Wzory” zeszłoby poniżej 44 px, a przełączanie Wzory ↔ Liczby ma trzymać tę samą wysokość
+        function _fxRoomMax() {
+            var w = window.innerWidth || 400, h = window.innerHeight || 800;
+            if (w >= 640 || h < 700) return 0;
+            return h >= 780 ? FX_ROOM : 40;
+        }
         function _fxRoomAlways() { return !!(STATE.settings && STATE.settings.calcFormulaRoomAlways); }
         function _setFormulaRoom(px) {
-            px = _fxRoomAlways() ? FX_ROOM : px;
+            px = Math.min(_fxRoomMax(), _fxRoomAlways() ? FX_ROOM : px);
             if (px === _fxExtra) return;
             _fxExtra = px;
             var row = calcFormula && calcFormula.parentElement;
             if (row) row.style.minHeight = px ? 'calc(var(--calc-result-row-min, calc(var(--calc-result-font, 2.5rem) * 1.1)) + ' + px + 'px)' : '';
             var disp = row && row.closest('.calc-display');
+            if (disp) disp.classList.toggle('fx-room', px >= 40); // [EN] pusty ekran: przykłady w dwóch rzędach
             if (disp) { // [EN] płynnie tylko ta zmiana; inne (obrót, klawiatura) bez animacji — kod układu mierzy od razu
                 disp.classList.add('fx-anim');
                 clearTimeout(_setFormulaRoom._t);
@@ -3920,7 +3936,9 @@
             ink.style.setProperty('--fx-scale', String(Math.max(s, minS)));
             // [EN] ile wysokości brakuje, żeby wzór nie malał (szerokość i tak może go zmniejszyć); drobiazg < 8 px — bez ruszania klawiszy
             var lack = Math.ceil(h * Math.min(1, free / w) - (calcFormula.clientHeight - _fxExtra));
-            _setFormulaRoom(lack >= 8 ? Math.min(FX_ROOM, lack) : 0);
+            var want = lack >= 8 ? Math.min(_fxRoomMax(), lack) : 0;
+            // [EN] próg 4 px: inne metryki czcionek (iPhone) nie mogą bujać okienkiem o 1–2 px przy każdym przeliczeniu
+            if (!(want && _fxExtra && Math.abs(want - _fxExtra) < 4)) _setFormulaRoom(want);
         }
         function updateCalcFormula(raw) {
             if (!calcFormula) return;
@@ -13314,6 +13332,10 @@
         // [EN] „zawsze” od razu daje pełne miejsce; wyłączenie — wraca do tego, ile potrzebuje bieżący wzór
         _bindAssistSetting(settingCalcFormulaRoom, 'calcFormulaRoomAlways', function () { _setFormulaRoom(0); _fitCalcFormula(); });
         _setFormulaRoom(0); // [EN] start: przy „zawsze” od razu wyższe okienko
+        window.addEventListener('resize', function () { // [EN] obrót / inny ekran — limit miejsca zależy od wysokości
+            clearTimeout(_setFormulaRoom._r);
+            _setFormulaRoom._r = setTimeout(function () { _setFormulaRoom(0); _fitCalcFormula(); }, 150);
+        });
         _bindAssistSetting(settingCurrencyCompactSymbols, 'currencyCompactSymbols', function () { liveEval(); });
         if (settingUnitNames) {
             settingUnitNames.addEventListener('change', function() {

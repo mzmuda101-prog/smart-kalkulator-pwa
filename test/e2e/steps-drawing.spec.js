@@ -34,7 +34,7 @@ test('lim n→∞ (1 − 1/n)^n: kroki narysowane, wzór na e w dymku i w „Wi�
   const pop = page.locator('#stepsView .steps-pop');
   await expect(pop).toBeVisible();
   await expect(pop).toContainText('Wzór na liczbę e');
-  await expect(page.locator('#stepsView .steps-formula-sr')).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('#stepsView .steps-formula-sr[data-formula="e"]')).toHaveAttribute('aria-expanded', 'true');
 
   await pop.getByRole('button', { name: 'Więcej' }).click();
   await expect(page.locator('#stepsView .steps-more')).toBeVisible();
@@ -61,7 +61,7 @@ test('klawiatura: Tab do wzoru, Enter otwiera dymek', async ({ page }) => {
   await page.waitForFunction(() => !!window.MATM0_TEX && !!window.MATM0_FORMULAS);
   await page.locator('#calcExpr').fill('lim n→∞ (1 + 1/n)^n');
   await page.locator('#calcExplainTip').click();
-  const btn = page.locator('#stepsView .steps-formula-sr');
+  const btn = page.locator('#stepsView .steps-formula-sr[data-formula="e"]');
   await btn.focus();
   await page.keyboard.press('Enter');
   await expect(page.locator('#stepsView .steps-pop')).toBeVisible();

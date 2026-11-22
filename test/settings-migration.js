@@ -114,9 +114,25 @@ function reload(stored) {
     check('świadome „off” po migracji zostaje', r.settings.notepadSumUnit, 'off');
 }
 
+// „Zawsze więcej miejsca na wzór” domyślnie ON od v1.05.10 (Mateusz po teście na iPhonie);
+// w v1.05.08–09 domyślne było OFF i zapisywało się u każdego, kto ruszył ⚙️.
+{
+    const r = reload(null);
+    check('świeża instalacja: calcFormulaRoomAlways', r.settings.calcFormulaRoomAlways, true);
+}
+{
+    const r = reload({ calcFormulaRoomAlways: false, standardLiveHintDefaultV2: true, suggestOnEmptyDefaultV2: true, notepadSumUnitDefaultV2: true });
+    check('zapis z v1.05.08 (false): podniesione do ON', r.settings.calcFormulaRoomAlways, true);
+    check('zapis z v1.05.08: znacznik calcFormulaRoomDefaultV2', r.saved && r.saved.calcFormulaRoomDefaultV2, true);
+}
+{
+    const r = reload({ calcFormulaRoomAlways: false, calcFormulaRoomDefaultV2: true, standardLiveHintDefaultV2: true, suggestOnEmptyDefaultV2: true, notepadSumUnitDefaultV2: true });
+    check('świadome wyłączenie po migracji zostaje', r.settings.calcFormulaRoomAlways, false);
+}
+
 if (failed) {
     console.error('❌ settings-migration: ' + failed + ' błędów');
     process.exit(1);
 }
-console.log('✅ settings-migration: 21 asercji OK');
+console.log('✅ settings-migration: 25 asercji OK');
 process.exit(0); // [EN] atrapa fetch/timerów trzyma event-loop przy życiu
