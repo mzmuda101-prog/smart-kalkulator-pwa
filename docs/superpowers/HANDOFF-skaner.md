@@ -16,7 +16,10 @@ i plan `docs/superpowers/plans/2026-11-21-skaner-druku-etap-3.md`.
 - Zadanie 4 zrobione (spec §5.10b): pojedyncze zakłócenia zdjęcia przechodzą bramkę 80%;
   dziury: dwa wzory w ramce (18/58), ciasna ramka (42/58), kilka zakłóceń naraz (43–45/58).
   Tłumacz LaTeX odporniejszy na potknięcia modelu (nowe testy w `test/latex-to-expr.js`).
-  Do decyzji Mateusza: wybór wzoru najbliżej środka ramki (`TODO.md`). Następne: zadanie 5.
+  v1.04.94: wzór najbliżej środka ramki (ramka +30%: 18 → 37/58).
+- Zadanie 5: plan `docs/superpowers/plans/2026-11-22-wzory-graficznie-i-klawiatura.md` zaakceptowany;
+  etap 1 (rysunek wzoru w wierszu wyniku, MathLive) wydany w v1.04.95. Następne: etap 2 (edytor 2D +
+  klawiatura wzorów; przed nim przejrzeć układy klawiatur — Mateusz chce wyglądu jak w znanych apkach).
 
 ## ToDo uzgodnione z Mateuszem (w tej kolejności)
 1. **Skaner: jeden zły znak nie odrzuca całego wzoru.** Przypadek: wzór (f) `lim ((5n+7)/(5n−8))^n` zdjęty

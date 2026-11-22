@@ -114,6 +114,7 @@
         const calcExpr = $('#calcExpr');
         const calcExprAC = $('#calcExprAC');
         const calcLiveHint = $('#calcLiveHint');
+        const calcFormula = $('#calcFormula');
         const calcEmptySuggest = $('#calcEmptySuggest');
         const calcResult = $('#calcResult');
         const calcCopyBtn = $('#calcCopyBtn');
@@ -3636,6 +3637,7 @@
                 calcExpr.value = clamped;
                 if (atEnd) { try { calcExpr.setSelectionRange(clamped.length, clamped.length); } catch (e) {} }
             }
+            updateCalcFormula(calcExpr.value);
             // Po „=” wynik wraca do pola jako normalny, edytowalny tekst. Przez
             // pierwsze przeliczenie zachowujemy jednostkę wybraną przez jawną
             // konwersję; następna zmiana użytkownika wraca do zwykłego auto-trybu.
@@ -3675,6 +3677,54 @@
             fitCalcDisplay();
             updateCalcLiveHint();
             updateCalcEmptySuggest(res);
+        }
+        // Rysunek wzoru jak na kartce (spec 5.9, etap 1): zapis → LaTeX z drzewa parsera (MATM0_TEX),
+        // rysuje MathLive (sam renderer, 111 KB gzip) wczytany leniwie przy pierwszym wzorze; SW trzyma go potem offline.
+        var _fxLib = null, _fxLatex = null, _fxObs = null;
+        function _loadFormulaLib() {
+            if (!_fxLib) {
+                var css = document.createElement('link');
+                css.rel = 'stylesheet'; css.href = 'vendor/mathlive/mathlive-static.css';
+                document.head.appendChild(css);
+                _fxLib = import('./vendor/mathlive/mathlive-ssr.min.mjs').catch(function (e) { _fxLib = null; throw e; });
+            }
+            return _fxLib;
+        }
+        function _fitCalcFormula() { // [EN] szerokość = wolne miejsce na lewo od wyniku; skala do niego; poniżej 0,5 — chowamy
+            if (!calcFormula || calcFormula.hidden) return;
+            var row = calcFormula.parentElement, left = row.getBoundingClientRect().left, edge = Infinity;
+            for (var i = 0; i < row.children.length; i++) {
+                var el = row.children[i];
+                if (el === calcFormula || !el.getClientRects().length) continue;
+                var r = el.getBoundingClientRect();
+                if (r.width) edge = Math.min(edge, r.left);
+            }
+            var free = Math.max(0, (edge === Infinity ? row.clientWidth + left : edge) - left - 12);
+            calcFormula.style.setProperty('--fx-w', free + 'px');
+            var ink = calcFormula.firstElementChild, w = ink.offsetWidth, h = ink.offsetHeight;
+            if (!w || !h) return;
+            var s = Math.min(1, free / w, calcFormula.clientHeight / h);
+            calcFormula.classList.toggle('is-tight', s < 0.5);
+            ink.style.setProperty('--fx-scale', String(Math.max(s, 0.5)));
+        }
+        function updateCalcFormula(raw) {
+            if (!calcFormula) return;
+            var latex = raw && window.MATM0_TEX ? window.MATM0_TEX.exprToLatex(raw) : null;
+            if (latex === _fxLatex) return;
+            _fxLatex = latex;
+            if (!latex) { calcFormula.hidden = true; return; }
+            _loadFormulaLib().then(function (ml) {
+                if (_fxLatex !== latex) return; // [EN] spóźnione wczytanie — pole już ma inny wzór
+                calcFormula.firstElementChild.innerHTML = ml.convertLatexToMarkup(latex); // [EN] LaTeX z naszego drzewa (litery, liczby)
+                calcFormula.hidden = false;
+                if (!_fxObs && window.ResizeObserver) {
+                    _fxObs = new ResizeObserver(_fitCalcFormula);
+                    _fxObs.observe(calcFormula.parentElement); _fxObs.observe(calcFormula.firstElementChild);
+                    if (calcResult) _fxObs.observe(calcResult); // [EN] wynik rośnie/maleje → mniej/więcej miejsca
+                }
+                _fitCalcFormula();
+                if (document.fonts) document.fonts.ready.then(_fitCalcFormula); // [EN] czcionki KaTeX zmieniają rozmiar
+            }).catch(function () { calcFormula.hidden = true; _fxLatex = null; }); // [EN] offline bez cache — bez rysunku
         }
         // Rozpisanie wyniku (PIT, pensja…) — tytuł „jak to zrozumiałem" + wiersze kwot.
         // Pokazujemy tylko, gdy silnik je dał; zwykłe działania zostają bez zmian.
