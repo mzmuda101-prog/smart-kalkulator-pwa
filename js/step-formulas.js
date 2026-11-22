@@ -132,6 +132,66 @@
                 '$\\left[1^{\\infty}\\right]$ też jest nieoznaczony: podstawa bliska 1, ale wykładnik ogromny. Pomaga wzór na $e$.',
             ],
         },
+        delta: {
+            name: 'Delta (wyróżnik)',
+            tex: '\\Delta=b^{2}-4ac',
+            why: 'Równanie ma postać $ax^{2}+bx+c=0$. Liczba $\\Delta$ mówi, ile ma rozwiązań: $\\Delta>0$ dwa, $\\Delta=0$ jedno, $\\Delta<0$ żadnego.',
+            level: 'Liceum, zakres podstawowy: funkcja kwadratowa',
+            more: [
+                'Delta to część wzoru na rozwiązania, która stoi pod pierwiastkiem. Dlatego jej znak decyduje o wszystkim: z liczby ujemnej pierwiastka nie policzymy.',
+                'Na wykresie: $\\Delta>0$ znaczy, że parabola przecina oś $x$ w dwóch miejscach, $\\Delta=0$ że dotyka jej w jednym, $\\Delta<0$ że nie dotyka wcale.',
+                'Uwaga na nawias: przy $b=-5$ liczymy $(-5)^{2}=25$, a nie $-5^{2}=-25$.',
+            ],
+        },
+        'wzory-x12': {
+            name: 'Wzory na rozwiązania równania kwadratowego',
+            tex: 'x_{1}=\\frac{-b-\\sqrt{\\Delta}}{2a},\\quad x_{2}=\\frac{-b+\\sqrt{\\Delta}}{2a}',
+            why: 'Delta jest dodatnia, więc wstawiamy $-b$, $\\sqrt{\\Delta}$ i $2a$ do wzorów. Raz z minusem, raz z plusem przed pierwiastkiem.',
+            level: 'Liceum, zakres podstawowy: funkcja kwadratowa',
+            more: [
+                'Zapis $-b$ znaczy „liczba przeciwna do $b$”. Gdy $b=-5$, to $-b=5$.',
+                'Mianownik to $2a$, czyli dwa razy liczba przy $x^{2}$, a nie samo 2.',
+                'Wzory biorą się z dopełnienia do kwadratu: $ax^{2}+bx+c=0$ przekształca się do $\\left(x+\\frac{b}{2a}\\right)^{2}=\\frac{\\Delta}{4a^{2}}$, a potem pierwiastkujemy obie strony.',
+            ],
+        },
+        'wzor-x0': {
+            name: 'Jedno rozwiązanie, gdy delta jest zerem',
+            tex: 'x_{0}=\\frac{-b}{2a}',
+            why: 'Przy $\\Delta=0$ pierwiastek z delty to 0, więc oba wzory dają tę samą liczbę.',
+            level: 'Liceum, zakres podstawowy: funkcja kwadratowa',
+            more: ['Na wykresie to wierzchołek paraboli, który leży dokładnie na osi $x$.'],
+        },
+        bezout: {
+            name: 'Pierwiastek wielomianu daje nawias',
+            tex: 'W(r)=0\\ \\Rightarrow\\ W(x)=(x-r)\\cdot Q(x)',
+            why: 'Jeśli liczba $r$ zeruje wielomian, to wielomian dzieli się przez $(x-r)$ bez reszty. Zostaje wielomian o stopień niższy.',
+            level: 'Liceum, zakres rozszerzony: wielomiany (twierdzenie Bézouta)',
+            more: [
+                'Pierwiastka całkowitego szukamy wśród dzielników wyrazu wolnego: dla $x^{3}-6x^{2}+11x-6$ to $\\pm 1$, $\\pm 2$, $\\pm 3$, $\\pm 6$.',
+                'Dzielenie robimy schematem Hornera albo zwykłym dzieleniem pisemnym wielomianów.',
+            ],
+        },
+        'roznica-kwadratow': {
+            name: 'Różnica kwadratów',
+            tex: 'a^{2}-b^{2}=(a-b)(a+b)',
+            why: 'Różnicę dwóch kwadratów od razu zapisujemy jako iloczyn dwóch nawiasów.',
+            level: 'Liceum: wzory skróconego mnożenia',
+            more: ['Przykład: $x^{2}-9=x^{2}-3^{2}=(x-3)(x+3)$.'],
+        },
+        'postac-iloczynowa': {
+            name: 'Postać iloczynowa',
+            tex: 'ax^{2}+bx+c=a(x-x_{1})(x-x_{2})',
+            why: 'Każde miejsce zerowe $x_{1}$, $x_{2}$ daje nawias $(x-x_{1})$. Przed nawiasami stoi liczba $a$ przy $x^{2}$.',
+            level: 'Liceum, zakres podstawowy: funkcja kwadratowa',
+            more: ['Sprawdzenie: po wymnożeniu nawiasów wraca wyrażenie z początku, np. $(x-2)(x-3)=x^{2}-5x+6$.'],
+        },
+        'kwadrat-sumy': {
+            name: 'Kwadrat sumy',
+            tex: '(a+b)^{2}=a^{2}+2ab+b^{2}',
+            why: 'Kwadrat nawiasu to nawias razy nawias: każdy wyraz pierwszego mnożymy przez każdy wyraz drugiego.',
+            level: 'Szkoła podstawowa i liceum: wzory skróconego mnożenia',
+            more: ['Najczęstszy błąd: $(x+1)^{2}$ to nie $x^{2}+1$. Brakuje środka $2\\cdot x\\cdot 1=2x$.'],
+        },
     };
     // tg, arcsin, arctg: ten sam pomysł co sin u/u, inny wzór w dymku
     for (const [id, fn, name] of [['tgu', '\\operatorname{tg}', 'tg'], ['arcsinu', '\\arcsin', 'arcsin'], ['arctgu', '\\operatorname{arctg}', 'arctg']]) {

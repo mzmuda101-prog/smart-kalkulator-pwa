@@ -95,3 +95,18 @@ Wszystkie propozycje przyjęte: „dlaczego” zawsze widoczne; kolorowanie zmia
   „Zapisujemy oba wykładniki tak samo”; symbol `[0/0]` w kroku 1 do stuknięcia.
 - Testy: żadna etykieta granicy nie zawiera wzoru; każdy wpis słownika użyty w prawdziwym kroku (490 kroków).
 - Pochodne, całki i równania (Δ, wzory na x₁ x₂, tablice, przez części, Newton-Leibniz) — razem z 3e.
+
+## 3e-1 — równania, rozkład, ułamki (v1.05.11)
+- Równanie liniowe: osobny krok przeniesienia (`3x − x = 4 + 6`), potem redukcja (`2x = 10`); etykieta mówi prawdę
+  („Przenoszę liczby na prawo”, gdy x jest tylko po lewej).
+- Sprawdzenie z podstawieniem: `L = 3(5 − 2) = 9, P = 5 + 4 = 9 ✓` (`plugIn`: `6x²` → `6 · 1²`, liczba ujemna w nawiasie).
+- Δ: „Liczę deltę”, „Liczę dwa rozwiązania” z `/(2 · a)`, podkreślone podstawienie; dymki: delta, wzory-x12, wzor-x0.
+- Wielomian: `W(x) = …, W(1) = 1 − 6 + 11 − 6 = 0, więc W(x) = (x − 1)(…)` (dymek: bezout).
+- Rozkład: „Szukam miejsc zerowych” → „Zapisuję postać iloczynową” (dymek), różnica kwadratów w dymku.
+- `(x + 1)²`: „Rozpisuję kwadrat sumy”, podkreślona tylko część z kwadratu.
+- Ułamki: rozszerzanie widać (`(1 · 3)/(2 · 3)`), „Dodaję liczniki”, osobne „Skracam ułamek” (`9/6 = 3/2`); działania jako czasowniki.
+- Szuflada: kroki z kilkoma liniami (x₁, x₂, sprawdzenia) w osobnych wierszach; ✓ przy wyniku; dwukropek bez odstępów.
+- Agent „słaby uczeń”: 0 złych wyników; poprawione 6 błędów zapisu i 3 niepasujące zdania „dlaczego”.
+- Zostaje (z raportu ucznia): `5 = 2x − 7` (zamiana stron zamiast ujemnych liczb), `x/2 + 1 = 3` (mnożenie przez 2
+  zamiast dzielenia przez 1/2), miejsca zerowe w rozkładzie bez rachunku (Δ), `x − 3 = 0` przy `x(x − 3) = 0`,
+  skąd wspólny mianownik.

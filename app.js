@@ -6101,6 +6101,7 @@
                         var parts = window.MATM0_TEX.stepToLatex(d.step.math, d.fid);
                         if (!parts.length) return;
                         d.ink.innerHTML = parts.map(function (tex) { // [EN] kawałek na „=”: długi krok zawija się jak na kartce
+                            if (tex === '\n') return '<span class="steps-br" aria-hidden="true"></span>'; // [EN] x₁ i x₂ w osobnych liniach
                             return '<span class="steps-chunk">' + ml.convertLatexToMarkup(tex) + '</span>';
                         }).join('');
                         d.ink.classList.add('is-drawn');

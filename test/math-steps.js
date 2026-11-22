@@ -86,7 +86,7 @@ ok('gołe równanie', S.runBare('2x + 3 = 7').text === 'x = 2');
     ok(q, r.text === want && Math.abs(r.value - v) < 1e-9 && r.explain.steps.slice(-1)[0].final, r);
 });
 ok('sprzężenie w krokach', labels('uprość 1/(√3 - 1)').includes('Usuwamy niewymierność z mianownika'));
-ok('wymierny pierwiastek po staremu', labels('kroki sqrt(16)+1') === 'Działanie | Pierwiastek | Dodawanie');
+ok('wymierny pierwiastek po staremu', labels('kroki sqrt(16)+1') === 'Działanie | Liczę pierwiastek | Dodaję', labels('kroki sqrt(16)+1'));
 
 // przykłady ze ściągi dają obiecany wynik
 [
@@ -105,11 +105,50 @@ ok('długi wynik skrócony', longRes.text.includes('≈') && longRes.text.length
 ok('dokładna postać w krokach', longRes.explain.steps.slice(-1)[0].math.includes('√'));
 
 // treść kroków
-ok('Δ w krokach', labels('rozwiąż x^2-5x+6=0').includes('wyróżnik'));
+ok('Δ w krokach', labels('rozwiąż x^2-5x+6=0').includes('Liczę deltę'));
 ok('nawiasy w krokach', labels('rozwiąż 3(x-2)=x+4').includes('Opuszczam nawiasy'));
 ok('sprawdzenie w krokach', labels('rozwiąż 2x+3=7').includes('Sprawdzenie'));
 ok('wspólny mianownik', labels('kroki 1/2+1/3').includes('mianownika 6'));
-ok('kolejność działań', labels('kroki 2+3*4').startsWith('Działanie | Mnożenie | Dodawanie'));
+ok('kolejność działań', labels('kroki 2+3*4').startsWith('Działanie | Mnożę | Dodaję'), labels('kroki 2+3*4'));
+// ── 3e-1: równania i ułamki zrozumiałe (plan kroków) ──
+const st = q => S.run(q).explain.steps;
+const has = (q, label, math) => st(q).some(x => x.label === label && (math == null || x.math === math));
+const fm = (q, id) => st(q).some(x => x.formula && x.formula.id === id && /⟦.+⟧/.test(x.math));
+// przeniesienie widać osobno, potem redukcja
+ok('3e: przeniesienie 3x − x = 4 + 6', has('rozwiąż 3(x - 2) = x + 4', 'Przenoszę x na lewo, liczby na prawo', '3x − x = 4 + 6'), st('rozwiąż 3(x - 2) = x + 4'));
+ok('3e: redukcja 2x = 10', has('rozwiąż 3(x - 2) = x + 4', 'Redukuję wyrazy podobne', '2x = 10'));
+ok('3e: tylko liczby na prawo: 2x = 11 − 3', has('rozwiąż 2x + 3 = 11', 'Przenoszę liczby na prawo', '2x = 11 − 3'), st('rozwiąż 2x + 3 = 11'));
+// sprawdzenie z podstawieniem
+ok('3e: sprawdzenie z podstawieniem', has('rozwiąż 3(x - 2) = x + 4', 'Sprawdzenie', 'x = 5:  L = 3(5 − 2) = 9,  P = 5 + 4 = 9 ✓'), st('rozwiąż 3(x - 2) = x + 4').slice(-2));
+ok('3e: sprawdzenie bez sklejania 5 · 2', st('rozwiąż x^2 - 5x + 6 = 0').some(x => x.label === 'Sprawdzenie' && x.math.includes('L = 2² − 5 · 2 + 6 = 0')), st('rozwiąż x^2 - 5x + 6 = 0').slice(-2));
+ok('3e: sprawdzenie liczby ujemnej w nawiasie', st('rozwiąż x^2 = 9').some(x => x.math.includes('L = (−3)² = 9')), st('rozwiąż x^2 = 9'));
+// Δ i wzory na x w dymkach, etykiety bez wzorów
+const q2 = 'rozwiąż x^2 - 5x + 6 = 0';
+ok('3e: Liczę deltę z podkreśleniem', has(q2, 'Liczę deltę') && fm(q2, 'delta'), st(q2));
+ok('3e: Liczę dwa rozwiązania, 2 · 1 w mianowniku', has(q2, 'Liczę dwa rozwiązania') && fm(q2, 'wzory-x12') && st(q2).some(x => x.math.includes('/ (2 · 1)')), st(q2));
+ok('3e: jedno rozwiązanie', has('rozwiąż x^2 - 4x + 4 = 0', 'Liczę jedno rozwiązanie') && fm('rozwiąż x^2 - 4x + 4 = 0', 'wzor-x0'), st('rozwiąż x^2 - 4x + 4 = 0'));
+ok('3e: sprawdzenie 6x² → 6 · 1²', st('rozwiąż x^3 - 6x^2 + 11x - 6 = 0').some(x => x.math.includes('L = 1³ − 6 · 1² + 11 · 1 − 6 = 0')), st('rozwiąż x^3 - 6x^2 + 11x - 6 = 0').slice(-2));
+// rozkład: miejsca zerowe, potem postać iloczynowa
+ok('3e: rozkład przez miejsca zerowe', has('rozłóż x^2 - 5x + 6', 'Szukam miejsc zerowych') && fm('rozłóż x^2 - 5x + 6', 'postac-iloczynowa'), st('rozłóż x^2 - 5x + 6'));
+// kwadrat sumy
+ok('3e: kwadrat sumy', has('uprość (x + 1)^2 + 2x', 'Rozpisuję kwadrat sumy') && fm('uprość (x + 1)^2 + 2x', 'kwadrat-sumy'), st('uprość (x + 1)^2 + 2x'));
+// ułamki: rozszerzanie widać, czasowniki
+ok('3e: rozszerzanie ułamków', has('kroki 1/2 + 1/3', 'Sprowadzam do wspólnego mianownika 6', '(1 · 3)/(2 · 3) + (1 · 2)/(3 · 2) = 3/6 + 2/6'), st('kroki 1/2 + 1/3'));
+ok('3e: Dodaję liczniki', has('kroki 1/2 + 1/3', 'Dodaję liczniki'), st('kroki 1/2 + 1/3'));
+// wielomian: krótka etykieta, W(r) = 0
+ok('3e: wielomian W(1) = 0', st('rozwiąż x^3 - 6x^2 + 11x - 6 = 0').some(x => x.label === 'Szukam pierwiastka wśród dzielników' && /W\(1\) = .* = 0/.test(x.math)), st('rozwiąż x^3 - 6x^2 + 11x - 6 = 0'));
+// uwagi „słabego ucznia” (3e-1)
+ok('3e: 4/6 + 5/6 → 9/6 → skracam do 3/2', has('kroki 2/3 + 5/6', 'Dodaję liczniki', '9/6') && has('kroki 2/3 + 5/6', 'Skracam ułamek', '9/6 = 3/2'), st('kroki 2/3 + 5/6'));
+ok('3e: bez (5 · 1)/(6 · 1)', !st('kroki 2/3 + 5/6').some(x => x.math.includes('· 1)')), st('kroki 2/3 + 5/6'));
+ok('3e: rozwiązania z pierwiastkiem — podstawienie podkreślone', st('rozwiąż x^2 - 2x - 1 = 0').some(x => x.math.includes('x₁ = ⟦(2 − 2√2) / (2 · 1)⟧ = 1 − √2')), st('rozwiąż x^2 - 2x - 1 = 0'));
+ok('3e: kwadrat sumy podkreślony bez + 2x', has('uprość (x + 1)^2 + 2x', 'Rozpisuję kwadrat sumy', '⟦x² + x + x + 1⟧ + 2x'), st('uprość (x + 1)^2 + 2x'));
+ok('3e: x² + 1 = 0 — przeniesienie nazwane', has('rozwiąż x^2 + 1 = 0', 'Przenoszę liczbę na prawo', 'x² = −1'), st('rozwiąż x^2 + 1 = 0'));
+ok('3e: W(x) zdefiniowane i W(1) policzone', st('rozwiąż x^3 - 6x^2 + 11x - 6 = 0').some(x => x.math.startsWith('W(x) = x³ − 6x² + 11x − 6,  W(1) = 1 − 6 + 11 − 6 = 0')), st('rozwiąż x^3 - 6x^2 + 11x - 6 = 0'));
+// żadna etykieta równań/ułamków nie zawiera wzoru
+const eqLabels = ['rozwiąż 3(x - 2) = x + 4', q2, 'rozwiąż x^2 - 4x + 4 = 0', 'rozwiąż x^2 - 2x - 1 = 0', 'rozwiąż x^3 - 6x^2 + 11x - 6 = 0', 'rozłóż x^2 - 9', 'rozłóż x^2 - 5x + 6']
+    .flatMap(q => st(q).map(x => x.label)).filter(l => /[=∓]|\(x − /.test(l));
+ok('3e: etykiety bez wzorów', eqLabels.length === 0, [...new Set(eqLabels)]);
+
 const last = S.run('rozwiąż 2x+3=7').explain.steps.slice(-1)[0];
 ok('ostatni krok oznaczony', last.final === true);
 

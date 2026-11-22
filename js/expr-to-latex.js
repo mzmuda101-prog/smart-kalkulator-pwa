@@ -177,7 +177,7 @@
             }
             if (c === '∞') { s += hold('\\infty '); i++; continue; }
             // f(x), F(1), f′(t) — zapis funkcji, nie iloczyn f·x
-            const fx = /^([fghFG])(′?)\(/.exec(p.slice(i));
+            const fx = /^([fghA-Z])(′?)\(/.exec(p.slice(i)); // f(x), F(1), W(x) — zapis funkcji
             if (fx && !/[a-zA-Z]/.test(p[i - 1] || '')) {
                 let d = 0, j = i + fx[0].length - 1;
                 for (; j < p.length; j++) { if (p[j] === '(') d++; else if (p[j] === ')' && --d === 0) break; }
@@ -203,13 +203,14 @@
     }
 
     /**
-     * tekst kroku → kawałki LaTeX (każdy z własnym znakiem na początku, żeby długi krok zawijał się
+     * tekst kroku → kawałki LaTeX ('\n' = nowa linia kroku; każdy kawałek z własnym znakiem na początku, żeby długi krok zawijał się
      * między „=” jak na kartce) @param {string} math @param {string} [fid] id wzoru z ⟦…⟧
      * @returns {string[]}
      */
     function stepToLatex(math, fid) {
         if (!S || !math) return [];
-        return String(math).split('\n').flatMap(lineText => {
+        // kolejna linia kroku (x₁ …, x₂ …) zaczyna się od '\n' — rysunek łamie tam wiersz
+        return String(math).split('\n').flatMap((lineText, li) => {
             /** @type {string[]} */ const out = [];
             for (const { sep, part } of splitTop(lineText)) {
                 let t = null;
@@ -217,10 +218,11 @@
                 const body = t != null ? t : textTex(part.replace(/[⟦⟧]/g, ''));
                 // przecinek i dwukropek zostają przy poprzednim kawałku (zawijanie nie zostawi ich na początku linii)
                 const punct = /^[,:]/.test(sep) && out.length ? sep[0] : '';
-                if (punct) out[out.length - 1] += punct;
+                if (punct) out[out.length - 1] += punct === ':' ? '{:}' : punct; // {:} — dwukropek bez odstępów relacji
+                if (sep === SEPS[SEPS.length - 1][1] && out.length) { out[out.length - 1] += sep + body; continue; } // ✓ przy wyniku
                 out.push((punct ? sep.slice(1).replace(/^\\quad |^\\ /, '') : sep) + body);
             }
-            return out;
+            return li ? ['\n'].concat(out) : out;
         });
     }
 
