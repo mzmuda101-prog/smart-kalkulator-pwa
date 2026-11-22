@@ -49,6 +49,45 @@ Bierzemy pomysły na przepływ, nie wygląd tamtej aplikacji.
 2. Klawiatura: klawiatura MathLive z naszym układem (propozycja) czy systemowa + rząd przycisków?
 3. Zaczynać od etapu 1 (sam rysunek), czy od razu 1 + 2 razem?
 
+## Pomysł Mateusza do rozważenia przed etapem 2 (2026-11-22, „głośno myślę”)
+Zostawić obecną klawiaturę kalkulatora i dać **przełącznik w tym samym miejscu**: „Kalkulator” ↔ „Wzory”
+(klawiatura do nauki). Bez dubla — jedno miejsce na klawisze, dwa układy.
+Propozycja Claude (do decyzji):
+- Klawiatura „Wzory” jako **nasza własna siatka w miejscu obecnej** (ten sam rozmiar, styl, haptyka), nie klawiatura
+  MathLive wysuwana od dołu — mniej ryzyka z fokusem i klawiaturą systemową na iPhonie, spójny wygląd apki.
+  Klawisze wstawiają gotowe kawałki do pola (`lim x→`, `∞`, ułamek, `√`, `∛`, potęga, `log`, `sin`, `x`, `n`…),
+  a rysunek z etapu 1 pokazuje na żywo, jak to wygląda na kartce. Cyfry zostają w obu układach.
+- Przełącznik: jeden klawisz/segment w dolnym rzędzie (tam, gdzie „Historia / Zdanie / Ściąga”), stan zapamiętany.
+- Edytor 2D (ołówek przy rysunku) zostaje jako dodatek do poprawiania długich wzorów — może później niż klawiatura.
+- Układ klawiszy „Wzory”: przejrzeć znane aplikacje do matematyki i zrobić własny, nie kopię.
+
+## Klawiatura „Wzory” — projekt (Mateusz zaakceptował kierunek 2026-11-22: rzadsze rzeczy pod przytrzymaniem)
+Siatka 5×5 w miejscu obecnej klawiatury, przełącznik „Kalkulator | Wzory” w dolnym rzędzie (stan zapamiętany).
+
+```
+lim   7  8  9  ÷
+∞     4  5  6  ×
+a/b   1  2  3  −
+√     0  ,  x  +
+xⁿ    (  )  n  ⌫        + karta „Funkcje”
+```
+Przytrzymanie (dymek z wariantami nad klawiszem, przesunięcie palcem i puszczenie = wybór):
+- `lim` → `lim n→∞`, `lim x→0`, `lim x→0⁺`, `lim x→0⁻`, `lim x→a`
+- `∞` → `−∞`, `e`, `π`;  `√` → `∛`, `∜`;  `xⁿ` → `x²`, `x³`, `x⁻¹`, `eˣ`
+- `( )` → `|x|`;  `x` → `y`, `t`;  `n` → `k`, `m`;  `×` → `n!`;  `÷` → `mod`
+Karta „Funkcje”: `sin cos tg ctg`, `arcsin arccos arctg`, `ln log log₂`, `|x|`, `n!`, `e`, `π`, `pochodna`, `całka`, `rozwiąż`, `=`.
+Zasady: przytrzymanie to skrót — **każdy wariant jest też na karcie „Funkcje”** (nic dostępnego tylko
+przytrzymaniem: odkrywalność, czytnik ekranu, klawiatura fizyczna). Klawisz z wariantami ma mały znaczek
+w rogu. Cele ≥ 44 px, bez zaznaczania tekstu przy przytrzymaniu (`user-select:none`, `-webkit-touch-callout:none`).
+Wzorce: znane aplikacje do matematyki (siatka 4–5 kolumn; Seneca: tylko potrzebne klawisze) — własny układ, nie kopia.
+
+**Warunek przed klawiaturą — silnik musi rozumieć każdy klawisz** (sprawdzone 22.11 w zwykłym liczeniu,
+poza granicami/krokami): nie działają `tg`, `ctg`, `arctg` (działa tylko `tan`, `atan`), `|−3|`, `5!`,
+`log_2(8)`, `cos²(0)`, `10 mod 3`. Etap 2a: dodać je do silnika ze smoke-testami i ściągą, potem klawiatura (2b).
+**Etap 2a wydany w v1.04.96**: wszystkie powyższe działają w zwykłym liczeniu i na wykresach
+(`js/numeric-eval.js`; `cos²(x)` w `js/smart-parser.js` przed regułą jednostek `m² → m2`), 15 smoke-testów,
+6 wpisów w ściądze. Znane ograniczenie: zagnieżdżone `||a|−|b||` — wtedy `abs(…)`.
+
 ## Etap 1 — jak wyszło (v1.04.95)
 - `js/expr-to-latex.js` (drzewo parsera → LaTeX; granice, pochodne, całki, zwykłe wzory z ułamkiem/potęgą/
   pierwiastkiem/funkcją), test `test/expr-to-latex.js`: 58/58 granic z rysunku wraca do tego samego zadania.

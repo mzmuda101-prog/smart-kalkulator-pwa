@@ -84,12 +84,13 @@
             .replace(/^y\s*=/i, '');
     }
 
-    var _FN_NAMES = ['srednia', 'asin', 'acos', 'atan', 'sinh', 'cosh', 'tanh', 'sqrt', 'floor', 'round', 'suma', 'mean',
+    var _FN_NAMES = ['srednia', 'logb', 'asin', 'acos', 'atan', 'sinh', 'cosh', 'tanh', 'sqrt', 'floor', 'round', 'suma', 'mean',
         'ceil', 'sin', 'cos', 'tan', 'cot', 'csc', 'abs', 'log', 'exp', 'sum', 'min', 'max', 'avg', 'ln'];
     function insertImplicitMultiplication(expr) {
         // [EN] nazwy funkcji chowamy przed regułą — inaczej „max(” = „ma·x·(”, „exp(” = „e·xp(”
         var saved = [];
-        expr = expr.replace(new RegExp('(' + _FN_NAMES.join('|') + ')(?=\\()', 'g'), function (f) {
+        // sin^2(x): potęga przy nazwie zostaje z nazwą — inaczej „2(” dostałoby „*”
+        expr = expr.replace(new RegExp('(?:' + _FN_NAMES.join('|') + ')(?:\\^\\d+(?:\\.\\d+)?)?(?=\\()', 'g'), function (f) {
             saved.push(f); return '\uE000' + String.fromCharCode(65 + saved.length - 1) + '\uE001';
         });
         var next = '(?=x|pi|e|\uE000|\\()';
@@ -105,6 +106,11 @@
         expr = expr.replace(/π/g, 'pi');
         expr = expr.replace(/(\d),(\d)/g, '$1.$2');
         expr = expr.replace(/\s+/g, '');
+        // zapisy szkolne (klawiatura „Wzory”): tg/ctg/arctg, log_2(x), |x|, mod — przed mnożeniem domyślnym
+        expr = expr.replace(/arc(sin|cos)/g, 'a$1').replace(/arc(?:tg|tan)/g, 'atan').replace(/ctg/g, 'cot').replace(/tg/g, 'tan')
+            .replace(/log_?(\d+(?:\.\d+)?)\(/g, 'logb($1;').replace(/mod/g, '#');
+        // shortcut: |x| od lewej, bez zagnieżdżania („||a|−|b||” nie zadziała) — wtedy abs(…)
+        while (/\|[^|]+\|/.test(expr)) expr = expr.replace(/\|([^|]+)\|/, 'abs($1)');
         expr = insertImplicitMultiplication(expr);
 
         var allowedNames = {
@@ -130,6 +136,7 @@
             floor: true,
             ceil: true,
             round: true,
+            logb: true,
             sum: true, suma: true, min: true, max: true, avg: true, mean: true, srednia: true,
         };
 
@@ -140,7 +147,7 @@
             }
         }
 
-        if (!/^[0-9a-z+\-*/^().;]+$/.test(expr)) {
+        if (!/^[0-9a-z+\-*/^().;!#]+$/.test(expr)) {
             throw new Error('Użyj tylko liczb, x, nawiasów, operatorów i prostych funkcji.');
         }
 
@@ -170,7 +177,7 @@
                     continue;
                 }
                 if (ch === ';') { t.push({ type: 'sep', value: ch }); idx++; continue; } // [EN] separator argumentów
-                if ('+-*/^()'.indexOf(ch) !== -1) {
+                if ('+-*/^()!#'.indexOf(ch) !== -1) {
                     t.push({ type: ch === '(' || ch === ')' ? 'paren' : 'operator', value: ch });
                     idx++;
                     continue;
@@ -200,10 +207,11 @@
 
         function parseTerm() {
             var value = parseFactor();
-            while (peek() && peek().type === 'operator' && (peek().value === '*' || peek().value === '/')) {
+            while (peek() && peek().type === 'operator' && (peek().value === '*' || peek().value === '/' || peek().value === '#')) {
                 var op = consume().value;
                 var rhs = parseFactor();
-                value = op === '*' ? value * rhs : value / rhs;
+                // # = mod: reszta matematyczna (−7 mod 3 = 2), jak na lekcji
+                value = op === '*' ? value * rhs : op === '/' ? value / rhs : ((value % rhs) + rhs) % rhs;
             }
             return value;
         }
@@ -224,7 +232,15 @@
                 var value = parseUnary();
                 return op === '-' ? -value : value;
             }
-            return parsePrimary();
+            var v = parsePrimary();
+            while (peek() && peek().type === 'operator' && peek().value === '!') { consume(); v = factorial(v); }
+            return v;
+        }
+        function factorial(n) {
+            if (n < 0 || n !== Math.floor(n)) throw new Error('Silnia tylko z liczby naturalnej (0, 1, 2…).');
+            var r = 1;
+            for (var k = 2; k <= n && r !== Infinity; k++) r *= k;
+            return r;
         }
 
         function parsePrimary() {
@@ -247,6 +263,9 @@
                 if (token.value === 'e') {
                     return Math.E;
                 }
+                // sin²x, sin^2(x): potęga przy nazwie funkcji dotyczy wyniku funkcji
+                var power = null;
+                if (peek() && peek().type === 'operator' && peek().value === '^') { consume(); power = parseUnary(); }
                 if (peek() && peek().type === 'paren' && peek().value === '(') {
                     consume();
                     var args = [parseExpression()];
@@ -255,7 +274,8 @@
                         throw new Error('Brak nawiasu kończącego.');
                     }
                     consume();
-                    return evaluateFunction(token.value, args);
+                    var fv = evaluateFunction(token.value, args);
+                    return power === null ? fv : Math.pow(fv, power);
                 }
                 throw new Error('Funkcja ' + token.value + ' wymaga nawiasów.');
             }
@@ -277,6 +297,9 @@
                 case 'sum': case 'suma': return args.reduce(function (a, b) { return a + b; }, 0);
                 case 'avg': case 'mean': case 'srednia': return args.reduce(function (a, b) { return a + b; }, 0) / args.length;
                 case 'min': return Math.min.apply(Math, args);
+                case 'logb': // log_2(8) → logb(2;8)
+                    if (args.length !== 2) throw new Error('Logarytm o podstawie: log_2(liczba).');
+                    return Math.log(args[1]) / Math.log(args[0]);
                 case 'max': return Math.max.apply(Math, args);
                 case 'round':
                     if (args.length > 2) throw new Error('round przyjmuje liczbę i liczbę miejsc.');

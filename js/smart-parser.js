@@ -2177,6 +2177,8 @@
             return '(ln(' + u + ')/ln(' + base + '))';
         });
         // indeks górny: przy jednostce to cyfra (km² → km2), przy liczbie to potęga (5² → 5^2)
+        // cos²(x) = (cos x)² — przed regułą jednostek (m² → m2), która zrobiłaby z tego „cos2(x)”
+        out = out.replace(/\b(sin|cos|tg|tan|ctg|cot)([\u00b2\u00b3])(?=\s*\()/g, function (_, f, s) { return f + '^' + (s === '\u00b2' ? 2 : 3); });
         out = out.replace(/([A-Za-zÀ-ſ])\u00b2/g, '$12').replace(/([A-Za-zÀ-ſ])\u00b3/g, '$13');
         out = out.replace(/(\d)\s*\u00b2/g, '$1^2').replace(/(\d)\s*\u00b3/g, '$1^3');
         var m = out.match(/^(.*\S)\s*\(([^()]*)\)\s*$/);

@@ -1982,7 +1982,8 @@
         var _CALC_FUNC_WORDS = ['sin','cos','tan','asin','acos','atan','sinh','cosh','tanh',
             'cot','csc','sqrt','abs','log','ln','exp','floor','ceil','round','pi','e','x',
             'sum','suma','min','max','avg','mean',
-            'sind','cosd','tand','asind','acosd','atand'];
+            'sind','cosd','tand','asind','acosd','atand',
+            'tg','ctg','arcsin','arccos','arctg','arctan','mod'];
         var _CALC_KEYWORDS = [
             // łączniki i przyimki, na których stoi składnia PL/EN
             'na','do','w','we','z','ze','od','za','i','oraz','a','to','in','of','at','on','off','per',
@@ -14723,6 +14724,22 @@
                 { expr: 'lim n→∞ (n/(n+3))^(2n)', value: Math.exp(-6), tol: 1e-12 },
                 { expr: 'granica sin(3x)/x przy x → 0', value: 3, tol: 1e-9 },
                 { expr: 'uprość √8', value: 2 * Math.SQRT2, tol: 1e-9 },
+                // klawiatura „Wzory” (etap 2a): polskie nazwy funkcji, |x|, n!, log o podstawie, sin²x, mod
+                { expr: 'tg(pi/4)', value: 1, tol: 1e-9 },
+                { expr: 'ctg(pi/4)', value: 1, tol: 1e-9 },
+                { expr: 'arctg(1)', value: Math.PI / 4, tol: 1e-12 },
+                { expr: 'arcsin(1)', value: Math.PI / 2, tol: 1e-12 },
+                { expr: '|-3|', value: 3 },
+                { expr: '|2-5|*2', value: 6 },
+                { expr: '5!', value: 120 },
+                { expr: '0!', value: 1 },
+                { expr: '3!+1', value: 7 },
+                { expr: 'log_2(8)', value: 3, tol: 1e-12 },
+                { expr: 'log_3(81)', value: 4, tol: 1e-12 },
+                { expr: 'cos²(0)', value: 1, tol: 1e-12 },
+                { expr: 'sin^2(pi/2)+cos^2(pi/2)', value: 1, tol: 1e-12 },
+                { expr: '10 mod 3', value: 1 },
+                { expr: '-7 mod 3', value: 2 },                          // reszta matematyczna (≥ 0), jak na lekcji
                 // parser dalej wygrywa ze zwykłymi działaniami
                 { expr: '2+2', value: 4 },
             ];
@@ -14740,6 +14757,10 @@
             // Dni tygodnia (kotwice) — wynik zależy od „dziś", więc sprawdzamy POPRAWNY DZIEŃ
             // (tekst zawiera właściwą nazwę), nie konkretną datę. Deterministyczne mimo dnia uruchomienia.
             function wdText(expr) { try { var r = evalCalcExpression(expr); return r && r.text || ''; } catch (e) { return 'ERR'; } }
+            // granice jednostronne i bez granicy — wynik tekstem (+∞, „granica nie istnieje”); w testach Node
+            // to pilnuje też, że silnik liczy na prawdziwym Decimal, nie na atrapie window (bramka „nigdy błędnego wyniku”)
+            results.push({ expr: 'lim x→0+ 1/x → +∞', pass: wdText('lim x→0+ 1/x') === '+∞', got: wdText('lim x→0+ 1/x') });
+            results.push({ expr: 'lim x→0 1/x → granica nie istnieje', pass: wdText('lim x→0 1/x') === 'granica nie istnieje', got: wdText('lim x→0 1/x') });
             results.push({ expr: 'najbliższy poniedziałek → poniedziałek', pass: /poniedzia[łl]ek/.test(wdText('najbliższy poniedziałek')), got: wdText('najbliższy poniedziałek') });
             results.push({ expr: 'następna środa → środa', pass: /środa/.test(wdText('następna środa')), got: wdText('następna środa') });
             results.push({ expr: 'poprzedni piątek → piątek', pass: /pi[ąa]tek/.test(wdText('poprzedni piątek')), got: wdText('poprzedni piątek') });
