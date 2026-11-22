@@ -76,7 +76,9 @@
                         suggestOnEmptyDefaultV2: true, // znacznik jednorazowej migracji domyślnej (patrz loadState)
                         currencyCompactSymbols: true, // T4-20: $ € zamiast kodów ISO
                         unitNames: 'typed', // K10: nazwy jednostek w wyniku: typed (jak wpisano) / short / long
-                        calcLayout: 'keypad' }, // układ Standard: 'keypad' (klawisze) | 'sentence' („zdanie najpierw”)
+                        calcLayout: 'keypad', // układ Standard: 'keypad' (klawisze) | 'sentence' („zdanie najpierw”)
+                        calcKeys: 'calc', // klawiatura: 'calc' (kalkulator) | 'wzory' (plan 2026-11-22, etap 2b)
+                        calcKeysTip: false }, // jednorazowa podpowiedź o przytrzymaniu klawiszy „Wzory”
             // Komenda tab (merged Engineering + Graph)
             eng: { unit: 'cm', axis: 'X', mode: 'between' }, // used by drawEngineeringCanvas
             graph: {
@@ -375,6 +377,8 @@
                     if (typeof stObj.currencyCompactSymbols === 'boolean') STATE.settings.currencyCompactSymbols = stObj.currencyCompactSymbols;
                     if (stObj.unitNames === 'typed' || stObj.unitNames === 'short' || stObj.unitNames === 'long') STATE.settings.unitNames = stObj.unitNames;
                     STATE.settings.calcLayout = stObj.calcLayout === 'sentence' ? 'sentence' : 'keypad'; // nieznane → klawisze
+                    STATE.settings.calcKeys = stObj.calcKeys === 'wzory' ? 'wzory' : 'calc';
+                    STATE.settings.calcKeysTip = stObj.calcKeysTip === true;
                 }
             });
             if (_storageCorruptKeys.length) {
@@ -1197,10 +1201,170 @@
             calcGrid.addEventListener('pointerdown', function(e) {
                 if (e.button !== undefined && e.button !== 0) return;
                 var btn = e.target.closest('.calc-btn');
-                if (btn && calcGrid.contains(btn)) handleCalcAction(btn.getAttribute('data-action'));
+                if (!btn || !calcGrid.contains(btn)) return;
+                if (btn.dataset.fk != null) { _fkPointerDown(e, btn); return; } // klawiatura „Wzory”
+                handleCalcAction(btn.getAttribute('data-action'));
             });
+            calcGrid.addEventListener('pointermove', _fkPointerMove);
+            calcGrid.addEventListener('pointerup', _fkPointerUp);
+            calcGrid.addEventListener('pointercancel', _fkPointerCancel);
+            calcGrid.addEventListener('keydown', function(e) { // [EN] klawiatura fizyczna / czytnik: Enter/Spacja na klawiszu „Wzory”
+                var btn = e.target.closest('.calc-btn');
+                if (!btn || btn.dataset.fk == null || (e.key !== 'Enter' && e.key !== ' ')) return;
+                e.preventDefault();
+                e.stopPropagation(); // [EN] globalny skrót Enter = „=” nie może zjeść wyboru klawisza
+                _fkDo(_fkKeyAt(btn));
+            });
+            calcGrid.addEventListener('contextmenu', function(e) { if (_fkPage !== 'calc') e.preventDefault(); }); // [EN] Android: przytrzymanie ≠ menu
             _bindCalcBtnPressFeedback(calcGrid); // [EN] press + halo — osobny listener (passive, bez blokowania akcji)
         }
+
+        /* ── Klawiatura „Wzory” (plan 2026-11-22, etap 2b): karty „wzory”/„funkcje”, warianty pod przytrzymaniem.
+           Dane i tekst wstawek: js/formula-keys.js (MATM0_FKEYS). Klawiatura kalkulatora jest statyczna w HTML
+           i wraca z zapamiętanego HTML — jeden delegowany listener obsługuje obie. ── */
+        var _calcGridHtml = null, _fkPage = 'calc', _fkHold = null, _fkPop = null;
+        var FK_HOLD_MS = 380; // [EN] przytrzymanie: dłużej niż zwykłe stuknięcie, krócej niż systemowe menu
+        function _fkKeyAt(btn) {
+            var pages = window.MATM0_FKEYS && window.MATM0_FKEYS.PAGES;
+            return pages && pages[_fkPage] ? pages[_fkPage][+btn.dataset.fk] : null;
+        }
+        function renderCalcKeys(page) {
+            if (!calcGrid) return;
+            if (_calcGridHtml === null) _calcGridHtml = calcGrid.innerHTML;
+            _fkClosePop();
+            var FK = window.MATM0_FKEYS, keys = page !== 'calc' && FK ? FK.PAGES[page] : null;
+            _fkPage = keys ? page : 'calc';
+            calcGrid.classList.toggle('calc-grid--wzory', !!keys);
+            if (!keys) { calcGrid.innerHTML = _calcGridHtml; return; }
+            calcGrid.replaceChildren();
+            keys.forEach(function(k, i) {
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'calc-btn ' + (k.cls === 'word' ? 'calc-btn--fn calc-btn--word' + (k.label.length > 5 ? ' calc-btn--long' : '') : 'calc-btn--' + (k.cls || 'fn'));
+                b.dataset.fk = String(i);
+                var lab = document.createElement('span');
+                lab.className = 'calc-btn-label';
+                lab.textContent = k.label;
+                b.appendChild(lab);
+                var hint = FK.cornerHint(k);
+                ['tl', 'tr'].forEach(function(c) {
+                    if (!hint[c]) return;
+                    var s = document.createElement('span');
+                    s.className = 'calc-btn-alt calc-btn-alt--' + c;
+                    s.setAttribute('aria-hidden', 'true');
+                    s.textContent = hint[c];
+                    b.appendChild(s);
+                });
+                var aria = k.aria || k.label;
+                if (k.alts && k.alts.length) aria += '; przytrzymaj: ' + k.alts.map(function(a) { return a.aria || a.label; }).join(', ');
+                b.setAttribute('aria-label', aria);
+                calcGrid.appendChild(b);
+            });
+        }
+        function _fkDo(k) {
+            if (!k || !calcExpr) return;
+            if (k.page) { renderCalcKeys(k.page); return; }
+            if (k.act) { handleCalcAction(k.act); return; }
+            if (k.fresh) _beginFreshCalcAfterEquals(); else STATE.calc.justEvaluated = false;
+            var pos = document.activeElement === calcExpr && calcExpr.selectionStart != null ? calcExpr.selectionStart : calcExpr.value.length;
+            var text = window.MATM0_FKEYS.insertText(k, calcExpr.value.slice(0, pos));
+            if (text) _insertCalcExprText(text);
+        }
+        function _fkPointerDown(e, btn) {
+            var k = _fkKeyAt(btn);
+            _fkClosePop();
+            if (!k) return;
+            if (!k.alts || !k.alts.length) { _fkDo(k); return; } // bez wariantów: od razu, jak zwykły klawisz
+            var hold = { btn: btn, key: k, hot: null, sticky: false, timer: 0 };
+            hold.timer = setTimeout(function() { hold.timer = 0; _fkOpenPop(hold); hapticTap(10); }, FK_HOLD_MS);
+            _fkHold = hold;
+            try { btn.setPointerCapture(e.pointerId); } catch (err) {}
+        }
+        function _fkSetHot(h, opt) {
+            if (h.hot === opt) return;
+            if (h.hot) h.hot.classList.remove('is-hot');
+            h.hot = opt;
+            if (opt) { opt.classList.add('is-hot'); hapticTap(6); }
+        }
+        function _fkPointerMove(e) {
+            var h = _fkHold;
+            if (!h || !_fkPop || h.sticky) return;
+            var el = document.elementFromPoint(e.clientX, e.clientY);
+            var opt = el && el.closest ? el.closest('.calc-alt-opt') : null;
+            _fkSetHot(h, opt && _fkPop.contains(opt) ? opt : null);
+        }
+        function _fkPointerUp() {
+            var h = _fkHold;
+            if (!h || h.sticky) return;
+            if (h.timer) { clearTimeout(h.timer); _fkHold = null; _fkDo(h.key); return; } // krótkie stuknięcie = główny znak
+            if (h.hot) { var alt = h.key.alts[+h.hot.dataset.alt]; _fkClosePop(); _fkDo(alt); return; } // przesunięcie na wariant
+            h.sticky = true; // puszczone bez wyboru: dymek zostaje, wariant można stuknąć
+        }
+        function _fkPointerCancel() {
+            var h = _fkHold;
+            if (!h) return;
+            if (h.timer) { clearTimeout(h.timer); _fkHold = null; return; }
+            if (!h.sticky) h.sticky = true; // przewijanie/system przerwał gest — dymek zostaje do stuknięcia
+        }
+        function _fkOpenPop(h) {
+            _fkClosePop(true);
+            var pop = document.createElement('div');
+            pop.className = 'calc-alt-pop';
+            pop.setAttribute('role', 'group');
+            pop.setAttribute('aria-label', 'Warianty klawisza ' + (h.key.aria || h.key.label));
+            h.key.alts.forEach(function(a, i) {
+                var o = document.createElement('button');
+                o.type = 'button';
+                o.className = 'calc-alt-opt no-haptic';
+                o.dataset.alt = String(i);
+                o.textContent = a.label;
+                if (a.aria) o.setAttribute('aria-label', a.aria);
+                pop.appendChild(o);
+            });
+            pop.addEventListener('click', function(e) {
+                var o = e.target.closest('.calc-alt-opt');
+                if (!o || !_fkHold) return;
+                var alt = _fkHold.key.alts[+o.dataset.alt];
+                _fkClosePop();
+                _fkDo(alt);
+            });
+            document.body.appendChild(pop);
+            _fkPop = pop;
+            var r = h.btn.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight;
+            var left = Math.min(Math.max(8, r.left + r.width / 2 - pw / 2), window.innerWidth - pw - 8);
+            var top = r.top - ph - 8 >= 8 ? r.top - ph - 8 : r.bottom + 8; // nad klawiszem, a gdy brak miejsca — pod
+            pop.style.left = Math.round(left) + 'px';
+            pop.style.top = Math.round(top) + 'px';
+        }
+        function _fkClosePop(keepHold) {
+            if (_fkPop) { _fkPop.remove(); _fkPop = null; }
+            if (!keepHold && _fkHold) { if (_fkHold.timer) clearTimeout(_fkHold.timer); _fkHold = null; }
+        }
+        document.addEventListener('pointerdown', function(e) { // [EN] stuknięcie poza dymkiem i klawiszem zamyka dymek
+            if (_fkPop && !_fkPop.contains(e.target) && !(_fkHold && _fkHold.btn.contains(e.target))) _fkClosePop();
+        }, true);
+        document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && _fkPop) _fkClosePop(); });
+        function _syncCalcKeysToggles() {
+            var on = _fkPage !== 'calc';
+            document.querySelectorAll('.calc-keys-toggle').forEach(function(b) {
+                b.textContent = on ? 'Liczby' : 'Wzory';
+                b.setAttribute('aria-pressed', on ? 'true' : 'false');
+                b.title = on ? 'Wróć do klawiatury kalkulatora' : 'Klawiatura do wzorów: granice, pierwiastki, potęgi, funkcje';
+            });
+        }
+        function setCalcKeys(mode) {
+            STATE.settings.calcKeys = mode === 'wzory' ? 'wzory' : 'calc';
+            renderCalcKeys(STATE.settings.calcKeys);
+            _syncCalcKeysToggles();
+            if (STATE.settings.calcKeys === 'wzory' && !STATE.settings.calcKeysTip) {
+                STATE.settings.calcKeysTip = true;
+                showToast('Przytrzymaj klawisz ze znaczkiem w rogu — są tam dodatkowe znaki.');
+            }
+            saveSettings();
+        }
+        document.querySelectorAll('.calc-keys-toggle').forEach(function(b) {
+            b.addEventListener('click', function() { setCalcKeys(_fkPage === 'calc' ? 'wzory' : 'calc'); });
+        });
 
         /* ============================================================
            [EN] Calculator Logic — Raycast-style expression evaluator
@@ -14293,6 +14457,8 @@
             // interaktywny od razu po otwarciu PWA (osoba „wpadam policzyć i wypadam" nie czeka
             // na inicjalizację wykresu/Warsztatu/parsera, które są częścią innych zakładek).
             buildCalcButtons();
+            if (STATE.settings.calcKeys === 'wzory') renderCalcKeys('wzory');
+            _syncCalcKeysToggles();
             bindCalcExampleChips(); // [EN] chips on calc panel — sync in phase 1 (not deferred with help DOM)
             applyCalcLayout(); // układ Standard z ustawień (klawisze / „zdanie najpierw”)
             calcExpr.addEventListener('pointerdown', function() {

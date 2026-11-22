@@ -20,6 +20,9 @@ i plan `docs/superpowers/plans/2026-11-21-skaner-druku-etap-3.md`.
 - Zadanie 5: plan `docs/superpowers/plans/2026-11-22-wzory-graficznie-i-klawiatura.md` zaakceptowany;
   etap 1 (rysunek wzoru w wierszu wyniku, MathLive) wydany w v1.04.95. Następne: etap 2 (edytor 2D +
   klawiatura wzorów; przed nim przejrzeć układy klawiatur — Mateusz chce wyglądu jak w znanych apkach).
+- v1.04.96: silnik rozumie tg/ctg/arctg, |x|, n!, log_2(x), sin²(x), mod (etap 2a).
+- v1.05.00: klawiatura „Wzory” (etap 2b) — przełącznik w dolnym rzędzie, 6×5, karta „Funkcje”, przytrzymanie
+  ze znaczkami w rogach (pomysł Mateusza). Następne: test na iPhonie, potem etap 3 (kroki graficznie + dymki wzorów, 5.12).
 
 ## ToDo uzgodnione z Mateuszem (w tej kolejności)
 1. **Skaner: jeden zły znak nie odrzuca całego wzoru.** Przypadek: wzór (f) `lim ((5n+7)/(5n−8))^n` zdjęty

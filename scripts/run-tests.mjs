@@ -42,6 +42,7 @@ const SUITES = [
     'test/math-limits.js',
     'test/latex-to-expr.js',
     'test/expr-to-latex.js',
+    'test/formula-keys.js',
     'test/formula-image.js',
     'test/formula-model-manifest.js',
     'test/placeholder-examples.js',

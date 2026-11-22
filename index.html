@@ -20,7 +20,7 @@
          jasnym tłem przy wybranym/systemowym dark. Lekki klucz osobny (matm0_theme):
          'dark' | 'light' | brak = auto (śledzi system).
          [EN] External file (not inline) so CSP stays script-src 'self'; sync load before CSS. -->
-    <script src="js/theme-init.js?v=v1.04.96"></script>
+    <script src="js/theme-init.js?v=v1.05.00"></script>
     <meta name="application-name" content="Smart Kalkulator">
     <meta name="format-detection" content="telephone=no">
     <meta name="description" content="Szwajcarski scyzoryk do obliczeń codziennych i technicznych">
@@ -28,8 +28,8 @@
     <link rel="icon" href="assets/img/icon-192.png" type="image/png">
     <link rel="apple-touch-icon" href="assets/img/icon-192.png">
     <title>Smart Kalkulator</title>
-    <link rel="stylesheet" href="styles.css?v=v1.04.96" id="matm0MainCss">
-    <script src="js/cache-bust.js?v=v1.04.96" data-phase="head"></script>
+    <link rel="stylesheet" href="styles.css?v=v1.05.00" id="matm0MainCss">
+    <script src="js/cache-bust.js?v=v1.05.00" data-phase="head"></script>
 </head>
 
 <body>
@@ -145,6 +145,8 @@
                     <span class="calc-workspace-live">Wynik aktualizuje się na żywo</span>
                     <!-- Przełącznik układu: klawisze ↔ „zdanie najpierw” (to samo co ⚙️ → Układ kalkulatora). -->
                     <button class="calc-layout-toggle no-haptic" type="button" aria-pressed="false"></button>
+                    <!-- Klawiatura „Wzory” ↔ kalkulator (plan 2026-11-22, etap 2b); stan w STATE.settings.calcKeys -->
+                    <button class="calc-keys-toggle no-haptic" type="button" aria-pressed="false">Wzory</button>
                 </div>
                 <div class="calc-display is-empty">
                     <!-- Taśma (tryb „zdanie najpierw”): ostatnie obliczenia nad polem — renderCalcTape() w app.js. -->
@@ -210,9 +212,10 @@
                 <div class="calc-tools">
                     <button class="history-open-btn" id="openHistory" type="button" aria-controls="historyDrawer"
                         aria-expanded="false">
-                        <span class="btn-with-icon"><svg class="ui-icon" aria-hidden="true"><use href="#i-history"/></svg>Historia</span>
+                        <span class="btn-with-icon"><svg class="ui-icon" aria-hidden="true"><use href="#i-history"/></svg><span class="history-label">Historia</span></span>
                         <span class="history-count" id="historyCount">0</span>
                     </button>
+                    <button class="calc-keys-toggle calc-keys-toggle--tools no-haptic" type="button" aria-pressed="false">Wzory</button>
                     <button class="calc-layout-toggle calc-layout-toggle--tools no-haptic" type="button" aria-pressed="false"></button>
                     <button class="calc-help-btn no-haptic" id="calcHelpOpen" type="button" aria-label="Ściąga komend kalkulatora">
                         <svg class="ui-icon" aria-hidden="true"><use href="#i-book"/></svg>Ściąga
@@ -1416,31 +1419,32 @@
 
     <!-- defer: statyczny UI (nagłówek, wyświetlacz, zakładki) maluje się ZANIM wykona się JS
          (app.js ~525 KB). Kolejność zachowana, DOM gotowy przed wykonaniem. -->
-    <script src="js/cache-bust.js?v=v1.04.96" data-phase="defer"></script>
-    <script defer src="version.js?v=v1.04.96"></script>
-    <script defer src="js/cursor-hint.js?v=v1.04.96"></script>
-    <script defer src="js/vendor/decimal.js?v=v1.04.96"></script>
-    <script defer src="js/money-decimal.js?v=v1.04.96"></script>
-    <script defer src="js/numeric-eval.js?v=v1.04.96"></script>
-    <script defer src="js/data-tables.js?v=v1.04.96"></script>
-    <script defer src="js/format-pl.js?v=v1.04.96"></script>
-    <script defer src="js/pl-fold.js?v=v1.04.96"></script>
-    <script defer src="js/smart-parser.js?v=v1.04.96"></script>
-    <script defer src="js/smart-quantity.js?v=v1.04.96"></script>
-    <script defer src="js/quantity-algebra.js?v=v1.04.96"></script>
-    <script defer src="js/synonyms.js?v=v1.04.96"></script>
-    <script defer src="js/math-steps.js?v=v1.04.96"></script>
-    <script defer src="js/math-calculus.js?v=v1.04.96"></script>
-    <script defer src="js/math-limits.js?v=v1.04.96"></script>
-    <script defer src="js/expr-to-latex.js?v=v1.04.96"></script>
-    <script defer src="js/hint-rules.js?v=v1.04.96"></script>
-    <script defer src="js/model-store.js?v=v1.04.96"></script>
-    <script defer src="js/formula-ocr.js?v=v1.04.96"></script>
-    <script defer src="js/notepad-format.js?v=v1.04.96"></script>
-    <script defer src="js/notepad-engine.js?v=v1.04.96"></script>
-    <script defer src="command-definitions.js?v=v1.04.96"></script>
-    <script defer src="js/calc-layout-tune.js?v=v1.04.96"></script>
-    <script defer src="app.js?v=v1.04.96"></script>
+    <script src="js/cache-bust.js?v=v1.05.00" data-phase="defer"></script>
+    <script defer src="version.js?v=v1.05.00"></script>
+    <script defer src="js/cursor-hint.js?v=v1.05.00"></script>
+    <script defer src="js/vendor/decimal.js?v=v1.05.00"></script>
+    <script defer src="js/money-decimal.js?v=v1.05.00"></script>
+    <script defer src="js/numeric-eval.js?v=v1.05.00"></script>
+    <script defer src="js/data-tables.js?v=v1.05.00"></script>
+    <script defer src="js/format-pl.js?v=v1.05.00"></script>
+    <script defer src="js/pl-fold.js?v=v1.05.00"></script>
+    <script defer src="js/smart-parser.js?v=v1.05.00"></script>
+    <script defer src="js/smart-quantity.js?v=v1.05.00"></script>
+    <script defer src="js/quantity-algebra.js?v=v1.05.00"></script>
+    <script defer src="js/synonyms.js?v=v1.05.00"></script>
+    <script defer src="js/math-steps.js?v=v1.05.00"></script>
+    <script defer src="js/math-calculus.js?v=v1.05.00"></script>
+    <script defer src="js/math-limits.js?v=v1.05.00"></script>
+    <script defer src="js/expr-to-latex.js?v=v1.05.00"></script>
+    <script defer src="js/formula-keys.js?v=v1.05.00"></script>
+    <script defer src="js/hint-rules.js?v=v1.05.00"></script>
+    <script defer src="js/model-store.js?v=v1.05.00"></script>
+    <script defer src="js/formula-ocr.js?v=v1.05.00"></script>
+    <script defer src="js/notepad-format.js?v=v1.05.00"></script>
+    <script defer src="js/notepad-engine.js?v=v1.05.00"></script>
+    <script defer src="command-definitions.js?v=v1.05.00"></script>
+    <script defer src="js/calc-layout-tune.js?v=v1.05.00"></script>
+    <script defer src="app.js?v=v1.05.00"></script>
 </body>
 
 </html>

@@ -3,7 +3,7 @@
    Caching strategy: Stale-While-Revalidate (instant z cache + odświeżenie w tle)
    Wersja: JEDNO źródło prawdy w version.js (APP_VERSION).
    ============================================================ */
-var SW_FINGERPRINT = 'v1.04.96'; // [EN] auto-synced — triggers SW reinstall on bump
+var SW_FINGERPRINT = 'v1.05.00'; // [EN] auto-synced — triggers SW reinstall on bump
 importScripts('version.js'); // ustawia self.APP_VERSION (np. 'v36')
 const CACHE_NAME = 'matm0-calc-' + (self.APP_VERSION || 'v0');
 /* [EN] Cache modeli (model-store.js) żyje poza wersją apki — activate i purge go nie ruszają.
@@ -48,6 +48,7 @@ const ASSETS_TO_CACHE = [
     './js/formula-image.js',
     './js/latex-to-expr.js',
     './js/expr-to-latex.js',
+    './js/formula-keys.js',
     './js/scanner.js',
     './vendor/pdfjs/pdf.min.mjs',
     './vendor/pdfjs/pdf.worker.min.mjs',

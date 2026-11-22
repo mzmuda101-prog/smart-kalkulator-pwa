@@ -81,6 +81,30 @@ przytrzymaniem: odkrywalność, czytnik ekranu, klawiatura fizyczna). Klawisz z 
 w rogu. Cele ≥ 44 px, bez zaznaczania tekstu przy przytrzymaniu (`user-select:none`, `-webkit-touch-callout:none`).
 Wzorce: znane aplikacje do matematyki (siatka 4–5 kolumn; Seneca: tylko potrzebne klawisze) — własny układ, nie kopia.
 
+**Decyzje 2b (Mateusz, 2026-11-22):** 6 kolumn × 5 rzędów (wysokość klawiatury bez zmian), przełącznik
+w dolnym rzędzie (na komputerze w nagłówku, jak „Tryb zdania”). Układ:
+```
+lim   ∞    ( )   f(x)  ⌫    AC
+a/b   √    7     8     9    ÷
+xⁿ    x²   4     5     6    ×
+x     n    1     2     3    −
+e     π    0     ,     =    +
+```
+Znaczki przytrzymania (pomysł Mateusza): 1 wariant → mały wyszarzony znak w prawym górnym rogu;
+2 krótkie warianty (≤ 2 znaki) → lewy i prawy górny róg; 3+ albo długie → `⋯` w prawym górnym rogu.
+Bez dolnych rogów (kciuk, tłok). Przy pierwszym włączeniu „Wzorów” jednorazowa podpowiedź o przytrzymaniu.
+Wstawianie liniowe (pad nie stawia kursora w polu): `√` → `sqrt(`, domyka sprytne `( )`;
+`a/b` zamyka otwarty nawias i otwiera mianownik (`(5n+7` → `(5n+7)/(`).
+
+**Etap 2b wydany w v1.05.00**: `js/formula-keys.js` (dane, znaczki, wstawki; test `test/formula-keys.js` — każdy
+klawisz i wariant liczy się w silniku), obsługa w `app.js` (`renderCalcKeys`, przytrzymanie 380 ms z dymkiem:
+przesunięcie palca i puszczenie = wybór, puszczenie bez wyboru = dymek zostaje do stuknięcia), przełącznik
+`.calc-keys-toggle` (dolny rząd + nagłówek), ustawienie `calcKeys`, jednorazowa podpowiedź, e2e `formula-keys.spec.js`.
+Po drodze: „Historia” na telefonie (≤ 430 px) jako ikona + licznik (4 przyciski w rzędzie ucinały napis);
+karta „Funkcje” z symbolami `f′`, `∫`, `x=?` zamiast długich słów; dymek zawija warianty zamiast przewijać;
+Enter/Spacja na klawiszach „Wzory” obsłużone przed globalnym skrótem Enter = „=”.
+Do sprawdzenia na iPhonie: przytrzymanie palcem (czas 380 ms, brak menu systemowego), klawisze 49 px przy 390 px.
+
 **Warunek przed klawiaturą — silnik musi rozumieć każdy klawisz** (sprawdzone 22.11 w zwykłym liczeniu,
 poza granicami/krokami): nie działają `tg`, `ctg`, `arctg` (działa tylko `tan`, `atan`), `|−3|`, `5!`,
 `log_2(8)`, `cos²(0)`, `10 mod 3`. Etap 2a: dodać je do silnika ze smoke-testami i ściągą, potem klawiatura (2b).

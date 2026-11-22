@@ -5102,6 +5102,57 @@
 }
 .calc-workspace-bar .calc-layout-toggle { margin-left: 12px; }
 
+/* ============================================================
+   Klawiatura „Wzory” (plan 2026-11-22, etap 2b): 6 kolumn × 5 rzędów, ta sama wysokość co kalkulator.
+   Znaczki w górnych rogach = warianty pod przytrzymaniem (dymek .calc-alt-pop).
+   ============================================================ */
+.calc-keys-toggle {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--border); border-radius: 999px; background: transparent;
+    color: var(--text-secondary); font: 600 .74rem/1 var(--font); padding: 6px 10px; cursor: pointer; white-space: nowrap;
+}
+.calc-keys-toggle[aria-pressed="true"] { color: var(--primary); border-color: var(--primary); background: var(--primary-light); }
+@media (hover: hover) { .calc-keys-toggle:hover { color: var(--primary); border-color: var(--primary); } }
+.calc-keys-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.calc-keys-toggle--tools { flex-shrink: 0; min-height: 48px; border-radius: var(--radius); padding: 0 12px; }
+.calc-workspace-bar .calc-keys-toggle { margin-left: 8px; }
+@media (max-width: 430px) { /* telefon: 4 przyciski w rzędzie — „Historia” jako ikona + licznik, napis dla czytnika */
+    .calc-tools .history-label { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    .calc-tools .history-open-btn { position: relative; justify-content: center; }
+}
+body.calc-sentence .calc-keys-toggle { display: none; } /* tryb „Zdanie” nie ma klawiatury */
+.calc-grid.calc-grid--wzory { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.calc-grid--wzory .calc-btn {
+    position: relative; aspect-ratio: 2 / 3; /* poza ekranem dzielonym: 6 kolumn, ta sama wysokość co 4 */
+    -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; touch-action: manipulation;
+}
+/* napis, nie klawisz: rozmiar klawisza ustawia układ kalkulatora (#panel-calculator), my tylko zmniejszamy tekst */
+.calc-grid--wzory .calc-btn--word .calc-btn-label { font-size: .82em; letter-spacing: -0.01em; }
+.calc-grid--wzory .calc-btn--long .calc-btn-label { font-size: .64em; letter-spacing: -0.02em; } /* arcsin, arccos: 6 znaków */
+@media (max-width: 340px) { /* najwęższe telefony: klawisz ok. 38 px */
+    .calc-grid--wzory .calc-btn--word .calc-btn-label { font-size: .7em; }
+    .calc-grid--wzory .calc-btn--long .calc-btn-label { font-size: .52em; }
+}
+.calc-btn-alt {
+    position: absolute; inset-block-start: 5px; font-size: .55em; font-weight: 600; line-height: 1;
+    opacity: .5; pointer-events: none;
+}
+.calc-btn-alt--tr { inset-inline-end: 6px; }
+.calc-btn-alt--tl { inset-inline-start: 6px; }
+.calc-alt-pop {
+    position: fixed; z-index: 60; display: flex; gap: 6px; padding: 6px;
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow-lg); max-inline-size: min(22rem, calc(100vw - 16px));
+    flex-wrap: wrap; justify-content: center; /* zawijanie, nie przewijanie — przy przesuwaniu palca każda opcja widoczna */
+}
+.calc-alt-opt {
+    min-inline-size: 48px; min-block-size: 48px; padding: 0 10px; border: 1px solid var(--border); border-radius: 12px;
+    background: var(--surface); color: var(--text); font: 700 1rem/1 var(--font); white-space: nowrap; cursor: pointer;
+    -webkit-touch-callout: none; user-select: none; -webkit-user-select: none;
+}
+.calc-alt-opt.is-hot, .calc-alt-opt:focus-visible { background: var(--primary); border-color: var(--primary); color: var(--text-on-accent); outline: none; }
+@media (hover: hover) { .calc-alt-opt:hover { border-color: var(--primary); } }
+
 body.calc-sentence #calcGrid { display: none !important; }
 body.calc-sentence #panel-calculator .calc-display {
     flex: 1 1 auto !important;
@@ -5368,6 +5419,7 @@ body.calc-sentence .calc-display { --tape-bg: var(--surface-2, #f6f8fb); }
     .calc-tools .history-count { min-width: 24px; height: 24px; padding: 0 6px; font-size: .75rem; }
     .calc-tools .calc-help-btn { min-width: 0; padding: 0 10px; }
     .calc-tools .calc-layout-toggle--tools { padding: 0 9px; }
+    .calc-tools .calc-keys-toggle--tools { padding: 0 9px; }
 }
 /* Tryb zdania na tablecie (640–1023 px): karta wypełnia wysokość jak na telefonie
    (wcześniej kończyła się w połowie ekranu, pod spodem pusto). */
