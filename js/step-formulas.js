@@ -65,7 +65,7 @@
         'log-iloraz': {
             name: 'Różnica logarytmów',
             tex: '\\log_{a}f-\\log_{a}g=\\log_{a}\\frac{f}{g},\\quad k\\log_{a}f=\\log_{a}f^{k}',
-            why: 'Z dwóch logarytmów robimy jeden. W środku zostaje ułamek, a jego granicę już umiemy policzyć.',
+            why: 'Różnica logarytmów o tej samej podstawie to logarytm ilorazu. Granicę ułamka już umiemy policzyć.',
             level: 'Liceum: logarytmy',
             more: ['Liczba przed logarytmem wchodzi do środka jako potęga: $2\\log_{4}(4n+5)=\\log_{4}(4n+5)^{2}$.'],
         },
@@ -205,22 +205,22 @@
         },
         'pochodna-iloczynu': {
             name: 'Pochodna iloczynu',
-            tex: '(f\\cdot g)^{\\prime}=f^{\\prime}\\cdot g+f\\cdot g^{\\prime}',
+            tex: '(u\\cdot v)^{\\prime}=u^{\\prime}\\cdot v+u\\cdot v^{\\prime}',
             why: 'Funkcja to iloczyn dwóch czynników zależnych od $x$. Pochodna to: pochodna pierwszego razy drugi plus pierwszy razy pochodna drugiego.',
             level: 'Liceum, zakres rozszerzony: rachunek różniczkowy',
             more: [
-                'To nie jest $f^{\\prime}\\cdot g^{\\prime}$. Na przykład $(x\\cdot x)^{\\prime}=\\left(x^{2}\\right)^{\\prime}=2x$, a $1\\cdot 1=1$.',
+                'To nie jest $u^{\\prime}\\cdot v^{\\prime}$. Na przykład $(x\\cdot x)^{\\prime}=\\left(x^{2}\\right)^{\\prime}=2x$, a $1\\cdot 1=1$.',
                 'Kolejność składników nie zmienia wyniku, ale łatwiej sprawdzać, gdy trzymamy się wzoru.',
             ],
         },
         'pochodna-ilorazu': {
             name: 'Pochodna ilorazu',
-            tex: '\\left(\\frac{f}{g}\\right)^{\\prime}=\\frac{f^{\\prime}\\cdot g-f\\cdot g^{\\prime}}{g^{2}}',
-            why: 'Licznik $f$ i mianownik $g$ zależą od $x$. Wstawiamy $f$, $g$, $f^{\\prime}$ i $g^{\\prime}$ do wzoru.',
+            tex: '\\left(\\frac{u}{v}\\right)^{\\prime}=\\frac{u^{\\prime}\\cdot v-u\\cdot v^{\\prime}}{v^{2}}',
+            why: 'Licznik $u$ i mianownik $v$ zależą od $x$. Wstawiamy $u$, $v$, $u^{\\prime}$ i $v^{\\prime}$ do wzoru.',
             level: 'Liceum, zakres rozszerzony: pochodne funkcji wymiernych',
             more: [
-                'W liczniku jest minus, więc kolejność ma znaczenie: najpierw $f^{\\prime}\\cdot g$, potem odejmujemy $f\\cdot g^{\\prime}$.',
-                'Mianownik to $g$ do kwadratu. Zwykle zostawiamy go w nawiasie, np. $(x+1)^{2}$, bez wymnażania.',
+                'W liczniku jest minus, więc kolejność ma znaczenie: najpierw $u^{\\prime}\\cdot v$, potem odejmujemy $u\\cdot v^{\\prime}$.',
+                'Mianownik to $v$ do kwadratu. Zwykle zostawiamy go w nawiasie, np. $(x+1)^{2}$, bez wymnażania.',
             ],
         },
         'pochodna-zlozona': {
@@ -236,7 +236,7 @@
         'tablica-pochodnych': {
             name: 'Tablica pochodnych',
             tex: '(\\sin x)^{\\prime}=\\cos x,\\ (\\cos x)^{\\prime}=-\\sin x,\\ \\left(e^{x}\\right)^{\\prime}=e^{x},\\ (\\ln x)^{\\prime}=\\frac{1}{x}',
-            why: 'Tę pochodną znamy na pamięć z tablicy pochodnych podstawowych funkcji. Stała daje $0$.',
+            why: 'Pochodne podstawowych funkcji (sinus, cosinus, $e^{x}$, logarytm) bierzemy z tablicy. Warto je pamiętać.',
             level: 'Potęgi: liceum rozszerzenie. Funkcje trygonometryczne, $e^{x}$, $\\ln x$: studia',
             more: [
                 'Dalsze: $(\\operatorname{tg}x)^{\\prime}=\\frac{1}{\\cos^{2}x}$, $\\left(a^{x}\\right)^{\\prime}=a^{x}\\ln a$, $(\\operatorname{arctg}x)^{\\prime}=\\frac{1}{1+x^{2}}$.',

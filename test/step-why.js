@@ -25,7 +25,17 @@ const extra = ['lim n→∞ (1-1/n)^2', 'lim x→-∞ sqrt(7-2x)(sqrt(15-8x)-sqr
     'lim x→0+ 1/x', 'lim n→∞ 5(1+1/n)^n', 'rozwiąż 2x + 3 = 11', 'rozwiąż x^2 = 9', 'kroki 3/4 - 1/6', 'pochodna sin(x^2)',
     'pochodna x/(x+1)', 'całka 1/(x^2+4)', 'całka sin(x)^2', 'rozwiąż x^2 + 1 = 0', 'pochodna 3x^2'];
 
-const missing = new Set(), bad = [];
+const missing = new Set(), bad = [], dubs = new Set();
+const { FORMULAS } = require(path.join(root, 'js', 'step-formulas.js'));
+// bez dubli (raporty D, E): przy kroku z dymkiem zdanie mówi o tym zadaniu, a dymek o regule — nie to samo dwa razy
+const stems = t => t.replace(/\$[^$]*\$/g, ' ').toLowerCase().replace(/[^a-ząćęłńóśźż ]/g, ' ').split(/\s+/)
+    .filter(w => w.length > 3 && !/^(więc|przez|jest|żeby|tylko|jako|albo|potem)$/.test(w)).map(w => w.slice(0, 5));
+const grams = w => new Set(w.slice(0, Math.max(0, w.length - 3)).map((_, i) => w.slice(i, i + 4).join(' ')));
+function dubbed(why, f) {
+    const a = stems(why), b = new Set(stems(f.why)), g = grams(stems(why)), h = grams(stems(f.why));
+    const shared = new Set(a.filter(x => b.has(x)));
+    return [...g].some(x => h.has(x)) || (shared.size >= 3 && shared.size / new Set(a).size >= 0.5);
+}
 let steps = 0;
 for (const q of ZESTAW.map(z => z.input).concat(sciaga, extra)) {
     let r; try { r = S.run(q); } catch { continue; }
@@ -37,6 +47,7 @@ for (const q of ZESTAW.map(z => z.input).concat(sciaga, extra)) {
         if (!w) { missing.add(st.label); continue; }
         const words = w.replace(/\$[^$]*\$/g, 'X').split(/\s+/).length;
         const plain = w.replace(/\$[^$]*\$/g, '');
+        if (st.formula && FORMULAS[st.formula.id] && dubbed(w, FORMULAS[st.formula.id])) dubs.add(st.formula.id + ': ' + w);
         if (words > 25 || /\^\(|sqrt\(|√\(/.test(plain) || !/[.!?]$/.test(w) || (w.split('$').length - 1) % 2)
             bad.push(st.label + ' → ' + w + ' (' + words + ' słów)');
     }
@@ -44,6 +55,7 @@ for (const q of ZESTAW.map(z => z.input).concat(sciaga, extra)) {
 console.log('  kroki z „dlaczego”:', steps);
 ok('każdy krok ma „dlaczego”', missing.size === 0, [...missing]);
 ok('„dlaczego” krótkie i bez zapisu z klawiatury', bad.length === 0, bad);
+ok('„dlaczego” nie powtarza dymku', dubs.size === 0, [...dubs]);
 // symbole nieoznaczone w kroku 1 mają własne wyjaśnienie
 const first = q => { const r = S.run(q); return whyFor(r.explain.steps[0], r.explain.title); };
 ok('[0/0] wyjaśnione', /frac\{0\}\{0\}/.test(first('lim x→4 (x^2-6x+8)/(3x^2-10x-8)')));

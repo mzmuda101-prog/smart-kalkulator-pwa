@@ -24,7 +24,7 @@ test('lim n→∞ (1 − 1/n)^n: kroki narysowane, wzór na e w dymku i w „Wi�
 
   // „dlaczego” pod każdym krokiem poza „Wynik” (plan kroków 3c), wzory w zdaniu narysowane
   await expect(page.locator('#stepsView .steps-why')).toHaveCount(3);
-  await expect(page.locator('#stepsView .steps-item').first().locator('.steps-why')).toContainText('nie musi być 1');
+  await expect(page.locator('#stepsView .steps-item').first().locator('.steps-why')).toContainText('zbliża się do 1');
   await expect(page.locator('#stepsView .steps-why .steps-tex .ML__latex, #stepsView .steps-why .steps-tex .ML__base').first()).toBeAttached();
   await expect(page.locator('#stepsView .steps-item.is-final .steps-why')).toHaveCount(0);
 

@@ -186,11 +186,11 @@ const WANT_TEXT = { '1a': '1/3', '1d': '0', '1e': '+∞', '7a': '√3/3', '7b': 
     // (1 − 1/n)^n: jedynka dorobiona naprawdę, długi krok bez ucięcia, wykładnik stały = jeden krok
     const e1 = (S.run('lim n→∞ (1-1/n)^n') || {}).explain, s1 = e1 ? e1.steps : [];
     ok('(1−1/n)^n: 1 − 1/n = 1 + 1/(−n)', s1.some(x => x.label === 'Dorabiamy jedynkę' && x.math.startsWith('1 − 1/n = 1 + 1/(−n),')), s1.map(x => x.math));
-    ok('(1−1/n)^n: podstawa → e w jednym kroku z wykładnikiem', s1.some(x => x.label === 'Podstawa dąży do e' && x.math.endsWith('[⟦(1 + 1/(−n))^(−n)⟧]^(−1) = e^(−1) = 1/e')), s1.map(x => x.math));
+    ok('(1−1/n)^n: podstawa → e w jednym kroku z wykładnikiem', s1.some(x => x.label === 'Kolorowa potęga dąży do e' && x.math.endsWith('(⟦(1 + 1/(−n))^(−n)⟧)^(−1) = e^(−1) = 1/e')), s1.map(x => x.math));
     ok('(1−1/n)^n: stały wykładnik bez osobnego kroku', !s1.some(x => /^(Granica wykładnika|Wykładnik)$/.test(x.label)), s1.map(x => x.label));
     ok('6d: 1 + (−3/(n + 3))', st.some(x => x.label === 'Dorabiamy jedynkę' && x.math.includes('= 1 + (−3/(n + 3))')), st.map(x => x.math));
     const s2 = ((S.run('lim n→∞ (1+1/(2n))^n') || {}).explain || { steps: [] }).steps;
-    ok('(1+1/(2n))^n: bez tautologii, aₙ w nawiasie', s2.some(x => x.math === '1 + 1/(2n),  aₙ = 2n') && s2.some(x => x.math.includes('^(2n)⟧]^(1/2)')), s2.map(x => x.math));
+    ok('(1+1/(2n))^n: bez tautologii, aₙ w nawiasie', s2.some(x => x.math === '1 + 1/(2n),  aₙ = 2n') && s2.some(x => x.math.includes('^(2n)⟧)^(1/2)')), s2.map(x => x.math));
 }
 
 // ── Task 8: punkt skończony 0/0 ────────────────────────────

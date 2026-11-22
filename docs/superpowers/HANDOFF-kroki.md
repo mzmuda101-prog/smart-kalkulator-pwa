@@ -1,4 +1,4 @@
-# Przekazanie: kroki rozwiązania zrozumiałe — stan na 2026-11-22 (noc), v1.05.14
+# Przekazanie: kroki rozwiązania zrozumiałe — stan na 2026-11-23, v1.05.15
 
 Dla nowej rozmowy. Najpierw: `AGENTS.md`, `../ZASADY-AGENTOW.md`, plan `docs/superpowers/plans/2026-11-22-kroki-zrozumiale.md`
 (etapy 3b–3f, decyzje Mateusza, co zostało), raporty agentów `docs/superpowers/research/raport-{A,B,C}-*.md`.
@@ -16,6 +16,7 @@ Starsze przekazanie: `docs/superpowers/HANDOFF-wzory.md` (rysunek wzoru, klawiat
 | v1.05.12 | 3e-2: pochodne (iloczyn/iloraz „Wstawiam do wzoru”) i całki (granice, tożsamości, a = 2) |
 | v1.05.13 | 3f: bez minusa na początku sumy, `n√n`, symbol `[0 · ∞]` |
 | v1.05.14 | 5b/5c uproszczone (3/4, 5/9), 4f bez podwójnej kreski, 6e bez pustego kroku; **kolor zamiast podkreślenia** |
+| v1.05.15 | raporty D/E: „dlaczego” mówi o zadaniu, dymek o regule (bramka dubli w `test/step-why.js`); pochodne u/v, `u′ =`/`v′ =` w krokach, √x i 1/x jako potęga (też w całce), „Mnożę przez pochodną środka/stałą”, licznik ilorazu wymnożony, wynik w kolejności z rachunku; kolor na podstawieniu (iloczyn, iloraz, tożsamości); „Kolorowa potęga dąży do e”; bez `[ ]` wokół koloru |
 
 ## Jak to działa (mapa)
 - Krok = `{ label, math, formula?: { id } }`. Fragment w `⟦…⟧` = miejsce użycia wzoru: rysowany kolorem akcentu,
@@ -35,21 +36,21 @@ TDD (test czerwony → kod), potem **agent „słaby uczeń”** czyta kroki (JS
 skoki, niepasujące zdania; poprawki; zrzut z telefonu (Playwright 390×844); wydanie po „wysyłaj” Mateusza.
 Skrypt do zrzutu kroków do JSON: wzór w `HANDOFF` niżej (pliki w scratchpadzie znikają między rozmowami).
 
-## Do zrobienia (z raportów „słabego ucznia”, kolejność propozycji)
-1. **Sprawdzić dubli i zrozumiałość po zmianie na kolor** (Mateusz): czy nie ma kroku, gdzie wzór jest i w dymku,
-   i w zdaniu/etykiecie; czy kolorowy fragment zawsze pasuje do dymku. Agent „słaby uczeń” na całość (granice, równania,
-   pochodne, całki).
-2. Pochodne: części iloczynu nazwać u i v (f to też cała funkcja); `√x` przez `x^(1/2)`; `(3x+1)⁵` pokazać `5 · 3`;
-   uproszczenie licznika ilorazu; ostatnie mnożenie (`5 · 3x² = 15x²`).
-3. Całki: F(b) i F(a) wyliczone (`−cos(π) = 1`); ułamki proste z liczeniem A i B; podwójny minus w przez części.
-4. Równania: `5 = 2x − 7` (zamiana stron), `x/2 + 1 = 3` (mnożenie przez 2), miejsca zerowe w rozkładzie z rachunkiem,
-   `x − 3 = 0` przy `x(x − 3) = 0`, skąd wspólny mianownik.
+## Do zrobienia (raporty `research/raport-D-granice-kolor.md`, `raport-E-reszta-kolor.md`; zrobione w v1.05.15 pominięte)
+1. Całki: F(b), F(a) wyliczone (`−cos(π) = 1`, C1); ułamki proste z A i B (C2); przez części bez podwójnego minusa
+   i krok „Składam wynik” (C3, C4); tożsamość: osobny krok z całką każdej części (C5); `dx = dt/2` (C6); arctg jako `(1/2) · arctg(x/2)` (C7).
+2. Równania: Δ z `25 − 24` i `−(−5)` (R1); `5 = 2x − 7` zamiana stron (R2); `x/2 + 1 = 3` mnożenie przez 2 (R3);
+   `x² − 3x = 0` bez martwego kroku, z `x − 3 = 0` (R4); rozkład z rachunkiem miejsc zerowych (R5); Bezout z dzielnikami i dzieleniem (R6).
+3. Ułamki: skąd wspólny mianownik i dodawanie liczników z rachunkiem (U1, U2); kwadrat sumy w postaci wzoru (K1 w E).
+4. Granice (raport D): sprzężenie w kolejności a² − b² (K3), `√(x²)` w miejscu użycia (K4), `ln(1 + 2x)` (K5), dymek różnicy sześcianów
+   przy rozkładzie (K6), etykieta „sprzężenie” przy sześcianach (K8), „pierwiastki się skasowały” tam, gdzie pierwiastek został,
+   oraz skoki z sekcji 4 raportu D.
 5. Kolorowanie tego, co się zmieniło w kroku (jak Photomath) — Mateusz: później.
 6. Starsze otwarte: `TODO.md` (luka `lim (2/n)^n`, skaner, edytor 2D).
 
 ## Pułapki
 - **Nie sprawdzaj silnika przez `node -e`** (decimal.js) — skrypt w pliku, `require` modułów z `js/`, na końcu `process.exit(0)`.
-- Zrzut kroków: `const S=require('./js/math-steps.js'); require('./js/math-calculus.js'); require('./js/math-limits.js');
+- Zrzut kroków (`kroki.json` dla agenta): `const S=require('./js/math-steps.js'); require('./js/math-calculus.js'); require('./js/math-limits.js');
   const W=require('./js/step-why.js'); const r=S.run(q); r.explain.steps.map((s,i)=>({label:s.label, why:W.whyFor(s,r.explain.title,r.explain,i), math:s.math}))`.
 - Zmiana domyślnego ustawienia = migracja ze znacznikiem (`calcFormulaRoomDefaultV2` jako wzór).
 - Zmiany w `show()` (math-calculus) działają w całym silniku — po nich pełne `npm test` i porównanie wyników zestawu.

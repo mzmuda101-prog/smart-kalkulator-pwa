@@ -19,7 +19,7 @@ const NOPE = 'Jeszcze tego nie rozwiążę';
 [
     ['pochodna x^3', 'f′(x) = 3x²'],
     ['pochodna 3x^2-2x+7', 'f′(x) = 6x − 2'],
-    ['pochodna x^3*sin(x)', 'f′(x) = x³ · cos(x) + 3x² · sin(x)'],
+    ['pochodna x^3*sin(x)', 'f′(x) = 3x² · sin(x) + x³ · cos(x)'],
     ['pochodna sin(2x)', 'f′(x) = 2 · cos(2x)'],
     ['pochodna e^(x^2)', 'f′(x) = 2x · e^(x²)'],
     ['pochodna ln(x)', 'f′(x) = 1/x'],
@@ -112,12 +112,12 @@ pass += 2;
     const fm = (q, id) => st(q).some(x => x.formula && x.formula.id === id && /⟦.+⟧/.test(x.math));
     const show = q => st(q).map(x => x.label + ': ' + x.math);
     const P = 'pochodna x^3 * sin(x)';
-    ok('3e2: iloczyn — f i g w jednej linii', has(P, 'Rozpoznaję iloczyn', 'f = x³,  g = sin(x)'), show(P));
-    ok('3e2: iloczyn — wstawiam do wzoru w kolejności wzoru', has(P, 'Wstawiam do wzoru', 'f′ = 3x²,  g′ = cos(x)\n⟦f′ · g + f · g′⟧ = 3x² · sin(x) + x³ · cos(x)') && fm(P, 'pochodna-iloczynu'), show(P));
-    ok('3e2: pochodna potęgi z dymkiem', has(P, 'Liczę pochodną potęgi', '⟦(x³)′⟧ = 3x²') && fm(P, 'pochodna-potegi'), show(P));
-    ok('3e2: tablica pochodnych z dymkiem', has(P, 'Korzystam z tablicy pochodnych', '⟦(sin(x))′⟧ = cos(x)') && fm(P, 'tablica-pochodnych'), show(P));
+    ok('3e2: iloczyn — u i v w jednej linii', has(P, 'Rozpoznaję iloczyn', 'u = x³,  v = sin(x)'), show(P));
+    ok('3e2: iloczyn — wstawiam do wzoru w kolejności wzoru', has(P, 'Wstawiam do wzoru', 'u′ = 3x²,  v′ = cos(x)\nu′ · v + u · v′ = ⟦3x² · sin(x) + x³ · cos(x)⟧') && fm(P, 'pochodna-iloczynu'), show(P));
+    ok('3e2: pochodna potęgi z dymkiem', has(P, 'Liczę pochodną potęgi', 'u′ = ⟦(x³)′⟧ = 3x²') && fm(P, 'pochodna-potegi'), show(P));
+    ok('3e2: tablica pochodnych z dymkiem', has(P, 'Korzystam z tablicy pochodnych', 'v′ = ⟦(sin(x))′⟧ = cos(x)') && fm(P, 'tablica-pochodnych'), show(P));
     const Q = 'pochodna x/(x+1)';
-    ok('3e2: iloraz — wstawiam do wzoru', st(Q).some(x => x.label === 'Wstawiam do wzoru' && x.math.includes('⟦(f′ · g − f · g′)/g²⟧ = (1 · (x + 1) − x · 1)/(x + 1)²')) && fm(Q, 'pochodna-ilorazu'), show(Q));
+    ok('3e2: iloraz — wstawiam do wzoru', st(Q).some(x => x.label === 'Wstawiam do wzoru' && x.math.includes('(u′ · v − u · v′)/v² = ⟦(1 · (x + 1) − x · 1)/(x + 1)²⟧')) && fm(Q, 'pochodna-ilorazu'), show(Q));
     ok('3e2: złożona z dymkiem', has('pochodna sin(x^2)', 'Liczę pochodną złożoną', '(sin(x²))′ = ⟦cos(x²) · (x²)′⟧') && fm('pochodna sin(x^2)', 'pochodna-zlozona'), show('pochodna sin(x^2)'));
     ok('3e2: stała przy samej zmiennej a · t²', has('pochodna a * t^2 po t', 'Stała zostaje przed pochodną'), show('pochodna a * t^2 po t'));
     ok('3e2: całka potęgi z dymkiem', has('całka x^2', 'Całkuję potęgę', '⟦∫ x² dx⟧ = x³/3') && fm('całka x^2', 'calka-potegi'), show('całka x^2'));
@@ -129,13 +129,28 @@ pass += 2;
     // uwagi „słabego ucznia” (3e-2)
     ok('3e2: wyłączona stała wraca na końcu (2 · sin(x²)/2)', has('całka 2x*cos(x^2)', 'Mnożę przez wyłączoną stałą', '2 · sin(x²)/2 = sin(x²)'), show('całka 2x*cos(x^2)'));
     ok('3e2: a = 2 przy arctg', st('całka 1/(x^2+4)').some(x => x.formula && x.formula.id === 'calka-arctg' && x.math.startsWith('4 = 2²,  a = 2')), show('całka 1/(x^2+4)'));
-    ok('3e2: tożsamość sin² widać', st('całka sin(x)^2').some(x => x.formula && x.formula.id === 'sin-kwadrat' && x.math.startsWith('⟦sin²(x)⟧ = (1 − cos(2x))/2')), show('całka sin(x)^2'));
+    ok('3e2: tożsamość sin² widać', st('całka sin(x)^2').some(x => x.formula && x.formula.id === 'sin-kwadrat' && x.math.startsWith('sin²(x) = ⟦(1 − cos(2x))/2⟧')), show('całka sin(x)^2'));
     ok('3e2: całka sumy w nawiasie', st('całka 3x^2 + 2')[0].math === '∫ (3x² + 2) dx', show('całka 3x^2 + 2'));
     ok('3e2: stała bez podkreślenia potęgi', !st('pochodna 3x^2 + 2x - 5').some(x => /⟦\(−5\)′⟧/.test(x.math)), show('pochodna 3x^2 + 2x - 5'));
     ok('3e2: π w granicach całki', st('całka sin(x) od 0 do pi')[0].math === '∫(0→π) sin(x) dx', show('całka sin(x) od 0 do pi'));
     // żadna etykieta pochodnych i całek nie zawiera wzoru (poza „Podstawienie: t = …”, „Wracam do zmiennej”)
     const bad = [P, Q, 'pochodna sin(x^2)', 'pochodna (3x+1)^5', 'pochodna 3x^2 + 2x - 5', 'całka x * e^x', 'całka x^2 od 0 do 1', 'całka 1/(x^2+4)',
         'całka sin(x)^2', 'całka 1/x', 'całka e^x', 'całka tan(x)', 'całka 5'].flatMap(q => st(q).map(x => x.label)).filter(l => /[=′∫]|ⁿ/.test(l) && !/^Podstawienie|^Liczę F\(b\)/.test(l));
+    // 3g: pochodne bez skoków (raport C): u i v, √x jako potęga, ostatnie mnożenie, licznik ilorazu krok po kroku
+    ok('3g: √x zapisane jako potęga', has('pochodna √x', 'Liczę pochodną potęgi', '√x = x^(1/2)\n⟦(x^(1/2))′⟧ = 1/2 · x^(−1/2) = 1/(2√x)'), show('pochodna √x'));
+    ok('3g: 1/x zapisane jako potęga', has('pochodna 1/x', 'Liczę pochodną potęgi', '1/x = x^(−1)\n⟦(x^(−1))′⟧ = −1 · x^(−2) = −1/x²'), show('pochodna 1/x'));
+    ok('3g: x³ bez zbędnej linii', has('pochodna x^3', 'Liczę pochodną potęgi', '⟦(x³)′⟧ = 3x²'), show('pochodna x^3'));
+    ok('3g: złożona — mnożę przez pochodną środka (5 · 3)', has('pochodna (3x+1)^5', 'Mnożę przez pochodną środka', '5(3x + 1)⁴ · 3 = 15(3x + 1)⁴'), show('pochodna (3x+1)^5'));
+    ok('3g: złożona — sin(x²)', has('pochodna sin(x^2)', 'Mnożę przez pochodną środka', 'cos(x²) · 2x'), show('pochodna sin(x^2)'));
+    ok('3g: tablica (środek = x) bez mnożenia', !has('pochodna sin(x)', 'Mnożę przez pochodną środka'), show('pochodna sin(x)'));
+    ok('3g: stała — ostatnie mnożenie 5 · 3x²', has('pochodna 5x^3', 'Mnożę przez stałą', '5 · 3x² = 15x²'), show('pochodna 5x^3'));
+    ok('3g: stała — a · 2t', has('pochodna a * t^2 po t', 'Mnożę przez stałą', 'a · 2t = 2at'), show('pochodna a * t^2 po t'));
+    ok('3g: iloraz — licznik wymnożony przed uproszczeniem', st('pochodna (x^2+1)/(x-1)').some(x => x.label === 'Wstawiam do wzoru' && x.math.includes(' = (2x² − 2x − x² − 1)/(x − 1)² = (x² − 2x − 1)/(x − 1)²')), show('pochodna (x^2+1)/(x-1)'));
+    ok('3g: iloraz — x/(x+1) z wymnożonym licznikiem', st(Q).some(x => x.label === 'Wstawiam do wzoru' && x.math.endsWith(' = (x + 1 − x)/(x + 1)² = 1/(x + 1)²')), show(Q));
+    ok('3g: całka √x przez x^(1/2)', has('całka √x', 'Całkuję potęgę', '√x = x^(1/2)\n⟦∫ x^(1/2) dx⟧ = x^(3/2)/(3/2) = 2x√x/3'), show('całka √x'));
+    ok('3g: całka 1/x² przez x^(−2)', has('całka 1/x^2', 'Całkuję potęgę', '1/x² = x^(−2)\n⟦∫ x^(−2) dx⟧ = x^(−1)/(−1) = −1/x'), show('całka 1/x^2'));
+    ok('3g: ujemny czynnik w nawiasie przy stałej całki', has('całka 3/x^3', 'Mnożę przez wyłączoną stałą', '3 · (−1/(2x²)) = −3/(2x²)'), show('całka 3/x^3'));
+    ok('3g: tożsamość — kolor na tym, co wstawiamy', st('całka sin(x)^2').some(x => x.math.startsWith('sin²(x) = ⟦(1 − cos(2x))/2⟧')), show('całka sin(x)^2'));
     ok('3e2: etykiety bez wzorów', bad.length === 0, [...new Set(bad)]);
 }
 

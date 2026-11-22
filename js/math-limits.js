@@ -817,8 +817,8 @@
             // [EN] bez osobnego kroku „Wzór na e” (spec 5.12): fragment ⟦…⟧ jest wyróżniony kolorem, stuknięcie → dymek ze wzorem
             var core = '⟦(' + onePlus + ')^' + pa + '⟧';
             var pw = function (x) { return x === '1' ? '' : /^\d+$/.test(x) ? K.sup(x) : '^(' + x + ')'; }; // [EN] e³, nie e^(3)
-            line(log, 'Podstawa dąży do e', limHead(v, t) + (sgh === '1' ? core + ' = e'
-                : '[' + core + ']' + pw(sgh) + (still ? ' = e' + pw(sgh) : '')));
+            line(log, 'Kolorowa potęga dąży do e', limHead(v, t) + (sgh === '1' ? core + ' = e'
+                : '(' + core + ')' + pw(sgh) + (still ? ' = e' + pw(sgh) : '')));
             if (log) log[log.length - 1].formula = { id: 'e' };
             var mark = log ? log.length : 0;
             if (!still) line(log, 'Granica wykładnika', limOf(v, t, gh));
@@ -961,7 +961,8 @@
             var rest = up ? C.cMul(C.num(hit.c), C.cMul(u, C.cPow(fr.D, K.neg(ONE))))
                 : C.cMul(fr.N, C.cPow(C.cMul(C.num(hit.c), u), K.neg(ONE)));
             rest = fold(rest);
-            var bracket = up ? '[⟦' + C.paren(hit.top) + '/' + grp(u) + '⟧]' : '[⟦' + C.paren(u) + '/' + grp(hit.top) + '⟧]';
+            // [EN] bez [ ] wokół koloru: nawias kwadratowy znaczy tu „co wychodzi po wstawieniu” (symbol nieoznaczony)
+            var bracket = up ? '⟦' + C.paren(hit.top) + '/' + grp(u) + '⟧' : '⟦' + C.paren(u) + '/' + grp(hit.top) + '⟧';
             line(log, 'Korzystamy ze znanej granicy', 'u = ' + uText + ' → 0:  ' + limHead(v, t) + bracket + ' · ' + C.show(rest), hit.label);
             line(log, 'Kolorowy ułamek dąży do 1', limOf(v, t, rest));
             return limitOf(rest, v, t, log, depth);

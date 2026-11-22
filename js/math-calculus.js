@@ -377,6 +377,8 @@
         if (log) log.push(formula ? { label: label, math: math, formula: { id: formula } } : { label: label, math: math });
     }
     function grpT(x) { return x.length > 1 ? '(' + show(x) + ')' : show(x); } // [EN] suma w nawiasie przy mnożeniu
+    function grpN(x) { var t = grpT(x); return t[0] === '−' ? '(' + t + ')' : t; } // [EN] 3 · (−2/x³), nie 3 · −2/x³
+    function sameText(a, b) { return a.replace(/\s/g, '').split('').sort().join('') === b.replace(/\s/g, '').split('').sort().join(''); }
     function isSimplePower(t, v) {
         var vars = t.fs.filter(function (f) { return atomHas(f.b, v); });
         return !vars.length || (vars.length === 1 && vars[0].b.k === 'var');
@@ -400,6 +402,7 @@
     }
     function dTerm(t, v, log) {
         var fixed = [], moving = [];
+        var U = v === 'u' || v === 'v' ? 'f' : 'u', V = U === 'f' ? 'g' : 'v'; // [EN] części u, v (f to cała funkcja); przy zmiennej u/v — f, g
         t.fs.forEach(function (f) { (atomHas(f.b, v) ? moving : fixed).push(f); });
         if (!moving.length) return [];
         var constant = [term(t.c, fixed)];
@@ -408,7 +411,9 @@
             if (!one) { // [EN] także a · t²: stała zostaje, liczymy pochodną samej potęgi
                 line(log, 'Stała zostaje przed pochodną', '(' + show([t]) + ')′ = ' + paren(constant) + ' · (' + showFactor(moving[0]) + ')′');
             }
-            return cMul(constant, dFactor(moving[0], v, log));
+            var d1 = dFactor(moving[0], v, log), r1 = cMul(constant, d1);
+            if (!one && show(d1) !== '1') line(log, 'Mnożę przez stałą', paren(constant) + ' · ' + grpN(d1) + ' = ' + show(r1));
+            return r1;
         }
         var ups = moving.filter(function (f) { return f.e.n > 0n; });
         var downs = moving.filter(function (f) { return f.e.n < 0n; });
@@ -416,43 +421,73 @@
         if (ups.length && downs.length) {
             var top = [term(ONE, ups)];
             var bottom = [term(ONE, downs.map(function (f) { return { b: f.b, e: neg(f.e) }; }))];
-            line(log, 'Rozpoznaję iloraz', 'f = ' + showInner(top) + ',  g = ' + showInner(bottom));
-            var dt = dExpr(top, v, log), db = dExpr(bottom, v, log);
+            line(log, 'Rozpoznaję iloraz', U + ' = ' + showInner(top) + ',  ' + V + ' = ' + showInner(bottom));
+            var dt = dPart(top, v, log, U), db = dPart(bottom, v, log, V);
             res = cMul(expandExpr(cSub(cMul(dt, bottom), cMul(top, db))), cPow(bottom, R(-2)));
             // [EN] wstawienie do wzoru w jego kolejności, potem uproszczenie
-            line(log, 'Wstawiam do wzoru', 'f′ = ' + show(dt) + ',  g′ = ' + show(db) + '\n⟦(f′ · g − f · g′)/g²⟧ = (' + grpT(dt) + ' · ' + grpT(bottom) + ' − ' + grpT(top) + ' · ' + grpT(db) + ')/' + grpT(bottom) + '² = ' + show(cMul(constant, res)), 'pochodna-ilorazu');
+            // [EN] licznik wymnożony, ale jeszcze nie zredukowany: (2x² − 2x − x² − 1), potem wynik
+            var left = expandExpr(cMul(dt, bottom)), right = sortedTerms(expandExpr(cMul(top, db)));
+            var opened = '(' + show(left) + right.map(function (t) { return (t.c.n < 0n ? ' + ' : ' − ') + showTerm(t); }).join('') + ')/' + grpT(bottom) + '²';
+            var done = show(cMul(constant, res));
+            line(log, 'Wstawiam do wzoru', U + '′ = ' + show(dt) + ',  ' + V + '′ = ' + show(db) + '\n(' + U + '′ · ' + V + ' − ' + U + ' · ' + V + '′)/' + V + '² = ⟦(' + grpT(dt) + ' · ' + grpT(bottom) + ' − ' + grpT(top) + ' · ' + grpT(db) + ')/' + grpT(bottom) + '²⟧'
+                + (opened !== done ? ' = ' + opened : '') + ' = ' + done, 'pochodna-ilorazu');
             return cMul(constant, res);
         } else {
             var head = [term(ONE, [moving[0]])], tail = [term(ONE, moving.slice(1))];
-            line(log, 'Rozpoznaję iloczyn', 'f = ' + showInner(head) + ',  g = ' + showInner(tail));
-            var df = dExpr(head, v, log), dg = dExpr(tail, v, log);
+            line(log, 'Rozpoznaję iloczyn', U + ' = ' + showInner(head) + ',  ' + V + ' = ' + showInner(tail));
+            var df = dPart(head, v, log, U), dg = dPart(tail, v, log, V);
             res = cAdd(cMul(df, tail), cMul(head, dg));
             var put = grpT(df) + ' · ' + grpT(tail) + ' + ' + grpT(head) + ' · ' + grpT(dg); // [EN] kolejność jak we wzorze
             var out1 = cMul(constant, res);
-            var norm = function (x) { return x.replace(/\s/g, '').split('').sort().join(''); }; // [EN] to samo, tylko inna kolejność — bez dopisku
-            line(log, 'Wstawiam do wzoru', 'f′ = ' + show(df) + ',  g′ = ' + show(dg) + '\n⟦f′ · g + f · g′⟧ = ' + put + (norm(show(out1)) !== norm(put) ? ' = ' + show(out1) : ''), 'pochodna-iloczynu');
+            line(log, 'Wstawiam do wzoru', U + '′ = ' + show(df) + ',  ' + V + '′ = ' + show(dg) + '\n' + U + '′ · ' + V + ' + ' + U + ' · ' + V + '′ = ⟦' + put + '⟧' + (sameText(show(out1), put) ? '' : ' = ' + show(out1)), 'pochodna-iloczynu');
             return out1;
         }
+    }
+    function dPart(e, v, log, name) { // [EN] krok części iloczynu/ilorazu zaczyna się od u′ = …, v′ = … (widać, którą liczymy)
+        var mine = [], r = dExpr(e, v, mine);
+        if (mine.length === 1) {
+            var st = mine[0];
+            if (st.label === 'Liczę pochodną każdego wyrazu') { // [EN] v′ = (x + 1)′ = (x)′ + (1)′ = 1 + 0 = 1
+                var rows = st.math.split('\n').map(function (x) { return x.split(' = '); });
+                var sum = function (list) { return list.map(function (x, i) { return !i ? x : x[0] === '−' ? ' − ' + x.slice(1) : ' + ' + x; }).join(''); };
+                st.math = name + '′ = (' + showInner(e) + ')′ = ' + rows.map(function (x) { return x[0]; }).join(' + ') + ' = '
+                    + sum(rows.map(function (x) { return x[1]; })) + ' = ' + show(r);
+            } else st.math = name + '′ = ' + st.math;
+        }
+        if (log) mine.forEach(function (x) { log.push(x); });
+        return r;
     }
     function chain(outer, u, v, log, name) {
         var plain = u.length === 1 && u[0].fs.length === 1 && u[0].fs[0].b.k === 'var' && eq(u[0].c, ONE) && eq(u[0].fs[0].e, ONE);
         if (plain) { line(log, 'Korzystam z tablicy pochodnych', '⟦(' + name + ')′⟧ = ' + show(outer), 'tablica-pochodnych'); return outer; }
         line(log, 'Liczę pochodną złożoną', '(' + name + ')′ = ⟦' + show(outer) + ' · (' + showInner(u) + ')′⟧', 'pochodna-zlozona');
-        var inner = dExpr(u, v, log);
-        return cMul(outer, inner);
+        return timesInner(outer, dExpr(u, v, log), log);
+    }
+    function timesInner(outer, inner, log) { // [EN] 5(3x + 1)⁴ · 3 = 15(3x + 1)⁴ — bez skoku do wyniku
+        var out = cMul(outer, inner);
+        var put = show(outer) + ' · ' + grpN(inner); // [EN] sama zmiana kolejności — bez „= …”
+        if (show(inner) !== '1') line(log, 'Mnożę przez pochodną środka', put + (sameText(put, show(out)) ? '' : ' = ' + show(out)));
+        return out;
     }
     function dFactor(f, v, log) {
         var a = f.b, e = f.e, res;
         if (a.k === 'var') {
             res = cMul(num(e), cPow(variable(a.v), sub(e, ONE)));
-            line(log, 'Liczę pochodną potęgi', '⟦(' + showFactor(f) + ')′⟧ = ' + show(res), 'pochodna-potegi');
+            if (isInt(e) && e.n > 0n) line(log, 'Liczę pochodną potęgi', '⟦(' + showFactor(f) + ')′⟧ = ' + show(res), 'pochodna-potegi');
+            else { // [EN] wykładnik ułamkowy lub ujemny: najpierw zapis jako potęga, potem wzór
+                var signed = function (x) { return (x.n < 0n ? '−' : '') + fmt(x.n < 0n ? neg(x) : x); };
+                var pw = function (x) { return a.v + '^(' + signed(x) + ')'; };
+                var asWritten = show([term(ONE, [f])]);
+                line(log, 'Liczę pochodną potęgi', (asWritten !== pw(e) ? asWritten + ' = ' + pw(e) + '\n' : '') + '⟦(' + pw(e) + ')′⟧ = '
+                    + signed(e) + ' · ' + pw(sub(e, ONE)) + ' = ' + show(res), 'pochodna-potegi');
+            }
             return res;
         }
         if (!eq(e, ONE)) {
             var base = atomExpr(a);
             var outer = cMul(num(e), cPow(base, sub(e, ONE)));
             line(log, 'Liczę pochodną złożoną', '(' + showFactor(f) + ')′ = ⟦' + show(outer) + ' · (' + showInner(base) + ')′⟧', 'pochodna-zlozona');
-            return cMul(outer, dFactor({ b: a, e: ONE }, v, log));
+            return timesInner(outer, dFactor({ b: a, e: ONE }, v, log), log);
         }
         if (a.k === 'sum') return dExpr(a.s, v, log);
         if (a.k === 'exp') {
@@ -509,7 +544,7 @@
         line(log, 'Stałą wyłączam przed całkę', integralText(e, v) + ' = ' + paren(constant) + ' · ' + integralText(rest, v));
         var inner = integCore(rest, v, depth, log), outC = cMul(constant, inner);
         // [EN] wyłączona stała wraca na końcu — inaczej 2 · ∫ … „znika” między krokami
-        line(log, 'Mnożę przez wyłączoną stałą', paren(constant) + ' · ' + grpT(inner) + ' = ' + show(outC));
+        line(log, 'Mnożę przez wyłączoną stałą', paren(constant) + ' · ' + grpN(inner) + ' = ' + show(outC));
         return outC;
     }
     function attempt(log, fn) { // [EN] nieudana próba nie zostawia kroków
@@ -582,7 +617,14 @@
         var IDENT = { 'sin-kwadrat': 'sin²(#) = (1 − cos(2#))/2', 'cos-kwadrat': 'cos²(#) = (1 + cos(2#))/2', 'tg-kwadrat': 'tg²(#) = 1/cos²(#) − 1' };
         if (IDENT[fid]) {
             var id = IDENT[fid].replace(/#/g, v), eqAt = id.indexOf(' = ');
-            line(log, label, '⟦' + id.slice(0, eqAt) + '⟧' + id.slice(eqAt) + ',  ' + integralText(e, v) + ' = ' + show(res), fid);
+            // [EN] kolor na tym, co wstawiamy (prawa strona tożsamości)
+            line(log, label, id.slice(0, eqAt + 3) + '⟦' + id.slice(eqAt + 3) + '⟧,  ' + integralText(e, v) + ' = ' + show(res), fid);
+        } else if (fid === 'calka-potegi' && !(isInt(f.e) && f.e.n > 0n)) { // [EN] √x = x^(1/2), 1/x² = x^(−2): najpierw potęga, potem wzór
+            var signed = function (r) { return (r.n < 0n ? '−' : '') + fmt(r.n < 0n ? neg(r) : r); };
+            var pw = function (r) { return v + '^(' + signed(r) + ')'; }, n1t = signed(add(f.e, ONE));
+            var asWritten = show(e);
+            line(log, label, (asWritten !== pw(f.e) ? asWritten + ' = ' + pw(f.e) + '\n' : '') + '⟦∫ ' + pw(f.e) + ' d' + v + '⟧ = '
+                + pw(add(f.e, ONE)) + '/' + (isInt(add(f.e, ONE)) && add(f.e, ONE).n > 0n ? n1t : '(' + n1t + ')') + ' = ' + show(res), fid);
         } else line(log, label, '⟦' + integralText(e, v) + '⟧ = ' + show(res), fid);
         return res;
     }
@@ -771,7 +813,10 @@
         var steps = [{ label: 'Funkcja', math: name + ' = ' + show(e) }];
         var res = dExpr(e, v, steps);
         if (!sameAsDerivative(e, res, v)) throw new NotSupported();
-        var text = "f′(" + v + ') = ' + show(res);
+        // [EN] wynik w kolejności z rachunku (3x² · sin(x) + x³ · cos(x)), nie posortowany na nowo
+        var prev = steps[steps.length - 1], tail = prev.math.split('\n').pop().split(' = ').pop().replace(/[⟦⟧]/g, '');
+        var body = prev.label === 'Wstawiam do wzoru' && sameText(tail, show(res)) ? tail : show(res);
+        var text = "f′(" + v + ') = ' + body;
         steps.push({ label: 'Wynik', math: text });
         return K.done('Pochodna', text, null, steps);
     }

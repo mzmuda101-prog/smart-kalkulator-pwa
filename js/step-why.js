@@ -9,8 +9,10 @@
     /** @typedef {{label: string, math: string, formula?: {id: string}}} Step */
     // [EN] sprzężenie = ten sam nawias z przeciwnym znakiem (raz suma, raz różnica); powód zależy od celu granicy
     // [EN] bez powtarzania wzoru — wzór jest w dymku pod kolorowym fragmentem (bez dubli)
-    const SPRZ_INF = 'Różnica z pierwiastkiem daje $\\infty-\\infty$. Mnożymy przez ten sam nawias z przeciwnym znakiem, żeby pierwiastek zniknął.';
-    const SPRZ_NUM = 'Pierwiastek nie pozwala skrócić. Mnożymy przez ten sam nawias z przeciwnym znakiem, żeby pierwiastek zniknął.';
+    // [EN] przy kroku z dymkiem: zdanie mówi o tym zadaniu, dymek o regule (test/step-why.js pilnuje dubli)
+    const SAME = 'Licznik i mianownik mnożymy przez to samo, więc wartość ułamka się nie zmienia.';
+    const SPRZ_INF = 'Tu wychodzi $\\infty-\\infty$. ' + SAME;
+    const SPRZ_NUM = 'Wstawienie liczby daje zero w mianowniku. ' + SAME;
     /** @type {Record<string, string>} */
     const TAG = {
         '0/0': 'Po wstawieniu wychodzi $\\frac{0}{0}$. Tego nie da się policzyć od razu, więc najpierw przekształcamy wyrażenie.',
@@ -20,6 +22,30 @@
         '0 · ∞': 'Jedna część dąży do 0, druga rośnie bez końca ($0\\cdot\\infty$). Nie wiadomo, kto wygra, więc przekształcamy.',
     };
 
+    // [EN] krótsze opisy symbolu, gdy krok ma dymek „Symbol nieoznaczony” (morał „więc przekształcamy” jest w dymku)
+    /** @type {Record<string, string>} */
+    const TAG_SHORT = {
+        '0/0': 'Licznik i mianownik zbliżają się do 0 ($\\frac{0}{0}$).',
+        '∞/∞': 'Licznik i mianownik rosną bez końca ($\\frac{\\infty}{\\infty}$).',
+        '∞ − ∞': 'Oba składniki rosną bez końca ($\\infty-\\infty$).',
+        '1^∞': 'Podstawa zbliża się do 1, a wykładnik rośnie bez końca ($1^{\\infty}$).',
+        '0 · ∞': 'Jedna część zbliża się do 0, a druga rośnie bez końca ($0\\cdot\\infty$).',
+    };
+    const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+    /** wykładnik potęgi z kroku: (x³)′ → [3, 1], (x^(−1/2))′ → [−1, 2], (x)′ → [1, 1]; null, gdy nie widać @param {string} m @param {RegExp} re */
+    function powerOf(m, re) {
+        const hit = re.exec(m);
+        if (!hit) return null;
+        const e = hit[1] || '';
+        if (!e) return [1, 1];
+        if (e[0] !== '^') return [+[...e].map(ch => SUP.indexOf(ch)).join(''), 1];
+        const f = /^\^\((−?)(\d+)(?:\/(\d+))?\)$/.exec(e);
+        return f ? [(f[1] ? -1 : 1) * +f[2], f[3] ? +f[3] : 1] : null;
+    }
+    /** @param {number} p @param {number} q */
+    const texRat = (p, q) => q === 1 ? String(p) : (p < 0 ? '-' : '') + '\\frac{' + Math.abs(p) + '}{' + q + '}';
+    const POW = /⟦\([a-z](\^\([^)]*\)|[⁰¹²³⁴⁵⁶⁷⁸⁹]*)\)′⟧/, INT_POW = /⟦∫ [a-z](\^\([^)]*\)|[⁰¹²³⁴⁵⁶⁷⁸⁹]*) d[a-z]⟧/;
+
     /** @typedef {{atInf: boolean, prev: Step | null, next: Step | null}} Ctx kontekst: granica w ±∞? kroki obok */
     /** @type {[RegExp, string | ((s: Step, title: string, c: Ctx) => string | null)][]} */
     const RULES = [
@@ -28,7 +54,7 @@
         // ── granice ──
         [/^Granica$/, (s, _t, c) => {
             const m = /\s\s\[⟦?([^\]⟧]+)⟧?\]$/.exec(s.math);
-            if (m && TAG[m[1]]) return TAG[m[1]];
+            if (m && TAG[m[1]]) return (s.formula ? TAG_SHORT : TAG)[m[1]];
             if (c.next && /^Dorabiamy jedynkę/.test(c.next.label)) return TAG['1^∞']; // [EN] silnik nie zawsze nazywa 1^∞ (próg)
             // [EN] bez symbolu nie obiecujemy „nic nie przeszkadza” — silnik nie każdy kłopot nazywa (np. 0 · ∞)
             return 'Sprawdzamy, do czego zbliża się wyrażenie, gdy zmienna zbliża się do celu.';
@@ -47,8 +73,7 @@
         [/^Skracamy /, 'To samo stoi w liczniku i w mianowniku, więc się skraca.'],
         [/^Mnożymy przez sprzężenie$/, (s, _t, c) => {
             const id = s.formula && s.formula.id;
-            if (id === 'roznica-szescianow') return 'Przy pierwiastkach trzeciego stopnia pomaga wzór na różnicę sześcianów: po wymnożeniu pierwiastki znikają.';
-            if (id === 'roznica-czwartych') return 'Przy pierwiastkach czwartego stopnia pomaga wzór na różnicę czwartych potęg: po wymnożeniu pierwiastki znikają.';
+            if (id === 'roznica-szescianow' || id === 'roznica-czwartych') return (id === 'roznica-szescianow' ? 'Tu stoją pierwiastki $\\sqrt[3]{\\ }$. ' : 'Tu stoją pierwiastki $\\sqrt[4]{\\ }$. ') + SAME;
             return c.atInf ? SPRZ_INF : SPRZ_NUM;
         }],
         [/^Upraszczamy( licznik)?$/, (_s, _t, c) => c.prev && /sprzężenie/.test(c.prev.label)
@@ -56,19 +81,21 @@
             : 'Wymnażamy i zbieramy podobne wyrazy, żeby wyrażenie było krótsze.'],
         [/^Rozkładamy na czynniki$/, 'Wyszło $\\frac{0}{0}$, więc i licznik, i mianownik mają nawias $(x-a)$. Wyciągamy go, żeby potem skrócić.'],
         [/^Dorabiamy jedynkę$/, 'Wzór na $e$ wymaga postaci $1+\\frac{1}{\\text{coś}}$, a w potędze tego samego „coś”. Przerabiamy podstawę na ten kształt.'],
-        [/^Podstawa dąży do e$/, 'Kolorowa potęga ma dokładnie kształt ze wzoru, więc dąży do $e$. Stuknij ją, żeby zobaczyć wzór.'],
+        [/^Kolorowa potęga dąży do e$/, 'W nawiasie jest $1+\\frac{1}{a_{n}}$, a nad nim to samo $a_{n}$. Resztę wykładnika liczymy osobno.'],
         [/^Granica wykładnika$/, 'Środek nawiasu daje $e$. Zostaje policzyć, do czego dąży potęga nad nawiasem.'],
         [/^Składamy wynik$/, 'Podstawa dąży do $e$, a wykładnik do liczby z poprzedniego kroku, więc całość dąży do $e$ do tej potęgi.'],
         [/^Potęga e$/, 'Liczba $e$ do coraz większej potęgi rośnie bez końca, a do coraz bardziej ujemnej spada do 0.'],
-        [/^Dla \w → −∞$/, 'Gdy zmienna dąży do $-\\infty$, jest ujemna. Pierwiastek nigdy nie daje liczby ujemnej, więc pilnujemy znaku.'],
-        [/^Korzystamy ze znanej granicy$/, 'To znany wynik: gdy $u\\to 0$, kolorowy ułamek dąży do 1. Dopasowujemy wyrażenie do tego kształtu.'],
+        [/^Dla \w → −∞$/, 'Tu zmienna jest ujemna, więc wyciągając ją spod pierwiastka, piszemy przed nim minus.'],
+        [/^Korzystamy ze znanej granicy$/, 'Dopasowujemy wyrażenie do kształtu ze wzoru, nie zmieniając jego wartości.'],
         [/^Kolorowy ułamek dąży do 1$/, 'Zastępujemy kolorowy ułamek jedynką i zostaje prostsze wyrażenie.'],
-        [/^Reguła de l'Hospitala$/, 'Wyszło $\\frac{0}{0}$ albo $\\frac{\\infty}{\\infty}$, więc wolno zamiast ułamka liczyć ułamek pochodnych licznika i mianownika.'],
+        [/^Reguła de l'Hospitala$/, (_s, _t, c) => c.prev && /^Reguła de l'Hospitala$/.test(c.prev.label)
+            ? 'Po pierwszym razie znowu wychodzi symbol nieoznaczony, więc stosujemy regułę drugi raz.'
+            : 'Pochodne licznika i mianownika są prostsze od nich samych i ich ułamek da się już policzyć.'],
         [/^Sprowadzamy do wspólnego mianownika$/, 'Ułamki można dodać albo odjąć dopiero wtedy, gdy mają ten sam mianownik.'],
-        [/^Zapisujemy oba wykładniki tak samo$/, 'Gdy wykładniki są takie same, iloraz potęg to potęga ilorazu, a granicę ilorazu już umiemy policzyć.'],
+        [/^Zapisujemy oba wykładniki tak samo$/, 'Przerabiamy potęgi tak, żeby góra i dół ułamka miały nad sobą to samo.'],
         [/^Rozbijamy na dwie różnice$/, 'Dzielimy wyrażenie na dwie części, z których każda jest zwykłą różnicą pierwiastków.'],
         [/^Dodajemy granice$/, 'Obie części mają skończone granice, więc granica sumy to suma granic.'],
-        [/^Łączymy logarytmy/, 'Różnica logarytmów to logarytm ilorazu, a granicę ilorazu już umiemy policzyć.'],
+        [/^Łączymy logarytmy/, 'Zamiast dwóch logarytmów zostaje jeden, z ułamkiem w środku.'],
         [/^Każdy ułamek daje logarytm$/, 'Każdą część liczymy osobno, a potem dodajemy logarytmy.'],
         [/^Logarytm jest ciągły$/, 'Logarytm nie ma skoków, więc liczymy granicę tego, co w środku, i wstawiamy ją do logarytmu.'],
         [/^Logarytm rośnie bez ograniczeń$/, 'To, co jest w logarytmie, rośnie bez końca, więc logarytm też rośnie bez końca.'],
@@ -87,18 +114,18 @@
             ? 'Pochodna wyniku musi dać funkcję spod całki. Wtedy wiemy, że całka jest dobra.'
             : 'Wstawiam wynik do równania: lewa strona (L) i prawa (P) muszą dać to samo.'],
         [/^Odczytuję współczynniki$/, 'Wzory na deltę i rozwiązania potrzebują liczb $a$, $b$, $c$ z postaci $ax^{2}+bx+c=0$.'],
-        [/^Liczę deltę$/, 'Delta mówi, ile jest rozwiązań: dodatnia daje dwa, zero jedno, ujemna żadnego.'],
+        [/^Liczę deltę$/, 'Wstawiam $a$, $b$, $c$ z tego równania do wzoru na deltę.'],
         [/^Upraszczam pierwiastek z delty$/, 'Wyciągamy spod pierwiastka pełny kwadrat, żeby wynik był prostszy.'],
         [/^Liczę pierwiastek z delty$/, 'Pierwiastek z delty wchodzi do wzoru na rozwiązania.'],
-        [/^Liczę dwa rozwiązania$/, 'Delta jest dodatnia, więc są dwa rozwiązania. Wstawiamy $-b$, $\\sqrt{\\Delta}$ i $2a$ do wzoru.'],
-        [/^Liczę jedno rozwiązanie$/, 'Delta jest zerem, więc oba wzory dają tę samą liczbę: jest jedno rozwiązanie.'],
+        [/^Liczę dwa rozwiązania$/, 'Wstawiam liczby: raz odejmuję $\\sqrt{\\Delta}$, raz dodaję, i tak dostaję $x_{1}$ oraz $x_{2}$.'],
+        [/^Liczę jedno rozwiązanie$/, 'Tu $\\Delta=0$, więc zostaje tylko $-b$ podzielone przez $2a$.'],
         [/^Delta ujemna/, 'Delta jest ujemna, a pierwiastka z liczby ujemnej nie ma, więc równanie nie ma rozwiązań.'],
         [/^Szukam miejsc zerowych$/, 'Miejsca zerowe to liczby, dla których wyrażenie jest zerem. Z nich zbudujemy nawiasy.'],
-        [/^Zapisuję postać iloczynową$/, 'Każde miejsce zerowe $r$ daje nawias $(x-r)$, a iloczyn nawiasów to to samo wyrażenie.'],
-        [/^Rozkładam różnicę kwadratów$/, 'Różnicę dwóch kwadratów od razu zapisujemy jako iloczyn dwóch nawiasów.'],
-        [/^Rozpisuję kwadrat sumy$/, 'Kwadrat nawiasu to nawias razy nawias: każdy wyraz pierwszego mnożę przez każdy wyraz drugiego.'],
+        [/^Zapisuję postać iloczynową$/, 'Mam już rozwiązania z poprzedniego kroku, więc składam z nich wynik.'],
+        [/^Rozkładam różnicę kwadratów$/, 'Oba wyrazy są kwadratami, więc od razu widać, co wstawić do wzoru.'],
+        [/^Rozpisuję kwadrat sumy$/, 'Po rozpisaniu nawiasu można zredukować wyrazy podobne.'],
         [/^Δ < 0, więc dopełniam/, 'Delta jest ujemna, więc wyrażenia nie da się rozłożyć. Zapisujemy je jako kwadrat plus liczba.'],
-        [/^Δ = /, 'Delta mówi, ile jest rozwiązań: dodatnia daje dwa, zero jedno, ujemna żadnego.'],
+        [/^Δ = /, (s) => s.formula ? 'Wstawiam $a$, $b$, $c$ do wzoru na deltę.' : 'Delta mówi, ile jest rozwiązań: dodatnia daje dwa, zero jedno, ujemna żadnego.'],
         [/^Kwadrat nie może być ujemny$/, 'Każda liczba podniesiona do kwadratu daje wynik dodatni albo zero.'],
         [/^Pierwiastkuję obie strony/, 'Dwie liczby dają ten sam kwadrat: dodatnia i ujemna, np. $3^{2}=(-3)^{2}=9$.'],
         [/^Nie ma wyrazu z /, 'Niewiadoma występuje tylko w kwadracie, więc zostawiamy ją samą po jednej stronie.'],
@@ -125,14 +152,21 @@
         [/^Wymnażam nawiasy$/, 'Mnożę każdy wyraz z jednego nawiasu przez każdy wyraz z drugiego.'],
 
         // ── pochodne ──
-        [/^Rozpoznaję iloczyn$/, 'Funkcja to iloczyn dwóch części zależnych od $x$. Nazywam je $f$ i $g$, żeby użyć wzoru na pochodną iloczynu.'],
-        [/^Rozpoznaję iloraz$/, 'Funkcja to ułamek: licznik nazywam $f$, mianownik $g$, żeby użyć wzoru na pochodną ilorazu.'],
-        [/^Wstawiam do wzoru$/, 'Mam już $f$, $g$ i ich pochodne. Wstawiam je do wzoru w tej samej kolejności co we wzorze.'],
-        [/^Liczę pochodną złożoną$/, 'Funkcja w funkcji: pochodna zewnętrznej, ze środkiem bez zmian, razy pochodna środka.'],
+        [/^Rozpoznaję iloczyn$/, 'Funkcja to iloczyn dwóch części zależnych od $x$. Nazywam je $u$ i $v$, żeby użyć wzoru na pochodną iloczynu.'],
+        [/^Rozpoznaję iloraz$/, 'Funkcja to ułamek: licznik nazywam $u$, mianownik $v$, żeby użyć wzoru na pochodną ilorazu.'],
+        [/^Wstawiam do wzoru$/, 'Mam już $u$, $v$ i ich pochodne. Wstawiam je do wzoru w tej samej kolejności co we wzorze.'],
+        [/^Liczę pochodną złożoną$/, 'W środku nie stoi samo $x$, tylko dłuższe wyrażenie, więc sama tablica nie wystarczy.'],
         [/^Liczę pochodną każdego wyrazu$|^Rozbijam na sumę pochodnych$/, 'Pochodną sumy liczymy wyraz po wyrazie, a pochodna stałej to 0.'],
         [/^Stała zostaje przed pochodną$/, 'Liczba przed funkcją nie zmienia się przy liczeniu pochodnej, zostaje jako mnożnik.'],
-        [/^Liczę pochodną potęgi$/, 'Wykładnik schodzi przed zmienną, a potęga maleje o 1.'],
-        [/^Korzystam z tablicy pochodnych$/, 'To pochodna podstawowej funkcji, którą znamy na pamięć. Stuknij kolorowy fragment, żeby zobaczyć tablicę.'],
+        [/^Mnożę przez pochodną środka$/, 'Kończę wzór na funkcję złożoną: wstawiam policzoną pochodną środka i mnożę.'],
+        [/^Mnożę przez stałą$/, 'Liczba, która została przed pochodną, mnoży teraz wynik.'],
+        [/^Liczę pochodną potęgi$/, (s) => {
+            const n = powerOf(s.math, POW);
+            if (!n) return 'Wykładnik schodzi przed zmienną, a potęga maleje o 1.';
+            if (n[0] === n[1]) return 'Tu $n=1$, bo $x=x^{1}$, a $x^{0}=1$.';
+            return 'Tu $n=' + texRat(n[0], n[1]) + '$, a nowy wykładnik to $' + texRat(n[0] - n[1], n[1]) + '$.';
+        }],
+        [/^Korzystam z tablicy pochodnych$/, 'Pod funkcją stoi samo $x$, więc nic więcej nie trzeba liczyć.'],
         [/^Składam całość$/, 'Dopisuję czynnik, który wcześniej wyłączyłem przed nawias.'],
         [/^Składam wynik$/, 'Wstawiam policzone części do wzoru i zapisuję całość.'],
         // ── całki ──
@@ -144,11 +178,17 @@
         [/^Podstawiam do wzoru$/, 'Wstawiamy $u$, $v$ i $du$ do wzoru na całkowanie przez części.'],
         [/^Podstawienie: /, 'Zastępujemy wnętrze jedną literą, żeby całka wyglądała jak wzór z tablicy.'],
         [/^Wracam do zmiennej /, 'Na końcu zamieniamy literę pomocniczą z powrotem na wyrażenie z początku.'],
-        [/^Całkuję potęgę$/, 'Podnoszę wykładnik o 1 i dzielę przez nowy wykładnik: to odwrotność pochodnej potęgi.'],
-        [/^Korzystam z tablicy całek$/, 'To całka z tablicy: szukamy funkcji, której pochodna daje to, co pod całką.'],
-        [/^Korzystam z tożsamości$/, 'Kwadratu funkcji trygonometrycznej nie całkujemy wprost, więc zamieniamy go na wyrażenie bez kwadratu.'],
+        [/^Całkuję potęgę$/, (s) => {
+            const n = powerOf(s.math, INT_POW);
+            if (!n) return 'To odwrotność pochodnej potęgi.';
+            const m = texRat(n[0] + n[1], n[1]);
+            const x = (/⟦∫ ([a-z])/.exec(s.math) || ['', 'x'])[1];
+            return 'Tu $n=' + texRat(n[0], n[1]) + '$, więc w wyniku jest $' + x + '^{' + m + '}$ i dzielenie przez $' + m + '$.';
+        }],
+        [/^Korzystam z tablicy całek$/, 'Ta funkcja jest w tablicy całek, więc wynik od razu przepisuję.'],
+        [/^Korzystam z tożsamości$/, 'Po zamianie zostają dwie łatwe całki: ze stałej i z $\\cos 2x$.'],
         [/^Rozkład na ułamki proste$/, 'Dzielimy ułamek na prostsze części, z których każdą umiemy scałkować.'],
-        [/^Liczę F\(b\) − F\(a\)$/, 'Całka z granicami to różnica: wynik całki na górnej granicy minus wynik na dolnej.'],
+        [/^Liczę F\(b\) − F\(a\)$/, 'Najpierw górna granica, potem dolna; kolejność jest ważna, bo odejmujemy.'],
     ];
 
     /**
