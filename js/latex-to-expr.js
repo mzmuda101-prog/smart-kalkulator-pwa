@@ -26,9 +26,12 @@
         // znane potknięcia modelu: \\left, \\(, „sqrt” bez ukośnika; głowa granicy ze zdjęcia pod kątem
         // (\mathop\{ {lim} }, {mathop\mathrm{lim}}, \ operatorname\* {l i i}, \mathop\underset…) → \lim; reszta bez zmian
         // na początku same litery/polecenia (bez cyfr, nawiasów, \\frac, \\sqrt), potem _{x \\to …} — to zawsze granica
-        // resztka etykiety „(b)” z lewej krawędzi ramki: samotne ) | . : przed głową granicy
-        const head = latex.replace(/^\s*[)|.:](?=[\s\\{]*(?:\\lim|\\mathop|\\operatorname|\\mathrm|operatorname|\\underset))/, '').replace(/^(?![^_]*\\(?:frac|sqrt|left|begin))[\s{}*~\\a-zA-Z]{0,60}?[\s}]*(?=_\s*\{+\s*[a-z]\s*\\(?:to|rightarrow)(?![a-zA-Z]))/, '\\lim')
-            .replace(/^\s*\\mathop\s*(?=\\underset)/, '');
+        // resztka etykiety „(b)” z lewej krawędzi ramki: zapis nie zaczyna się od ) , * ! . : ani spacji LaTeX-a
+        // (model czyta ją jako „\\, ) , , *”, „! )”, „\\_ )”); samotne | tylko tuż przed głową granicy
+        const head = latex.replace(/^(?:\s|[),*!.:;]|\\[,;:! _])+/, '')
+            .replace(/^\|(?=[\s\\{]*(?:\\lim|\\mathop|\\operatorname|\\mathrm|operatorname|\\underset))/, '')
+            .replace(/^(?![^_]*\\(?:frac|sqrt|left|begin))[\s{}*~\\a-zA-Z]{0,60}?[\s}]*(?=_[\s,]*\{+\s*[a-z]\s*\\(?:to|rightarrow)(?![a-zA-Z]))/, '\\lim')
+            .replace(/^\\lim\s*_[\s,]+\{/, '\\lim_{').replace(/^\s*\\mathop\s*(?=\\underset)/, '');
         // model podwaja ukośnik: \\\\frac, \\\\left, \\\\( → \\frac, \\left, (
         const t = tokenize(head.replace(/\\\\(?=[a-zA-Z])/g, '\\').replace(/\\\\([()])/g, '$1').replace(/\\(frac|sqrt)(?:\1)+(?![a-zA-Z])/g, '\\$1') // \\fracfrac
             .replace(/(^|[^\\a-zA-Z])(sqrt|frac)(?![a-zA-Z])/g, '$1\\$2'));
@@ -137,7 +140,12 @@
             if (!s || /^[\s?]*$/.test(s)) fail('pusty odczyt');
             if (/\(\)|\(\s*$/.test(s)) fail('pusty nawias');
             // śmieci z rozsypanego odczytu: (+), (.), --, +*, działanie na końcu
-            if (/\(\s*[+\-*/.^]\s*\)|[+\-*/]\s*[+\-*/]|[+\-*/^]$/.test(s)) fail('śmieci w odczycie');
+            if (/\(\s*[+\-*/.^,]\s*\)|[+\-*/]\s*[+\-*/]|[+\-*/^]$|[(^]\s*\^|[+\-*/^]\s*\)/.test(s)) fail('śmieci w odczycie');
+            // obca litera w granicy („lim x→3 … r^3”) to zły odczyt zmiennej
+            // shortcut: granice z parametrem (sin(ax)/x) są przez to odrzucane; przy skanowaniu takich — lista dozwolonych liter
+            const lm = /^lim ([a-z])→\S+ (.*)$/.exec(s);
+            if (lm && /[a-df-z]/.test(lm[2].replace(/sqrt|log|ln|sinh|cosh|tanh|arcsin|arccos|arctan|arctg|sin|cos|tan|tg|ctg|cot|exp|pi/g, '').split(lm[1]).join('')))
+                fail('obca zmienna w granicy');
             let depth = 0;
             for (const c of s) { depth += c === '(' ? 1 : c === ')' ? -1 : 0; if (depth < 0) fail('nawiasy'); }
             if (depth) fail('nawiasy');

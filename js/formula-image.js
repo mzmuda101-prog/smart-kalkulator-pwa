@@ -106,6 +106,37 @@
         return out;
     }
 
+    /**
+     * Dwa wzory w ramce (ramka za wysoka na ciasnej stronie): zostaje grupa wierszy tuszu najbliżej środka.
+     * Granica między wzorami = pusty pas ≥ 15% wysokości wyższego sąsiada (min. 4 px); wewnątrz wzoru
+     * przerwy mają 0–3 px (ułamek, lim nad n→∞), więc ułamek się nie rozpada. Liczą się tylko grupy
+     * co najmniej w połowie tak wysokie jak najwyższa (drobny skrawek w środku nie wygrywa).
+     * @param {Img} img @returns {Img}
+     */
+    function keepCentralLine(img) {
+        const { width: w, height: h } = img, g = stretched(img);
+        /** @type {number[][]} */ const groups = [];
+        let y = 0;
+        while (y < h) {
+            let has = false;
+            for (let x = 0; x < w && !has; x++) has = g[y * w + x] < 200;
+            if (!has) { y++; continue; }
+            const a = y;
+            for (; y < h; y++) { let any = false; for (let x = 0; x < w && !any; x++) any = g[y * w + x] < 200; if (!any) break; }
+            const last = groups[groups.length - 1];
+            if (last && a - last[1] < Math.max(4, 0.15 * Math.max(last[1] - last[0], y - a))) last[1] = y;
+            else groups.push([a, y]);
+        }
+        if (groups.length < 2) return img;
+        const tall = Math.max(...groups.map((p) => p[1] - p[0]));
+        const best = groups.filter((p) => p[1] - p[0] >= tall / 2)
+            .sort((p, q) => Math.abs((p[0] + p[1]) / 2 - h / 2) - Math.abs((q[0] + q[1]) / 2 - h / 2) || (q[1] - q[0]) - (p[1] - p[0]))[0];
+        const out = { data: new Uint8ClampedArray(img.data), width: w, height: h };
+        out.data.fill(255, 0, best[0] * w * 4);
+        out.data.fill(255, best[1] * w * 4);
+        return out;
+    }
+
     /** @param {number} x */ function triangle(x) { x = Math.abs(x); return x < 1 ? 1 - x : 0; }
     /** @param {number} x */ function cubic(x) { // Pillow: a = -0.5
         x = Math.abs(x);
@@ -214,7 +245,7 @@
 
     /** Próg: frac.png ma ok. 4170, z rozmyciem Gaussa sigma=1 ok. 350, sigma=2 ok. 45, sigma=3 ok. 10. */
     const BLUR_MIN = 100;
-    const API = { blurScore: blurScore, BLUR_MIN: BLUR_MIN, whitenBackground: whitenBackground, trimEdgeBlobs: trimEdgeBlobs, toTensor: toTensor, decodeTokens: decodeTokens };
+    const API = { blurScore: blurScore, BLUR_MIN: BLUR_MIN, whitenBackground: whitenBackground, trimEdgeBlobs: trimEdgeBlobs, keepCentralLine: keepCentralLine, toTensor: toTensor, decodeTokens: decodeTokens };
     /** @type {any} */ (typeof window !== 'undefined' ? window : globalThis).MATM0_FIMG = API; // w Workerze nie ma window
     if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

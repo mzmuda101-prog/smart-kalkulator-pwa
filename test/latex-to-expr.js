@@ -38,7 +38,11 @@ const PAIRS = [
     ['\\mathop\\underset { n \\to \\infty } { l i m } \\; ( n ^ { 3 } )', 'lim n→∞ (n^3)'],
     ['\\  operatorname\\* { l i m } _ { n \\to \\infty } { \\frac { 2 n + 1 } { 6 n + 5 } }', 'lim n→∞ (2n+1)/(6n+5)'],
     ['{ \\mathrm \\  ~ \\operatorname*   l i i  } _ { n \\to \\infty } \\ ( n )', 'lim n→∞ (n)'],
+    ['\\lim_{x\\to 0}\\frac{\\sin x+e^{x}}{\\sqrt{x}}', 'lim x→0 (sin x+e^x)/sqrt(x)'], // e, sin, sqrt to nie obce zmienne
     // ramka złapała koniec etykiety „(b)”
+    ['\\, )  ,  , * \\, \\operatorname* { l i m } _ { n \\to \\infty } \\, ( n )', 'lim n→∞ (n)'],
+    ['! ) \\, \\operatorname* { l i m } _ { n \\to \\infty } \\, \\frac { n } { 2 }', 'lim n→∞ n/2'],
+    ['\\, )  ,  , * _,{ n \\to \\infty } \\, ( n )', 'lim n→∞ (n)'],
     [') \\ \\operatorname* { l i m } _ { n \\to \\infty } \\ \\frac { n } { 2 }', 'lim n→∞ n/2'],
     ['| \\ \\operatorname*   l i i  _{{ x \\rightarrow \\infty } } \\ \\frac { x } { 2 }', 'lim x→∞ x/2'],
     ['\\mathop { l i m } _ { n \\to \\infty } \\, \\frac { n ^ { 2 } + 3 n + 4 } { 2 n ^ { 2 } + 5 n + 1 }', 'lim n→∞ (n^2+3n+4)/(2n^2+5n+1)'],
@@ -54,7 +58,8 @@ for (const [l, e] of [
 ok('\\fracfrac to \\frac', latexToExpr('x+\\fracfrac{1}{2}').expr === 'x+1/2', latexToExpr('x+\\fracfrac{1}{2}'));
 ok('\\\\frac to \\frac', latexToExpr('\\\\frac{1}{2}').expr === '1/2' && !latexToExpr('\\\\frac{1}{2}').uncertain, latexToExpr('\\\\frac{1}{2}'));
 ok('„?” na końcu odpada', latexToExpr('n+1 \\foo').expr === 'n+1' && !latexToExpr('n+1 \\foo').uncertain, latexToExpr('n+1 \\foo'));
-for (const l of ['\\lim_{n\\to\\infty} \\foo f r a c n', '\\alpha+\\beta+\\gamma+1', 'n^{+}+1', 'n--1', 'x/{.}', 'n+'])
+for (const l of ['\\lim_{n\\to\\infty} \\foo f r a c n', '\\alpha+\\beta+\\gamma+1', 'n^{+}+1', 'n--1', 'x/{.}', 'n+', 'n^{^{3}}', '(n*)', 'n^{,}',
+    '\\lim_{x\\to 3}\\frac{x^2}{r^3-27}'])
     ok('śmieci → błąd: ' + l, typeof latexToExpr(l).error === 'string', latexToExpr(l));
 // indeks z \\to tylko po literach na początku: \\frac przed nim to nie głowa granicy
 ok('\\frac{1}{x}_{n\\to 1} nie staje się granicą', !/^lim/.test(latexToExpr('\\frac{1}{x}_{n\\to 1}').expr || ''), latexToExpr('\\frac{1}{x}_{n\\to 1}'));

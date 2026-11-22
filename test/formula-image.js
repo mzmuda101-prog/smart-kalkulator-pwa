@@ -5,7 +5,7 @@ const fs = require('fs');
 const zlib = require('zlib');
 const path = require('path');
 const root = path.join(__dirname, '..');
-const { blurScore, BLUR_MIN, whitenBackground, trimEdgeBlobs, toTensor, decodeTokens } = require(path.join(root, 'js', 'formula-image.js'));
+const { blurScore, BLUR_MIN, whitenBackground, trimEdgeBlobs, keepCentralLine, toTensor, decodeTokens } = require(path.join(root, 'js', 'formula-image.js'));
 const vocab = require(path.join(root, 'models', 'formulanet-s', 'vocab.json'));
 
 let pass = 0, fail = 0;
@@ -52,6 +52,22 @@ const px = (img, x, y) => img.data[(y * img.width + x) * 4];
     const c = blank(300, 80); rect(c, 20, 0, 200, 6); rect(c, 30, 25, 240, 30); rect(c, 20, 74, 200, 6);
     const rc = trimEdgeBlobs(c);
     ok('trim: skrawki góra i dół, wzór w środku', px(rc, 100, 3) === 255 && px(rc, 100, 77) === 255 && px(rc, 100, 40) === 0, [px(rc, 100, 3), px(rc, 100, 77), px(rc, 100, 40)]);
+}
+
+// keepCentralLine: dwa wzory w ramce → zostaje środkowy; ułamek (przerwy 3 px) się nie rozpada
+{
+    const ink = (r, y0, y1) => { let c = 0; for (let y = y0; y < y1; y++) for (let x = 0; x < r.width; x++) if (r.data[(y * r.width + x) * 4] < 128) c++; return c; };
+    const two = blank(300, 150); rect(two, 20, 10, 250, 38); rect(two, 20, 66, 260, 50);
+    const rt = keepCentralLine(two);
+    ok('środek: sąsiad nad wzorem znika', ink(rt, 0, 50) === 0 && ink(rt, 66, 116) > 0, [ink(rt, 0, 50), ink(rt, 66, 116)]);
+    const fr = blank(200, 70); rect(fr, 80, 5, 40, 25); rect(fr, 60, 33, 80, 2); rect(fr, 80, 38, 40, 25);
+    ok('środek: sam ułamek zostaje cały', ink(keepCentralLine(fr), 0, 70) === ink(fr, 0, 70));
+    const one = blank(200, 60); rect(one, 10, 10, 180, 40);
+    ok('środek: jeden wzór bez zmian', keepCentralLine(one) === one);
+    // mały skrawek w środku nie wygrywa z wzorem obok
+    const sc = blank(300, 160); rect(sc, 20, 72, 30, 8); rect(sc, 20, 100, 260, 50);
+    const rs = keepCentralLine(sc);
+    ok('środek: skrawek nie wygrywa', ink(rs, 100, 150) > 0 && ink(rs, 70, 82) === 0, [ink(rs, 100, 150), ink(rs, 70, 82)]);
 }
 
 // whitenBackground: szare tło z gradientem (zdjęcie ekranu / kartki w pokoju) → białe, kreski zostają ciemne

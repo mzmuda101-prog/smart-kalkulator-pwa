@@ -376,6 +376,15 @@ Wnioski:
 - `run.py` (Python) daje na tych samych wycinkach ok. 25/58 — jego przygotowanie obrazu odbiega od apki;
   do pomiarów używać `app-read.mjs`. Folder `wzory-czyste` ma obcięte pierwiastki i nawiasy (stare
   przycinanie w Pythonie) — nie nadaje się na bazę.
+- **v1.04.94 — wzór najbliżej środka ramki** (`keepCentralLine` w workerze, po `trimEdgeBlobs`): tusz
+  dzielony na pasy wierszy; granica między wzorami = pusta przerwa ≥ 15% wysokości wyższego sąsiada
+  (min. 4 px; wewnątrz wzoru przerwy 0–3 px, granice 16–31 px); zostaje grupa najbliżej środka spośród
+  co najmniej w połowie tak wysokich jak najwyższa. Do tego: resztka etykiety z lewej (`\, ) , , *`),
+  filtr śmieci (`(^n`, `*)`, `(,)`) i obca zmienna w granicy (`lim x→3 … r^3`) jako błąd.
+  Wyniki: ramka +30% **18 → 37/58**, ramka +60% (trzy wzory) **2 → 36/58**, luźna 48 → 51, baza 50 → 52;
+  pod kątem 49 → 47 i po −1 w trzech wariantach (model wrażliwy na zmianę kadru — obrazy po cięciu
+  sprawdzone, znika tylko skrawek). Na 870 odczytach (15 wariantów): dobre **618 → 703**, złe wstawiane
+  bez ostrzeżenia **38 → 35**, niepewne 30 → 14.
 - Prawdziwe zdjęcia z telefonu nadal potrzebne do potwierdzenia (zestaw syntetyczny nie pokaże np.
   odbić światła na błyszczącym papierze ani zagięcia kartki). Później: UniMER-Test jako druga próba.
 

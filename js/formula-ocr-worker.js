@@ -38,7 +38,7 @@ self.onmessage = async (/** @type {MessageEvent} */ e) => {
             const t0 = performance.now();
             const g = /** @type {any} */ (globalThis);
             // tu, nie na stronie: wątek główny wolny. Najpierw białe tło (na szarym tle przycinanie brało całe tło za tusz).
-            const img = g.MATM0_FIMG.trimEdgeBlobs(g.MATM0_FIMG.whitenBackground(m.img));
+            const img = g.MATM0_FIMG.keepCentralLine(g.MATM0_FIMG.trimEdgeBlobs(g.MATM0_FIMG.whitenBackground(m.img))); // dwa wzory w ramce: zostaje środkowy
             const x = g.MATM0_FIMG.toTensor(img, { size: manifest.inputShape[2], mean: manifest.mean, std: manifest.std });
             const out = await session.run({ [manifest.input]: new ort.Tensor('float32', x, manifest.inputShape) });
             const latex = g.MATM0_FIMG.decodeTokens(out[session.outputNames[0]].data, vocab, manifest.eosId);

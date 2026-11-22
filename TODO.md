@@ -23,8 +23,8 @@
 
 ## Skaner — z pomiaru udawanych zdjęć (spec §5.10b, 2026-11-22)
 
-- [ ] **Dwa wzory w ramce** (ramka +30% na ciasnej stronie: 18/58): w workerze zostawić wiersz tuszu
-      najbliżej środka ramki (próg przerwy względem wysokości znaku, żeby nie rozciąć ułamka) — do decyzji
+- [x] **Dwa wzory w ramce**: zostaje wzór najbliżej środka (v1.04.94; ramka +30%: 18 → 37/58)
+- [ ] Ramka +30% nadal 37/58: reszta to zgubione „lim” i skrawki etykiet — sprawdzić na zdjęciach z telefonu
 - [ ] Ramka za ciasna (42/58): podpowiedź „ramka ucina wzór”, gdy tusz dotyka góry/dołu na dużej długości
 - [ ] Potwierdzić na prawdziwych zdjęciach z telefonu (odbicia, zagięcia, pismo nie z PDF)
 
