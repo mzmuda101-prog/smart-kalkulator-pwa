@@ -96,6 +96,10 @@ ok('zestaw: 58/58 rysunków wraca do tego samego zadania', bad.length === 0, bad
     ok('kroki: f′(t), ∫ … dx, 0⁺, +∞', stepToLatex('f′(t) = 2at').join('') === 'f^{\\prime}\\left(t\\right)=2a t'
         && stepToLatex('∫ x² dx = x³/3').join('') === '\\int x^{2}\\,dx=\\frac{x^{3}}{3}'
         && stepToLatex('lim(x→0⁺) 1/x = +∞').join('') === '\\lim_{x\\to 0^{+}}\\frac{1}{x}=+\\infty ', stepToLatex('f′(t) = 2at'));
+    // 15 grup [∞] w jednym kawałku to więcej niż liter zastępczych — kawałek zostaje tekstem, bez wyjątku
+    let thrown = null, many = null;
+    try { many = stepToLatex(Array(16).fill('∞').join(' · ')); } catch (e) { thrown = e.message; }
+    ok('kroki: za dużo grup → tekst, nie wyjątek', !thrown && many && many.length === 1, thrown || many);
     ok('kroki: przecinek zostaje przy wzorze', stepToLatex('1 − 1/n = 1 + 1/(−n),  aₙ = −n').join('|') === '1-\\frac{1}{n}|=1+\\frac{1}{-n},|a_{n}|=-n');
 }
 

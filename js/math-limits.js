@@ -242,6 +242,46 @@
     }
     function limHead(v, t) { return 'lim(' + v + '→' + targetText(t) + ') '; }
     function limOf(v, t, e) { return limHead(v, t) + (e.length > 1 ? '(' + C.show(e) + ')' : C.show(e)); }
+    // ── Zadanie tak, jak je wpisano (krok 1 i „Wynik”): z drzewa parsera, bez porządkowania wyrazów ──
+    var AST_PREC = { add: 1, sub: 1, neg: 2, mul: 3, div: 3, pow: 5 };
+    var FN_SHOW = { asin: 'arcsin', acos: 'arccos', atan: 'arctg', tan: 'tg', cot: 'ctg' };
+    var SUB_DIGITS = '₀₁₂₃₄₅₆₇₈₉';
+    function astText(n, need) {
+        var s = astInner(n);
+        return (AST_PREC[n.k] || 9) < (need || 0) ? '(' + s + ')' : s;
+    }
+    function astGroup(n) { return n.k === 'num' || n.k === 'var' || n.k === 'const' ? astInner(n) : '(' + astText(n) + ')'; }
+    function fnName(n) {
+        return n.f === 'logb' ? 'log' + String(n.base).replace(/\d/g, function (c) { return SUB_DIGITS[+c]; }) : FN_SHOW[n.f] || n.f;
+    }
+    function astInner(n) {
+        switch (n.k) {
+            case 'num': return n.dec ? String(K.toNum(n.v)).replace('.', ',') : K.fmt(n.v);
+            case 'var': return n.v;
+            case 'const': return n.v === 'pi' ? 'π' : 'e';
+            case 'add': return astText(n.a, 1) + ' + ' + astText(n.b, n.b.k === 'neg' ? 3 : 1);
+            case 'sub': return astText(n.a, 1) + ' − ' + astText(n.b, n.b.k === 'neg' ? 3 : 2);
+            case 'neg': return '−' + astText(n.a, 3);
+            case 'mul': { // [EN] nawias użytkownika zostaje: 2(1/n), nie 21/n; liczba po czymś — z kropką
+                var bt = n.b.paren ? '(' + astText(n.b) + ')' : astText(n.b, 3);
+                return astText(n.a, 3) + (n.implicit && !/^\d/.test(bt) ? '' : ' · ') + bt;
+            }
+            case 'div': return astText(n.a, 3) + '/' + astText(n.b, 4);
+            case 'sqrt': return '√' + astGroup(n.a);
+            case 'fn': return fnName(n) + '(' + astText(n.a) + ')';
+            case 'pow': {
+                var b = n.b, a = n.a;
+                if (b.k === 'num' && b.v.n === 1n && b.v.d >= 2n && b.v.d <= 4n) return '√∛∜'[Number(b.v.d) - 2] + astGroup(a);
+                var exp = b.k === 'num' && K.isInt(b.v) && b.v.n >= 0n ? K.sup(b.v.n.toString())
+                    : '^' + (b.k === 'var' || (b.k === 'num' && K.isInt(b.v) && b.v.n >= 0n) ? astInner(b) : '(' + astText(b) + ')');
+                return a.k === 'fn' ? fnName(a) + exp + '(' + astText(a.a) + ')' : astText(a, 6) + exp;
+            }
+        }
+        throw new NotSupported();
+    }
+    function userLim(d, e) { // [EN] węzeł, którego nie umiemy wypisać → zapis silnika
+        try { return limHead(d.v, d.target) + astText(K.parse(d.src), 2); } catch (x) { return limOf(d.v, d.target, e); }
+    }
     function formatAnswer(ans) {
         if (ans.kind === 'inf') return { text: ans.sign > 0 ? '+∞' : '−∞', value: ans.sign > 0 ? Infinity : -Infinity };
         if (ans.kind === 'dne') return { text: 'granica nie istnieje', value: null };
@@ -420,6 +460,11 @@
     function uText(v, sign, p) {
         var base = sign > 0 ? v : '(−' + v + ')';
         if (K.eq(p, ONE)) return base;
+        // [EN] potęga połówkowa/trzeciowa jak na kartce: x^(1/2) → √x, (−x)^(3/2) → (−x)√(−x), nie zapis z klawiatury
+        if (p.n > 0n && (p.d === 2n || p.d === 3n)) {
+            var whole = Number(p.n / p.d), rest = Number(p.n % p.d), root = (p.d === 2n ? '√' : '∛') + (sign > 0 ? v : '(−' + v + ')');
+            if (rest === 1) return (whole ? base + (whole > 1 ? K.sup(String(whole)) : '') : '') + root;
+        }
         return sign > 0 ? C.show(C.cPow(C.variable(v), p)) : base + (K.isInt(p) ? K.sup(p.n.toString()) : '^(' + K.fmt(p) + ')');
     }
     function hasEvenRoot(e, v) {
@@ -466,7 +511,9 @@
             var sign = t.at === 'inf' ? 1 : -1, fr = splitFraction(e);
             var N = pullExpr(fr.N, v, sign), D = pullExpr(fr.D, v, sign);
             var head = limHead(v, t);
-            if (sign < 0 && hasEvenRoot(e, v)) line(log, 'Dla ' + v + ' → −∞', '√(' + v + '²) = |' + v + '| = −' + v);
+            // [EN] √(x²) = |x| tylko, gdy wyłączamy całe potęgi; przy √(−x) wystarczy: x < 0, więc −x > 0
+            if (sign < 0 && hasEvenRoot(e, v)) line(log, 'Dla ' + v + ' → −∞', K.isInt(N.p) && K.isInt(D.p)
+                ? '√(' + v + '²) = |' + v + '| = −' + v : v + ' < 0, więc −' + v + ' > 0');
             var same = K.eq(N.p, D.p), alone = isOne(fr.D);
             var label = (same || alone) && !K.isZero(N.p) ? 'Wyłączamy ' + uText(v, sign, N.p) + ' przed nawias' : 'Wyłączamy najwyższe potęgi przed nawias';
             var pn = pulledText(v, sign, N), pd = pulledText(v, sign, D);
@@ -476,8 +523,9 @@
             if (same && !K.isZero(N.p)) line(log, 'Skracamy ' + uText(v, sign, N.p), head + quotientText(N.rest, D.rest));
             var cval = C.cMul(N.c, C.cPow(D.c, K.neg(ONE)));
             var cv = numVal(cval), cText = C.show(rationalize(cval));
-            if (K.isZero(q)) {
-                line(log, 'Wyrazy z ' + v + ' w mianowniku dążą do 0', '→ ' + cText);
+            if (K.isZero(q)) { // [EN] pokazujemy podstawienie: (2 + 0)/(6 + 0) = 1/3, nie sam wynik
+                var plugged = plugText(quotientText(N.rest, D.rest), v, t);
+                line(log, 'Wyrazy z ' + v + ' w mianowniku dążą do 0', '→ ' + (plugged ? plugged + ' = ' : '') + cText);
                 return { kind: 'num', e: cval };
             }
             var neg = K.toNum(q) < 0, infSign = cv > 0 ? 1 : -1;
@@ -737,8 +785,9 @@
             var sgh = C.show(gh), still = !C.hasVar(gh, v);
             // [EN] bez osobnego kroku „Wzór na e” (spec 5.12): fragment ⟦…⟧ jest podkreślony, stuknięcie → dymek ze wzorem
             var core = '⟦(' + onePlus + ')^' + pa + '⟧';
+            var pw = function (x) { return x === '1' ? '' : /^\d+$/.test(x) ? K.sup(x) : '^(' + x + ')'; }; // [EN] e³, nie e^(3)
             line(log, 'Podstawa dąży do e', limHead(v, t) + (sgh === '1' ? core + ' = e'
-                : '[' + core + ']^(' + sgh + ')' + (still ? ' = e^(' + sgh + ')' : '')));
+                : '[' + core + ']' + pw(sgh) + (still ? ' = e' + pw(sgh) : '')));
             if (log) log[log.length - 1].formula = { id: 'e' };
             var mark = log ? log.length : 0;
             if (!still) line(log, 'Granica wykładnika', limOf(v, t, gh));
@@ -754,8 +803,14 @@
                 return { kind: 'inf', sign: 1 };
             }
             if (L.kind !== 'num') throw new NotSupported();
-            if (!single) line(log, 'Wykładnik', '→ ' + C.show(rationalize(fold(L.e))));
-            return { kind: 'num', e: C.cMul(coef, C.cExp(C.E_CONST, L.e)) };
+            var res = { kind: 'num', e: C.cMul(coef, C.cExp(C.E_CONST, L.e)) };
+            // [EN] składamy wynik: e^(−6) = 1/e⁶ (bez powtórzonego „Wykładnik → −6”)
+            var et = 'e' + pw(C.show(rationalize(fold(L.e))));
+            var ct = K.eq(p.c, ONE) ? '' : K.fmt(p.c) + ' · ', fin = formatAnswer(res).text;
+            // [EN] współczynnik spoza potęgi (5·(1 + 1/n)ⁿ) wraca dopiero tutaj — inaczej krok mówiłby „e = 5e”
+            if (still && !ct) { if (log && fin !== et) log[mark - 1].math += ' = ' + fin; }
+            else line(log, 'Składamy wynik', ct + et + (fin !== ct + et ? ' = ' + fin : ''));
+            return res;
         }
     };
     // [EN] aᵍᵏ/bᵍ = (aᵏ/b)ᵍ — wspólny wykładnik dla ilorazu potęg (zad. 6h)
@@ -846,6 +901,8 @@
     function isE(x) { return x.length === 1 && K.eq(x[0].c, ONE) && x[0].fs.length === 1 && x[0].fs[0].b.k === 'const' && x[0].fs[0].b.v === 'e' && K.eq(x[0].fs[0].e, ONE); }
     function knownPart(x, v, t) { // [EN] x = sin(u) | tg(u) | eᵘ − 1 | ln(1 + u), u → 0 → { u, label }
         var hit = null;
+        // [EN] licznik (eˣ − 1) przychodzi jako jeden czynnik-suma — rozpakowujemy, inaczej szło de l'Hospitalem (błędne koło)
+        if (x.length === 1 && K.eq(x[0].c, ONE) && x[0].fs.length === 1 && x[0].fs[0].b.k === 'sum' && K.eq(x[0].fs[0].e, ONE)) x = x[0].fs[0].b.s;
         if (x.length === 1 && x[0].fs.length === 1 && K.eq(x[0].fs[0].e, ONE) && x[0].fs[0].b.k === 'fn') {
             var a = x[0].fs[0].b;
             var top1 = [C.term(ONE, x[0].fs)];
@@ -986,20 +1043,78 @@
         }
         throw new NotSupported();
     }
+    // ── „Wstaw od razu” (plan kroków 3b): granica określona przy n → ±∞ — każde c/(coś → ∞) to 0, liczymy wprost.
+    // Bez tego silnik przerabiał (1 − 1/n)² przez wspólny mianownik i wracał do punktu wyjścia.
+    function astHasVar(n, v) { return n.k === 'var' ? n.v === v : !!((n.a && astHasVar(n.a, v)) || (n.b && astHasVar(n.b, v))); }
+    function plugInfinity(n, d, hits) {
+        if (n.k === 'div' && !astHasVar(n.a, d.v) && astHasVar(n.b, d.v)) {
+            var lb = numericLimit(C.fromAst(n.b), d.v, d.target);
+            if (lb && lb.kind === 'inf') {
+                var h = astText(n) + ' → 0';
+                if (hits.indexOf(h) < 0) hits.push(h);
+                return { k: 'num', v: K.ZERO, paren: n.paren };
+            }
+        }
+        if (!n.a) return n;
+        var out = Object.assign({}, n);
+        out.a = plugInfinity(n.a, d, hits);
+        if (n.b) out.b = plugInfinity(n.b, d, hits);
+        return out;
+    }
+    function plugText(text, v, t) { // [EN] tekst kroku z c/vᵖ → 0; null, gdy nic nie zniknęło albo zmienna została
+        try {
+            var hits = [], sub = plugInfinity(K.parse(text), { v: v, target: t }, hits);
+            return hits.length && !astHasVar(sub, v) ? astText(sub) : null;
+        } catch (x) { return null; }
+    }
+    function quickPlug(ast, d, ans) { // [EN] krok albo null, gdy podstawienie nie daje od razu wyniku
+        if (ans.kind !== 'num') return null;
+        var hits = [], sub = plugInfinity(ast, d, hits);
+        if (!hits.length || astHasVar(sub, d.v)) return null;
+        var got = numVal(C.fromAst(sub)), want = numVal(ans.e);
+        if (!(Math.abs(got - want) <= 1e-9 * (1 + Math.abs(want)))) return null;
+        return { label: 'Podstawiamy ' + d.v + ' → ' + targetText(d.target), math: hits.join(', ') + ':  ' + astText(sub) + ' = ' + formatAnswer(ans).text };
+    }
+    // [EN] krok 1 pokazuje zapis użytkownika, a reguły liczą postać silnika (znak wyciągnięty, liczba spod pierwiastka).
+    // Gdy różnią się czymś więcej niż kolejnością wyrazów — krok pośredni, żeby kolejne kroki pasowały do poprzednich.
+    function sameButOrder(a, b) {
+        // [EN] bez spacji, „+”, „·”; n^(3/2) = n√n — to ten sam zapis, tylko inaczej ułożony
+        var norm = function (x) { return x.replace(/([a-z])\^\(3\/2\)/g, '$1√$1').replace(/[\s+·]/g, '').split('').sort().join(''); };
+        return norm(a) === norm(b);
+    }
+    function rewriteStep(ast, d, e) {
+        var head = limHead(d.v, d.target), mine;
+        try { mine = astText(ast, 2); } catch (x) { return null; }
+        var eng = limOf(d.v, d.target, e).slice(head.length);
+        if (mine === eng || sameButOrder(mine, eng)) return null;
+        var bare = function (x) { return /^\(.*\)$/.test(x) && !/\)\s*[^\s)]/.test(x.slice(1, -1).replace(/\([^()]*\)/g, '')) ? x.slice(1, -1) : x; };
+        return { label: 'Zapisujemy inaczej', math: bare(mine) + ' = ' + bare(eng) };
+    }
     function run(d) {
+        C.setVar(d.v); // [EN] przed budowaniem: kolejność wyrazów liczy się od potęgi TEJ zmiennej
         var ast = K.parse(d.src), e = C.fromAst(ast);
-        C.setVar(d.v);
         var ans, ind, steps;
         _work = 0; _budget = WORK_BUDGET;
         try {
             ind = indeterminate(e, d.v, d.target);
-            steps = [{ label: 'Granica', math: limOf(d.v, d.target, e) + (ind ? '  [' + ind + ']' : '') }];
-            ans = limitOf(e, d.v, d.target, steps, 0);
+            steps = [{ label: 'Granica', math: userLim(d, e) + (ind ? '  [' + ind + ']' : '') }];
+            var quick = null;
+            if (!ind && !isFiniteTarget(d.target)) {
+                ans = limitOf(e, d.v, d.target, null, 0);
+                quick = quickPlug(ast, d, ans);
+            }
+            if (quick) steps.push(quick);
+            else {
+                _work = 0; // [EN] pierwszy przebieg (sprawdzenie „wstaw od razu”) nie zjada budżetu drugiemu
+                var bridge = rewriteStep(ast, d, e);
+                if (bridge) steps.push(bridge);
+                ans = limitOf(e, d.v, d.target, steps, 0);
+            }
         }
         finally { _budget = Infinity; }
         if (!agrees(ans, numericLimitAst(ast, d.v, d.target))) throw new NotSupported(); // [EN] nigdy błędnego wyniku — liczone z zapisu użytkownika
         var out = formatAnswer(ans);
-        steps.push({ label: 'Wynik', math: limOf(d.v, d.target, e) + ' = ' + out.text });
+        steps.push({ label: 'Wynik', math: userLim(d, e) + ' = ' + out.text });
         return K.done('Granica', out.text, out.value, steps);
     }
 

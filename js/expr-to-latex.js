@@ -105,7 +105,7 @@
     // Kawałek, którego parser nie zna (słowa, „brak rozwiązań”), zostaje tekstem.
     // ⟦…⟧ = fragment, w którym działa wzór (step.formula) — rysowany podkreślony, do stuknięcia.
     const SEPS = [[', więc ', ',\\ \\text{więc}\\ '], [' lub ', '\\quad\\text{lub}\\quad '], [':  ', ':\\quad '],
-        [': ', ':\\quad '], [',  ', ',\\quad '], [', ', ',\\ '], [' = ', '='], [' ≈ ', '\\approx '], [' → ', '\\to '],
+        [': ', ':\\quad '], [',  ', ',\\quad '], [', ', ',\\ '], [' = ', '='], [' ≈ ', '\\approx '], [' < ', '<'], [' > ', '>'], [' → ', '\\to '],
         [' ✓', '\\ \\checkmark']];
     const OPEN = '([⟦', CLOSE = ')]⟧';
     const SUBS = { '₀': '0', '₁': '1', '₂': '2', '₃': '3', 'ₙ': 'n', 'ₖ': 'k' };
@@ -212,7 +212,9 @@
         return String(math).split('\n').flatMap(lineText => {
             /** @type {string[]} */ const out = [];
             for (const { sep, part } of splitTop(lineText)) {
-                const t = pieceTex(part, fid || ''), body = t != null ? t : textTex(part.replace(/[⟦⟧]/g, ''));
+                let t = null;
+                try { t = pieceTex(part, fid || ''); } catch { t = null; } // za dużo grup na litery zastępcze — kawałek tekstem
+                const body = t != null ? t : textTex(part.replace(/[⟦⟧]/g, ''));
                 // przecinek i dwukropek zostają przy poprzednim kawałku (zawijanie nie zostawi ich na początku linii)
                 const punct = /^[,:]/.test(sep) && out.length ? sep[0] : '';
                 if (punct) out[out.length - 1] += punct;

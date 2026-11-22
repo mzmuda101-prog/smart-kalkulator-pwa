@@ -182,11 +182,11 @@ const WANT_TEXT = { '1a': '1/3', '1d': '0', '1e': '+∞', '7a': '√3/3', '7b': 
     ok('6d: bez kroku „Wzór na e”', !st.some(x => x.label === 'Wzór na e'), st.map(x => x.label));
     ok('6d: krok z podkreślonym wzorem na e', st.some(x => x.formula && x.formula.id === 'e' && /⟦\(1 \+ .*⟧/.test(x.math)), st.map(x => x.label + ': ' + x.math));
     ok('6d: krok z aₙ = ', st.some(x => x.math.includes('aₙ = ')), st.map(x => x.math));
-    ok('6d: wykładnik → −6', st.some(x => /→ −6$/.test(x.math)), st.map(x => x.math));
+    ok('6d: wykładnik → −6', st.some(x => /→ .* = −6$/.test(x.math)), st.map(x => x.math));
     // (1 − 1/n)^n: jedynka dorobiona naprawdę, długi krok bez ucięcia, wykładnik stały = jeden krok
     const e1 = (S.run('lim n→∞ (1-1/n)^n') || {}).explain, s1 = e1 ? e1.steps : [];
     ok('(1−1/n)^n: 1 − 1/n = 1 + 1/(−n)', s1.some(x => x.label === 'Dorabiamy jedynkę' && x.math.startsWith('1 − 1/n = 1 + 1/(−n),')), s1.map(x => x.math));
-    ok('(1−1/n)^n: podstawa → e w jednym kroku z wykładnikiem', s1.some(x => x.label === 'Podstawa dąży do e' && x.math.endsWith('[⟦(1 + 1/(−n))^(−n)⟧]^(−1) = e^(−1)')), s1.map(x => x.math));
+    ok('(1−1/n)^n: podstawa → e w jednym kroku z wykładnikiem', s1.some(x => x.label === 'Podstawa dąży do e' && x.math.endsWith('[⟦(1 + 1/(−n))^(−n)⟧]^(−1) = e^(−1) = 1/e')), s1.map(x => x.math));
     ok('(1−1/n)^n: stały wykładnik bez osobnego kroku', !s1.some(x => /^(Granica wykładnika|Wykładnik)$/.test(x.label)), s1.map(x => x.label));
     ok('6d: 1 + (−3/(n + 3))', st.some(x => x.label === 'Dorabiamy jedynkę' && x.math.includes('= 1 + (−3/(n + 3))')), st.map(x => x.math));
     const s2 = ((S.run('lim n→∞ (1+1/(2n))^n') || {}).explain || { steps: [] }).steps;
@@ -292,6 +292,52 @@ ok('minor: lim x→−8 ∛x nie daje złego wyniku', ['−2', NOPE].includes(te
         const t0 = Date.now(); S.run(q); const ms = Date.now() - t0;
         ok('I3: < 600 ms: ' + q, ms < 600, ms + ' ms');
     });
+}
+
+// ── Etap 3b: kroki zrozumiałe (plan 2026-11-22-kroki-zrozumiale.md) ──
+{
+    const steps = q => { const r = S.run(q); return r && r.explain ? r.explain.steps : []; };
+    const show = st => st.map(x => x.label + ': ' + x.math);
+    // krok 1 i „Wynik” w zapisie użytkownika (kolejność, liczby pod pierwiastkiem)
+    const sA = steps('lim n→∞ (1-1/n)^2');
+    ok('3b: krok 1 jak wpisano (1 − 1/n)²', sA[0] && sA[0].math === 'lim(n→∞) (1 − 1/n)²', show(sA));
+    ok('3b: „Wynik” jak wpisano', sA.length && sA[sA.length - 1].math === 'lim(n→∞) (1 − 1/n)² = 1', show(sA));
+    // bez kroków w kółko: granica określona → od razu wstawiamy
+    ok('3b: (1 − 1/n)² bez wspólnego mianownika', !sA.some(x => /mianownika/.test(x.label)), show(sA));
+    ok('3b: (1 − 1/n)² w 3 krokach z (1 − 0)²', sA.length === 3 && sA.some(x => x.math.includes('(1 − 0)² = 1')), show(sA));
+    const sB = steps('lim x→-∞ sqrt(7-2x)(sqrt(15-8x)-sqrt(3-8x))');
+    ok('3b: krok 1 z √(7 − 2x) jak wpisano', sB[0] && sB[0].math.startsWith('lim(x→−∞) √(7 − 2x)(√(15 − 8x) − √(3 − 8x))'), show(sB));
+    ok('3b: etykiety bez ^(', !sB.some(x => /\^\(/.test(x.label)), sB.map(x => x.label));
+    ok('3b: √(x²) = |x| tylko, gdy jest x² pod pierwiastkiem', !sB.some(x => x.math.startsWith('√(x²)')), show(sB));
+    const s9 = steps(byId['9a'].input);
+    ok('3b: 9a krok 1 jak wpisano', s9[0] && s9[0].math.startsWith('lim(x→5) (x − 5)/(3 − √(x + 4))'), show(s9));
+    // krok 1 jak wpisano, a silnik liczy inną postać → krok pośredni, żeby kroki do siebie pasowały
+    ok('3b: 9a „Zapisujemy inaczej” ze zmianą znaku', s9[1] && s9[1].label === 'Zapisujemy inaczej'
+        && s9[1].math === '(x − 5)/(3 − √(x + 4)) = −(x − 5)/(√(x + 4) − 3)', show(s9));
+    const s4c = steps(byId['4c'].input);
+    ok('3b: 4c pokazuje √(4n² + 2) = …√2…', s4c[1] && s4c[1].label === 'Zapisujemy inaczej', show(s4c));
+    ok('3b: samo przestawienie wyrazów bez kroku pośredniego', !sB.some(x => x.label === 'Zapisujemy inaczej'), show(sB));
+    // przegląd kodu: współczynnik przed potęgą nie może dać „e = 5e”
+    for (const [q, want] of [['lim n→∞ 5(1+1/n)^n', '5e'], ['lim n→∞ 2(1+1/n)^(3n)', '2e³']]) {
+        const st = steps(q);
+        ok('3b: ' + q + ' bez fałszywej równości', !st.some(x => /= e(\^\(\d+\))? = /.test(x.math)) && st.some(x => x.math.endsWith('= ' + want)), show(st));
+    }
+    // mnożenie bez znaku nie skleja liczb: 2(1/n) to nie 21/n
+    const sM = steps('lim n→∞ 3 + 2(1/n)');
+    ok('3b: 2(1/n) nie skleja się w 21/n', sM[0] && sM[0].math === 'lim(n→∞) (3 + 2(1/n))', show(sM));
+    // „wstaw od razu” nie podwaja pracy silnika (budżet 1500)
+    S.run('lim n→∞ 5(1+1/n)^n');
+    ok('3b: praca bez podwojenia', L._test.lastWork() < 50, L._test.lastWork());
+    // podstawienie zamiast samego „→ wynik”
+    const s1 = steps(byId['1a'].input);
+    ok('3b: 1a pokazuje (2 + 0)/(6 + 0)', s1.some(x => x.math.includes('(2 + 0)/(6 + 0) = 1/3')), show(s1));
+    // bez powtórzonego wykładnika; wynik złożony z e
+    const s6 = steps(byId['6d'].input);
+    ok('3b: 6d bez dwóch takich samych kroków pod rząd', !s6.some((x, i) => i && x.math === s6[i - 1].math), show(s6));
+    ok('3b: 6d składa wynik e^(−6) = 1/e⁶', s6.some(x => x.math.includes('e^(−6) = 1/e⁶')), show(s6));
+    // (eˣ − 1)/x znaną granicą, nie de l'Hospitalem (błędne koło)
+    const sE = steps('lim x→0 (e^x-1)/x');
+    ok("3b: (eˣ − 1)/x bez de l'Hospitala", sE.length && !sE.some(x => /Hospital/.test(x.label)), show(sE));
 }
 
 // ── Zestaw 58 zadań ─────────────────────────────────────────

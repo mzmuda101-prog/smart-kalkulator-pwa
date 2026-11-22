@@ -5896,6 +5896,7 @@
         // rysuje ten sam MathLive co wzór obok wyniku. Bez biblioteki (offline bez cache) zostaje tekst.
         // Fragment ⟦…⟧ to miejsce użycia wzoru: podkreślony, stuknięcie → dymek, „Więcej” → widok z „Wróć”.
         var _stepsBack = null; // [EN] { list, scroll, id } — gdzie wrócić z widoku „Więcej”
+        var _stepsGen = 0; // [EN] numer widoku: spóźnione wczytanie biblioteki nie podmienia nowszych kroków
         function _stepsFormulas() { return (window.MATM0_FORMULAS && window.MATM0_FORMULAS.FORMULAS) || {}; }
         function _stepsRich(el, ml, text) { // [EN] tekst z $…$ → zdania z narysowanymi wzorami (bez zapisu z klawiatury)
             String(text).split('$').forEach(function (part, i) {
@@ -5927,7 +5928,10 @@
             var wasOpen = math.classList.contains('is-open');
             _closeStepsPop();
             if (wasOpen) return; // [EN] drugie stuknięcie w ten sam fragment zamyka dymek
+            math.classList.add('is-open'); // [EN] od razu: dwa szybkie stuknięcia przy wczytywaniu nie dadzą dwóch dymków
+            var gen = _stepsGen;
             _loadFormulaLib().catch(function () { return null; }).then(function (ml) {
+                if (gen !== _stepsGen || !math.classList.contains('is-open')) return; // [EN] w międzyczasie zamknięty albo nowe kroki
                 var pop = _stepsEl('div', 'steps-pop');
                 pop.setAttribute('role', 'group');
                 pop.setAttribute('aria-label', f.name);
@@ -5951,7 +5955,6 @@
                 var lr = li.getBoundingClientRect(), hr = hit.getBoundingClientRect();
                 pop.style.setProperty('--pop-x', Math.max(16, Math.min(lr.width - 16, hr.left + hr.width / 2 - lr.left)) + 'px');
                 math.after(pop);
-                math.classList.add('is-open');
                 var sr = math.querySelector('.steps-formula-sr');
                 if (sr) sr.setAttribute('aria-expanded', 'true');
             });
@@ -5959,8 +5962,9 @@
         function _openStepsMore(id) {
             var f = _stepsFormulas()[id], scroller = _stepsScroller();
             if (!f || !stepsView.firstChild) return;
-            _stepsBack = { list: stepsView.firstChild, scroll: scroller ? scroller.scrollTop : 0, id: id };
+            var back0 = _stepsBack = { list: stepsView.firstChild, scroll: scroller ? scroller.scrollTop : 0, id: id };
             _loadFormulaLib().catch(function () { return null; }).then(function (ml) {
+                if (_stepsBack !== back0) return; // [EN] w międzyczasie nowe kroki albo „Wróć”
                 var view = _stepsEl('div', 'steps-more');
                 var back = _stepsEl('button', 'steps-back');
                 back.type = 'button';
@@ -6002,6 +6006,7 @@
         });
         function renderStepsView(explain) {
             _stepsBack = null;
+            var gen = ++_stepsGen;
             var list = document.createElement('ol');
             list.className = 'steps-list';
             var formulas = _stepsFormulas(), toDraw = [];
@@ -6036,13 +6041,16 @@
             stepsView.appendChild(list);
             if (!window.MATM0_TEX || !window.MATM0_TEX.stepToLatex) return;
             _loadFormulaLib().then(function (ml) {
+                if (gen !== _stepsGen) return;
                 toDraw.forEach(function (d) {
-                    var parts = window.MATM0_TEX.stepToLatex(d.step.math, d.fid);
-                    if (!parts.length) return;
-                    d.ink.innerHTML = parts.map(function (tex) { // [EN] kawałek na „=”: długi krok zawija się jak na kartce
-                        return '<span class="steps-chunk">' + ml.convertLatexToMarkup(tex) + '</span>';
-                    }).join('');
-                    d.ink.classList.add('is-drawn');
+                    try { // [EN] jeden nietypowy krok zostaje tekstem, reszta i tak się rysuje
+                        var parts = window.MATM0_TEX.stepToLatex(d.step.math, d.fid);
+                        if (!parts.length) return;
+                        d.ink.innerHTML = parts.map(function (tex) { // [EN] kawałek na „=”: długi krok zawija się jak na kartce
+                            return '<span class="steps-chunk">' + ml.convertLatexToMarkup(tex) + '</span>';
+                        }).join('');
+                        d.ink.classList.add('is-drawn');
+                    } catch (e) { /* zostaje tekst kroku */ }
                 });
             }).catch(function () {}); // [EN] offline bez cache — zostaje tekst
         }
