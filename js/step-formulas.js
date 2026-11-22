@@ -2,7 +2,7 @@
 (function () {
     'use strict';
     // Słownik wzorów użytych w krokach (spec 5.12). Krok wskazuje wzór polem `formula: { id }`,
-    // a fragment, w którym wzór działa, jest w jego tekście w ⟦…⟧ (podkreślony, do stuknięcia).
+    // a fragment, w którym wzór działa, jest w jego tekście w ⟦…⟧ (wyróżniony kolorem, do stuknięcia).
     // tex — rysunek wzoru; why — „po co tu”; level — skąd jest; more — dłuższe wyjaśnienie.
     // W why/more kawałki między $…$ to LaTeX (rysowany jak na kartce, bez zapisu z klawiatury).
     /** @type {Record<string, {name: string, tex: string, why: string, level: string, more: string[]}>} */
@@ -11,7 +11,7 @@
             name: 'Wzór na liczbę e',
             tex: '\\left(1+\\frac{1}{a_{n}}\\right)^{a_{n}}\\to e\\quad\\text{gdy } a_{n}\\to\\pm\\infty',
             why: 'Podstawa dąży do 1, a wykładnik do nieskończoności (symbol $1^{\\infty}$). Zapisujemy podstawę jako '
-                + '$1+\\frac{1}{a_{n}}$, a podkreśloną potęgę zastępujemy przez $e$.',
+                + '$1+\\frac{1}{a_{n}}$, a kolorową potęgę zastępujemy przez $e$.',
             level: 'Studia: analiza matematyczna, granice ciągów',
             more: [
                 'Liczba $e\\approx 2{,}71828$ to granica $\\left(1+\\frac{1}{n}\\right)^{n}$ przy $n\\to\\infty$. Tak się ją często definiuje.',
@@ -27,7 +27,7 @@
             name: 'Sprzężenie: wzór na różnicę kwadratów',
             tex: '(a-b)(a+b)=a^{2}-b^{2}',
             why: 'Mnożymy różnicę z pierwiastkiem przez ten sam nawias z przeciwnym znakiem. Podniesione do kwadratu pierwiastki znikają, '
-                + 'a w podkreślonym miejscu zostaje zwykłe wyrażenie bez pierwiastka.',
+                + 'a w kolorowym miejscu zostaje zwykłe wyrażenie bez pierwiastka.',
             level: 'Liceum: wzory skróconego mnożenia; w granicach: studia',
             more: [
                 'Przykład: $\\left(\\sqrt{x+4}-3\\right)\\left(\\sqrt{x+4}+3\\right)=(x+4)-9=x-5$. Pierwiastka już nie ma.',
@@ -80,7 +80,7 @@
             name: 'Granica sin u przez u',
             tex: '\\frac{\\sin u}{u}\\to 1\\quad\\text{gdy } u\\to 0',
             why: 'Pod sinusem i w mianowniku musi stać to samo $u$, które dąży do 0. Dlatego czasem mnożymy i dzielimy przez liczbę, '
-                + 'np. $\\frac{\\sin 3x}{x}=\\frac{\\sin 3x}{3x}\\cdot 3$. Podkreślony ułamek zastępujemy jedynką.',
+                + 'np. $\\frac{\\sin 3x}{x}=\\frac{\\sin 3x}{3x}\\cdot 3$. Kolorowy ułamek zastępujemy jedynką.',
             level: 'Studia: analiza matematyczna, granice funkcji',
             more: [
                 'Dla małych kątów sinus jest prawie równy samemu kątowi: $\\sin 0{,}1\\approx 0{,}09983$, więc $\\frac{\\sin 0{,}1}{0{,}1}\\approx 0{,}998$.',
@@ -91,7 +91,7 @@
         ln1u: {
             name: 'Granica ln(1 + u) przez u',
             tex: '\\frac{\\ln(1+u)}{u}\\to 1\\quad\\text{gdy } u\\to 0',
-            why: 'W logarytmie musi stać $1+u$, a w mianowniku to samo $u$, które dąży do 0. Podkreślony ułamek zastępujemy jedynką.',
+            why: 'W logarytmie musi stać $1+u$, a w mianowniku to samo $u$, które dąży do 0. Kolorowy ułamek zastępujemy jedynką.',
             level: 'Studia: analiza matematyczna, granice funkcji',
             more: [
                 'Przykład: $\\frac{\\ln 1{,}01}{0{,}01}\\approx 0{,}995$. Im mniejsze $u$, tym bliżej 1.',
@@ -102,7 +102,7 @@
         eu: {
             name: 'Granica (eᵘ − 1) przez u',
             tex: '\\frac{e^{u}-1}{u}\\to 1\\quad\\text{gdy } u\\to 0',
-            why: 'W wykładniku i w mianowniku musi stać to samo $u$, które dąży do 0. Podkreślony ułamek zastępujemy jedynką.',
+            why: 'W wykładniku i w mianowniku musi stać to samo $u$, które dąży do 0. Kolorowy ułamek zastępujemy jedynką.',
             level: 'Studia: analiza matematyczna, granice funkcji',
             more: [
                 'Przykład: $\\frac{e^{0{,}01}-1}{0{,}01}\\approx 1{,}005$.',
@@ -320,7 +320,7 @@
         FORMULAS[id] = Object.assign({}, FORMULAS.sinu, {
             name: 'Granica ' + name + ' u przez u',
             tex: '\\frac{' + fn + ' u}{u}\\to 1\\quad\\text{gdy } u\\to 0',
-            why: 'Pod funkcją i w mianowniku musi stać to samo $u$, które dąży do 0. Podkreślony ułamek zastępujemy jedynką.',
+            why: 'Pod funkcją i w mianowniku musi stać to samo $u$, które dąży do 0. Kolorowy ułamek zastępujemy jedynką.',
         });
     }
 

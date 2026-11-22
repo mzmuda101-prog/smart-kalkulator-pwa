@@ -347,6 +347,11 @@ ok('minor: lim x→−8 ∛x nie daje złego wyniku', ['−2', NOPE].includes(te
     ok('3f: n^(3/2) jako n√n', sN.some(x => x.math.includes('n√n(')) && !sN.some(x => /\^\(3\/2\)/.test(x.math)), sN.map(x => x.math));
     ok('3f: n√n w mianowniku w nawiasie', sN.some(x => x.math.includes('2/(n√n)')), sN.map(x => x.math));
     const sB = all('lim x→-∞ sqrt(7-2x)(sqrt(15-8x)-sqrt(3-8x))');
+    ok('3f: 5b uproszczone do 3/4', S.run(byId['5b'].input).text === '3/4', S.run(byId['5b'].input).text);
+    ok('3f: 5c uproszczone do 5/9', S.run(byId['5c'].input).text === '5/9', S.run(byId['5c'].input).text);
+    const s4f = all(byId['4f'].input);
+    ok('3f: 4f bez podwójnej kreski ułamkowej', !s4f.some(x => /\/8\/|1\/8√/.test(x.math)) && s4f.some(x => x.math.includes('/(8(')), s4f.map(x => x.math));
+    ok('3f: 6e bez pustego „Wyłączamy”', !all(byId['6e'].input).some(x => x.math === 'lim(n→∞) −1/(n)'), all(byId['6e'].input).map(x => x.label + ': ' + x.math));
     ok('3f: symbol [0 · ∞] w kroku 1', sB[0] && sB[0].math.endsWith('[⟦0 · ∞⟧]') && all(byId['4c'].input)[0].math.endsWith('[⟦0 · ∞⟧]'), [sB[0], all(byId['4c'].input)[0]]);
     ok('3f: bez minusa na początku: 15 − 8x', sB.some(x => x.math.includes('√(15 − 8x) − √(3 − 8x) = ')) && !sB.some(x => /\(−8x \+ 15\)/.test(x.math)), sB.map(x => x.math));
 }

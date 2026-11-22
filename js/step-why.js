@@ -8,8 +8,9 @@
 
     /** @typedef {{label: string, math: string, formula?: {id: string}}} Step */
     // [EN] sprzężenie = ten sam nawias z przeciwnym znakiem (raz suma, raz różnica); powód zależy od celu granicy
-    const SPRZ_INF = 'Różnica z pierwiastkiem daje $\\infty-\\infty$. Mnożymy przez ten sam nawias z przeciwnym znakiem, bo $(a-b)(a+b)=a^{2}-b^{2}$ i pierwiastek znika.';
-    const SPRZ_NUM = 'Pierwiastek nie pozwala skrócić. Mnożymy przez ten sam nawias z przeciwnym znakiem, bo $(a-b)(a+b)=a^{2}-b^{2}$ i pierwiastek znika.';
+    // [EN] bez powtarzania wzoru — wzór jest w dymku pod kolorowym fragmentem (bez dubli)
+    const SPRZ_INF = 'Różnica z pierwiastkiem daje $\\infty-\\infty$. Mnożymy przez ten sam nawias z przeciwnym znakiem, żeby pierwiastek zniknął.';
+    const SPRZ_NUM = 'Pierwiastek nie pozwala skrócić. Mnożymy przez ten sam nawias z przeciwnym znakiem, żeby pierwiastek zniknął.';
     /** @type {Record<string, string>} */
     const TAG = {
         '0/0': 'Po wstawieniu wychodzi $\\frac{0}{0}$. Tego nie da się policzyć od razu, więc najpierw przekształcamy wyrażenie.',
@@ -46,8 +47,8 @@
         [/^Skracamy /, 'To samo stoi w liczniku i w mianowniku, więc się skraca.'],
         [/^Mnożymy przez sprzężenie$/, (s, _t, c) => {
             const id = s.formula && s.formula.id;
-            if (id === 'roznica-szescianow') return 'Przy pierwiastkach trzeciego stopnia pomaga wzór $a^{3}-b^{3}=(a-b)(a^{2}+ab+b^{2})$: po wymnożeniu pierwiastki znikają.';
-            if (id === 'roznica-czwartych') return 'Przy pierwiastkach czwartego stopnia pomaga wzór na $a^{4}-b^{4}$: po wymnożeniu pierwiastki znikają.';
+            if (id === 'roznica-szescianow') return 'Przy pierwiastkach trzeciego stopnia pomaga wzór na różnicę sześcianów: po wymnożeniu pierwiastki znikają.';
+            if (id === 'roznica-czwartych') return 'Przy pierwiastkach czwartego stopnia pomaga wzór na różnicę czwartych potęg: po wymnożeniu pierwiastki znikają.';
             return c.atInf ? SPRZ_INF : SPRZ_NUM;
         }],
         [/^Upraszczamy( licznik)?$/, (_s, _t, c) => c.prev && /sprzężenie/.test(c.prev.label)
@@ -55,13 +56,13 @@
             : 'Wymnażamy i zbieramy podobne wyrazy, żeby wyrażenie było krótsze.'],
         [/^Rozkładamy na czynniki$/, 'Wyszło $\\frac{0}{0}$, więc i licznik, i mianownik mają nawias $(x-a)$. Wyciągamy go, żeby potem skrócić.'],
         [/^Dorabiamy jedynkę$/, 'Wzór na $e$ wymaga postaci $1+\\frac{1}{\\text{coś}}$, a w potędze tego samego „coś”. Przerabiamy podstawę na ten kształt.'],
-        [/^Podstawa dąży do e$/, 'Podkreślona potęga ma dokładnie kształt ze wzoru, więc dąży do $e$. Stuknij ją, żeby zobaczyć wzór.'],
+        [/^Podstawa dąży do e$/, 'Kolorowa potęga ma dokładnie kształt ze wzoru, więc dąży do $e$. Stuknij ją, żeby zobaczyć wzór.'],
         [/^Granica wykładnika$/, 'Środek nawiasu daje $e$. Zostaje policzyć, do czego dąży potęga nad nawiasem.'],
         [/^Składamy wynik$/, 'Podstawa dąży do $e$, a wykładnik do liczby z poprzedniego kroku, więc całość dąży do $e$ do tej potęgi.'],
         [/^Potęga e$/, 'Liczba $e$ do coraz większej potęgi rośnie bez końca, a do coraz bardziej ujemnej spada do 0.'],
         [/^Dla \w → −∞$/, 'Gdy zmienna dąży do $-\\infty$, jest ujemna. Pierwiastek nigdy nie daje liczby ujemnej, więc pilnujemy znaku.'],
-        [/^Korzystamy ze znanej granicy$/, 'To znany wynik: gdy $u\\to 0$, podkreślony ułamek dąży do 1. Dopasowujemy wyrażenie do tego kształtu.'],
-        [/^Podkreślony ułamek dąży do 1$/, 'Zastępujemy podkreślony ułamek jedynką i zostaje prostsze wyrażenie.'],
+        [/^Korzystamy ze znanej granicy$/, 'To znany wynik: gdy $u\\to 0$, kolorowy ułamek dąży do 1. Dopasowujemy wyrażenie do tego kształtu.'],
+        [/^Kolorowy ułamek dąży do 1$/, 'Zastępujemy kolorowy ułamek jedynką i zostaje prostsze wyrażenie.'],
         [/^Reguła de l'Hospitala$/, 'Wyszło $\\frac{0}{0}$ albo $\\frac{\\infty}{\\infty}$, więc wolno zamiast ułamka liczyć ułamek pochodnych licznika i mianownika.'],
         [/^Sprowadzamy do wspólnego mianownika$/, 'Ułamki można dodać albo odjąć dopiero wtedy, gdy mają ten sam mianownik.'],
         [/^Zapisujemy oba wykładniki tak samo$/, 'Gdy wykładniki są takie same, iloraz potęg to potęga ilorazu, a granicę ilorazu już umiemy policzyć.'],
@@ -131,7 +132,7 @@
         [/^Liczę pochodną każdego wyrazu$|^Rozbijam na sumę pochodnych$/, 'Pochodną sumy liczymy wyraz po wyrazie, a pochodna stałej to 0.'],
         [/^Stała zostaje przed pochodną$/, 'Liczba przed funkcją nie zmienia się przy liczeniu pochodnej, zostaje jako mnożnik.'],
         [/^Liczę pochodną potęgi$/, 'Wykładnik schodzi przed zmienną, a potęga maleje o 1.'],
-        [/^Korzystam z tablicy pochodnych$/, 'To pochodna podstawowej funkcji, którą znamy na pamięć. Stuknij podkreślenie, żeby zobaczyć tablicę.'],
+        [/^Korzystam z tablicy pochodnych$/, 'To pochodna podstawowej funkcji, którą znamy na pamięć. Stuknij kolorowy fragment, żeby zobaczyć tablicę.'],
         [/^Składam całość$/, 'Dopisuję czynnik, który wcześniej wyłączyłem przed nawias.'],
         [/^Składam wynik$/, 'Wstawiam policzone części do wzoru i zapisuję całość.'],
         // ── całki ──

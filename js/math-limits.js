@@ -287,7 +287,31 @@
         if (ans.kind === 'dne') return { text: 'granica nie istnieje', value: null };
         return { text: C.show(rationalize(fold(ans.e))), value: numVal(ans.e) };
     }
+    // [EN] ∛2 · ∛4 → ∛8 → 2, 2^(2/3) · 4^(2/3) → 8^(2/3) → 4: pierwiastki liczb o tym samym stopniu łączymy w jeden
+    //      (także w sumach w mianowniku), potem fold wyciąga pełne potęgi — 5b: 9/(4 + 4 + 4) = 3/4, nie 9/(2∛2 · ∛4 + …)
+    function mergeRootFactors(fs) {
+        var byDen = {}, out = [];
+        fs.forEach(function (f) {
+            if (f.b.k === 'num' && f.e.n > 0n && !K.isInt(f.e) && f.b.v.n > 0n) {
+                var key = String(f.e.d);
+                (byDen[key] = byDen[key] || []).push(f);
+            } else out.push(f);
+        });
+        Object.keys(byDen).forEach(function (key) {
+            var group = byDen[key];
+            if (group.length === 1) { out.push(group[0]); return; }
+            var P = ONE;
+            group.forEach(function (f) { P = K.mul(P, K.powR(f.b.v, Number(f.e.n))); });
+            out.push({ b: { k: 'num', v: P }, e: K.R(1n, BigInt(key)) });
+        });
+        return out;
+    }
+    function mergeRoots(e) {
+        var merged = e.map(function (t) { return C.term(t.c, mergeRootFactors(t.fs)); });
+        return fold(C.mapExpr(merged, function (a) { return a.k === 'sum' ? mergeRoots(a.s) : null; }));
+    }
     function rationalize(e) { // [EN] 1/√3 → √3/3: pierwiastek liczby w mianowniku przenosimy do licznika
+        try { e = mergeRoots(e); } catch (x) { /* nietypowy węzeł — zostaje jak było */ }
         return e.map(function (t) {
             var c = t.c, fs = t.fs.map(function (f) {
                 if (f.b.k !== 'num' || f.e.n >= 0n || K.isInt(f.e)) return f;
@@ -308,7 +332,7 @@
     }
 
     // ── Reguły ───────────────────────────────────────────────────────
-    // [EN] formula = id wzoru ze słownika (js/step-formulas.js); fragment w ⟦…⟧ jest wtedy podkreślony i do stuknięcia
+    // [EN] formula = id wzoru ze słownika (js/step-formulas.js); fragment w ⟦…⟧ jest wtedy wyróżniony kolorem i do stuknięcia
     function line(log, label, math, formula) {
         if (log) log.push(formula ? { label: label, math: math, formula: { id: formula } } : { label: label, math: math });
     }
@@ -520,9 +544,16 @@
                 K.isInt(N.p) && K.isInt(D.p) ? 'pierwiastek-z-kwadratu' : null);
             var same = K.eq(N.p, D.p), alone = isOne(fr.D);
             var label = (same || alone) && !K.isZero(N.p) ? 'Wyłączamy ' + uText(v, sign, N.p) + ' przed nawias' : 'Wyłączamy najwyższe potęgi przed nawias';
+            // [EN] ułamek w liczniku (1/8 · …) → 8 do mianownika: …/(8(…)), nie 1/8√n(…) ani …/8/(…)
+            var nc = N.rest.length === 1 ? N.rest[0].c : ONE;
+            if (nc.d !== 1n && !isOne(fr.D)) {
+                N = Object.assign({}, N, { rest: [C.term(K.R(nc.n), N.rest[0].fs)] });
+                D = Object.assign({}, D, { rest: [C.term(K.R(nc.d), [{ b: { k: 'sum', s: D.rest }, e: ONE }])] });
+            }
             var pn = pulledText(v, sign, N), pd = pulledText(v, sign, D);
             var pdWrapped = K.isZero(D.p) ? grp(D.rest) : '(' + pd + ')';
-            line(log, label, head + (alone ? pn : pn + '/' + pdWrapped));
+            // [EN] same liczby w nawiasach (−1/n) — nie ma czego wyłączać, krok byłby pusty (6e)
+            if (!(C.isNumber(N.rest) && C.isNumber(D.rest))) line(log, label, head + (alone ? pn : pn + '/' + pdWrapped));
             var q = K.sub(N.p, D.p);
             if (same && !K.isZero(N.p)) line(log, 'Skracamy ' + uText(v, sign, N.p), head + quotientText(N.rest, D.rest));
             var cval = C.cMul(N.c, C.cPow(D.c, K.neg(ONE)));
@@ -783,7 +814,7 @@
             line(log, 'Dorabiamy jedynkę', (onePlus === C.show(p.f) ? onePlus : C.show(p.f) + ' = ' + onePlus) + ',  aₙ = ' + sa);
             var gh = fold(C.cMul(p.g, h));
             var sgh = C.show(gh), still = !C.hasVar(gh, v);
-            // [EN] bez osobnego kroku „Wzór na e” (spec 5.12): fragment ⟦…⟧ jest podkreślony, stuknięcie → dymek ze wzorem
+            // [EN] bez osobnego kroku „Wzór na e” (spec 5.12): fragment ⟦…⟧ jest wyróżniony kolorem, stuknięcie → dymek ze wzorem
             var core = '⟦(' + onePlus + ')^' + pa + '⟧';
             var pw = function (x) { return x === '1' ? '' : /^\d+$/.test(x) ? K.sup(x) : '^(' + x + ')'; }; // [EN] e³, nie e^(3)
             line(log, 'Podstawa dąży do e', limHead(v, t) + (sgh === '1' ? core + ' = e'
@@ -932,7 +963,7 @@
             rest = fold(rest);
             var bracket = up ? '[⟦' + C.paren(hit.top) + '/' + grp(u) + '⟧]' : '[⟦' + C.paren(u) + '/' + grp(hit.top) + '⟧]';
             line(log, 'Korzystamy ze znanej granicy', 'u = ' + uText + ' → 0:  ' + limHead(v, t) + bracket + ' · ' + C.show(rest), hit.label);
-            line(log, 'Podkreślony ułamek dąży do 1', limOf(v, t, rest));
+            line(log, 'Kolorowy ułamek dąży do 1', limOf(v, t, rest));
             return limitOf(rest, v, t, log, depth);
         }
     };

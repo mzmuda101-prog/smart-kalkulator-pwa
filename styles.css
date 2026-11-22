@@ -2142,13 +2142,12 @@
         .steps-ink.is-drawn { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 0.3em; row-gap: 6px; white-space: normal; font-weight: 400; font-size: 1.15rem; }
         .steps-chunk { max-inline-size: 100%; }
         .steps-br { flex-basis: 100%; block-size: 0; } /* nowa linia kroku */
-        /* miejsce użycia wzoru: podkreślenie przerywane + kursor, nie sam kolor; cel dotykowy powiększony w pionie */
-        .steps-ink [data-formula] { cursor: pointer; border-radius: 4px; text-decoration: none; -webkit-tap-highlight-color: transparent; }
-        .steps-ink [data-formula] .underline-line { color: var(--primary); }
-        .steps-ink [data-formula] .underline-line::before, .steps-ink [data-formula] .underline-line::after { border-bottom-style: dashed; border-bottom-width: 2px; }
-        .steps-math.is-open .steps-ink [data-formula] .underline-line::before, .steps-math.is-open .steps-ink [data-formula] .underline-line::after { border-bottom-style: solid; }
+        /* miejsce użycia wzoru (decyzja Mateusza 2026-11-22): kolor akcentu zamiast podkreślenia — podkreślenie mieszało
+           się z kreskami ułamków i pierwiastków; kursor + cel dotykowy, tło przy otwartym dymku i przy najechaniu */
+        .steps-ink [data-formula] { color: var(--primary); cursor: pointer; border-radius: 4px; -webkit-tap-highlight-color: transparent; transition: background-color 150ms ease; }
+        .steps-math.is-open .steps-ink [data-formula] { background: var(--primary-light); }
         .steps-math:has(.steps-formula-sr:focus-visible) .steps-ink [data-formula] { outline: 2px solid var(--primary); outline-offset: 2px; }
-        @media (hover: hover) { .steps-ink [data-formula]:hover .underline-line::before, .steps-ink [data-formula]:hover .underline-line::after { border-bottom-style: solid; } }
+        @media (hover: hover) { .steps-ink [data-formula]:hover { background: var(--primary-light); } }
         .steps-pop {
             position: relative; margin-top: 12px; padding: 10px 12px;
             border: 1px solid var(--border-focus); border-radius: var(--radius-sm, 10px);

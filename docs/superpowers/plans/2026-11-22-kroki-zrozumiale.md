@@ -131,3 +131,10 @@ Wszystkie propozycje przyjęte: „dlaczego” zawsze widoczne; kolorowanie zmia
 - `n^(3/2)` → `n√n`, `n^(5/2)` → `n²√n`; w mianowniku z nawiasem (`2/(n√n)`), bo `2/n√n` czyta się inaczej.
 - Symbol `[0 · ∞]` dla iloczynu (4c, 7e); próg „zero/jeden” uwzględnia błąd próbek — przy okazji 6g dostało `[1^∞]`.
 - Zostaje z 3f: wyniki 5b i 5c nieuproszczone, zapis `…/8/(…)` w 4f, zbędne kroki w 6e.
+
+## 3f (reszta) + kolor (v1.05.14)
+- 5b → 3/4, 5c → 5/9: pierwiastki liczb o tym samym stopniu łączone (`mergeRoots` w `rationalize`).
+- 4f: ułamek z licznika do mianownika (`…/(8(…))`), bez `1/8√n(…)` i `…/8/(…)`; 6e: bez pustego „Wyłączamy”.
+- **Kolor zamiast podkreślenia (Mateusz):** fragment ze wzorem w kolorze akcentu (podkreślenie mieszało się z kreskami
+  ułamków); teksty „podkreślony” → „kolorowy”; zdania „dlaczego” bez powtarzania wzoru, który jest w dymku (bez dubli).
+- Dalej: `docs/superpowers/HANDOFF-kroki.md`.

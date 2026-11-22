@@ -105,7 +105,7 @@
     // Kroki budują tekst z drzewa (C.show, limHead), który parser czyta z powrotem — więc rysujemy
     // z tego samego drzewa: każdy kawałek między „ = ”, „ → ”, „, ” idzie przez parse → node.
     // Kawałek, którego parser nie zna (słowa, „brak rozwiązań”), zostaje tekstem.
-    // ⟦…⟧ = fragment, w którym działa wzór (step.formula) — rysowany podkreślony, do stuknięcia.
+    // ⟦…⟧ = fragment, w którym działa wzór (step.formula) — rysowany w kolorze akcentu, do stuknięcia.
     const SEPS = [[', więc ', ',\\ \\text{więc}\\ '], [' lub ', '\\quad\\text{lub}\\quad '], [':  ', ':\\quad '],
         [': ', ':\\quad '], [',  ', ',\\quad '], [', ', ',\\ '], [' = ', '='], [' ≈ ', '\\approx '], [' < ', '<'], [' > ', '>'], [' → ', '\\to '],
         [' ✓', '\\ \\checkmark']];
@@ -164,7 +164,7 @@
                 for (; j < p.length; j++) { if (OPEN.includes(p[j])) d++; else if (CLOSE.includes(p[j]) && --d === 0) break; }
                 const inner = pieceTex(p.slice(i + 1, j), fid);
                 if (inner == null) return null;
-                s += hold(c === '[' ? '\\left[' + inner + '\\right]' : '\\htmlData{formula=' + fid + '}{\\underline{' + inner + '}}');
+                s += hold(c === '[' ? '\\left[' + inner + '\\right]' : '\\htmlData{formula=' + fid + '}{' + inner + '}');
                 i = j + 1; continue;
             }
             if (c === '|') {

@@ -372,7 +372,7 @@
     }
 
     // ── Pochodne ─────────────────────────────────────────────
-    // [EN] formula = id wzoru ze słownika (js/step-formulas.js); fragment ⟦…⟧ w math jest podkreślony i do stuknięcia
+    // [EN] formula = id wzoru ze słownika (js/step-formulas.js); fragment ⟦…⟧ w math jest wyróżniony kolorem i do stuknięcia
     function line(log, label, math, formula) {
         if (log) log.push(formula ? { label: label, math: math, formula: { id: formula } } : { label: label, math: math });
     }
@@ -578,7 +578,7 @@
             }
         }
         if (!res) return null;
-        // [EN] tożsamość widać wprost (podkreślona lewa strona → dymek), potem całka
+        // [EN] tożsamość widać wprost (wyróżniona lewa strona → dymek), potem całka
         var IDENT = { 'sin-kwadrat': 'sin²(#) = (1 − cos(2#))/2', 'cos-kwadrat': 'cos²(#) = (1 + cos(2#))/2', 'tg-kwadrat': 'tg²(#) = 1/cos²(#) − 1' };
         if (IDENT[fid]) {
             var id = IDENT[fid].replace(/#/g, v), eqAt = id.indexOf(' = ');
