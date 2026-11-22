@@ -22,6 +22,12 @@ test('lim n→∞ (1 − 1/n)^n: kroki narysowane, wzór na e w dymku i w „Wi�
   // czytnik ekranu dostaje zapis kroku, rysunek jest ukryty
   await expect(page.locator('#stepsView .steps-ink').first()).toHaveAttribute('aria-hidden', 'true');
 
+  // „dlaczego” pod każdym krokiem poza „Wynik” (plan kroków 3c), wzory w zdaniu narysowane
+  await expect(page.locator('#stepsView .steps-why')).toHaveCount(3);
+  await expect(page.locator('#stepsView .steps-item').first().locator('.steps-why')).toContainText('nie musi być 1');
+  await expect(page.locator('#stepsView .steps-why .steps-tex .ML__latex, #stepsView .steps-why .steps-tex .ML__base').first()).toBeAttached();
+  await expect(page.locator('#stepsView .steps-item.is-final .steps-why')).toHaveCount(0);
+
   const hit = page.locator('#stepsView .steps-ink [data-formula="e"]');
   await expect(hit).toHaveCount(1);
   await hit.click();
@@ -39,6 +45,15 @@ test('lim n→∞ (1 − 1/n)^n: kroki narysowane, wzór na e w dymku i w „Wi�
 
   await hit.click(); // drugie stuknięcie zamyka
   await expect(pop).toHaveCount(0);
+});
+
+test('„dlaczego” zależy od kroku obok: po sprzężeniu mówi o pierwiastkach', async ({ page }) => {
+  await page.goto('index.html', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => !!window.MATM0_TEX && !!window.MATM0_WHY);
+  await page.locator('#calcExpr').fill('lim x→5 (x-5)/(3-sqrt(x+4))');
+  await page.locator('#calcExplainTip').click();
+  const item = page.locator('#stepsView .steps-item', { has: page.locator('.steps-label', { hasText: 'Upraszczamy' }) });
+  await expect(item.locator('.steps-why')).toContainText('pierwiastki się skasowały');
 });
 
 test('klawiatura: Tab do wzoru, Enter otwiera dymek', async ({ page }) => {

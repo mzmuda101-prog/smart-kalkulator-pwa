@@ -2107,7 +2107,10 @@
             min-width: 0;
         }
         .steps-item.is-final { border-color: var(--border-focus); background: var(--primary-light); }
-        .steps-label { color: var(--text-muted, var(--text)); font-size: 0.85rem; line-height: 1.35; }
+        .steps-label { color: var(--text); font-size: 0.85rem; font-weight: 600; line-height: 1.35; } /* mocniejsza od „dlaczego”, kontrast tekstu */
+        /* „dlaczego” (plan kroków 3c): jedno zdanie pod etykietą, spokojniejsze od wzoru, ale czytelne (kontrast tekstu) */
+        .steps-why { margin: 2px 0 0; color: var(--text-secondary); font-size: 0.8125rem; line-height: 1.45; }
+        .steps-why .steps-tex { font-size: 1.15em; } /* wzór w zdaniu czytelny, nie drobniejszy od tekstu */
         .steps-math {
             margin-top: 4px;
             color: var(--text);

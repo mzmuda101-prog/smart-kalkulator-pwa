@@ -74,3 +74,14 @@ Wszystkie propozycje przyjęte: „dlaczego” zawsze widoczne; kolorowanie zmia
 - Agent „słaby uczeń”: 50 zmienionych zadań, 44 lepiej, 6 regresji naprawionych krokiem „Zapisujemy inaczej”.
 - Zostaje na 3f: kolejność wyrazów w krokach środkowych (`−8x + 15`), nazwa „Wyłączamy n√n” a we wzorze `n^(3/2)`,
   zapis `…/8/(…)` w 4f, wyniki 5b i 5c nieuproszczone, zbędne kroki w 6e.
+
+## 3c — zrobione (v1.05.07)
+- `js/step-why.js`: jedno zdanie „dlaczego” dobierane po nazwie kroku i kontekście (granica w ±∞ czy w liczbie,
+  krok poprzedni/następny); kroki-stwierdzenia (Wynik, Równanie…) bez zdania. Wzory w zdaniach w `$…$`, rysowane.
+- Symbole `[0/0]`, `[∞/∞]`, `[∞ − ∞]`, `[1^∞]` wyjaśnione w zdaniu kroku 1 (osobny dymek niepotrzebny).
+- Szuflada: zdanie szarym drukiem pod etykietą; etykieta pogrubiona w pełnym kolorze (wcześniej `--text-muted`,
+  za mały kontrast i słabsza od zdania pod nią).
+- Etykieta „Upraszczamy licznik” → „Upraszczamy” (pierwiastki znikały też z mianownika).
+- Test `test/step-why.js`: 418 kroków (zestaw, ściąga, dodatkowe) — każdy ma zdanie, ≤ 25 słów, bez zapisu z klawiatury.
+- Agent „słaby uczeń” przeczytał zdania: 7 niepasujących dopasowań poprawionych warunkami, 5 trudnych zdań uproszczonych.
+- Zostaje: `[∞ · 0]` silnik nie nazywa (zdanie neutralne), „Wzór z tablicy” bez nazwy wzoru — w 3d dymki ze słownika.

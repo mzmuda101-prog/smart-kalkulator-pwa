@@ -6009,7 +6009,8 @@
             var gen = ++_stepsGen;
             var list = document.createElement('ol');
             list.className = 'steps-list';
-            var formulas = _stepsFormulas(), toDraw = [];
+            var formulas = _stepsFormulas(), toDraw = [], whys = [];
+            var W = window.MATM0_WHY;
             explain.steps.forEach(function(step, i) {
                 var li = document.createElement('li');
                 li.className = 'steps-item' + (step.final ? ' is-final' : '');
@@ -6033,15 +6034,24 @@
                     math.appendChild(btn);
                 }
                 li.appendChild(label);
+                var whyText = W ? W.whyFor(step, explain.title, explain, i) : ''; // [EN] jedno zdanie „po co” pod etykietą (plan kroków 3c)
+                if (whyText) {
+                    var why = _stepsEl('p', 'steps-why');
+                    li.appendChild(why);
+                    whys.push({ el: why, text: whyText });
+                }
                 li.appendChild(math);
                 list.appendChild(li);
                 toDraw.push({ ink: ink, step: step, fid: fid });
             });
             stepsView.textContent = '';
             stepsView.appendChild(list);
-            if (!window.MATM0_TEX || !window.MATM0_TEX.stepToLatex) return;
-            _loadFormulaLib().then(function (ml) {
+            var fillWhys = function (ml) { whys.forEach(function (w) { _stepsRich(w.el, ml, w.text); }); };
+            if (!window.MATM0_TEX || !window.MATM0_TEX.stepToLatex) { fillWhys(null); return; }
+            _loadFormulaLib().catch(function () { return null; }).then(function (ml) {
                 if (gen !== _stepsGen) return;
+                fillWhys(ml);
+                if (!ml) return; // [EN] offline bez cache — zostaje tekst kroków
                 toDraw.forEach(function (d) {
                     try { // [EN] jeden nietypowy krok zostaje tekstem, reszta i tak się rysuje
                         var parts = window.MATM0_TEX.stepToLatex(d.step.math, d.fid);

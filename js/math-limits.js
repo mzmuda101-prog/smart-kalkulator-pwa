@@ -716,7 +716,7 @@
                 });
             }
             out = fold(out);
-            line(log, 'Upraszczamy licznik', limOf(v, t, out));
+            line(log, 'Upraszczamy', limOf(v, t, out));
             return limitOf(out, v, t, log, depth);
         }
     };
