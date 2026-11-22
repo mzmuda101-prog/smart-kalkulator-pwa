@@ -10,73 +10,92 @@
     //          alts: warianty pod przytrzymaniem; cls: grupa wyglądu (fn/number/operator/equals/clear/word)
 
     /** @typedef {{ label: string, ins?: string, act?: string, page?: string, smart?: string, fresh?: boolean,
-     *   cls?: string, aria?: string, alts?: Array<{label: string, ins?: string, act?: string, fresh?: boolean, aria?: string}> }} Key */
+     *   cls?: string, aria?: string, var?: boolean, focus?: boolean,
+ *   alts?: Array<{label: string, ins?: string, act?: string, fresh?: boolean, focus?: boolean, aria?: string}> }} Key */
 
     const D = (/** @type {string} */ d) => ({ label: d, act: d, cls: 'number' });
     const LIM = { label: 'lim', ins: 'lim n→∞ ', fresh: true, cls: 'fn', aria: 'granica n do nieskończoności',
         alts: [{ label: 'lim x→0', ins: 'lim x→0 ', fresh: true }, { label: 'lim x→0⁺', ins: 'lim x→0+ ', fresh: true, aria: 'granica prawostronna w zerze' },
             { label: 'lim x→0⁻', ins: 'lim x→0- ', fresh: true, aria: 'granica lewostronna w zerze' }, { label: 'lim x→∞', ins: 'lim x→∞ ', fresh: true },
-            { label: 'lim x→a', ins: 'lim x→', fresh: true, aria: 'granica w punkcie — wpisz punkt' }] };
+            { label: 'lim x→ …', ins: 'lim x→', fresh: true, focus: true, aria: 'granica we własnym punkcie — wpisz punkt z klawiatury telefonu' }] };
 
-    /** @type {Record<string, Key[]>} 6 kolumn × 5 rzędów */
+    // jeden klawisz na zmienną: pokazuje literę z wpisanej granicy (lim n→… → n), inne litery pod przytrzymaniem
+    const VARS = ['x', 'n', 'y', 't', 'k', 'm', 'a', 'b'];
+    const VAR = { label: 'x', var: true, fresh: true, cls: 'fn', aria: 'zmienna' };
+    /** @param {string} l @param {string} aria @param {Key['alts']} [alts] */
+    const OP = (l, aria, alts) => ({ label: l, act: l, cls: 'operator', aria: aria, alts: alts });
+
+    /** @type {Record<string, Key[]>} 5 kolumn × 6 rzędów (klawisze prawie kwadratowe; wysokość klawiatury bez zmian) */
     const PAGES = {
         wzory: [
             LIM,
             { label: '∞', ins: '∞', cls: 'fn', aria: 'nieskończoność', alts: [{ label: '−∞', ins: '-∞', aria: 'minus nieskończoność' }] },
+            VAR,
+            { label: 'xⁿ', ins: '^(', cls: 'operator', aria: 'potęga',
+                alts: [{ label: 'x³', ins: '^3', aria: 'do sześcianu' }, { label: 'x⁻¹', ins: '^(-1)', aria: 'odwrotność' }, { label: 'eˣ', ins: 'e^(', fresh: true, aria: 'e do potęgi' }] },
+            { label: '√', ins: 'sqrt(', fresh: true, cls: 'operator', aria: 'pierwiastek',
+                alts: [{ label: '∛', ins: '∛(', fresh: true, aria: 'pierwiastek trzeciego stopnia' }, { label: '∜', ins: '∜(', fresh: true, aria: 'pierwiastek czwartego stopnia' }] },
+
+            { label: 'a/b', smart: 'frac', cls: 'operator', aria: 'ułamek — zamyka licznik, otwiera mianownik' },
             { label: '( )', act: '()', cls: 'fn', aria: 'nawias', alts: [{ label: '|x|', ins: 'abs(', fresh: true, aria: 'wartość bezwzględna' }] },
             { label: 'f(x)', page: 'funkcje', cls: 'fn', aria: 'funkcje: sinus, logarytm, pochodna i inne' },
             { label: '⌫', act: '⌫', cls: 'fn', aria: 'usuń znak' },
             { label: 'AC', act: 'AC', cls: 'fn clear', aria: 'wyczyść' },
 
-            { label: 'a/b', smart: 'frac', cls: 'operator', aria: 'ułamek — zamyka licznik, otwiera mianownik' },
-            { label: '√', ins: 'sqrt(', fresh: true, cls: 'operator', aria: 'pierwiastek',
-                alts: [{ label: '∛', ins: '∛(', fresh: true, aria: 'pierwiastek trzeciego stopnia' }, { label: '∜', ins: '∜(', fresh: true, aria: 'pierwiastek czwartego stopnia' }] },
-            D('7'), D('8'), D('9'),
-            { label: '÷', act: '÷', cls: 'operator', aria: 'dzielenie', alts: [{ label: 'mod', ins: ' mod ', aria: 'reszta z dzielenia' }] },
-
-            { label: 'xⁿ', ins: '^(', cls: 'operator', aria: 'potęga',
-                alts: [{ label: 'x³', ins: '^3', aria: 'do sześcianu' }, { label: 'x⁻¹', ins: '^(-1)', aria: 'odwrotność' }, { label: 'eˣ', ins: 'e^(', fresh: true, aria: 'e do potęgi' }] },
-            { label: 'x²', ins: '^2', cls: 'operator', aria: 'do kwadratu' },
-            D('4'), D('5'), D('6'),
-            { label: '×', act: '×', cls: 'operator', aria: 'mnożenie', alts: [{ label: 'n!', ins: '!', aria: 'silnia' }] },
-
-            { label: 'x', ins: 'x', fresh: true, cls: 'fn', alts: [{ label: 'y', ins: 'y', fresh: true }, { label: 't', ins: 't', fresh: true }] },
-            { label: 'n', ins: 'n', fresh: true, cls: 'fn', alts: [{ label: 'k', ins: 'k', fresh: true }, { label: 'm', ins: 'm', fresh: true }] },
-            D('1'), D('2'), D('3'),
-            { label: '−', act: '−', cls: 'operator', aria: 'minus' },
-
-            { label: 'e', ins: 'e', fresh: true, cls: 'fn', aria: 'liczba e' },
-            { label: 'π', ins: 'π', fresh: true, cls: 'fn', aria: 'pi' },
-            D('0'),
+            { label: 'x²', ins: '^2', cls: 'operator', aria: 'do kwadratu' }, D('7'), D('8'), D('9'),
+            OP('÷', 'dzielenie', [{ label: 'mod', ins: ' mod ', aria: 'reszta z dzielenia' }]),
+            { label: 'e', ins: 'e', fresh: true, cls: 'fn', aria: 'liczba e' }, D('4'), D('5'), D('6'),
+            OP('×', 'mnożenie', [{ label: 'n!', ins: '!', aria: 'silnia' }]),
+            { label: 'π', ins: 'π', fresh: true, cls: 'fn', aria: 'pi' }, D('1'), D('2'), D('3'), OP('−', 'minus'),
+            { label: '→', ins: '→', cls: 'fn', aria: 'strzałka granicy' }, D('0'),
             { label: '.', act: '.', cls: 'number', aria: 'przecinek' },
-            { label: '=', act: '=', cls: 'equals', aria: 'wynik' },
-            { label: '+', act: '+', cls: 'operator', aria: 'plus' },
+            { label: '=', act: '=', cls: 'equals', aria: 'wynik' }, OP('+', 'plus'),
         ],
         // karta „Funkcje”: każdy znak i funkcja spod przytrzymania jest też tu (odkrywalność, czytnik ekranu);
-        // wyjątki: inne litery zmiennych (y, t, k, m) i warianty „lim” — da się je dopisać zwykłym pisaniem
+        // wyjątki: litery zmiennych (klawisz zmiennej) i warianty „lim” — da się je dopisać zwykłym pisaniem
         funkcje: [
             { label: 'sin', ins: 'sin(', fresh: true, cls: 'word' }, { label: 'cos', ins: 'cos(', fresh: true, cls: 'word' },
             { label: 'tg', ins: 'tg(', fresh: true, cls: 'word' }, { label: 'ctg', ins: 'ctg(', fresh: true, cls: 'word' },
-            { label: '⌫', act: '⌫', cls: 'fn', aria: 'usuń znak' }, { label: 'AC', act: 'AC', cls: 'fn clear', aria: 'wyczyść' },
+            { label: '⌫', act: '⌫', cls: 'fn', aria: 'usuń znak' },
 
             { label: 'arcsin', ins: 'arcsin(', fresh: true, cls: 'word' }, { label: 'arccos', ins: 'arccos(', fresh: true, cls: 'word' },
             { label: 'arctg', ins: 'arctg(', fresh: true, cls: 'word' }, { label: 'ln', ins: 'ln(', fresh: true, cls: 'word' },
-            { label: 'log', ins: 'log(', fresh: true, cls: 'word', aria: 'logarytm dziesiętny' }, { label: 'log₂', ins: 'log_2(', fresh: true, cls: 'word', aria: 'logarytm o podstawie 2' },
+            { label: 'AC', act: 'AC', cls: 'fn clear', aria: 'wyczyść' },
 
+            { label: 'log', ins: 'log(', fresh: true, cls: 'word', aria: 'logarytm dziesiętny' }, { label: 'log₂', ins: 'log_2(', fresh: true, cls: 'word', aria: 'logarytm o podstawie 2' },
             { label: '|x|', ins: 'abs(', fresh: true, cls: 'fn', aria: 'wartość bezwzględna' }, { label: 'n!', ins: '!', cls: 'fn', aria: 'silnia' },
+            { label: 'mod', ins: ' mod ', cls: 'word', aria: 'reszta z dzielenia' },
+
             { label: '∛', ins: '∛(', fresh: true, cls: 'fn', aria: 'pierwiastek trzeciego stopnia' }, { label: '∜', ins: '∜(', fresh: true, cls: 'fn', aria: 'pierwiastek czwartego stopnia' },
-            { label: 'mod', ins: ' mod ', cls: 'word', aria: 'reszta z dzielenia' }, { label: '−∞', ins: '-∞', cls: 'fn', aria: 'minus nieskończoność' },
+            { label: '−∞', ins: '-∞', cls: 'fn', aria: 'minus nieskończoność' }, { label: 'x³', ins: '^3', cls: 'operator', aria: 'do sześcianu' },
+            { label: 'x⁻¹', ins: '^(-1)', cls: 'operator', aria: 'odwrotność' },
 
             { label: 'f′', ins: 'pochodna ', fresh: true, cls: 'fn', aria: 'pochodna' }, { label: '∫', ins: 'całka ', fresh: true, cls: 'fn', aria: 'całka' },
             { label: 'x=?', ins: 'rozwiąż ', fresh: true, cls: 'word', aria: 'rozwiąż równanie' }, { label: 'a=b', ins: '=', cls: 'word', aria: 'znak równania' },
-            { label: 'dx', ins: ' dx', cls: 'word', aria: 'd x na końcu całki' }, { label: '→', ins: '→', cls: 'fn', aria: 'strzałka granicy' },
+            { label: 'dx', ins: ' dx', cls: 'word', aria: 'd x na końcu całki' },
 
             { label: '123', page: 'wzory', cls: 'fn', aria: 'wróć do klawiatury wzorów' },
-            { label: 'x³', ins: '^3', cls: 'operator', aria: 'do sześcianu' },
-            { label: 'x⁻¹', ins: '^(-1)', cls: 'operator', aria: 'odwrotność' }, { label: 'eˣ', ins: 'e^(', fresh: true, cls: 'operator', aria: 'e do potęgi' },
-            { label: '( )', act: '()', cls: 'fn', aria: 'nawias' }, { label: '=', act: '=', cls: 'equals', aria: 'wynik' },
+            { label: 'eˣ', ins: 'e^(', fresh: true, cls: 'operator', aria: 'e do potęgi' },
+            { label: '( )', act: '()', cls: 'fn', aria: 'nawias' }, { label: '→', ins: '→', cls: 'fn', aria: 'strzałka granicy' },
+            { label: '=', act: '=', cls: 'equals', aria: 'wynik' },
         ],
     };
+
+    /** Litera klawisza zmiennej: z ostatniej wpisanej granicy („lim n→”, „granica … przy t → 0”), inaczej x.
+     * @param {string} text @returns {string} */
+    function varFor(text) {
+        const m = String(text || '').match(/(?:lim|przy|dla|gdy)\s*\{?\s*([a-z])\s*(?:→|->|do\s)/g);
+        const last = m && /([a-z])\s*(?:→|->|do\s)$/.exec(m[m.length - 1].replace(/^(?:lim|przy|dla|gdy)\s*\{?\s*/, ''));
+        return last ? last[1] : 'x';
+    }
+    /** Klawisz z danymi zależnymi od pola (klawisz zmiennej); inne bez zmian.
+     * @param {Key} key @param {string} text @returns {Key} */
+    function view(key, text) {
+        if (!key || !key.var) return key;
+        const v = varFor(text);
+        return { label: v, ins: v, fresh: true, cls: key.cls, aria: 'zmienna ' + v,
+            alts: VARS.filter((x) => x !== v).map((x) => ({ label: x, ins: x, fresh: true })) };
+    }
 
     /** Znaczki w górnych rogach: 1 wariant → prawy róg; 2 krótkie → lewy i prawy; więcej albo długie → „⋯”.
      * @param {Key} key @returns {{ tl?: string, tr?: string }} */
@@ -98,7 +117,7 @@
         return key.ins || '';
     }
 
-    const API = { PAGES: PAGES, cornerHint: cornerHint, insertText: insertText };
+    const API = { PAGES: PAGES, cornerHint: cornerHint, insertText: insertText, view: view, varFor: varFor };
     /** @type {any} */ (typeof window !== 'undefined' ? window : globalThis).MATM0_FKEYS = API;
     if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

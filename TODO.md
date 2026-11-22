@@ -16,6 +16,10 @@
 - [ ] Bardzo złożone zadania (`tan(tan x) − sin(sin x)`) przekraczają budżet pracy → NOPE
 - [ ] Sprawdzić szybkość na prawdziwym telefonie (pomiary tylko z Maca)
 
+## Granice — luki silnika (z testów klawiatury „Wzory”, 2026-11-22)
+
+- [ ] `lim n→∞ (2/n)^n` (= 0, podstawa → 0, wykładnik → ∞) — „Jeszcze tego nie rozwiążę”; reguła [0^∞] = 0
+
 ## Kroki rozwiązań — pomysły na później
 
 - [ ] Wzory w krokach: wyróżnione miejsce użycia znanego wzoru (a² − b², wzór na e, tablica całek…),

@@ -1224,9 +1224,37 @@
            i wraca z zapamiętanego HTML — jeden delegowany listener obsługuje obie. ── */
         var _calcGridHtml = null, _fkPage = 'calc', _fkHold = null, _fkPop = null;
         var FK_HOLD_MS = 380; // [EN] przytrzymanie: dłużej niż zwykłe stuknięcie, krócej niż systemowe menu
-        function _fkKeyAt(btn) {
-            var pages = window.MATM0_FKEYS && window.MATM0_FKEYS.PAGES;
-            return pages && pages[_fkPage] ? pages[_fkPage][+btn.dataset.fk] : null;
+        function _fkKeyAt(btn) { // [EN] widok klawisza: klawisz zmiennej zależy od pola (lim n→… → n)
+            var FK = window.MATM0_FKEYS, pages = FK && FK.PAGES;
+            var raw = pages && pages[_fkPage] ? pages[_fkPage][+btn.dataset.fk] : null;
+            return raw ? FK.view(raw, calcExpr ? calcExpr.value : '') : null;
+        }
+        function _fkFillKey(b, k) { // [EN] napis, znaczki w rogach i aria — przy rysowaniu i przy zmianie zmiennej
+            var FK = window.MATM0_FKEYS;
+            b.replaceChildren();
+            var lab = document.createElement('span');
+            lab.className = 'calc-btn-label';
+            lab.textContent = k.label;
+            b.appendChild(lab);
+            var hint = FK.cornerHint(k);
+            ['tl', 'tr'].forEach(function(c) {
+                if (!hint[c]) return;
+                var s = document.createElement('span');
+                s.className = 'calc-btn-alt calc-btn-alt--' + c;
+                s.setAttribute('aria-hidden', 'true');
+                s.textContent = hint[c];
+                b.appendChild(s);
+            });
+            var aria = k.aria || k.label;
+            if (k.alts && k.alts.length) aria += '; przytrzymaj: ' + k.alts.map(function(a) { return a.aria || a.label; }).join(', ');
+            b.setAttribute('aria-label', aria);
+        }
+        function _fkRefreshVar() { // [EN] po każdej zmianie pola: klawisz zmiennej pokazuje literę z granicy
+            if (_fkPage === 'calc' || !calcGrid) return;
+            var b = calcGrid.querySelector('.calc-btn[data-var]');
+            if (!b) return;
+            var k = _fkKeyAt(b);
+            if (k && b.dataset.var !== k.label) { b.dataset.var = k.label; _fkFillKey(b, k); }
         }
         function renderCalcKeys(page) {
             if (!calcGrid) return;
@@ -1235,29 +1263,17 @@
             var FK = window.MATM0_FKEYS, keys = page !== 'calc' && FK ? FK.PAGES[page] : null;
             _fkPage = keys ? page : 'calc';
             calcGrid.classList.toggle('calc-grid--wzory', !!keys);
+            requestAnimationFrame(function() { fitCalcLayout(); }); // [EN] 6 rzędów = niższe klawisze → skala czcionek
             if (!keys) { calcGrid.innerHTML = _calcGridHtml; return; }
             calcGrid.replaceChildren();
-            keys.forEach(function(k, i) {
+            keys.forEach(function(raw, i) {
+                var k = FK.view(raw, calcExpr ? calcExpr.value : '');
                 var b = document.createElement('button');
                 b.type = 'button';
                 b.className = 'calc-btn ' + (k.cls === 'word' ? 'calc-btn--fn calc-btn--word' + (k.label.length > 5 ? ' calc-btn--long' : '') : 'calc-btn--' + (k.cls || 'fn'));
                 b.dataset.fk = String(i);
-                var lab = document.createElement('span');
-                lab.className = 'calc-btn-label';
-                lab.textContent = k.label;
-                b.appendChild(lab);
-                var hint = FK.cornerHint(k);
-                ['tl', 'tr'].forEach(function(c) {
-                    if (!hint[c]) return;
-                    var s = document.createElement('span');
-                    s.className = 'calc-btn-alt calc-btn-alt--' + c;
-                    s.setAttribute('aria-hidden', 'true');
-                    s.textContent = hint[c];
-                    b.appendChild(s);
-                });
-                var aria = k.aria || k.label;
-                if (k.alts && k.alts.length) aria += '; przytrzymaj: ' + k.alts.map(function(a) { return a.aria || a.label; }).join(', ');
-                b.setAttribute('aria-label', aria);
+                if (raw.var) b.dataset.var = k.label;
+                _fkFillKey(b, k);
                 calcGrid.appendChild(b);
             });
         }
@@ -1269,6 +1285,10 @@
             var pos = document.activeElement === calcExpr && calcExpr.selectionStart != null ? calcExpr.selectionStart : calcExpr.value.length;
             var text = window.MATM0_FKEYS.insertText(k, calcExpr.value.slice(0, pos));
             if (text) _insertCalcExprText(text);
+            if (k.focus) { // „lim x→ …”: własny punkt — fokus w polu otwiera klawiaturę telefonu
+                calcExpr.focus();
+                try { calcExpr.setSelectionRange(calcExpr.value.length, calcExpr.value.length); } catch (err) {}
+            }
         }
         function _fkPointerDown(e, btn) {
             var k = _fkKeyAt(btn);
@@ -3806,6 +3826,7 @@
                 if (atEnd) { try { calcExpr.setSelectionRange(clamped.length, clamped.length); } catch (e) {} }
             }
             updateCalcFormula(calcExpr.value);
+            _fkRefreshVar();
             // Po „=” wynik wraca do pola jako normalny, edytowalny tekst. Przez
             // pierwsze przeliczenie zachowujemy jednostkę wybraną przez jawną
             // konwersję; następna zmiana użytkownika wraca do zwykłego auto-trybu.
@@ -4102,7 +4123,8 @@
                 var opens = (before.match(/\(/g) || []).length;
                 var closes = (before.match(/\)/g) || []).length;
                 var prev = before.slice(-1);
-                var canClose = opens > closes && /[\d.)]/.test(prev);
+                // zamknij po liczbie, „)”, zmiennej, ∞, π, ! — „(1+n” → „(1+n)”; samo „(” albo „+” → otwórz nowy
+                var canClose = opens > closes && /[\d.)a-zA-Zπ∞!²³]/.test(prev);
                 _insertCalcExprText(canClose ? ')' : '(');
                 return;
             }

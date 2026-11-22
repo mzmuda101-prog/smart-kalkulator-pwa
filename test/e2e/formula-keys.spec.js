@@ -59,6 +59,7 @@ test('przytrzymanie: przesunięcie na wariant wstawia go; puszczenie bez wyboru 
   await key(page, '√').click();
   await expect(page.locator('#calcExpr')).toHaveValue('∛(sqrt(');
   // przytrzymanie i puszczenie w miejscu: dymek zostaje, wariant da się stuknąć
+  await page.waitForTimeout(800); // podpowiedź „Nie rozumiem…” pojawia się z opóźnieniem i na niskim ekranie przesuwa klawisze
   const x = await key(page, 'x').boundingBox();
   await page.mouse.move(x.x + x.width / 2, x.y + x.height / 2);
   await page.mouse.down(); await page.waitForTimeout(500); await page.mouse.up();
@@ -67,7 +68,7 @@ test('przytrzymanie: przesunięcie na wariant wstawia go; puszczenie bez wyboru 
   await expect(page.locator('#calcExpr')).toHaveValue('∛(sqrt(t');
   await expect(page.locator('.calc-alt-pop')).toHaveCount(0);
   // rozmyślił się: przytrzymał, wyjechał poza dymek i klawisz, puścił — dymek znika, nic się nie wstawia
-  const n = await key(page, 'n').boundingBox(), plus = await key(page, '+').boundingBox(); // „+” w prawym dolnym rogu — z dala od dymku
+  const n = await key(page, 'x').boundingBox(), plus = await key(page, '+').boundingBox(); // „+” w prawym dolnym rogu — z dala od dymku
   await page.mouse.move(n.x + n.width / 2, n.y + n.height / 2);
   await page.mouse.down(); await page.waitForTimeout(500);
   await expect(page.locator('.calc-alt-pop')).toBeVisible();
@@ -87,10 +88,11 @@ test('przytrzymanie: przesunięcie na wariant wstawia go; puszczenie bez wyboru 
 test('znaczki w rogach, karta „Funkcje”, powrót „123”, klawiatura fizyczna', async ({ page }) => {
   await open(page);
   await toggle(page).click();
-  await expect(key(page, 'x').locator('.calc-btn-alt--tl')).toHaveText('y');
-  await expect(key(page, 'x').locator('.calc-btn-alt--tr')).toHaveText('t');
+  await expect(key(page, 'x').locator('.calc-btn-alt--tr')).toHaveText('⋯');
+  await expect(key(page, '√').locator('.calc-btn-alt--tl')).toHaveText('∛');
+  await expect(key(page, '√').locator('.calc-btn-alt--tr')).toHaveText('∜');
   await expect(key(page, 'lim').locator('.calc-btn-alt--tr')).toHaveText('⋯');
-  await expect(key(page, 'x')).toHaveAttribute('aria-label', /przytrzymaj: y, t/);
+  await expect(key(page, 'x')).toHaveAttribute('aria-label', /przytrzymaj: n, y, t/);
   await key(page, 'f(x)').click();
   await expect(key(page, 'arcsin')).toBeVisible();
   await key(page, '123').click(); // powrót na kartę wzorów
@@ -105,4 +107,30 @@ test('tryb „Zdanie” chowa przełącznik', async ({ page }) => {
   await open(page);
   await page.evaluate(() => document.querySelector('.calc-layout-toggle').click());
   await expect(page.locator('.calc-keys-toggle:visible')).toHaveCount(0);
+});
+
+test('klawisz zmiennej bierze literę z granicy; „lim x→ …” stawia kursor w polu', async ({ page }) => {
+  await open(page);
+  await toggle(page).click();
+  await expect(key(page, 'x')).toBeVisible();
+  await key(page, 'lim').click(); // lim n→∞
+  await expect(key(page, 'n')).toBeVisible(); // ta sama pozycja, teraz „n”
+  await expect(key(page, 'x')).toHaveCount(0);
+  await key(page, 'AC').click();
+  await expect(key(page, 'x')).toBeVisible();
+  // przytrzymaj lim → „lim x→ …”: kursor w polu (na telefonie otwiera się klawiatura)
+  const l = await key(page, 'lim').boundingBox();
+  await page.mouse.move(l.x + l.width / 2, l.y + l.height / 2);
+  await page.mouse.down(); await page.waitForTimeout(500); await page.mouse.up();
+  await page.locator('.calc-alt-opt', { hasText: 'lim x→ …' }).click();
+  await expect(page.locator('#calcExpr')).toHaveValue('lim x→');
+  await expect(page.locator('#calcExpr')).toBeFocused();
+});
+
+test('( ) zamyka nawias po zmiennej: lim n→∞ ((n+1)/n)^n = e', async ({ page }) => {
+  await open(page);
+  await toggle(page).click();
+  for (const l of ['lim', '( )', '( )', 'n', '+', '1', 'a/b', 'n', '( )', '( )', 'xⁿ', 'n', '( )']) await key(page, l).click();
+  await expect(page.locator('#calcExpr')).toHaveValue('lim n→∞ ((n+1)/(n))^(n)');
+  await expect(page.locator('#calcResult')).toHaveText('e');
 });

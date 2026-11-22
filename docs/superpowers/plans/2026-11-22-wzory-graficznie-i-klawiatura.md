@@ -111,6 +111,24 @@ karta „Funkcje” z symbolami `f′`, `∫`, `x=?` zamiast długich słów; dy
 Enter/Spacja na klawiszach „Wzory” obsłużone przed globalnym skrótem Enter = „=”.
 Do sprawdzenia na iPhonie: przytrzymanie palcem (czas 380 ms, brak menu systemowego), klawisze 49 px przy 390 px.
 
+**Poprawki po teście Mateusza na iPhonie (v1.05.01–02):**
+- dymek: puszczenie poza dymkiem i klawiszem zamyka go (puszczenie na dymku/klawiszu zostawia do stuknięcia);
+- układ **5 kolumn × 6 rzędów** (klawisze prawie kwadratowe; 6 kolumn wyglądało na „rozciągnięte”):
+```
+lim   ∞     x     xⁿ    √
+a/b   ( )   f(x)  ⌫     AC
+x²    7     8     9     ÷
+e     4     5     6     ×
+π     1     2     3     −
+→     0     .     =     +
+```
+- **jeden klawisz zmiennej**: pokazuje literę z wpisanej granicy (`lim n→…` → `n`, „przy t → 0” → `t`),
+  pozostałe (`x n y t k m a b`) pod przytrzymaniem;
+- `lim` → wariant **„lim x→ …”** wstawia `lim x→` i stawia kursor w polu (klawiatura telefonu — własny punkt);
+- sprytne `( )` zamyka nawias także po zmiennej, `∞`, `π`, `!` (wcześniej tylko po cyfrze i `)`);
+- na komputerze 6 rzędów mimo reguły `calc-split-active` (5 rzędów) — inaczej ostatni rząd był ściśnięty.
+Inspiracje: Photomath (warianty pod przytrzymaniem, kropka w rogu), GeoGebra (karty 123 / f(x) / ABC).
+
 **Warunek przed klawiaturą — silnik musi rozumieć każdy klawisz** (sprawdzone 22.11 w zwykłym liczeniu,
 poza granicami/krokami): nie działają `tg`, `ctg`, `arctg` (działa tylko `tan`, `atan`), `|−3|`, `5!`,
 `log_2(8)`, `cos²(0)`, `10 mod 3`. Etap 2a: dodać je do silnika ze smoke-testami i ściągą, potem klawiatura (2b).

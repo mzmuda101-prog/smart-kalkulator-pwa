@@ -5103,7 +5103,7 @@
 .calc-workspace-bar .calc-layout-toggle { margin-left: 12px; }
 
 /* ============================================================
-   Klawiatura „Wzory” (plan 2026-11-22, etap 2b): 6 kolumn × 5 rzędów, ta sama wysokość co kalkulator.
+   Klawiatura „Wzory” (plan 2026-11-22, etap 2b): 5 kolumn × 6 rzędów, ta sama wysokość co kalkulator.
    Znaczki w górnych rogach = warianty pod przytrzymaniem (dymek .calc-alt-pop).
    ============================================================ */
 .calc-keys-toggle {
@@ -5121,9 +5121,12 @@
     .calc-tools .history-open-btn { position: relative; justify-content: center; }
 }
 body.calc-sentence .calc-keys-toggle { display: none; } /* tryb „Zdanie” nie ma klawiatury */
-.calc-grid.calc-grid--wzory { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.calc-grid.calc-grid--wzory { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+/* 6 rzędów w tej samej wysokości — także na komputerze (calc-split-active ustawia 5 rzędów wyższym selektorem) */
+#panel-calculator .calc-grid.calc-grid--wzory,
+body.calc-split-active #panel-calculator .calc-grid.calc-grid--wzory { grid-template-rows: repeat(6, minmax(0, 1fr)); }
 .calc-grid--wzory .calc-btn {
-    position: relative; aspect-ratio: 2 / 3; /* poza ekranem dzielonym: 6 kolumn, ta sama wysokość co 4 */
+    position: relative; aspect-ratio: 24 / 25; /* poza ekranem dzielonym: 5 × 6 w wysokości siatki 4 × 5 */
     -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; touch-action: manipulation;
 }
 /* napis, nie klawisz: rozmiar klawisza ustawia układ kalkulatora (#panel-calculator), my tylko zmniejszamy tekst */
