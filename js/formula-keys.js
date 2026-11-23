@@ -23,6 +23,8 @@
     const VARS = ['x', 'n', 'y', 't', 'k', 'm', 'a', 'b'];
     const VAR = { label: 'x', var: true, fresh: true, cls: 'fn', aria: 'zmienna' };
     /** @param {string} l @param {string} aria @param {Key['alts']} [alts] */
+    // „=” liczy; przytrzymanie wstawia sam znak = (x = 52 + 65), jak w Photomath — też na klawiaturze kalkulatora
+    const EQ = { label: '=', act: '=', cls: 'equals', aria: 'wynik', alts: [{ label: '=', ins: '=', aria: 'wstaw znak =' }] };
     const OP = (l, aria, alts) => ({ label: l, act: l, cls: 'operator', aria: aria, alts: alts });
 
     /** @type {Record<string, Key[]>} 5 kolumn × 6 rzędów (klawisze prawie kwadratowe; wysokość klawiatury bez zmian) */
@@ -49,7 +51,7 @@
             { label: 'π', ins: 'π', fresh: true, cls: 'fn', aria: 'pi' }, D('1'), D('2'), D('3'), OP('−', 'minus'),
             { label: '→', ins: '→', cls: 'fn', aria: 'strzałka granicy' }, D('0'),
             { label: '.', act: '.', cls: 'number', aria: 'przecinek' },
-            { label: '=', act: '=', cls: 'equals', aria: 'wynik' }, OP('+', 'plus'),
+            EQ, OP('+', 'plus'),
         ],
         // karta „Funkcje”: każdy znak i funkcja spod przytrzymania jest też tu (odkrywalność, czytnik ekranu);
         // wyjątki: litery zmiennych (klawisz zmiennej) i warianty „lim” — da się je dopisać zwykłym pisaniem
@@ -77,7 +79,7 @@
             { label: '123', page: 'wzory', cls: 'fn', aria: 'wróć do klawiatury wzorów' },
             { label: 'eˣ', ins: 'e^(', fresh: true, cls: 'operator', aria: 'e do potęgi' },
             { label: '( )', act: '()', cls: 'fn', aria: 'nawias' }, { label: '→', ins: '→', cls: 'fn', aria: 'strzałka granicy' },
-            { label: '=', act: '=', cls: 'equals', aria: 'wynik' },
+            EQ,
         ],
     };
 
@@ -117,7 +119,7 @@
         return key.ins || '';
     }
 
-    const API = { PAGES: PAGES, cornerHint: cornerHint, insertText: insertText, view: view, varFor: varFor };
+    const API = { PAGES: PAGES, EQ: EQ, cornerHint: cornerHint, insertText: insertText, view: view, varFor: varFor };
     /** @type {any} */ (typeof window !== 'undefined' ? window : globalThis).MATM0_FKEYS = API;
     if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

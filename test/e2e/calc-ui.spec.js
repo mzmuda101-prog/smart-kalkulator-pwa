@@ -283,6 +283,7 @@ test('historia: lewa połowa wraca do działania, prawa użyje wyniku', async ({
         el.dispatchEvent(new Event('input', { bubbles: true }));
         const eq = document.querySelector('.calc-btn[data-action="="]');
         eq.dispatchEvent(new PointerEvent('pointerdown', { button: 0, bubbles: true }));
+        eq.dispatchEvent(new PointerEvent('pointerup', { button: 0, bubbles: true })); // „=” liczy przy puszczeniu (przytrzymanie wstawia znak =)
     }, expr);
     const clickHalf = (sel) => page.evaluate((s) => {
         const open = document.getElementById('openHistory');

@@ -1212,7 +1212,7 @@
                 if (e.button !== undefined && e.button !== 0) return;
                 var btn = e.target.closest('.calc-btn');
                 if (!btn || !calcGrid.contains(btn)) return;
-                if (btn.dataset.fk != null) { _fkPointerDown(e, btn); return; } // klawiatura „Wzory”
+                if (btn.dataset.fk != null || btn.getAttribute('data-action') === '=') { _fkPointerDown(e, btn); return; } // „Wzory” i „=” (przytrzymanie wstawia znak =)
                 handleCalcAction(btn.getAttribute('data-action'));
             });
             calcGrid.addEventListener('pointermove', _fkPointerMove);
@@ -1225,7 +1225,7 @@
                 e.stopPropagation(); // [EN] globalny skrót Enter = „=” nie może zjeść wyboru klawisza
                 _fkDo(_fkKeyAt(btn));
             });
-            calcGrid.addEventListener('contextmenu', function(e) { if (_fkPage !== 'calc') e.preventDefault(); }); // [EN] Android: przytrzymanie ≠ menu
+            calcGrid.addEventListener('contextmenu', function(e) { if (_fkPage !== 'calc' || e.target.closest('[data-action="="]')) e.preventDefault(); }); // [EN] Android: przytrzymanie ≠ menu
             _bindCalcBtnPressFeedback(calcGrid); // [EN] press + halo — osobny listener (passive, bez blokowania akcji)
         }
 
@@ -1301,7 +1301,7 @@
             }
         }
         function _fkPointerDown(e, btn) {
-            var k = _fkKeyAt(btn);
+            var k = btn.dataset.fk != null ? _fkKeyAt(btn) : window.MATM0_FKEYS && window.MATM0_FKEYS.EQ;
             _fkClosePop();
             if (!k) return;
             if (!k.alts || !k.alts.length) { _fkDo(k); return; } // bez wariantów: od razu, jak zwykły klawisz

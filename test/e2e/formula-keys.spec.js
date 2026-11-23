@@ -134,3 +134,30 @@ test('( ) zamyka nawias po zmiennej: lim n→∞ ((n+1)/n)^n = e', async ({ page
   await expect(page.locator('#calcExpr')).toHaveValue('lim n→∞ ((n+1)/(n))^(n)');
   await expect(page.locator('#calcResult')).toHaveText('e');
 });
+
+test('„=”: stuknięcie liczy, przytrzymanie wstawia znak = (obie klawiatury)', async ({ page }) => {
+  await open(page);
+  const eqBtn = page.locator('#calcGrid .calc-btn[data-action="="]');
+  await eqBtn.click({ trial: true }); // czeka, aż ekran startowy przestanie zasłaniać klawisze
+  await page.locator('#calcExpr').fill('x');
+  const holdEq = async (btn) => {
+    await btn.click({ trial: true });
+    const b = await btn.boundingBox();
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await page.mouse.down(); await page.waitForTimeout(500);
+    const opt = await page.locator('.calc-alt-opt', { hasText: /^=$/ }).boundingBox();
+    await page.mouse.move(opt.x + opt.width / 2, opt.y + opt.height / 2, { steps: 4 });
+    await page.mouse.up();
+  };
+  await holdEq(eqBtn);
+  await expect(page.locator('#calcExpr')).toHaveValue('x=');
+  await page.locator('#calcExpr').fill('x=52+65');
+  await eqBtn.click();
+  await expect(page.locator('#calcResult')).toContainText('117');
+  await page.keyboard.press('Escape'); // „=” przy zadaniu z krokami otwiera rozwiązanie — zamykam szufladę
+  // klawiatura „Wzory”: ten sam klawisz
+  await toggle(page).click();
+  await page.locator('#calcExpr').fill('y');
+  await holdEq(page.locator('#calcGrid .calc-btn--equals').first());
+  await expect(page.locator('#calcExpr')).toHaveValue('y=');
+});

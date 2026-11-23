@@ -1,4 +1,4 @@
-# Przekazanie: kroki rozwiązania zrozumiałe — stan na 2026-11-23, v1.05.17
+# Przekazanie: kroki rozwiązania zrozumiałe — stan na 2026-11-23, v1.05.18
 
 Dla nowej rozmowy. Najpierw: `AGENTS.md`, `../ZASADY-AGENTOW.md`, plan `docs/superpowers/plans/2026-11-22-kroki-zrozumiale.md`
 (etapy 3b–3f, decyzje Mateusza, co zostało), raporty agentów `docs/superpowers/research/raport-{A,B,C}-*.md`.
@@ -19,6 +19,7 @@ Starsze przekazanie: `docs/superpowers/HANDOFF-wzory.md` (rysunek wzoru, klawiat
 | v1.05.15 | raporty D/E: „dlaczego” mówi o zadaniu, dymek o regule (bramka dubli w `test/step-why.js`); pochodne u/v, `u′ =`/`v′ =` w krokach, √x i 1/x jako potęga (też w całce), „Mnożę przez pochodną środka/stałą”, licznik ilorazu wymnożony, wynik w kolejności z rachunku; kolor na podstawieniu (iloczyn, iloraz, tożsamości); „Kolorowa potęga dąży do e”; bez `[ ]` wokół koloru |
 | v1.05.16 | całki (raport E): F(b), F(a) z wstawieniem (`−cos(π) − (−cos(0))`), ułamki proste z A i B, przez części bez podwójnego minusa + „Wstawiam policzoną całkę”, tożsamość i „Całkuję każdą część” osobno, `dx = dt/2`, `1/2 · arctg(x/2)`, reszta z dzielenia w nawiasach |
 | v1.05.17 | równania (raport E, R1–R6 + zrzut `x=52+65`): „Liczę prawą stronę” bez sprawdzenia, „Zamieniam strony”, mnożenie przy ułamku, „Zmieniam znak obu stron”, `x − 3 = 0`, Δ z `25 − 24`, `√1`, `4/2`, rozkład z delty, Bezout z dzielnikami i przejściem do drugiego czynnika |
+| v1.05.18 | przytrzymanie „=” wstawia znak = (obie klawiatury, `MATM0_FKEYS.EQ`); „=” liczy przy puszczeniu, nie przy wciśnięciu |
 
 ## Jak to działa (mapa)
 - Krok = `{ label, math, formula?: { id } }`. Fragment w `⟦…⟧` = miejsce użycia wzoru: rysowany kolorem akcentu,
@@ -53,7 +54,6 @@ Skrypt do zrzutu kroków do JSON: wzór w `HANDOFF` niżej (pliki w scratchpadzi
 4b. **Kilka sposobów rozwiązania** (Mateusz, zrzut granic 7–9): np. 0/0 przez rozkład, sprzężenie albo de l'Hospitala — wybór
    sposobu w krokach („Inny sposób”). Najpierw plan i decyzje z Mateuszem (które zadania, gdzie przełącznik).
 4c. **Więcej wyjaśnienia w stylu Photomath** przy nauce granic (Mateusz): łączy się z pkt 5 i z podręcznikiem.
-4d. **Przytrzymanie „=” wstawia znak =** (jak w Photomath), zamiast liczyć — do `x = …` z klawiatury apki.
 5. Kolorowanie tego, co się zmieniło w kroku (jak Photomath) — Mateusz: później.
 6. Starsze otwarte: `TODO.md` (luka `lim (2/n)^n`, skaner, edytor 2D).
 
