@@ -394,5 +394,21 @@ console.log(`zestaw: najwolniejsze ${slowest.id} — ${slowest.ms} ms`);
 // [EN] liczone przy każdym znaku — budżet 300 ms (pomiar zimny: wynik nie z pamięci podręcznej)
 ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
 
+// ── Sposoby (Mateusz, zrzut zadań 7–9): 0/0 przy x → liczba — rozkład/sprzężenie i de l'Hospital do wyboru ──
+{
+    const run = q => S.run(q);
+    const names = q => { const m = run(q).explain.methods; return m ? m.map(x => x.label) : []; };
+    const A = 'lim x→4 (x^2-6x+8)/(3x^2-10x-8)';
+    ok('sposoby: 8a — rozkład i de l\'Hospital', JSON.stringify(names(A)) === JSON.stringify(['Rozkład na czynniki', "de l'Hospital"]), names(A));
+    const m = run(A).explain.methods;
+    ok('sposoby: domyślny = pierwszy, kroki rozwiązania to jego kroki', m && run(A).explain.steps === m[0].steps);
+    ok('sposoby: de l\'Hospital zaczyna od reguły i ma ten sam wynik', m && m[1].steps[1].label === "Reguła de l'Hospitala"
+        && m[1].steps[m[1].steps.length - 1].math === m[0].steps[m[0].steps.length - 1].math && m[1].steps[m[1].steps.length - 1].final, m && m[1].steps);
+    ok('sposoby: 9a — sprzężenie i de l\'Hospital', JSON.stringify(names('lim x→5 (x-5)/(3-sqrt(x+4))')) === JSON.stringify(['Sprzężenie', "de l'Hospital"]), names('lim x→5 (x-5)/(3-sqrt(x+4))'));
+    ok('sposoby: ∛ — różnica sześcianów, nie sprzężenie', names('lim x→3 (x^2-8x+15)/(∛(3x-1)-2)')[0] === 'Różnica sześcianów', names('lim x→3 (x^2-8x+15)/(∛(3x-1)-2)'));
+    ok('sposoby: bez 0/0 — jeden sposób, bez przełącznika', names('lim x→2 (x+1)/(x+3)').length === 0 && names('lim n→∞ (2n+1)/(6n+5)').length === 0);
+    ok('sposoby: znana granica sin(3x)/x też ma de l\'Hospitala', names('lim x→0 sin(3x)/x').length === 2, names('lim x→0 sin(3x)/x'));
+}
+
 console.log(`math-limits: ${pass} OK, ${fail} błędów`);
 process.exit(fail ? 1 : 0);

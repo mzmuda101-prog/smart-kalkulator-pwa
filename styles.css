@@ -4042,6 +4042,9 @@
             box-shadow: var(--shadow-sm);
         }
         .settings-seg-btn:active { transform: scale(0.97); }
+        /* sposoby rozwiązania nad krokami: cała szerokość, długie nazwy się zawijają */
+        .steps-methods { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); inline-size: 100%; margin-block-end: 12px; }
+        .steps-methods .settings-seg-btn { min-inline-size: 0; padding-inline: 10px; overflow-wrap: anywhere; }
         .settings-fxstatus {
             margin: 4px 0 0;
             font-size: 0.8rem;

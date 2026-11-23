@@ -61,7 +61,8 @@
         }],
         [/^Zapisujemy inaczej$/, 'To samo wyrażenie, tylko ułożone tak, żeby dało się je dalej przekształcać.'],
         [/^Podstawiamy \w → /, 'Liczba dzielona przez coraz większą wartość jest prawie zerem. Nic innego nie przeszkadza, więc od razu wstawiamy 0.'],
-        [/^Podstawiamy /, 'W mianowniku nie wychodzi zero, więc wystarczy wstawić liczbę.'],
+        [/^Podstawiamy /, (s) => /\//.test(s.math.replace(/^lim\([^)]*\)/, '')) ? 'W mianowniku nie wychodzi zero, więc wystarczy wstawić liczbę.'
+            : 'Nic już nie przeszkadza: wyrażenie ma sens w tym punkcie, więc wstawiamy liczbę.'],
         [/^Wyrazy z \w w mianowniku dążą do 0$/, s => /[+−]∞$/.test(s.math)
             ? 'Ułamki znikają, ale zostaje potęga zmiennej, która rośnie bez końca, więc wynik to nieskończoność.'
             : /1\/.*→ 0$/.test(s.math) ? 'Zostaje 1 przez coś, co rośnie bez końca, więc całość dąży do 0.'

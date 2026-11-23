@@ -35,9 +35,9 @@ const out = [];
 for (const q of queries) {
     let r; try { r = S.run(q); } catch { continue; }
     if (!r || !r.explain || !r.explain.steps) continue;
-    out.push({
-        q, title: r.explain.title,
-        steps: r.explain.steps.map((/** @type {{label: string, math: string}} */ s) => ({
+    for (const m of r.explain.methods || [r.explain]) out.push({ // każdy sposób jak osobne zadanie
+        q: q + (m.label ? ' [' + m.label + ']' : ''), title: r.explain.title,
+        steps: m.steps.map((/** @type {{label: string, math: string}} */ s) => ({
             label: s.label, math: s.math,
             // linia kroku = lista kawałków; '\n' w stepToLatex dzieli linie
             lines: stepToLatex(s.math, 'f').join('\u0000').split('\u0000\n\u0000').map(l => l.split('\u0000')),

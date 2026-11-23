@@ -42,10 +42,12 @@ let steps = 0;
 for (const q of ZESTAW.map(z => z.input).concat(sciaga, extra)) {
     let r; try { r = S.run(q); } catch { continue; }
     if (!r || !r.explain || !r.explain.steps) continue;
-    for (const st of r.explain.steps) {
+    // każdy sposób (explain.methods) sprawdzany jak osobne rozwiązanie
+    for (const ex of (r.explain.methods || [r.explain]).map(m => ({ title: r.explain.title, steps: m.steps })))
+    for (const st of ex.steps) {
         if (isStatement(st.label)) continue;
         steps++;
-        const w = whyFor(st, r.explain.title, r.explain, r.explain.steps.indexOf(st));
+        const w = whyFor(st, ex.title, ex, ex.steps.indexOf(st));
         if (!w) { missing.add(st.label); continue; }
         const words = w.replace(/\$[^$]*\$/g, 'X').split(/\s+/).length;
         const plain = w.replace(/\$[^$]*\$/g, '');

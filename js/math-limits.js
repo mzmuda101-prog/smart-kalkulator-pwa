@@ -1022,7 +1022,10 @@
             if (C.show(out).length > 4 * C.show(e).length + 40) throw new NotSupported(); // [EN] wyrażenie się komplikuje
             _lhCount++;
             try {
-                line(log, "Reguła de l'Hospitala", limHead(v, t) + '⟦(' + C.showInner(fr.N) + ')′/(' + C.showInner(fr.D) + ')′⟧ = ' + limOf(v, t, out), 'lhospital');
+                // [EN] najpierw same pochodne (2x − 6)/(6x − 10), potem uproszczenie — bez skoku
+                var raw = '(' + C.show(dN) + ')/(' + C.show(dD) + ')', simple = limOf(v, t, out).slice(limHead(v, t).length);
+                line(log, "Reguła de l'Hospitala", limHead(v, t) + '⟦(' + C.showInner(fr.N) + ')′/(' + C.showInner(fr.D) + ')′⟧ = ' + limHead(v, t) + raw
+                    + (raw.replace(/[()\s]/g, '') === simple.replace(/[()\s]/g, '') ? '' : ' = ' + limOf(v, t, out)), 'lhospital');
                 return limitOf(out, v, t, log, depth);
             } finally { _lhCount--; }
         }
@@ -1065,13 +1068,16 @@
 
     var MAX_DEPTH = 8;
     var WORK_BUDGET = 1500; // [EN] operacji w wysokiej precyzji na zadanie; zestaw 58 zużywa najwyżej ~670, (x − sin x)/x³ ~1100
+    // [EN] sposoby: _prefer = reguła próbowana najpierw w pierwszym ruchu; _first = reguła, która zrobiła pierwszy ruch
+    var _prefer = null, _first = null;
     function limitOf(e, v, t, log, depth) {
         if ((depth || 0) > MAX_DEPTH) throw new NotSupported();
-        for (var i = 0; i < RULES.length; i++) {
-            var rule = RULES[i];
+        var top = !depth, order = top && _prefer ? [_prefer].concat(RULES.filter(function (r) { return r !== _prefer; })) : RULES;
+        for (var i = 0; i < order.length; i++) {
+            var rule = order[i];
             if (!rule.test(e, v, t)) continue;
             var mark = log ? log.length : 0;
-            try { return rule.apply(e, v, t, log, (depth || 0) + 1); }
+            try { var got = rule.apply(e, v, t, log, (depth || 0) + 1); if (top) _first = rule.name; return got; }
             catch (err) {
                 if (!(err instanceof NotSupported) && !(err instanceof RangeError)) throw err;
                 if (log) log.length = mark; // [EN] nieudana próba nie zostawia kroków
@@ -1128,6 +1134,7 @@
     }
     function run(d) {
         C.setVar(d.v); // [EN] przed budowaniem: kolejność wyrazów liczy się od potęgi TEJ zmiennej
+        _first = null;
         var ast = K.parse(d.src), e = C.fromAst(ast);
         var ans, ind, steps;
         _work = 0; _budget = WORK_BUDGET;
@@ -1153,11 +1160,32 @@
             }
         }
         finally { _budget = Infinity; }
-        if (!agrees(ans, numericLimitAst(ast, d.v, d.target))) throw new NotSupported(); // [EN] nigdy błędnego wyniku — liczone z zapisu użytkownika
-        var out = formatAnswer(ans);
+        var truth = numericLimitAst(ast, d.v, d.target);
+        if (!agrees(ans, truth)) throw new NotSupported(); // [EN] nigdy błędnego wyniku — liczone z zapisu użytkownika
+        var out = formatAnswer(ans), first = _first;
         steps.push({ label: 'Wynik', math: userLim(d, e) + ' = ' + out.text });
-        return K.done('Granica', out.text, out.value, steps);
+        var res = K.done('Granica', out.text, out.value, steps);
+        // [EN] drugi sposób: 0/0 przy x → liczba — de l'Hospital obok rozkładu/sprzężenia/znanej granicy (Mateusz, zadania 7–9)
+        if (ind === '0/0' && isFiniteTarget(d.target) && METHOD[first]) {
+            var alt = steps.slice(0, steps.length - 1).filter(function (s, i) { return i === 0 || s.label === 'Zapisujemy inaczej'; });
+            _prefer = lHospital; _work = 0; _budget = WORK_BUDGET;
+            try {
+                var ansL = limitOf(e, d.v, d.target, alt, 0);
+                if (_first === 'lHospital' && agrees(ansL, truth) && formatAnswer(ansL).text === out.text) {
+                    alt.push({ label: 'Wynik', math: userLim(d, e) + ' = ' + out.text, final: true });
+                    // [EN] przy ∛ i ∜ to nie sprzężenie, tylko różnica sześcianów / czwartych potęg (jak w dymku)
+                    var cube = steps.some(function (s) { return s.formula && s.formula.id === 'roznica-szescianow'; });
+                    var fourth = steps.some(function (s) { return s.formula && s.formula.id === 'roznica-czwartych'; });
+                    var name = cube ? 'Różnica sześcianów' : fourth ? 'Różnica czwartych potęg' : METHOD[first];
+                    res.explain.methods = [{ label: name, steps: steps }, { label: "de l'Hospital", steps: alt }];
+                }
+            } catch (err) { if (!(err instanceof NotSupported) && !(err instanceof RangeError)) throw err; }
+            finally { _prefer = null; _budget = Infinity; }
+        }
+        return res;
     }
+    // [EN] nazwy sposobów do przełącznika w krokach (pierwszy ruch silnika)
+    var METHOD = { factorCancel: 'Rozkład na czynniki', conjugate: 'Sprzężenie', knownLimits: 'Znana granica', commonDenominator: 'Wspólny mianownik' };
 
     var API = {
         detect: detect, run: run, numericLimit: numericLimit, numericLimitAst: numericLimitAst, _evalDec: evalDec,

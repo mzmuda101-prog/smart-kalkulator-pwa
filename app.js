@@ -6089,6 +6089,26 @@
                 toDraw.push({ ink: ink, step: step, fid: fid });
             });
             stepsView.textContent = '';
+            var ways = explain.methods && explain.methods.length > 1 ? explain.methods : null;
+            if (ways) { // [EN] kilka sposobów (rozkład / de l'Hospital): przełącznik nad krokami, ten sam wygląd co w ustawieniach
+                var bar = _stepsEl('div', 'settings-seg steps-methods');
+                bar.setAttribute('role', 'group');
+                bar.setAttribute('aria-label', 'Sposób rozwiązania');
+                ways.forEach(function(m) {
+                    var b = _stepsEl('button', 'settings-seg-btn' + (m.steps === explain.steps ? ' active' : ''), m.label);
+                    b.type = 'button';
+                    b.setAttribute('aria-pressed', m.steps === explain.steps ? 'true' : 'false');
+                    b.addEventListener('click', function() {
+                        if (m.steps === explain.steps) return;
+                        explain.steps = m.steps;
+                        renderStepsView(explain);
+                        var again = stepsView.querySelector('.steps-methods .active');
+                        if (again) again.focus();
+                    });
+                    bar.appendChild(b);
+                });
+                stepsView.appendChild(bar);
+            }
             stepsView.appendChild(list);
             var fillWhys = function (ml) { whys.forEach(function (w) { _stepsRich(w.el, ml, w.text); }); };
             if (!window.MATM0_TEX || !window.MATM0_TEX.stepToLatex) { fillWhys(null); return; }

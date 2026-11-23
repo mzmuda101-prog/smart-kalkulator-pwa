@@ -78,7 +78,7 @@ ok('zestaw: 58/58 rysunków wraca do tego samego zadania', bad.length === 0, bad
     for (const q of ZESTAW.map(z => z.input).concat(sciaga, extra)) {
         let r; try { r = S.run(q); } catch { continue; }
         if (!r || !r.explain || !r.explain.steps) continue;
-        for (const st of r.explain.steps) {
+        for (const st of (r.explain.methods || [r.explain]).flatMap(m => m.steps)) { // każdy sposób
             steps++;
             const fid = st.formula && st.formula.id;
             const tex = stepToLatex(st.math, fid).join(' ');
