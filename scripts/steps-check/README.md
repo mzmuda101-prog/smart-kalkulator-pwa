@@ -24,3 +24,5 @@ Po każdej zmianie w krokach (`js/math-limits.js`, `js/math-calculus.js`, `js/ma
 - Auto-test (`--self-test`): bramka musi złapać cztery celowo fałszywe kroki (w tym zły krok układu) i przepuścić prawdziwe.
 
 Bezpieczeństwo: `parse_latex(backend='lark')` to gramatyka, bez wykonywania kodu (bez `parse_expr`/`sympify` na tekście).
+
+Hasła podręcznika (`js/step-formulas.js`): `dump.js` dokłada kroki każdego przykładu „Spróbuj” i każdą równość `$… = …$` z tekstów haseł; czego SymPy nie umie sprawdzić, wpisz do `SKIP_PROSE` z powodem.

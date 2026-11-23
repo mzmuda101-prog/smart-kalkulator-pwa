@@ -10,6 +10,7 @@ const S = require(path.join(root, 'js', 'math-steps.js'));
 require(path.join(root, 'js', 'math-calculus.js'));
 require(path.join(root, 'js', 'math-limits.js'));
 const { stepToLatex } = require(path.join(root, 'js', 'expr-to-latex.js'));
+const { FORMULAS } = require(path.join(root, 'js', 'step-formulas.js'));
 
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const defs = fs.readFileSync(path.join(root, 'command-definitions.js'), 'utf8');
@@ -29,7 +30,8 @@ const EXTRA = ['lim x→0 sin(3x)/x', 'lim x→0 tan(2x)/x', 'lim x→0 arcsin(2
 const queries = [...new Set(require(path.join(root, 'test', 'limits-zestaw.json')).map((/** @type {{input: string}} */ z) => z.input)
     .concat([...html.matchAll(/data-command="([^"]*)"/g)].map(m => decode(m[1])))
     .concat([...defs.matchAll(/command: '((?:[^'\\]|\\.)*)'/g)].map(m => m[1].replace(/\\'/g, "'")))
-    .concat(EXTRA))];
+    .concat(EXTRA)
+    .concat(Object.values(FORMULAS).map(f => f.try).filter(Boolean)))]; // przykłady „Spróbuj” z podręcznika
 
 const out = [];
 for (const q of queries) {
@@ -44,6 +46,42 @@ for (const q of queries) {
         })),
     });
 }
+
+// Hasła podręcznika: każda równość $… = …$ z tekstów (why, more) jako osobne zadanie.
+// Pomijamy warunki i definicje: strzałki, nierówności, słowa, „Δ = 0” (różne litery po stronach znaku =).
+/** @type {Record<string, string>} fragment → dlaczego SymPy go nie sprawdza */
+const SKIP_PROSE = {
+    '\\Delta=0': 'warunek (przypadek delty), nie rachunek',
+    '2\\log_{4}(4n+5)=\\log_{4}(4n+5)^{2}': 'parser nie czyta log z potęgą argumentu; prawda: 2·log_a b = log_a b²',
+    'x=x^{1}': 'zapis x jako potęgi, check.py traktuje „x = …” jak wstawienie',
+    '(uv)^{\\prime}=u^{\\prime}v+uv^{\\prime}': 'wzór na pochodną iloczynu z funkcjami u, v, nie do policzenia; sprawdzony w krokach pochodnych',
+};
+const letters = (/** @type {string} */ t) => [...new Set(t.replace(/\\[a-zA-Z]+/g, ' ').match(/[a-zA-Z]/g) || [])].sort().join('');
+/** @param {string} t */
+function splitTop(t) { // podział po „=” poza nawiasami {}
+    const parts = [];
+    let depth = 0, cur = '';
+    for (const ch of t) {
+        if (ch === '{') depth++;
+        if (ch === '}') depth--;
+        if (ch === '=' && depth === 0) { parts.push(cur); cur = ''; } else cur += ch;
+    }
+    return parts.concat(cur);
+}
+let proseSkipped = 0;
+for (const [id, f] of Object.entries(FORMULAS)) {
+    for (const text of [f.why].concat(f.more || [])) {
+        for (const m of text.matchAll(/\$([^$]+)\$/g)) {
+            const frag = m[1];
+            const parts = splitTop(frag).map(p => p.trim());
+            if (parts.length < 2 || parts.some(p => !p)) continue;
+            if (SKIP_PROSE[frag] || /\\to|\\approx|\\text|\\quad|\\le|\\ge|\\neq|\\pm|[<>]|\\infty/.test(frag)
+                || new Set(parts.map(letters)).size > 1) { proseSkipped++; continue; }
+            out.push({ q: 'hasło ' + id, title: 'Hasło', steps: [{ label: 'tekst', math: frag, lines: [[parts[0]].concat(parts.slice(1).map(p => '=' + p))] }] });
+        }
+    }
+}
+console.log('hasła: pominięte warunki i definicje:', proseSkipped);
 fs.writeFileSync(process.argv[2] || path.join(__dirname, 'steps.json'), JSON.stringify(out));
 console.log('zadań z krokami:', out.length, ' kroków:', out.reduce((a, b) => a + b.steps.length, 0));
 process.exit(0);
