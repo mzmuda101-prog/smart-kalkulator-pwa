@@ -37,8 +37,13 @@ Starsze przekazanie: `docs/superpowers/HANDOFF-wzory.md` (rysunek wzoru, klawiat
 | v1.05.36 | hasła: „skąd wzór” i „skąd nazwa” (delta, wzory, e, iloczyn, przez części, logarytm, sprzężenie); bramka SymPy: filtr `\le` łapał `\left` |
 | v1.05.40 | **sposoby, etap 1** (spec `2026-11-23-sposoby-design.md`): domyślnie najkrótszy sposób; 1^∞ — „Wzór skrócony” (hasło `e-skrocony`); ∞/∞ dla funkcji (x) — de l'Hospital; „Wróć do kroków” przywraca przełącznik sposobów |
 
-Dalej (kolejność z projektu sposobów): 2) sposoby w innych typach zadań (np. równanie kwadratowe: delta albo rozkład),
-3) schemat Hornera jako rysowana tabelka ze strzałkami, 4) czytelność długich wzorów (łamanie „aₙ = …”, mały wykładnik).
+| v1.05.45 | **sposoby, etap 2+3**: równanie kwadratowe — „Suma i iloczyn” (wzory Viète'a) obok delty; wielomiany — szukam pierwiastka → schemat Hornera (tabelka ze strzałkami, pole kroku `horner`, `_stepsHorner` w app.js) → zapisuję iloczyn; hasła `wzory-viete`, `schemat-hornera` |
+
+Dalej: 4) czytelność długich wzorów (łamanie „aₙ = …”, mały wykładnik; długi zapis dzielenia nad tabelką Hornera
+przy stopniu 5 rozpycha kartę — test w `steps-drawing.spec.js` ma znacznik `shortcut`); potem kolejne sposoby
+(np. dopełnienie do kwadratu), sposoby wewnątrz zagnieżdżonych rozwiązań (x² − 5x + 6 po Hornerze liczy deltą).
+Odłożone z przeglądu etapu 2+3 (stare błędy): x⁴ − 5x² + 4 — „Sprawdzenie” bez x = 2; stopień 5 — odpowiedź z „≈”
+mimo dokładnych kroków; (x − 2)(x − 3) = 0 liczone deltą zamiast przyrównania czynników.
 Uwagi z przeglądu, odłożone: brak drugiego sposobu dla `5(1+1/n)^n` (symbol z współczynnikiem) i dwustronnego x→0;
 krok „e^(+∞) = +∞” bez „−5 · (+∞)” przy ujemnym współczynniku; dziwne kroki ∞/∞ dla `(√x+1)/x`.
 
