@@ -2179,6 +2179,9 @@
         .steps-pop-more:active { transform: scale(0.97); }
         .steps-pop-more:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
         /* Podręcznik (spec 2026-11-23-podrecznik-design.md): spis działów → dział → hasło */
+        /* [EN] Safari (iOS): content-visibility:auto z .panel.active przestawał rysować podręcznik po przewinięciu
+           i stuknięcia trafiały w pusty panel; krótki panel nic na tym nie zyskuje */
+        #panel-podrecznik.active { content-visibility: visible; contain-intrinsic-size: none; }
         .hb { display: grid; gap: 16px; max-inline-size: 720px; margin-inline: auto; min-inline-size: 0; }
         .hb-search {
             inline-size: 100%; min-inline-size: 0; block-size: 48px; padding: 0 16px;
