@@ -1,43 +1,35 @@
-# Przekazanie: podręcznik (zakładka wiedzy) — stan na 2026-11-23, v1.05.27
+# Przekazanie: podręcznik (zakładka wiedzy) — stan na 2026-11-23, v1.05.30
 
 Dla nowej rozmowy. Najpierw: `AGENTS.md`, `../ZASADY-AGENTOW.md`, potem ten plik.
-Stan kroków rozwiązań i lista otwartych rzeczy: `docs/superpowers/HANDOFF-kroki.md`.
+Projekt: `docs/superpowers/specs/2026-11-23-podrecznik-design.md`, plan: `docs/superpowers/plans/2026-11-23-podrecznik.md`.
 
-## Gdzie jesteśmy
-Brainstorming podręcznika (skill `superpowers:brainstorming`) dopiero się zaczął — nic nie jest zbudowane.
-Kolejne kroki według skilla: podejścia (2–3, z rekomendacją) → Mateusz wybiera → projekt w
-`docs/superpowers/specs/2026-11-2x-podrecznik-design.md` → akceptacja → `superpowers:writing-plans` → kod.
+## Co jest (v1.05.30)
+- Zakładka **Podręcznik** (na telefonie w „Narzędziach”): start z liczbą haseł, 9 działów, hasło z rysunkiem wzoru,
+  „po co”, akapitami, poziomem (liceum / rozszerzenie / studia), „Spróbuj” (wpisuje przykład do kalkulatora)
+  i „Powiązane”. Wyszukiwarka bez polskich znaków, jeden obszar `#hbStatus` dla czytnika ekranu.
+- **Z kroków:** „Więcej” w dymku otwiera to samo hasło; „Wróć do kroków” przywraca miejsce, sposób, dymek i fokus.
+  Po zmianie wyrażenia stare kroki nie wracają. Stary widok „Więcej” w szufladzie usunięty.
+- **Dane (jedno źródło):** `js/step-formulas.js` — wpisy `FORMULAS` + `DZIALY` + tabela `HANDBOOK`
+  (dział, poziom, słowa, `try`, `expect`, powiązane). Logika: `js/handbook.js` (`chapters`, `entries`, `search`, `get`).
+  Ekran: `app.js` (`hbShow`, `hbBack`, `hbTry`, `hbOpenFromSteps`, `hbReturnToSteps`), style `.hb-*`.
+- 46 haseł, w tym nowe: nierówność kwadratowa, układy (podstawianie, przeciwne współczynniki), wartość bezwzględna,
+  wartości trygonometryczne, okresowość, procent z liczby, zmiana o procent, NWD i NWW.
 
-## Co powiedział Mateusz (jego słowa, sens)
-- Podręcznik ma być **dobrą zakładką wiedzy**, a nie zbiorem przypadkowych rzeczy.
-- **Docelowo do wszystkich tematów** („w przyszłości do wszystkiego”) — struktura musi to udźwignąć
-  (dużo działów, dużo haseł), choć na start wystarczy to, co już jest.
-- Wcześniej (2026-11-23): dymek z „Więcej” to dobry kierunek, „taki trochę podręcznik”; **warunek: wszystko
-  poprawne matematycznie**. Do treści użyć skilli `deep-explain` i `bottom-up` (oraz `motivate-learning`,
-  `term-origins` jako dodatek); każdy przykład liczbowy przez bramkę SymPy (`npm run check:steps`).
-- Wcześniej zaproponowałem (bez decyzji Mateusza): zakładka „Wzory” w ściądze zamiast nowego miejsca w menu
-  (zasada bez dubli), poziom liceum + 1. rok studiów.
-- **Pytanie bez odpowiedzi**: w jakiej sytuacji najczęściej sięga — nauka działu po kolei (rozdziały)
-  czy szukanie wzoru w trakcie zadania (wyszukiwarka). Zapytać ponownie, jeśli nie wynika z „zakładki wiedzy”.
+## Bramki
+- `test/handbook-data.js`: każdy `try` daje dokładnie `expect`, dział, poziom, powiązane, brak zgubionych ukośników w LaTeX.
+- `test/handbook.js`: wyszukiwanie i spis. e2e: `test/e2e/handbook.spec.js`, `steps-drawing.spec.js`.
+- `npm run check:steps`: SymPy sprawdza też kroki każdego `try` i równości `$… = …$` z haseł; nie do sprawdzenia → `SKIP_PROSE` w `scripts/steps-check/dump.js` z powodem.
 
-## Co już jest w kodzie (do ponownego użycia)
-- `js/step-formulas.js`: 37 wpisów `{ name, tex, why, level, more[] }`; `$…$` w tekstach = LaTeX.
-  Test `test/expr-to-latex.js` wymaga, by każdy wpis był użyty w jakimś kroku i miał treść.
-- Widok „Więcej” z „Wróć”: `_openStepsMore(id)` w `app.js` (szuflada kroków, `#stepsView`), rysunek przez
-  `_loadFormulaLib()` (MathLive) i `_stepsRich` (zdania z `$…$`).
-- Ściąga: `#commandHelpDrawer`, sekcje `.help-section[data-help=calculator|notepad|engineering|graph]`,
-  wyszukiwarka `#helpSearch`; komendy w `command-definitions.js`.
-- Do uporządkowania: pole `level` jest niespójne („Potęgi” przy tablicy pochodnych, różne zapisy
-  „Liceum rozszerzenie” / „zakres rozszerzony”) — przyda się jako podział na poziomy.
-- Brak haseł dla nowych typów zadań (nierówności, układy, trygonometria, procenty, NWD/NWW).
+## Nowe hasło — jak dodać
+1. Wpis w `FORMULAS` (`name`, `tex`, `why`, `level`, `more`) i wiersz w `HANDBOOK`.
+2. `try` w postaci jawnej komendy („rozwiąż …”, „pochodna …”, „lim …”, „kroki …”), `expect` = tekst wyniku po sprawdzeniu poprawności.
+3. `node test/handbook-data.js`, `npm run check:steps`, potem agent „słaby uczeń” czyta hasło.
 
-## Pomysły do rozważenia przy podejściach (moje, nie decyzje)
-- Hasło = obecny wpis + dział + słowa kluczowe + przykład „Spróbuj” (wpisuje zadanie do kalkulatora,
-  wynik i kroki już są) + powiązane hasła.
-- Rozwój do „wszystkiego”: dane haseł w osobnym pliku/folderze (np. `js/kb/…`), ładowane leniwie,
-  żeby apka nie puchła; ten sam format dla dymków w krokach i dla podręcznika (jedno źródło).
-- Wyszukiwarka po nazwie, słowach kluczowych i zapisie wzoru; podział: dział → poziom.
-
-## Inne otwarte (skrót — pełna lista w HANDOFF-kroki.md)
-Kolorowanie zmian w kroku (Photomath), długie wzory czytelne (TODO.md), trudniejsze postacie nowych typów
-zadań, uwagi z raportów D/E/F, szkic paraboli / okrąg jednostkowy, luki granic i skaner z TODO.md.
+## Dalej (pomysły, bez decyzji)
+- Ulepszenie dymków w krokach (Mateusz: osobna praca).
+- Filtr po poziomie (dane już są), rozdziały do czytania po kolei.
+- Odłożone drobiazgi z przeglądu: wzór główny hasła bez tekstu dla czytnika ekranu; po nieudanym wczytaniu MathLive
+  offline brak ponownej próby do przeładowania strony.
+- Wstecz telefonu nie wraca do kroków (apka nie obsługuje historii przeglądarki w szufladach).
+- Przy 150+ hasłach podzielić dane na `js/kb/<dział>.js` wczytywane leniwie (format bez zmian).
+- Znany stary błąd: `npm run check` zgłasza typy w `js/math-limits.js` i `js/step-why.js` (był przed podręcznikiem).
