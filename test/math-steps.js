@@ -138,7 +138,7 @@ ok('3e: Dodaję liczniki', has('kroki 1/2 + 1/3', 'Dodaję liczniki'), st('kroki
 // wielomian: krótka etykieta, W(r) = 0
 ok('3e: wielomian W(1) = 0', st('rozwiąż x^3 - 6x^2 + 11x - 6 = 0').some(x => x.label === 'Szukam pierwiastka wśród dzielników' && /W\(1\) = .* = 0/.test(x.math)), st('rozwiąż x^3 - 6x^2 + 11x - 6 = 0'));
 // uwagi „słabego ucznia” (3e-1)
-ok('3e: 4/6 + 5/6 → 9/6 → skracam do 3/2', has('kroki 2/3 + 5/6', 'Dodaję liczniki', '9/6') && has('kroki 2/3 + 5/6', 'Skracam ułamek', '9/6 = 3/2'), st('kroki 2/3 + 5/6'));
+ok('3e: 4/6 + 5/6 → 9/6 → skracam do 3/2', has('kroki 2/3 + 5/6', 'Dodaję liczniki', '4/6 + 5/6 = (4 + 5)/6 = 9/6') && has('kroki 2/3 + 5/6', 'Skracam ułamek', '9/6 = 3/2'), st('kroki 2/3 + 5/6'));
 ok('3e: bez (5 · 1)/(6 · 1)', !st('kroki 2/3 + 5/6').some(x => x.math.includes('· 1)')), st('kroki 2/3 + 5/6'));
 ok('3e: rozwiązania z pierwiastkiem — podstawienie podkreślone', st('rozwiąż x^2 - 2x - 1 = 0').some(x => x.math.includes('x₁ = ⟦(2 − 2√2) / (2 · 1)⟧ = 1 − √2')), st('rozwiąż x^2 - 2x - 1 = 0'));
 ok('3e: kwadrat sumy podkreślony bez + 2x', has('uprość (x + 1)^2 + 2x', 'Rozpisuję kwadrat sumy', '⟦x² + x + x + 1⟧ + 2x'), st('uprość (x + 1)^2 + 2x'));
@@ -195,6 +195,20 @@ pass += 3;
     ok('3g: √Δ = √1 = 1', has(q2, 'Liczę pierwiastek z delty', '√Δ = √1 = 1'), st(q2));
     ok('3g: rozwiązania z ułamkiem przed wynikiem', has(q2, 'Liczę dwa rozwiązania', 'x₁ = ⟦(5 − 1) / (2 · 1)⟧ = 4/2 = 2\nx₂ = ⟦(5 + 1) / (2 · 1)⟧ = 6/2 = 3'), st(q2));
     ok('3g: delta z ujemnym c: 4 + 4', has('rozwiąż x^2 - 2x - 1 = 0', 'Liczę deltę', 'Δ = ⟦(−2)² − 4 · 1 · (−1)⟧ = 4 + 4 = 8'), st('rozwiąż x^2 - 2x - 1 = 0'));
+}
+
+// ── 3h: ułamki po szkolnemu (raport E: U1, U2) + błąd 3/5 : 9/10 ──
+{
+    ok('3h: 3/5 : 9/10 = 2/3 (ułamek przez ułamek, nie 1/150)', S.run('kroki 3/5 : 9/10').text === '2/3', S.run('kroki 3/5 : 9/10').text);
+    ok('3h: dzielenie ułamków — znak „:” w zapisie i mnożenie przez odwrotność', has('kroki 3/5 : 9/10', 'Działanie', '3/5 : 9/10')
+        && has('kroki 3/5 : 9/10', 'Dzielę ułamki', '3/5 : 9/10 = 3/5 · 10/9 = (3 · 10)/(5 · 9) = 30/45 = 2/3'), st('kroki 3/5 : 9/10'));
+    ok('3h: mnożenie ułamków — licznik razy licznik', has('kroki 2/3 * 9/4', 'Mnożę ułamki', '2/3 · 9/4 = (2 · 9)/(3 · 4) = 18/12 = 3/2'), st('kroki 2/3 * 9/4'));
+    ok('3h: 6 : 2 · 3 = 9 (od lewej, bez zmian)', S.run('kroki 6 : 2 * 3').text === '9', S.run('kroki 6 : 2 * 3').text);
+    ok('3h: dodawanie liczników z rachunkiem', has('kroki 1/2 + 1/3', 'Dodaję liczniki', '3/6 + 2/6 = (3 + 2)/6 = 5/6'), st('kroki 1/2 + 1/3'));
+    ok('3h: odejmowanie liczników z rachunkiem', has('kroki 3/4 - 1/6', 'Odejmuję liczniki', '9/12 − 2/12 = (9 − 2)/12 = 7/12'), st('kroki 3/4 - 1/6'));
+    const W = require(path.join(__dirname, '..', 'js', 'step-why.js'));
+    const whyCd = q => { const r = S.run(q), i = r.explain.steps.findIndex(x => /wspólnego mianownika/.test(x.label)); return W.whyFor(r.explain.steps[i], r.explain.title, r.explain, i); };
+    ok('3h: skąd wspólny mianownik — konkretnie', /4.*6.*12|12.*4.*6/.test(whyCd('kroki 3/4 - 1/6')), whyCd('kroki 3/4 - 1/6'));
 }
 
 console.log(`math-steps: ${pass} OK, ${fail} błędów`);

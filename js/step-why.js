@@ -146,7 +146,11 @@
         [/^Mianownik jest kwadratem$/, 'Kwadrat nie jest ujemny, więc wystarczy sprawdzić, kiedy jest zerem.'],
         [/^Zmiana znaku$|^Zmieniam znak$/, 'Minus przed liczbą zmienia jej znak na przeciwny.'],
         // ── ułamki i kolejność działań ──
-        [/^Sprowadzam do wspólnego mianownika/, 'Dodawać i odejmować można tylko ułamki o tym samym mianowniku.'],
+        [/^Sprowadzam do wspólnego mianownika/, (s) => s.dens
+            ? '$' + s.dens[2] + '$ to najmniejsza liczba, którą dzielą $' + s.dens[0] + '$ i $' + s.dens[1] + '$, więc rozszerzam do niej oba ułamki.'
+            : 'Dodawać i odejmować można tylko ułamki o tym samym mianowniku.'],
+        [/^Mnożę ułamki$/, 'Licznik mnożę przez licznik, a mianownik przez mianownik.'],
+        [/^Dzielę ułamki$/, 'Dzielenie przez ułamek to mnożenie przez jego odwrotność: licznik i mianownik zamieniają się miejscami.'],
         [/liczniki$/, 'Mianowniki są już równe, więc dodajemy albo odejmujemy tylko liczniki, a mianownik przepisujemy.'],
         [/^(Dodaję|Odejmuję|Mnożę|Dzielę|Potęguję)$|^Najpierw nawias/, (_s, _t, c) => c.prev && /^(Dodaję|Odejmuję|Mnożę|Dzielę|Potęguję)$|^Najpierw nawias/.test(c.prev.label)
             ? 'Dalej według kolejności działań.'

@@ -103,6 +103,7 @@ def to_expr(tex: str, var: Symbol, extra: dict) -> Expr:
     t = re.sub(r"\\checkmark|\\ \\checkmark", "", t).rstrip(",").strip()
     if t.endswith("{:}"):
         t = t[:-3]
+    t = t.replace("{:}", r"\div ")  # „:” w środku to dzielenie (3/5 : 9/10)
     if not t or r"\text" in t:
         raise Skip("słowa")
     t = (t.replace(r"\left", "").replace(r"\right", "").replace("{,}", ".").replace(r"\,", " ")

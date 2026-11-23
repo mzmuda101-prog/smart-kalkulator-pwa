@@ -48,7 +48,8 @@
                 // 2n, n√x — bez kropki; liczba po czymś (n·2) i dwie liczby — z kropką
                 return n.implicit && !/^\d/.test(b) ? a + (/[a-zA-Z]$/.test(a) && /^[a-zA-Z]/.test(b) ? ' ' : '') + b : a + '\\cdot ' + b;
             }
-            case 'div': return '\\frac{' + node(n.a) + '}{' + node(n.b) + '}';
+            // a : b — znak dzielenia jak w zeszycie (3/5 : 9/10 to dwa ułamki, nie piętrowy ułamek)
+            case 'div': return n.colon ? tex(n.a, 3) + '{:}' + tex(n.b, 3) : '\\frac{' + node(n.a) + '}{' + node(n.b) + '}';
             case 'sqrt': return '\\sqrt{' + node(n.a) + '}';
             case 'pow': {
                 const e = n.b;
@@ -126,7 +127,8 @@
             else if (CLOSE.includes(c)) depth--;
             else if (depth === 0) {
                 if (s.startsWith('  [', i)) { out.push({ sep, part: s.slice(start, i) }); sep = '\\quad '; start = i + 2; i++; continue; }
-                const hit = SEPS.find(p => s.startsWith(p[0], i));
+                // [EN] „ : ” ze spacją przed to dzielenie (3/5 : 9/10), nie dwukropek po „x = 1:”
+                const hit = SEPS.find(p => s.startsWith(p[0], i) && !(p[0][0] === ':' && s[i - 1] === ' '));
                 if (hit) { out.push({ sep, part: s.slice(start, i) }); sep = hit[1]; start = i + hit[0].length; i = start - 1; }
             }
         }

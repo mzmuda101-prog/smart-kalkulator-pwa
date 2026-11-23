@@ -136,7 +136,7 @@
             if ('+-*/^()='.indexOf(c) >= 0) { out.push({ t: 'op', v: c }); i++; continue; }
             if (c === '−' || c === '–') { out.push({ t: 'op', v: '-' }); i++; continue; }
             if (c === '×' || c === '·' || c === '∙') { out.push({ t: 'op', v: '*' }); i++; continue; }
-            if (c === '÷' || c === ':') { out.push({ t: 'op', v: '/' }); i++; continue; }
+            if (c === '÷' || c === ':') { out.push({ t: 'op', v: ':' }); i++; continue; } // [EN] dzielenie „:” — prawa strona może być ułamkiem (3/5 : 9/10)
             throw new SyntaxError('char');
         }
         return out;
@@ -161,11 +161,21 @@
         function product() {
             var left = power();
             for (;;) {
-                if (isOp('*')) { i++; left = { k: 'mul', a: left, b: power() }; continue; }
+                if (isOp('*')) { i++; left = { k: 'mul', a: left, b: fracOperand() }; continue; }
+                if (isOp(':')) { i++; left = { k: 'div', a: left, b: fracOperand(), colon: true }; continue; }
                 if (isOp('/')) { i++; left = { k: 'div', a: left, b: power() }; continue; }
                 if (startsFactor()) { left = { k: 'mul', a: left, b: power(), implicit: true }; continue; }
                 return left;
             }
+        }
+        // [EN] po „·” i „:” liczba/liczba to jeden ułamek: 3/5 : 9/10 = (3/5) : (9/10), jak w zeszycie (nie 3/5/9/10)
+        function fracOperand() {
+            var r = power();
+            if (r.k === 'num' && isOp('/') && tokens[i + 1] && tokens[i + 1].t === 'num' && !(tokens[i + 2] && tokens[i + 2].t === 'op' && tokens[i + 2].v === '^')) {
+                i++;
+                r = { k: 'div', a: r, b: power() };
+            }
+            return r;
         }
         function power() {
             var base = atom();
@@ -249,7 +259,7 @@
             case 'mul':
                 s = n.implicit ? show(n.a, ctx) + show(n.b, ctx) : showFactor(n.a, ctx) + ' · ' + showFactor(n.b, ctx);
                 break;
-            case 'div': s = show(n.a, ctx) + '/' + show(n.b, ctx); break;
+            case 'div': s = n.colon ? show(n.a, ctx) + ' : ' + show(n.b, ctx) : show(n.a, ctx) + '/' + show(n.b, ctx); break;
             case 'pow':
                 s = n.b.k === 'num' && isInt(n.b.v) && n.b.v.n >= 0n
                     ? showFactor(n.a, ctx) + sup(n.b.v.n.toString())
@@ -858,7 +868,7 @@
     function foldFractions(n) { // [EN] 1/2 to ułamek, nie działanie
         if (n.a) n.a = foldFractions(n.a);
         if (n.b) n.b = foldFractions(n.b);
-        if (n.k === 'div' && n.a.k === 'num' && n.b.k === 'num' && isInt(n.a.v) && isInt(n.b.v) && !isZero(n.b.v)) {
+        if (n.k === 'div' && !n.colon && n.a.k === 'num' && n.b.k === 'num' && isInt(n.a.v) && isInt(n.b.v) && !isZero(n.b.v)) {
             var r = R(n.a.v.n, n.b.v.n);
             if (r.n * n.b.v.n === n.a.v.n * r.d && n.b.v.n === r.d) {
                 return { k: 'num', v: r, paren: false, frac: !isInt(r) };
@@ -1005,6 +1015,7 @@
         return done('Upraszczanie pierwiastków', text, value, steps);
     }
 
+    function fmtQ(q) { return q.n < 0n ? '(' + fmt(q) + ')' : fmt(q); } // [EN] ułamek ujemny w nawiasie przy mnożeniu
     function arithmetic(ast) {
         var ctx = { dec: hasDecimal(ast) };
         var exact = surds(ast);
@@ -1023,6 +1034,7 @@
                 var widen = function (q) { var f = lcm / q.d; return f === 1n ? fmt(q) : '(' + fmt(R(q.n)) + ' · ' + f + ')/(' + q.d + ' · ' + f + ')'; };
                 var op = node.k === 'add' ? ' + ' : ' − ';
                 steps.push({
+                    dens: [node.a.v.d.toString(), node.b.v.d.toString(), lcm.toString()], // [EN] do zdania „dlaczego”: 12 dzieli 4 i 6
                     label: 'Sprowadzam do wspólnego mianownika ' + lcm.toString(),
                     math: widen(node.a.v) + op + widen(node.b.v) + ' = ' + fmt(mul(node.a.v, R(lcm))) + '/' + lcm + op + fmt(mul(node.b.v, R(lcm))) + '/' + lcm
                 });
@@ -1031,18 +1043,33 @@
             if (fracs && node === tree) { // [EN] 4/6 + 5/6 = 9/6, potem osobno skracanie do 3/2 — bez ukrytego kroku
                 var den = node.a.v.d === node.b.v.d ? node.a.v.d : (node.a.v.d * node.b.v.d) / gcd(node.a.v.d, node.b.v.d);
                 var rawN = mul(value, R(den)).n;
+                // [EN] 3/6 + 2/6 = (3 + 2)/6 = 5/6 — dodawanie liczników widać (raport E, U2)
+                var nA = mul(node.a.v, R(den)), nB = mul(node.b.v, R(den)), sign = node.k === 'add' ? ' + ' : ' − ';
+                var counted = fmt(nA) + '/' + den + sign + fmt(nB) + '/' + den + ' = (' + fmt(nA) + sign + fmtParen(nB) + ')/' + den + ' = ' + fmt(R(rawN)) + '/' + den;
                 if (value.d !== den && isInt(mul(value, R(den)))) {
-                    steps.push({ label: label, math: fmt(R(rawN)) + '/' + den });
+                    steps.push({ label: label, math: counted });
                     label = 'Skracam ułamek';
                     tree = { k: 'num', v: value, frac: !isInt(value) };
                     steps.push({ label: label, math: fmt(R(rawN)) + '/' + den + ' = ' + show(tree, ctx) });
                     continue;
                 }
             }
+            var whole = null;
+            if (fracs && node === tree && value.d === den) whole = counted.replace(/ = [^=]*$/, '') + ' = ' + fmt(value); // [EN] bez skracania
+            var fr = !ctx.dec && node === tree && (node.k === 'mul' || node.k === 'div') && node.a.k === 'num' && node.b.k === 'num' && !(isInt(node.a.v) && isInt(node.b.v));
+            if (fr) { // [EN] 2/3 · 9/4 = (2 · 9)/(3 · 4) = 18/12 = 3/2; dzielenie: mnożę przez odwrotność
+                var A = node.a.v, B = node.k === 'div' ? div(ONE, node.b.v) : node.b.v;
+                var piece = function (x, y) { return x === 1n ? fmt(R(y)) : y === 1n ? fmt(R(x)) : fmt(R(x)) + ' · ' + fmt(R(y)); };
+                var topN = A.n * B.n, botN = A.d * B.d;
+                var chain = (node.k === 'div' ? fmtQ(A) + ' : ' + fmtQ(node.b.v) + ' = ' : '') + fmtQ(A) + ' · ' + fmtQ(B) + ' = (' + piece(A.n, B.n) + ')/' + (A.d === 1n || B.d === 1n ? piece(A.d, B.d) : '(' + piece(A.d, B.d) + ')')
+                    + ' = ' + fmt(R(topN)) + (botN === 1n ? '' : '/' + botN) + (fmt(R(topN, botN)) === fmt(R(topN)) + (botN === 1n ? '' : '/' + botN) ? '' : ' = ' + fmt(value));
+                label = node.k === 'mul' ? 'Mnożę ułamki' : 'Dzielę ułamki';
+                whole = chain;
+            }
             ['a', 'b'].forEach(function (key) { delete node[key]; });
             node.k = 'num'; node.v = value; node.paren = false; node.implicit = false;
             node.frac = !isInt(value);
-            steps.push({ label: label, math: show(tree, ctx) });
+            steps.push({ label: label, math: whole || show(tree, ctx) });
         }
         if (tree.k !== 'num') throw new NotSupported();
         var text = fmt(tree.v, ctx);
