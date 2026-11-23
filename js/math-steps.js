@@ -135,6 +135,7 @@
             if ('²³⁴⁵⁶⁷⁸⁹'.indexOf(c) >= 0) { out.push({ t: 'op', v: '^' }); out.push({ t: 'num', v: String('²³⁴⁵⁶⁷⁸⁹'.indexOf(c) + 2) }); i++; continue; }
             if ((c === '<' || c === '>') && s.charAt(i + 1) === '=') { out.push({ t: 'op', v: c === '<' ? '≤' : '≥' }); i += 2; continue; }
             if ('<>≤≥'.indexOf(c) >= 0) { out.push({ t: 'op', v: c }); i++; continue; } // [EN] nierówności
+            if (c === '|') { out.push({ t: 'op', v: '|' }); i++; continue; } // [EN] wartość bezwzględna |x − 2|
             if ('+-*/^()='.indexOf(c) >= 0) { out.push({ t: 'op', v: c }); i++; continue; }
             if (c === '−' || c === '–') { out.push({ t: 'op', v: '-' }); i++; continue; }
             if (c === '×' || c === '·' || c === '∙') { out.push({ t: 'op', v: '*' }); i++; continue; }
@@ -223,6 +224,12 @@
                 return inner;
             }
             if (t.t === 'op' && t.v === '-') return { k: 'neg', a: atom() };
+            if (t.t === 'op' && t.v === '|') {
+                var inside = sum();
+                if (!isOp('|')) throw new SyntaxError('abs');
+                i++;
+                return { k: 'abs', a: inside };
+            }
             throw new SyntaxError('token');
         }
         var res = sum();
@@ -267,7 +274,8 @@
                     ? showFactor(n.a, ctx) + sup(n.b.v.n.toString())
                     : showFactor(n.a, ctx) + '^' + show(n.b, ctx);
                 break;
-            case 'sqrt': s = '√' + (n.a.k === 'num' || n.a.paren ? show(n.a, ctx) : '(' + show(n.a, ctx) + ')'); break;
+            case 'sqrt': s = '√' + (n.a.k === 'var' ? n.a.v : n.a.k === 'num' || n.a.paren ? show(n.a, ctx) : '(' + show(n.a, ctx) + ')'); break;
+            case 'abs': s = '|' + show(Object.assign({}, n.a, { paren: false }), ctx) + '|'; break;
             case 'fn': // [EN] log₂(2x − 1), log(x), ln(x) — w równaniach logarytmicznych
                 s = (n.f === 'logb' ? 'log' + sub_(n.base) : n.f) + '(' + show(Object.assign({}, n.a, { paren: false }), ctx) + ')';
                 break;
@@ -395,6 +403,7 @@
                 var k = evalExact(n.b, env);
                 if (!isInt(k) || k.n > BigInt(MAX_POW) || k.n < -BigInt(MAX_POW)) throw new NotSupported();
                 return powR(evalExact(n.a, env), Number(k.n));
+            case 'abs': var av = evalExact(n.a, env); return av.n < 0n ? neg(av) : av;
             case 'sqrt':
                 var r = sqrtExact(evalExact(n.a, env));
                 if (!r) throw new NotSupported();
@@ -413,6 +422,7 @@
             case 'div': return evalNum(n.a, env) / evalNum(n.b, env);
             case 'pow': return Math.pow(evalNum(n.a, env), evalNum(n.b, env));
             case 'sqrt': return Math.sqrt(evalNum(n.a, env));
+            case 'abs': return Math.abs(evalNum(n.a, env));
             case 'fn': // [EN] sprawdzenie równań logarytmicznych (tylko liczbowo)
                 if (n.f === 'log') return Math.log10(evalNum(n.a, env));
                 if (n.f === 'logb') return Math.log(evalNum(n.a, env)) / Math.log(+n.base);
@@ -607,6 +617,87 @@
         solveDegree(low, v, steps, ctx, sol);
     }
 
+    // ── Wartość bezwzględna i równania z pierwiastkiem (plan „jak Photomath”, pkt 5) ──
+    function hasKind(n, k) { return !!n && (n.k === k || hasKind(n.a, k) || hasKind(n.b, k)); }
+    function hasVarSqrt(n) { return !!n && ((n.k === 'sqrt' && hasVars(n.a)) || hasVarSqrt(n.a) || hasVarSqrt(n.b)); }
+    function plain(n, ctx) { return show(Object.assign({}, n, { paren: false }), ctx); }
+    function innerSolve(src) { // [EN] kroki równania z jedną niewiadomą, bez nagłówka, sprawdzenia i odpowiedzi + rozwiązania
+        var pr = parseEquationParts(src.replace(/−/g, '-'), {}), r = solveEquation(pr.lhs, pr.rhs);
+        if (!r.explain) throw new NotSupported();
+        var all = r.explain.steps, last = all[all.length - 1], found = [];
+        if (last.label === 'Odpowiedź') last.math.split('\n').forEach(function (l) {
+            var t = l.replace(/^[a-z][₀-₉]*\s*=\s*/, '');
+            found.push({ text: t, value: evalNum(parseTokens(tokenize(t.replace(/−/g, '-'), {})), {}) });
+        });
+        else if (!/Brak rozwiązań/.test(r.text)) throw new NotSupported();
+        return { steps: all.filter(function (st, i) { return i && st.label !== 'Sprawdzenie' && st.label !== 'Odpowiedź'; }), sols: found };
+    }
+    function listAnswer(v, sols, steps, lhs, rhs) {
+        sols = sols.slice().sort(function (a, b) { return a.value - b.value; })
+            .filter(function (s, i, all) { return !i || Math.abs(s.value - all[i - 1].value) > 1e-12; });
+        sols.forEach(function (s) { // [EN] bezpiecznik: oryginał spełniony
+            var env = {}; env[v] = s.value;
+            var l = evalNum(lhs, env), r = evalNum(rhs, env);
+            if (!isFinite(l) || !isFinite(r) || Math.abs(l - r) > 1e-9 * (1 + Math.abs(l) + Math.abs(r))) throw new NotSupported();
+        });
+        var text = !sols.length ? 'Brak rozwiązań' : sols.length === 1 ? v + ' = ' + sols[0].text
+            : sols.map(function (s, i) { return v + sub_(i + 1) + ' = ' + s.text; }).join(', ');
+        steps.push({ label: 'Odpowiedź', math: text.split(', ').join('\n') });
+        return done('Równanie', text, sols.length === 1 ? sols[0].value : null, steps);
+    }
+    function firstVar(n) { if (!n) return null; if (n.k === 'var') return n.v; return firstVar(n.a) || firstVar(n.b); }
+    function solveAbs(lhs, rhs, ctx) {
+        var absSide = lhs.k === 'abs' ? lhs : rhs.k === 'abs' ? rhs : null, other = absSide === lhs ? rhs : lhs;
+        if (!absSide || hasVars(other) || hasKind(absSide.a, 'abs')) throw new NotSupported(); // shortcut: tylko |A| = liczba, rozszerzyć o |A| = |B| i |A| = B, gdy będzie potrzeba
+        var v = firstVar(absSide.a), c = evalExact(other, {}), A = plain(absSide.a, ctx);
+        var steps = [{ label: 'Równanie', math: show(lhs, ctx) + ' = ' + show(rhs, ctx) }];
+        if (c.n < 0n) {
+            steps.push({ label: 'Wartość bezwzględna nie jest ujemna', math: '|' + A + '| ≥ 0,  ' + fmt(c, ctx) + ' < 0' });
+            return listAnswer(v, [], steps, lhs, rhs);
+        }
+        if (isZero(c)) {
+            steps.push({ label: 'Wartość bezwzględna jest zerem tylko dla zera', math: A + ' = 0' });
+            var z = innerSolve(A + ' = 0');
+            return listAnswer(v, z.sols, steps.concat(z.steps), lhs, rhs);
+        }
+        steps.push({ label: 'Rozbijam na dwa przypadki', math: A + ' = ' + fmt(c, ctx) + ' lub ' + A + ' = ' + fmt(neg(c), ctx) });
+        var p1 = innerSolve(A + ' = ' + fmt(c, ctx)), p2 = innerSolve(A + ' = ' + fmt(neg(c), ctx));
+        if (p1.sols.length !== 1 || p2.sols.length !== 1) throw new NotSupported();
+        steps.push({ label: 'Rozwiązuję oba przypadki', math: v + ' = ' + p1.sols[0].text + ' lub ' + v + ' = ' + p2.sols[0].text });
+        return listAnswer(v, p1.sols.concat(p2.sols), steps, lhs, rhs);
+    }
+    function solveRadical(lhs, rhs, ctx) {
+        var root = lhs.k === 'sqrt' ? lhs : rhs.k === 'sqrt' ? rhs : null, other = root === lhs ? rhs : lhs;
+        if (!root || hasVarSqrt(other) || hasKind(other, 'abs')) throw new NotSupported(); // shortcut: tylko √A = B, rozszerzyć o √A + √B = c, gdy będzie potrzeba
+        var v = firstVar(root.a), A = plain(root.a, ctx), B = plain(other, ctx);
+        var steps = [{ label: 'Równanie', math: show(lhs, ctx) + ' = ' + show(rhs, ctx) }];
+        if (!hasVars(other) && evalExact(other, {}).n < 0n) {
+            steps.push({ label: 'Pierwiastek nie jest ujemny', math: '√(' + A + ') ≥ 0,  ' + B + ' < 0' });
+            return listAnswer(v, [], steps, lhs, rhs);
+        }
+        steps.push({ label: 'Wyznaczam dziedzinę', math: A + ' ≥ 0' + (hasVars(other) ? '\n' + B + ' ≥ 0' : '') });
+        var sq = A + ' = ' + (hasVars(other) || evalExact(other, {}).n < 0n || !isInt(evalExact(other, {})) ? '(' + B + ')²' : B + '²');
+        steps.push({ label: 'Podnoszę obie strony do kwadratu', math: sq });
+        var inn = innerSolve(sq.replace(/²/g, '^2'));
+        steps = steps.concat(inn.steps);
+        var good = [], bad = [];
+        inn.sols.forEach(function (s) {
+            var env = {}; env[v] = s.value;
+            var l = evalNum(lhs, env), r = evalNum(rhs, env);
+            (isFinite(l) && isFinite(r) && Math.abs(l - r) <= 1e-9 * (1 + Math.abs(l) + Math.abs(r)) ? good : bad).push(s);
+        });
+        // [EN] po podniesieniu do kwadratu mogą dojść fałszywe rozwiązania — każde wstawiam do oryginału
+        var lines = inn.sols.map(function (s) { // [EN] widać wstawienie: √(6 + 3) = 3,  6 − 3 = 3 ✓
+            var env = {}; env[v] = s.value;
+            var isGood = good.indexOf(s) >= 0, rv = evalNum(other, env), lv = evalNum(root, env), q = null;
+            try { q = evalExact(parseTokens(tokenize(s.text.replace(/−/g, '-'), {})), {}); } catch (e) { if (!(e instanceof NotSupported)) throw e; }
+            var put = function (n, val) { return q ? show(plugIn(n, v, q), ctx) + ' = ' + fmtApprox(val) : fmtApprox(val); };
+            return v + ' = ' + s.text + ':  ' + (isGood ? put(root, lv) + (hasVars(other) ? ',  ' + put(other, rv) : '') + ' ✓' : put(other, rv) + ' < 0');
+        });
+        if (inn.sols.length) steps.push({ label: bad.length ? 'Odrzucam fałszywe rozwiązanie' : 'Sprawdzam rozwiązania', math: lines.join('\n') });
+        return listAnswer(v, good, steps, lhs, rhs);
+    }
+
     // ── Równania wykładnicze i logarytmiczne (plan „jak Photomath”, pkt 4) ──
     function hasExpLog(n) {
         if (!n) return false;
@@ -679,10 +770,17 @@
                 t.forEach(function (x) { if (Object.keys(x.e).length) p = x.c; else q = x.c; });
                 if (isZero(p)) throw new NotSupported();
                 var edge = neg(div(q, p));
-                dom.push(bare(a) + ' > 0', v + (p.n > 0n ? ' > ' : ' < ') + fmt(edge, ctx));
+                var cond = bare(a) + ' > 0', sol = v + (p.n > 0n ? ' > ' : ' < ') + fmt(edge, ctx);
+                [cond, sol].forEach(function (l) { if (dom.indexOf(l) < 0) dom.push(l); }); // [EN] „x > 0” raz, nie dwa razy
                 if (p.n > 0n) { if (lo === null || toNum(edge) > toNum(lo)) lo = edge; } else { if (hi === null || toNum(edge) < toNum(hi)) hi = edge; }
             });
-            steps.push({ label: 'Wyznaczam dziedzinę', math: dom.join('\n') });
+            var empty = lo !== null && hi !== null && toNum(lo) >= toNum(hi);
+            var dText = empty ? '∅' : (lo === null ? '(−∞' : '(' + fmt(lo, ctx)) + ', ' + (hi === null ? '+∞)' : fmt(hi, ctx) + ')');
+            steps.push({ label: 'Wyznaczam dziedzinę', math: dom.join('\n') + '\nD = ' + dText });
+            if (empty) { // [EN] dziedzina pusta: dalej nie liczę (raport F, M4)
+                steps.push({ label: 'Odpowiedź', math: 'Brak rozwiązań' });
+                return done('Równanie', 'Brak rozwiązań', null, steps);
+            }
             var res;
             if (isLog(other)) {
                 var eqTxt = bare(Lg.a) + ' = ' + bare(other.a);
@@ -732,7 +830,7 @@
             if (!C.num || C.num.n <= 0n || !isInt(E.base) || E.base.n < 2n) throw new NotSupported();
             var bS = E.base.n.toString(), logT = 'log' + sub_(bS) + '(' + fmt(C.num, ctx) + ')', lv = Math.log(toNum(C.num)) / Math.log(Number(E.base.n));
             var eT = expText(1, E.exp);
-            steps.push({ label: 'Logarytmuję obie strony', math: eT + ' = ' + logT });
+            steps.push({ label: 'Zapisuję wykładnik jako logarytm', math: eT + ' = ' + logT });
             if (eT !== v) throw new NotSupported(); // shortcut: logarytm tylko przy samym x w wykładniku, rozszerzyć o x + 1 = log₂(5), gdy ktoś o to poprosi
             return finish(null, logT + ' ≈ ' + fmtApprox(lv), lv);
         }
@@ -832,6 +930,8 @@
         var ctx = { dec: hasDecimal(lhs) || hasDecimal(rhs) };
         if (hasVarDen(lhs) || hasVarDen(rhs)) return solveRational(lhs, rhs, ctx);
         if (hasExpLog(lhs) || hasExpLog(rhs)) return solveExpLog(lhs, rhs, ctx);
+        if (hasKind(lhs, 'abs') || hasKind(rhs, 'abs')) return solveAbs(lhs, rhs, ctx);
+        if (hasVarSqrt(lhs) || hasVarSqrt(rhs)) return solveRadical(lhs, rhs, ctx);
         var steps = [{ label: 'Równanie', math: show(lhs, ctx) + ' = ' + show(rhs, ctx) }];
         // [EN] 5 = 2x − 7 → 2x − 7 = 5: niewiadoma po lewej, bez dwóch minusów (raport E, R2)
         if (!varsOf(collect(termsOf(lhs))).length && varsOf(collect(termsOf(rhs))).length) {
@@ -885,7 +985,8 @@
                 }
             }
             if (moved !== steps[steps.length - 1].math) {
-                steps.push({ label: xR.length && !cL.length ? 'Przenoszę ' + v + ' na lewo' : !xR.length && cL.length ? 'Przenoszę liczby na prawo' : 'Przenoszę ' + v + ' na lewo, liczby na prawo', math: moved });
+                steps.push({ label: xR.length && !cL.length ? 'Przenoszę ' + v + ' na lewo' : !xR.length && cL.length ? 'Przenoszę liczby na prawo'
+                    : !xR.length && !cL.length ? 'Liczę prawą stronę' : 'Przenoszę ' + v + ' na lewo, liczby na prawo', math: moved });
             }
             if (!eq(a, ONE) && !isInt(a)) { // [EN] (1/2)x = 2 → mnożę przez 2, nie dzielę przez 1/2 (raport E, R3)
                 var inv = div(ONE, a);
@@ -893,7 +994,8 @@
             } else if (eq(a, neg(ONE))) { // [EN] −x = 4 → x = −4, bez dzielenia przez −1
                 steps.push({ label: 'Zmieniam znak obu stron', math: v + ' = ' + fmt(neg(b), ctx) });
             } else if (!eq(a, ONE)) {
-                steps.push({ label: 'Dzielę obie strony przez ' + fmt(a, ctx), math: v + ' = ' + fmt(b, ctx) + ' / ' + fmtDen(a, ctx) + ' = ' + fmt(div(b, a), ctx) });
+                var q0 = fmt(b, ctx) + '/' + fmtDen(a, ctx), q1 = fmt(div(b, a), ctx); // [EN] x = 2/3, nie x = 2/3 = 2/3
+                steps.push({ label: 'Dzielę obie strony przez ' + fmt(a, ctx), math: v + ' = ' + (q0 === q1 ? q1 : fmt(b, ctx) + ' / ' + fmtDen(a, ctx) + ' = ' + q1) });
             }
             sol.push({ r: div(b, a) });
         } else {
@@ -929,9 +1031,54 @@
         });
     }
     function holds(val, rel) { return rel === '<' ? val < 0 : rel === '>' ? val > 0 : rel === '≤' ? val <= 1e-12 : val >= -1e-12; }
+    // [EN] |A| < c → −c < A < c;  |A| > c → A < −c lub A > c (A liniowe)
+    function absInequality(lhs, rel, rhs, ctx, steps) {
+        if (hasVars(rhs) || hasKind(lhs.a, 'abs')) throw new NotSupported();
+        var c = evalExact(rhs, {}), A = plain(lhs.a, ctx), t = collect(termsOf(lhs.a)), v = firstVar(lhs.a), p = ZERO, q = ZERO;
+        t.forEach(function (x) { var ks = Object.keys(x.e); if (!ks.length) q = x.c; else if (ks.length === 1 && x.e[ks[0]] === 1) p = x.c; else throw new NotSupported(); });
+        if (isZero(p)) throw new NotSupported();
+        var at = function (k) { var r = div(sub(k, q), p); return { text: fmt(r, ctx), value: toNum(r), r: r }; }; // [EN] A = k → x
+        var less = rel === '<' || rel === '≤', closed = !strict(rel), parts;
+        var finish = function (pre) {
+            var probe = [-1000, 1000, 0];
+            parts.forEach(function (pp) { [pp.lo, pp.hi, pp.minus].forEach(function (e) { if (e) probe.push(e.value, e.value - 0.5, e.value + 0.5, e.value - 1e-4, e.value + 1e-4); }); });
+            probe.forEach(function (x) { // [EN] bezpiecznik
+                var val = Math.abs(toNum(p) * x + toNum(q)) - toNum(c);
+                if (holds(val, rel) !== inSet(parts, x)) throw new NotSupported();
+            });
+            var text = v + ' ∈ ' + setText(parts, function (e) { return e.text; });
+            steps.push({ label: 'Odpowiedź', math: (pre ? pre + '\n' : '') + text });
+            return done('Nierówność', text, null, steps);
+        };
+        if (c.n < 0n || (isZero(c) && (rel === '<' || rel === '≥'))) { // [EN] |A| zawsze ≥ 0
+            steps.push({ label: 'Wartość bezwzględna nie jest ujemna', math: '|' + A + '| ≥ 0' });
+            parts = less ? [] : [{ lo: null, hi: null }];
+            return finish('');
+        }
+        if (isZero(c)) { // |A| ≤ 0 → A = 0;  |A| > 0 → A ≠ 0
+            var z = at(ZERO);
+            steps.push({ label: rel === '≤' ? 'Wartość bezwzględna jest zerem tylko dla zera' : 'Wartość bezwzględna jest dodatnia poza zerem', math: A + (rel === '≤' ? ' = 0' : ' ≠ 0') });
+            parts = rel === '≤' ? [{ point: true, lo: z }] : [{ lo: null, hi: null, minus: z }];
+            return finish('');
+        }
+        var e1 = at(neg(c)), e2 = at(c), lo = e1.value < e2.value ? e1 : e2, hi = lo === e1 ? e2 : e1;
+        if (less) {
+            steps.push({ label: 'Zamieniam na podwójną nierówność', math: fmt(neg(c), ctx) + ' ' + rel + ' ' + A + ' ' + rel + ' ' + fmt(c, ctx) });
+            steps.push({ label: 'Rozwiązuję podwójną nierówność', math: lo.text + ' ' + rel + ' ' + v + ' ' + rel + ' ' + hi.text });
+            parts = [{ lo: lo, hi: hi, loIn: closed, hiIn: closed }];
+        } else {
+            var lessRel = closed ? '≤' : '<';
+            steps.push({ label: 'Rozbijam na dwa przypadki', math: A + ' ' + lessRel + ' ' + fmt(neg(c), ctx) + ' lub ' + A + ' ' + rel + ' ' + fmt(c, ctx) });
+            steps.push({ label: 'Rozwiązuję oba przypadki', math: v + ' ' + lessRel + ' ' + lo.text + ' lub ' + v + ' ' + rel + ' ' + hi.text });
+            parts = [{ lo: null, hi: lo, hiIn: closed }, { lo: hi, hi: null, loIn: closed }];
+        }
+        return finish('');
+    }
     function solveInequality(lhs, rel, rhs) {
         var ctx = { dec: hasDecimal(lhs) || hasDecimal(rhs) };
+        if (rhs.k === 'abs' && lhs.k !== 'abs') return solveInequality(rhs, FLIP[rel], lhs); // [EN] 3 > |x − 2| → |x − 2| < 3
         var steps = [{ label: 'Nierówność', math: show(lhs, ctx) + ' ' + rel + ' ' + show(rhs, ctx) }];
+        if (lhs.k === 'abs') return absInequality(lhs, rel, rhs, ctx, steps);
         var rawL = termsOf(lhs), rawR = termsOf(rhs), L = collect(rawL), Rr = collect(rawR);
         var diff = collect(rawL.concat(negTerms(rawR))), vars = varsOf(diff);
         var parts, v = vars.indexOf('x') >= 0 ? 'x' : vars[0];

@@ -332,8 +332,8 @@ def run(data) -> list:
         for si, st in enumerate(prob["steps"]):
             for line in st["lines"]:
                 prev = None
-                if any(p.startswith(r"\notin") for p in line):
-                    continue  # „x = 1 ∉ D”: odrzucone rozwiązanie, z definicji nie spełnia odpowiedzi
+                if any(p.startswith(r"\notin") for p in line) or (st["label"].startswith("Odrzucam") and any(p.startswith("<") for p in line)):
+                    continue  # odrzucone rozwiązanie (∉ D albo „… < 0”) z definicji nie spełnia odpowiedzi
                 for piece in line:
                     rel = next((r for r in REL if piece.startswith(r)), None)
                     body = piece[len(rel):] if rel else re.sub(r"^(\\quad |,\\ |:\\quad |\\quad\\text\{lub\}\\quad )", "", piece)

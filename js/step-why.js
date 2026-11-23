@@ -104,13 +104,16 @@
         [/^Granice jednostronne są różne$/, 'Z lewej strony wychodzi co innego niż z prawej, więc jednej granicy nie ma.'],
         [/^Usuwamy niewymierność z mianownika$/, 'Wynik zapisujemy bez pierwiastka w mianowniku, tak jak w szkole.'],
         // ── równania ──
-        [/^Opuszczam nawiasy$/, 'Mnożę liczbę przed nawiasem przez każdy wyraz w nawiasie.'],
+        [/^Opuszczam nawiasy$/, (s) => /\)\(/.test(s.math) || /\)²/.test(s.math) ? 'Każdy wyraz jednego nawiasu mnożę przez każdy wyraz drugiego.'
+            : 'Mnożę to, co stoi przed nawiasem, przez każdy wyraz w środku; minus przed nawiasem zmienia znaki.'],
         [/^Przenoszę (\w|liczby|liczbę) /, 'Chcę mieć niewiadomą po jednej stronie, a liczby po drugiej. Przeniesiony wyraz zmienia znak.'],
         [/^Przenoszę wszystko na lewą stronę$/, 'Po prawej zostaje 0, a z postaci „coś = 0” łatwo odczytać współczynniki.'],
         [/^Porządkuję i redukuję wyrazy podobne$/, 'Porządkuję wyrazy: te z niewiadomą razem, liczby razem.'],
         [/^Redukuję wyrazy podobne$/, 'Dodaję wyrazy tego samego rodzaju: niewiadome z niewiadomymi, liczby z liczbami.'],
         [/^Skracam ułamek$/, 'Licznik i mianownik dzielą się przez tę samą liczbę, więc ułamek zapisuję prościej.'],
-        [/^Dzielę obie strony przez /, 'Chcę, żeby niewiadoma została sama. Dzieląc obie strony przez tę samą liczbę, nie zmieniam równania.'],
+        [/^Dzielę obie strony przez /, (_s, title) => title === 'Nierówność'
+            ? 'Dzielę przez liczbę dodatnią, więc znak nierówności zostaje bez zmian.'
+            : 'Chcę, żeby niewiadoma została sama. Dzieląc obie strony przez tę samą liczbę, nie zmieniam równania.'],
         [/^Sprawdzenie$/, (_s, title) => /Całka/.test(title)
             ? 'Pochodna wyniku musi dać funkcję spod całki. Wtedy wiemy, że całka jest dobra.'
             : /Układ/.test(title) ? 'Wstawiam obie liczby do obu równań: każde musi wyjść prawdziwe.'
@@ -143,7 +146,7 @@
             if (!p) return 'Znak trójmianu zależy od tego, czy ramiona paraboli idą w górę, czy w dół.';
             const arms = p.up ? 'Ramiona paraboli idą w górę' : 'Ramiona paraboli idą w dół';
             if (!p.roots) return arms + ', a parabola nie przecina osi, więc znak jest wszędzie ten sam.';
-            if (p.roots === 1) return arms + ' i parabola tylko dotyka osi, więc znak zmienia się wyłącznie w tym jednym punkcie.';
+            if (p.roots === 1) return arms + ' i parabola tylko dotyka osi: poza tym punktem jest wszędzie ' + (p.up ? 'nad osią (dodatnia).' : 'pod osią (ujemna).');
             const sign = p.between === p.up ? 'ujemne' : 'dodatnie';
             return arms + ': wartości ' + sign + ' są ' + (p.between ? 'między miejscami zerowymi.' : 'na zewnątrz miejsc zerowych.');
         }],
@@ -156,16 +159,30 @@
         [/^Lewe strony są proporcjonalne$/, 'Drugie równanie po lewej to pierwsze pomnożone przez liczbę, więc oba opisują tę samą prostą albo proste równoległe.'],
         [/^Prawe strony też/, 'Oba równania mówią to samo, więc każda para liczb spełniająca jedno spełnia też drugie.'],
         [/^Prawe strony nie/, 'Te same lewe strony nie mogą dać różnych wyników, więc żadna para liczb nie spełni obu równań.'],
+        [/^Rozbijam na dwa przypadki$/, (s) => / lub /.test(s.math) && /[<>≤≥]/.test(s.math)
+            ? 'Wartość bezwzględna jest duża, gdy liczba w środku jest daleko od zera: albo bardzo ujemna, albo bardzo dodatnia.'
+            : 'Wartość bezwzględna to odległość od zera, więc w środku może stać liczba dodatnia albo ujemna.'],
+        [/^Rozwiązuję oba przypadki$/, 'Każdy przypadek to zwykłe równanie liniowe; oba wyniki są rozwiązaniami.'],
+        [/^Zamieniam na podwójną nierówność$/, 'Odległość od zera mniejsza niż liczba oznacza, że wnętrze leży między tą liczbą ze znakiem minus i plus.'],
+        [/^Rozwiązuję podwójną nierówność$/, 'Te same działania wykonuję na wszystkich trzech częściach naraz.'],
+        [/^Wartość bezwzględna nie jest ujemna$/, 'Odległość od zera nigdy nie jest ujemna, a to rozstrzyga nierówność bez liczenia.'],
+        [/^Wartość bezwzględna jest zerem tylko dla zera$/, 'Odległość od zera wynosi zero tylko wtedy, gdy wnętrze jest zerem.'],
+        [/^Wartość bezwzględna jest dodatnia poza zerem$/, 'Odległość od zera jest dodatnia wszędzie, poza punktem, w którym wnętrze jest zerem.'],
+        [/^Pierwiastek nie jest ujemny$/, 'Pierwiastek kwadratowy nigdy nie daje liczby ujemnej, więc równanie nie ma rozwiązań.'],
+        [/^Podnoszę obie strony do kwadratu$/, 'Kwadrat usuwa pierwiastek. Może jednak dodać fałszywe rozwiązania, więc na końcu każde sprawdzę.'],
+        [/^Odrzucam fałszywe rozwiązanie$/, 'Ta liczba spełnia równanie po podniesieniu do kwadratu, ale w oryginale pierwiastek równałby się liczbie ujemnej.'],
+        [/^Sprawdzam rozwiązania$/, 'Po podniesieniu do kwadratu sprawdzam każde rozwiązanie w równaniu wyjściowym.'],
         [/^Zamieniam strony$/, 'Równość działa w obie strony, a niewiadomą wygodniej mieć po lewej.'],
         [/^Liczę prawą stronę$/, 'Po lewej jest już sama niewiadoma, więc wystarczy policzyć prawą stronę.'],
         [/^Mnożę obie strony przez /, (s) => /przez .*[a-z(]/.test(s.label)
             ? 'Mianownik nie jest zerem (to daje dziedzina), więc mnożę przez niego obie strony i ułamek znika.'
-            : 'Niewiadoma jest podzielona przez liczbę, więc mnożenie obu stron cofa to dzielenie.'],
-        [/^Wyznaczam dziedzinę$/, (s) => / > 0/.test(s.math) ? 'Logarytm istnieje tylko dla liczb dodatnich, więc argument musi być większy od zera.'
+            : 'Mnożę przez odwrotność liczby stojącej przy niewiadomej, żeby niewiadoma została sama.'],
+        [/^Wyznaczam dziedzinę$/, (s) => / ≥ 0/.test(s.math) ? 'Pierwiastek kwadratowy liczymy tylko z liczb nieujemnych i sam nie jest ujemny.'
+            : / > 0/.test(s.math) ? 'Logarytm istnieje tylko dla liczb dodatnich, więc argument musi być większy od zera.'
             : 'Przez zero dzielić nie wolno, więc wykluczam liczby, które zerują mianownik.'],
         [/^Zapisuję obie strony jako potęgi /, 'Gdy obie strony mają tę samą podstawę, wystarczy porównać wykładniki.'],
         [/^Porównuję wykładniki$/, 'Potęgi o tej samej podstawie są równe tylko wtedy, gdy mają równe wykładniki.'],
-        [/^Logarytmuję obie strony$/, 'Liczby nie da się zapisać jako potęgi tej podstawy, więc wykładnik zapisuję logarytmem.'],
+        [/^Zapisuję wykładnik jako logarytm$/, 'Liczby nie da się zapisać jako potęgi tej podstawy, więc wykładnik zapisuję logarytmem.'],
         [/^Porównuję argumenty logarytmów$/, 'Logarytmy o tej samej podstawie są równe tylko wtedy, gdy równe są liczby pod nimi.'],
         [/^Korzystam z definicji logarytmu$/, 'Pozbywam się logarytmu: zostaje zwykłe równanie, które umiem rozwiązać.'],
         [/^Mnożę na krzyż$/, 'Dwa ułamki są równe, gdy licznik pierwszego razy mianownik drugiego daje to samo co na odwrót.'],

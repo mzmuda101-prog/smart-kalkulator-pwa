@@ -1,4 +1,4 @@
-# Przekazanie: kroki rozwiązania zrozumiałe — stan na 2026-11-23, v1.05.24
+# Przekazanie: kroki rozwiązania zrozumiałe — stan na 2026-11-23, v1.05.25
 
 Dla nowej rozmowy. Najpierw: `AGENTS.md`, `../ZASADY-AGENTOW.md`, plan `docs/superpowers/plans/2026-11-22-kroki-zrozumiale.md`
 (etapy 3b–3f, decyzje Mateusza, co zostało), raporty agentów `docs/superpowers/research/raport-{A,B,C}-*.md`.
@@ -26,6 +26,7 @@ Starsze przekazanie: `docs/superpowers/HANDOFF-wzory.md` (rysunek wzoru, klawiat
 | v1.05.22 | **układy równań 2×2** (`solveSystem`): dwa sposoby (podstawianie, przeciwne współczynniki) w przełączniku, sprzeczny i nieoznaczony, sprawdzenie w obu równaniach, wynik liczony wzorami Cramera i porównany z krokami; separator „, ” albo „;” |
 | v1.05.23 | **równania wymierne** (`solveRational`): dziedzina, mnożenie przez mianownik / na krzyż, rozwiązanie istniejącym silnikiem, odrzucanie spoza dziedziny (∉ D); strona = jeden ułamek albo wielomian |
 | v1.05.24 | **wykładnicze i logarytmiczne** (`solveExpLog`): wspólna podstawa (4^x = 2^(x+3), 2^x = 1/8), logarytm gdy jej brak (2^x = 5), log z dziedziną i definicją (dymek `definicja-logarytmu`), log = log; `show()` rysuje funkcje; bramka: `log` bez podstawy = log₁₀ |
+| v1.05.25 | **wartość bezwzględna** (`solveAbs`, `absInequality`: przypadki, podwójna nierówność) i **pierwiastek** (`solveRadical`: kwadrat, odrzucanie fałszywych); parser `|…|`; raport F: dziedzina logarytmu z D i częścią wspólną, pusta D kończy, zdania przy pierwiastku podwójnym / dzieleniu nierówności / nawiasach |
 
 ## Jak to działa (mapa)
 - Krok = `{ label, math, formula?: { id } }`. Fragment w `⟦…⟧` = miejsce użycia wzoru: rysowany kolorem akcentu,
@@ -69,13 +70,20 @@ od najczęstszych w szkole):
 2. Układy równań 2×2 — ZROBIONE v1.05.22. Później: klamra układu na rysunku, 3×3, sposób graficzny.
 3. Równania wymierne — ZROBIONE v1.05.23 (strona = jeden ułamek). Zostało: suma ułamków `1/x + 1/(x+1) = 1` (wspólny mianownik), upraszczanie `(x² − 1)/(x − 1)`, nierówności wymierne.
 4. Wykładnicze i logarytmiczne — ZROBIONE v1.05.24. Zostało: `3·2^x = 24`, `2^(x+1) = 5`, podstawienie t = 2^x, `ln`, suma logarytmów.
-5. Wartość bezwzględna, równania z pierwiastkiem (sprawdzenie odrzuca fałszywe rozwiązania).
+5. Wartość bezwzględna i pierwiastek — ZROBIONE v1.05.25 (|A| = c, |A| ≷ c, √A = B). Zostało: |A| = |B|, |A| = B, √A + √B = c.
 6. Trygonometryczne (`sin x = 1/2`) — rozwiązania ogólne z okresem.
 7. Procenty krok po kroku, NWD/NWW, funkcja kwadratowa (wierzchołek, postać kanoniczna).
 Każdy nowy typ: TDD + bramka SymPy (`npm run check:steps`, dopisać przykłady do `EXTRA` w `scripts/steps-check/dump.js`) + agent „słaby uczeń”.
 
 - Bramka SymPy w równaniach i układach sprawdza też równania po drodze: każde musi być spełnione przez odpowiedź
   (`answers`/`satisfied` w `check.py`; przy kilku pierwiastkach — przez któryś). Nierówności: tylko rachunki na liczbach.
+
+### Z raportu F (`research/raport-F-nowe-typy.md`), do zrobienia
+- Szkic paraboli / oś z zaznaczonym przedziałem w nierównościach (Photomath) — rysunek ma być wierny (zasada canvas).
+- Skracanie ułamków pokazane (30/45 = 2/3 przez NWD), schemat Hornera przy Bezout, −b = 5 przy wzorach na x.
+- 1/8 = 2^(−3) z wyjaśnieniem (dymek: prawa potęg), log bez podstawy = log₁₀ w zdaniu.
+- „Sprzeczny” / „nieoznaczony” po nazwie w układach; sprawdzenie zawsze na końcu (logarytmy, nierówności — punkt próbny).
+- Osobne „Redukuję” po „Przenoszę” tylko gdy coś się redukuje.
 
 ## Pułapki
 - **Nie sprawdzaj silnika przez `node -e`** (decimal.js) — skrypt w pliku, `require` modułów z `js/`, na końcu `process.exit(0)`.

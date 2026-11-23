@@ -198,6 +198,8 @@
                     { syntax: 'rozwiąż równanie wymierne', syntaxAlt: 'solve rational equation', command: 'rozwiąż (x + 1)/(x - 2) = 3', yields: 'x = 7/2', description: 'dziedzina, mnożenie przez mianownik, odrzucanie' },
                     { syntax: 'rozwiąż wykładnicze', syntaxAlt: 'solve exponential', command: 'rozwiąż 4^x = 2^(x+3)', yields: 'x = 3', description: 'wspólna podstawa albo logarytm' },
                     { syntax: 'rozwiąż logarytmiczne', syntaxAlt: 'solve logarithmic', command: 'rozwiąż log_3(2x-1) = 2', yields: 'x = 5', description: 'dziedzina i definicja logarytmu' },
+                    { syntax: 'rozwiąż z wartością bezwzględną', syntaxAlt: 'solve absolute value', command: 'rozwiąż |x - 2| < 3', yields: 'x ∈ (−1, 5)', description: 'równania i nierówności z |…|' },
+                    { syntax: 'rozwiąż z pierwiastkiem', syntaxAlt: 'solve radical', command: 'rozwiąż √(x + 3) = x - 3', yields: 'x = 6', description: 'kwadrat obu stron i odrzucenie fałszywych rozwiązań' },
                     { syntax: 'rozwiąż układ równań', syntaxAlt: 'solve system', command: 'rozwiąż x + y = 5, x - y = 1', yields: 'x = 3, y = 2', description: 'dwa sposoby: podstawianie i przeciwne współczynniki; równania rozdziela przecinek ze spacją albo średnik' },
                     { syntax: 'rozwiąż nierówność', syntaxAlt: 'solve inequality', command: 'rozwiąż x^2 - 5x + 6 >= 0', yields: 'x ∈ (−∞, 2⟩ ∪ ⟨3, +∞)', description: 'liniowe i kwadratowe; znaki < > <= >=' },
                     { syntax: 'uprość wyrażenie', syntaxAlt: ['rozwiń', 'simplify', 'expand'], command: 'uprość (x + 1)^2 + 2x', yields: 'x² + 4x + 1', description: 'nawiasy i wyrazy podobne' },
