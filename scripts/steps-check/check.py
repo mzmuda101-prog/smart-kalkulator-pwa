@@ -324,7 +324,7 @@ def run(data) -> list:
     for prob in data:
         var, ctx = context(prob)
         PARAM_A[0] = prob["title"] == "Pochodna"
-        numbers_only = prob["title"] in ("Równanie", "Nierówność", "Układ równań")
+        numbers_only = prob["title"] in ("Równanie", "Równanie trygonometryczne", "Nierówność", "Układ równań")
         UNKNOWNS[0] = set()
         sols = answers(prob, var) if prob["title"] in ("Równanie", "Układ równań") else None
         if sols:

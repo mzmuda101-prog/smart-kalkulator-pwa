@@ -10,8 +10,9 @@
         S = require('./math-steps.js'); D = require('./math-calculus.js'); L = require('./math-limits.js');
     }
 
-    const FN = { sin: '\\sin', cos: '\\cos', tan: '\\tan', cot: '\\cot', ln: '\\ln', log: '\\log', exp: '\\exp',
-        asin: '\\arcsin', acos: '\\arccos', atan: '\\arctan' };
+    // tg, ctg, arctg — zapis polskiej szkoły (nie tan, cot, arctan)
+    const FN = { sin: '\\sin', cos: '\\cos', tan: '\\operatorname{tg}', cot: '\\operatorname{ctg}', ln: '\\ln', log: '\\log', exp: '\\exp',
+        asin: '\\arcsin', acos: '\\arccos', atan: '\\operatorname{arctg}' };
     // siła wiązania: wyższa = mocniej; nawias, gdy dziecko wiąże słabiej niż wymaga rodzic
     const PREC = { add: 1, sub: 1, neg: 2, mul: 3, div: 4, pow: 5 };
     const prec = (/** @type {any} */ n) => PREC[/** @type {'add'} */ (n.k)] || 9;
@@ -147,6 +148,7 @@
         const out = p.split(' ∪ ').map(part => {
             if (part === 'ℝ') return '\\mathbb{R}';
             if (part === '∅') return '\\varnothing ';
+            if (part === 'ℤ') return '\\mathbb{Z}';
             let m = /^ℝ \\ \{(.+)\}$/.exec(part);
             const list = (/** @type {string} */ t) => { const xs = t.split(', ').map(e => pieceTex(e, fid)); return xs.some(e => e == null) ? null : xs.join(',\\,'); };
             if (m) { const x = list(m[1]); return x == null ? null : '\\mathbb{R}\\setminus\\{' + x + '\\}'; }
@@ -165,7 +167,7 @@
     function pieceTex(p, fid) {
         p = p.trim();
         if (!p) return '';
-        if (/^(ℝ|∅|\{)/.test(p) || /^[(⟨][^()⟨⟩]*, [^()⟨⟩]*[)⟩]( ∪ |$)/.test(p)) { const st = setTex(p, fid); if (st != null) return st; }
+        if (/^(ℝ|ℤ|∅|\{)/.test(p) || /^[(⟨][^()⟨⟩]*, [^()⟨⟩]*[)⟩]( ∪ |$)/.test(p)) { const st = setTex(p, fid); if (st != null) return st; }
         const lim = /^lim\((\w)→([^)]*)\)\s*([\s\S]*)$/.exec(p);
         if (lim) {
             const rest = pieceTex(lim[3], fid);

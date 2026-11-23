@@ -50,7 +50,7 @@
     /** @type {[RegExp, string | ((s: Step, title: string, c: Ctx) => string | null)][]} */
     const RULES = [
         // ── stwierdzenia: bez zdania ──
-        [/^(Wynik|Odpowiedź|Równanie|Układ równań|Nierówność|Funkcja|Całka|Działanie|Wyrażenie|Wynik w przybliżeniu)$/, ''],
+        [/^(Wynik|Odpowiedź|Równanie|Równanie trygonometryczne|Układ równań|Nierówność|Funkcja|Całka|Działanie|Wyrażenie|Wynik w przybliżeniu)$/, ''],
         // ── granice ──
         [/^Granica$/, (s, _t, c) => {
             const m = /\s\s\[⟦?([^\]⟧]+)⟧?\]$/.exec(s.math);
@@ -172,6 +172,13 @@
         [/^Podnoszę obie strony do kwadratu$/, 'Kwadrat usuwa pierwiastek. Może jednak dodać fałszywe rozwiązania, więc na końcu każde sprawdzę.'],
         [/^Odrzucam fałszywe rozwiązanie$/, 'Ta liczba spełnia równanie po podniesieniu do kwadratu, ale w oryginale pierwiastek równałby się liczbie ujemnej.'],
         [/^Sprawdzam rozwiązania$/, 'Po podniesieniu do kwadratu sprawdzam każde rozwiązanie w równaniu wyjściowym.'],
+        [/^(Sinus|Cosinus) przyjmuje wartości od −1 do 1$/, 'Ta liczba leży poza przedziałem od −1 do 1, więc żaden kąt jej nie daje.'],
+        [/^Odczytuję kąt z tablicy$/, 'Szukam kąta, dla którego funkcja daje tę wartość. Takie kąty warto znać na pamięć.'],
+        [/^Zapisuję wszystkie rozwiązania$/, (s) => / lub /.test(s.math)
+            ? 'Wykres powtarza się co $2\\pi$, a w każdym okresie ta wartość pojawia się dwa razy.'
+            : /\+ kπ|= kπ/.test(s.math) ? 'Ta wartość powtarza się co $\\pi$, więc do kąta dodaję dowolną wielokrotność $\\pi$.'
+                : 'Wykres powtarza się co $2\\pi$, więc do kąta dodaję dowolną wielokrotność $2\\pi$.'],
+        [/^Wyliczam \w$/, 'Dzielę każdą serię przez liczbę przy niewiadomej; okres też się dzieli.'],
         [/^Zamieniam strony$/, 'Równość działa w obie strony, a niewiadomą wygodniej mieć po lewej.'],
         [/^Liczę prawą stronę$/, 'Po lewej jest już sama niewiadoma, więc wystarczy policzyć prawą stronę.'],
         [/^Mnożę obie strony przez /, (s) => /przez .*[a-z(]/.test(s.label)

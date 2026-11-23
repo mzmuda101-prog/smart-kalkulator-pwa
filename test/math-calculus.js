@@ -74,7 +74,8 @@ const NOPE = 'Jeszcze tego nie rozwiążę';
 ['pochodna', 'całka', 'pochodna (x', 'całka x +'].forEach(q => ok('niedopisane: ' + q, S.run(q) === null, S.run(q)));
 ['2+2', 'pensja 7000', 'dziś + 90 dni', 'całkowity koszt'].forEach(q => ok('nie przejmuje: ' + q, S.run(q) === null, S.run(q)));
 // funkcja to nie iloczyn liter
-['uprość sin(x)+1', 'rozwiąż sin(x)=1', 'uprość 2pi', 'uprość ln(x)'].forEach(q => ok('funkcja: ' + q, text(q) === NOPE, text(q)));
+['uprość sin(x)+1', 'uprość 2pi', 'uprość ln(x)'].forEach(q => ok('funkcja: ' + q, text(q) === NOPE, text(q)));
+ok('funkcja: rozwiąż sin(x)=1 — sinus, nie s·i·n', text('rozwiąż sin(x)=1') === 'x = π/2 + 2kπ, k ∈ ℤ', text('rozwiąż sin(x)=1'));
 
 // kroki
 ok('iloczyn', labels('pochodna x^3*sin(x)').includes('Rozpoznaję iloczyn'));

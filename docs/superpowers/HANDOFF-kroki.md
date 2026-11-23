@@ -1,4 +1,4 @@
-# Przekazanie: kroki rozwiązania zrozumiałe — stan na 2026-11-23, v1.05.25
+# Przekazanie: kroki rozwiązania zrozumiałe — stan na 2026-11-23, v1.05.26
 
 Dla nowej rozmowy. Najpierw: `AGENTS.md`, `../ZASADY-AGENTOW.md`, plan `docs/superpowers/plans/2026-11-22-kroki-zrozumiale.md`
 (etapy 3b–3f, decyzje Mateusza, co zostało), raporty agentów `docs/superpowers/research/raport-{A,B,C}-*.md`.
@@ -27,6 +27,7 @@ Starsze przekazanie: `docs/superpowers/HANDOFF-wzory.md` (rysunek wzoru, klawiat
 | v1.05.23 | **równania wymierne** (`solveRational`): dziedzina, mnożenie przez mianownik / na krzyż, rozwiązanie istniejącym silnikiem, odrzucanie spoza dziedziny (∉ D); strona = jeden ułamek albo wielomian |
 | v1.05.24 | **wykładnicze i logarytmiczne** (`solveExpLog`): wspólna podstawa (4^x = 2^(x+3), 2^x = 1/8), logarytm gdy jej brak (2^x = 5), log z dziedziną i definicją (dymek `definicja-logarytmu`), log = log; `show()` rysuje funkcje; bramka: `log` bez podstawy = log₁₀ |
 | v1.05.25 | **wartość bezwzględna** (`solveAbs`, `absInequality`: przypadki, podwójna nierówność) i **pierwiastek** (`solveRadical`: kwadrat, odrzucanie fałszywych); parser `|…|`; raport F: dziedzina logarytmu z D i częścią wspólną, pusta D kończy, zdania przy pierwiastku podwójnym / dzieleniu nierówności / nawiasach |
+| v1.05.26 | **trygonometryczne** (`solveTrig`): sin/cos/tg(p·x) = wartość z tablicy, serie z okresem, k ∈ ℤ, |a| > 1 → brak; rysunek: tg/ctg/arctg (polska szkoła, w całej apce), ℤ; `√2` bez nawiasu |
 
 ## Jak to działa (mapa)
 - Krok = `{ label, math, formula?: { id } }`. Fragment w `⟦…⟧` = miejsce użycia wzoru: rysowany kolorem akcentu,
@@ -71,7 +72,7 @@ od najczęstszych w szkole):
 3. Równania wymierne — ZROBIONE v1.05.23 (strona = jeden ułamek). Zostało: suma ułamków `1/x + 1/(x+1) = 1` (wspólny mianownik), upraszczanie `(x² − 1)/(x − 1)`, nierówności wymierne.
 4. Wykładnicze i logarytmiczne — ZROBIONE v1.05.24. Zostało: `3·2^x = 24`, `2^(x+1) = 5`, podstawienie t = 2^x, `ln`, suma logarytmów.
 5. Wartość bezwzględna i pierwiastek — ZROBIONE v1.05.25 (|A| = c, |A| ≷ c, √A = B). Zostało: |A| = |B|, |A| = B, √A + √B = c.
-6. Trygonometryczne (`sin x = 1/2`) — rozwiązania ogólne z okresem.
+6. Trygonometryczne — ZROBIONE v1.05.26 (wartości z tablicy). Zostało: sin x = 0,3 (arcsin), sin x = cos x, kwadratowe w sinusie, przedział ⟨0, 2π⟩, okrąg jednostkowy na rysunku.
 7. Procenty krok po kroku, NWD/NWW, funkcja kwadratowa (wierzchołek, postać kanoniczna).
 Każdy nowy typ: TDD + bramka SymPy (`npm run check:steps`, dopisać przykłady do `EXTRA` w `scripts/steps-check/dump.js`) + agent „słaby uczeń”.
 

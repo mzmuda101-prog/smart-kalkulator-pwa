@@ -274,10 +274,10 @@
                     ? showFactor(n.a, ctx) + sup(n.b.v.n.toString())
                     : showFactor(n.a, ctx) + '^' + show(n.b, ctx);
                 break;
-            case 'sqrt': s = '√' + (n.a.k === 'var' ? n.a.v : n.a.k === 'num' || n.a.paren ? show(n.a, ctx) : '(' + show(n.a, ctx) + ')'); break;
+            case 'sqrt': s = '√' + (n.a.k === 'var' ? n.a.v : n.a.k === 'num' && isInt(n.a.v) ? fmt(n.a.v, ctx) : n.a.k === 'num' || n.a.paren ? show(n.a, ctx) : '(' + show(n.a, ctx) + ')'); break;
             case 'abs': s = '|' + show(Object.assign({}, n.a, { paren: false }), ctx) + '|'; break;
             case 'fn': // [EN] log₂(2x − 1), log(x), ln(x) — w równaniach logarytmicznych
-                s = (n.f === 'logb' ? 'log' + sub_(n.base) : n.f) + '(' + show(Object.assign({}, n.a, { paren: false }), ctx) + ')';
+                s = (n.f === 'logb' ? 'log' + sub_(n.base) : ({ tan: 'tg', cot: 'ctg', atan: 'arctg' })[n.f] || n.f) + '(' + show(Object.assign({}, n.a, { paren: false }), ctx) + ')';
                 break;
         }
         return n.paren ? '(' + s + ')' : s;
@@ -617,6 +617,64 @@
         solveDegree(low, v, steps, ctx, sol);
     }
 
+    // ── Równania trygonometryczne (plan „jak Photomath”, pkt 6): sin/cos/tg(p·x) = wartość z tablicy ──
+    var TRIG_NAME = { sin: 'sin', cos: 'cos', tan: 'tg' };
+    function isTrig(n) { return !!n && n.k === 'fn' && !!TRIG_NAME[n.f] && hasVars(n.a); }
+    function piText(r) { // [EN] ułamek π jak w zeszycie: π/6, 5π/6, −π/4, π, 2π, 0
+        if (isZero(r)) return '0';
+        var a = r.n < 0n ? -r.n : r.n, top = (a === 1n ? '' : a.toString()) + 'π';
+        return (r.n < 0n ? '−' : '') + top + (r.d === 1n ? '' : '/' + r.d);
+    }
+    function kText(c) { // [EN] okres: kπ, 2kπ, kπ/2, 2kπ/3
+        var top = (c.n === 1n ? '' : c.n.toString()) + 'kπ';
+        return top + (c.d === 1n ? '' : '/' + c.d);
+    }
+    function nicePi(x) { // [EN] kąt (w radianach) jako ułamek π z mianownikiem 1, 2, 3, 4, 6 — albo null
+        var r = x / Math.PI;
+        for (var d = 1; d <= 12; d++) { var n = Math.round(r * d); if (Math.abs(r * d - n) < 1e-9) return R(BigInt(n), BigInt(d)); }
+        return null;
+    }
+    function solveTrig(lhs, rhs, ctx) {
+        var T = isTrig(lhs) ? lhs : rhs, other = T === lhs ? rhs : lhs;
+        if (hasVars(other)) throw new NotSupported(); // shortcut: tylko trig(p·x) = liczba, rozszerzyć o sin x = cos x i równania kwadratowe w sinusie, gdy będzie potrzeba
+        var t = collect(termsOf(T.a));
+        if (t.length !== 1 || Object.keys(t[0].e).length !== 1 || t[0].e[Object.keys(t[0].e)[0]] !== 1 || !isInt(t[0].c) || t[0].c.n <= 0n) throw new NotSupported();
+        var v = Object.keys(t[0].e)[0], p = t[0].c, a = evalNum(other, {}), name = TRIG_NAME[T.f], u = plain(T.a, ctx);
+        if (!isFinite(a)) throw new NotSupported();
+        var steps = [{ label: 'Równanie', math: show(lhs, ctx) + ' = ' + show(rhs, ctx) }];
+        var title = 'Równanie trygonometryczne';
+        if (T.f !== 'tan' && Math.abs(a) > 1 + 1e-12) {
+            steps.push({ label: (T.f === 'sin' ? 'Sinus' : 'Cosinus') + ' przyjmuje wartości od −1 do 1', math: '−1 ≤ ' + name + '(' + u + ') ≤ 1,  ' + show(other, ctx) + (a > 0 ? ' > 1' : ' < −1') });
+            steps.push({ label: 'Odpowiedź', math: 'Brak rozwiązań' });
+            return done(title, 'Brak rozwiązań', null, steps);
+        }
+        var alpha = nicePi(T.f === 'sin' ? Math.asin(a) : T.f === 'cos' ? Math.acos(a) : Math.atan(a));
+        var fn = T.f === 'sin' ? Math.sin : T.f === 'cos' ? Math.cos : Math.tan;
+        if (!alpha || alpha.d > 6n) throw new NotSupported(); // [EN] tylko wartości z tablicy (0, ±1/2, ±√2/2, ±√3/2, ±1, ±√3, ±√3/3)
+        steps.push({ label: 'Odczytuję kąt z tablicy', math: name + '(' + piText(alpha) + ') = ' + show(other, ctx) });
+        // [EN] serie rozwiązań dla argumentu u: {base, period} — wielokrotności π
+        var TWO = R(2n), fams;
+        if (T.f === 'tan') fams = [{ b: alpha, k: ONE }];
+        else if (T.f === 'sin') {
+            fams = Math.abs(Math.abs(a) - 1) < 1e-12 ? [{ b: alpha, k: TWO }] : isZero(alpha) ? [{ b: ZERO, k: ONE }] : [{ b: alpha, k: TWO }, { b: sub(ONE, alpha), k: TWO }];
+        } else {
+            fams = isZero(alpha) || eq(alpha, ONE) ? [{ b: alpha, k: TWO }] : Math.abs(a) < 1e-12 ? [{ b: alpha, k: ONE }] : [{ b: alpha, k: TWO }, { b: neg(alpha), k: TWO }];
+        }
+        var series = function (f, scale) { var b = div(f.b, scale), k = div(f.k, scale); return isZero(b) ? kText(k) : piText(b) + ' + ' + kText(k); };
+        var line = function (lhsT, scale) { return fams.map(function (f) { return lhsT + ' = ' + series(f, scale); }).join(' lub '); };
+        steps.push({ label: 'Zapisuję wszystkie rozwiązania', math: line(u, ONE) + '\nk ∈ ℤ' });
+        if (!eq(p, ONE)) steps.push({ label: 'Wyliczam ' + v, math: line(v, p) + '\nk ∈ ℤ' });
+        fams.forEach(function (f) { // [EN] bezpiecznik: każda seria spełnia równanie dla kilku k
+            for (var k = -2; k <= 2; k++) {
+                var x = (toNum(f.b) + toNum(f.k) * k) * Math.PI / toNum(p), val = fn(toNum(p) * x);
+                if (!(Math.abs(val - a) < 1e-9 * (1 + Math.abs(a)))) throw new NotSupported();
+            }
+        });
+        var text = line(v, p) + ', k ∈ ℤ'; // [EN] na ekranik wyniku w jednej linii; w krokach k ∈ ℤ w osobnej linii
+        steps.push({ label: 'Odpowiedź', math: line(v, p) + '\nk ∈ ℤ' });
+        return done(title, text, null, steps);
+    }
+
     // ── Wartość bezwzględna i równania z pierwiastkiem (plan „jak Photomath”, pkt 5) ──
     function hasKind(n, k) { return !!n && (n.k === k || hasKind(n.a, k) || hasKind(n.b, k)); }
     function hasVarSqrt(n) { return !!n && ((n.k === 'sqrt' && hasVars(n.a)) || hasVarSqrt(n.a) || hasVarSqrt(n.b)); }
@@ -931,6 +989,7 @@
         if (hasVarDen(lhs) || hasVarDen(rhs)) return solveRational(lhs, rhs, ctx);
         if (hasExpLog(lhs) || hasExpLog(rhs)) return solveExpLog(lhs, rhs, ctx);
         if (hasKind(lhs, 'abs') || hasKind(rhs, 'abs')) return solveAbs(lhs, rhs, ctx);
+        if (isTrig(lhs) || isTrig(rhs)) return solveTrig(lhs, rhs, ctx);
         if (hasVarSqrt(lhs) || hasVarSqrt(rhs)) return solveRadical(lhs, rhs, ctx);
         var steps = [{ label: 'Równanie', math: show(lhs, ctx) + ' = ' + show(rhs, ctx) }];
         // [EN] 5 = 2x − 7 → 2x − 7 = 5: niewiadoma po lewej, bez dwóch minusów (raport E, R2)

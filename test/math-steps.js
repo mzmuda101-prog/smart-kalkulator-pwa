@@ -294,5 +294,20 @@ pass += 3;
     ok('4e: √x = −2 — brak', T('rozwiąż √x = -2') === 'Brak rozwiązań', T('rozwiąż √x = -2'));
 }
 
+// ── 4f: równania trygonometryczne (plan „jak Photomath”, pkt 6) ──
+{
+    const T = q => { const r = S.run(q); return r && r.text; };
+    ok('4f: sin x = 1/2', T('rozwiąż sin(x) = 1/2') === 'x = π/6 + 2kπ lub x = 5π/6 + 2kπ, k ∈ ℤ'
+        && has('rozwiąż sin(x) = 1/2', 'Odczytuję kąt z tablicy', 'sin(π/6) = 1/2'), st('rozwiąż sin(x) = 1/2'));
+    ok('4f: cos x = √2/2', T('rozwiąż cos(x) = sqrt(2)/2') === 'x = π/4 + 2kπ lub x = −π/4 + 2kπ, k ∈ ℤ', T('rozwiąż cos(x) = sqrt(2)/2'));
+    ok('4f: tg x = 1', T('rozwiąż tg(x) = 1') === 'x = π/4 + kπ, k ∈ ℤ', T('rozwiąż tg(x) = 1'));
+    ok('4f: sin x = −1/2', T('rozwiąż sin(x) = -1/2') === 'x = −π/6 + 2kπ lub x = 7π/6 + 2kπ, k ∈ ℤ', T('rozwiąż sin(x) = -1/2'));
+    ok('4f: sin x = 0, cos x = 1, cos x = 0', T('rozwiąż sin(x) = 0') === 'x = kπ, k ∈ ℤ' && T('rozwiąż cos(x) = 1') === 'x = 2kπ, k ∈ ℤ' && T('rozwiąż cos(x) = 0') === 'x = π/2 + kπ, k ∈ ℤ',
+        [T('rozwiąż sin(x) = 0'), T('rozwiąż cos(x) = 1'), T('rozwiąż cos(x) = 0')]);
+    ok('4f: sin x = 2 — brak', T('rozwiąż sin(x) = 2') === 'Brak rozwiązań' && st('rozwiąż sin(x) = 2').some(x => /^Sinus przyjmuje/.test(x.label)), st('rozwiąż sin(x) = 2'));
+    ok('4f: sin(2x) = 1/2 — dzielę serie', T('rozwiąż sin(2x) = 1/2') === 'x = π/12 + kπ lub x = 5π/12 + kπ, k ∈ ℤ' && st('rozwiąż sin(2x) = 1/2').some(x => x.label === 'Wyliczam x'), st('rozwiąż sin(2x) = 1/2'));
+    ok('4f: tytuł', S.run('rozwiąż sin(x) = 1/2').explain.title === 'Równanie trygonometryczne');
+}
+
 console.log(`math-steps: ${pass} OK, ${fail} błędów`);
 process.exit(fail ? 1 : 0);
