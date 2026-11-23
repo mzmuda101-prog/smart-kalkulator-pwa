@@ -161,10 +161,16 @@
         [/^Mnożę obie strony przez /, (s) => /przez .*[a-z(]/.test(s.label)
             ? 'Mianownik nie jest zerem (to daje dziedzina), więc mnożę przez niego obie strony i ułamek znika.'
             : 'Niewiadoma jest podzielona przez liczbę, więc mnożenie obu stron cofa to dzielenie.'],
-        [/^Wyznaczam dziedzinę$/, 'Przez zero dzielić nie wolno, więc wykluczam liczby, które zerują mianownik.'],
+        [/^Wyznaczam dziedzinę$/, (s) => / > 0/.test(s.math) ? 'Logarytm istnieje tylko dla liczb dodatnich, więc argument musi być większy od zera.'
+            : 'Przez zero dzielić nie wolno, więc wykluczam liczby, które zerują mianownik.'],
+        [/^Zapisuję obie strony jako potęgi /, 'Gdy obie strony mają tę samą podstawę, wystarczy porównać wykładniki.'],
+        [/^Porównuję wykładniki$/, 'Potęgi o tej samej podstawie są równe tylko wtedy, gdy mają równe wykładniki.'],
+        [/^Logarytmuję obie strony$/, 'Liczby nie da się zapisać jako potęgi tej podstawy, więc wykładnik zapisuję logarytmem.'],
+        [/^Porównuję argumenty logarytmów$/, 'Logarytmy o tej samej podstawie są równe tylko wtedy, gdy równe są liczby pod nimi.'],
+        [/^Korzystam z definicji logarytmu$/, 'Pozbywam się logarytmu: zostaje zwykłe równanie, które umiem rozwiązać.'],
         [/^Mnożę na krzyż$/, 'Dwa ułamki są równe, gdy licznik pierwszego razy mianownik drugiego daje to samo co na odwrót.'],
-        [/^Sprawdzam dziedzinę$/, 'Rozwiązanie nie może zerować mianownika, więc sprawdzam, czy należy do dziedziny.'],
-        [/^Odrzucam rozwiązanie spoza dziedziny$/, 'Ta liczba zeruje mianownik pierwotnego równania, więc nie jest rozwiązaniem.'],
+        [/^Sprawdzam dziedzinę$/, 'Rozwiązanie musi należeć do dziedziny, inaczej wyjściowe równanie nie miałoby dla niego sensu.'],
+        [/^Odrzucam rozwiązanie spoza dziedziny$/, 'Ta liczba nie należy do dziedziny, więc wyjściowe równanie nie ma dla niej sensu.'],
         [/^Szukam pierwiastka/, 'Sprawdzam dzielniki liczby bez $x$. Jeśli któryś daje 0, mam rozwiązanie $r$ i nawias $(x-r)$.'],
         [/^Nie ma pierwiastków wymiernych/, 'Żaden dzielnik wyrazu wolnego nie zeruje wielomianu, więc prościej go nie rozłożymy.'],
         [/^Wyłączam wspólny czynnik/, 'Ten sam czynnik jest w każdym wyrazie, więc wyciągam go przed nawias.'],

@@ -268,6 +268,9 @@
                     : showFactor(n.a, ctx) + '^' + show(n.b, ctx);
                 break;
             case 'sqrt': s = '√' + (n.a.k === 'num' || n.a.paren ? show(n.a, ctx) : '(' + show(n.a, ctx) + ')'); break;
+            case 'fn': // [EN] log₂(2x − 1), log(x), ln(x) — w równaniach logarytmicznych
+                s = (n.f === 'logb' ? 'log' + sub_(n.base) : n.f) + '(' + show(Object.assign({}, n.a, { paren: false }), ctx) + ')';
+                break;
         }
         return n.paren ? '(' + s + ')' : s;
     }
@@ -410,6 +413,10 @@
             case 'div': return evalNum(n.a, env) / evalNum(n.b, env);
             case 'pow': return Math.pow(evalNum(n.a, env), evalNum(n.b, env));
             case 'sqrt': return Math.sqrt(evalNum(n.a, env));
+            case 'fn': // [EN] sprawdzenie równań logarytmicznych (tylko liczbowo)
+                if (n.f === 'log') return Math.log10(evalNum(n.a, env));
+                if (n.f === 'logb') return Math.log(evalNum(n.a, env)) / Math.log(+n.base);
+                if (n.f === 'ln') return Math.log(evalNum(n.a, env));
         }
         return NaN;
     }
@@ -600,6 +607,148 @@
         solveDegree(low, v, steps, ctx, sol);
     }
 
+    // ── Równania wykładnicze i logarytmiczne (plan „jak Photomath”, pkt 4) ──
+    function hasExpLog(n) {
+        if (!n) return false;
+        if (n.k === 'pow' && hasVars(n.b)) return true;
+        if (n.k === 'fn' && (n.f === 'log' || n.f === 'logb') && hasVars(n.a)) return true;
+        return hasExpLog(n.a) || hasExpLog(n.b);
+    }
+    function linearIn(n, v) { // [EN] wykładnik / argument: a·x + b, inaczej NotSupported
+        var t = collect(termsOf(n));
+        t.forEach(function (q) { var ks = Object.keys(q.e); if (ks.length > 1 || (ks.length && (ks[0] !== v || q.e[v] !== 1))) throw new NotSupported(); });
+        return t;
+    }
+    function powerOf(q, g) { // [EN] q = g^k (k całkowite) → k, inaczej null; 1/8 = 2^(−3)
+        if (q.n <= 0n) return null;
+        var top = q.n, bot = q.d, k = 0;
+        if (top === 1n && bot === 1n) return 0;
+        var up = bot === 1n, n = up ? top : bot;
+        if (!up && top !== 1n) return null;
+        while (n % g === 0n) { n /= g; k++; }
+        return n === 1n ? (up ? k : -k) : null;
+    }
+    function smallestBase(q) { // [EN] 8 → 2, 9 → 3, 1/8 → 2, 5 → 5
+        var n = q.d === 1n ? q.n : q.n === 1n ? q.d : null;
+        if (!n || n < 2n) return null;
+        for (var g = 2n; g * g <= n; g++) if (powerOf(R(n), g) !== null) return g;
+        return n;
+    }
+    function solveExpLog(lhs, rhs, ctx) {
+        var v;
+        var findVar = function (n) { if (!n) return null; if (n.k === 'var') return n.v; return findVar(n.a) || findVar(n.b); };
+        v = findVar(lhs) || findVar(rhs);
+        var steps = [{ label: 'Równanie', math: show(lhs, ctx) + ' = ' + show(rhs, ctx) }];
+        var bare = function (n) { return show(Object.assign({}, n, { paren: false }), ctx); };
+        var inner = function (src) {
+            var pr = parseEquationParts(src.replace(/−/g, '-').replace(/·/g, '*'), {}), r = solveEquation(pr.lhs, pr.rhs);
+            if (!r.explain) throw new NotSupported();
+            var all = r.explain.steps, last = all[all.length - 1];
+            return { steps: all.filter(function (st, i) { return i && st.label !== 'Sprawdzenie' && st.label !== 'Odpowiedź'; }), r: r, last: last };
+        };
+        var finish = function (val, text, value) { // [EN] sprawdzenie liczbowe na oryginale, potem odpowiedź
+            var env = {}; env[v] = value;
+            var l = evalNum(lhs, env), r = evalNum(rhs, env);
+            if (!isFinite(l) || !isFinite(r) || Math.abs(l - r) > 1e-9 * (1 + Math.abs(l) + Math.abs(r))) throw new NotSupported();
+            if (val) {
+                var side = function (n) { var t = show(plugIn(n, v, val), ctx), w = fmt(evalExact(n, env2), ctx); return t === w ? t : t + ' = ' + w; };
+                var env2 = {}; env2[v] = val;
+                try { steps.push({ label: 'Sprawdzenie', math: v + ' = ' + fmt(val, ctx) + ':  L = ' + side(lhs) + ',  P = ' + side(rhs) + ' ✓' }); }
+                catch (e) { if (!(e instanceof NotSupported)) throw e; } // [EN] logarytmu nie liczymy dokładnie — sprawdzenie liczbowe wystarcza
+            }
+            steps.push({ label: 'Odpowiedź', math: v + ' = ' + text });
+            return done('Równanie', v + ' = ' + text, value, steps);
+        };
+        var answerOf = function (res) { // [EN] jedno rozwiązanie z równania liniowego
+            if (!res.last || res.last.label !== 'Odpowiedź' || /\n/.test(res.last.math)) throw new NotSupported();
+            var t = res.last.math.replace(/^[a-z]\s*=\s*/, ''), q = evalExact(parseTokens(tokenize(t.replace(/−/g, '-'), {})), {});
+            return q;
+        };
+        // ── logarytmy: log_b(A) = c albo log_b(A) = log_b(B) ──
+        var isLog = function (n) { return n.k === 'fn' && (n.f === 'log' || n.f === 'logb'); };
+        var baseOf = function (n) { return n.f === 'log' ? 10n : BigInt(n.base); };
+        if (isLog(lhs) || isLog(rhs)) {
+            var Lg = isLog(lhs) ? lhs : rhs, other = isLog(lhs) ? rhs : lhs, b = baseOf(Lg);
+            var args = [Lg.a].concat(isLog(other) ? [other.a] : []);
+            if (isLog(other) && baseOf(other) !== b) throw new NotSupported();
+            if (!isLog(other) && hasVars(other)) throw new NotSupported();
+            // dziedzina: każdy argument > 0 (liniowy)
+            var lo = null, hi = null, dom = [];
+            args.forEach(function (a) {
+                var t = linearIn(a, v), p = ZERO, q = ZERO;
+                t.forEach(function (x) { if (Object.keys(x.e).length) p = x.c; else q = x.c; });
+                if (isZero(p)) throw new NotSupported();
+                var edge = neg(div(q, p));
+                dom.push(bare(a) + ' > 0', v + (p.n > 0n ? ' > ' : ' < ') + fmt(edge, ctx));
+                if (p.n > 0n) { if (lo === null || toNum(edge) > toNum(lo)) lo = edge; } else { if (hi === null || toNum(edge) < toNum(hi)) hi = edge; }
+            });
+            steps.push({ label: 'Wyznaczam dziedzinę', math: dom.join('\n') });
+            var res;
+            if (isLog(other)) {
+                var eqTxt = bare(Lg.a) + ' = ' + bare(other.a);
+                steps.push({ label: 'Porównuję argumenty logarytmów', math: eqTxt });
+                res = inner(eqTxt);
+            } else {
+                var c = evalExact(other, {});
+                if (!isInt(c)) throw new NotSupported();
+                var pw = c.n < 0n ? b.toString() + '^(' + fmt(c, ctx) + ')' : b.toString() + sup(c.n.toString());
+                var val = powR(R(b), Number(c.n));
+                var arg = bare(Lg.a);
+                // [EN] kolor na potędze, która powstała z definicji (dymek: definicja-logarytmu)
+                if (arg === v) { steps.push({ label: 'Korzystam z definicji logarytmu', math: v + ' = ⟦' + pw + '⟧ = ' + fmt(val, ctx), formula: { id: 'definicja-logarytmu' } }); res = null; }
+                else { steps.push({ label: 'Korzystam z definicji logarytmu', math: arg + ' = ⟦' + pw + '⟧' + (fmt(val, ctx) === pw ? '' : '\n' + arg + ' = ' + fmt(val, ctx)), formula: { id: 'definicja-logarytmu' } }); res = inner(arg + ' = ' + fmt(val, ctx)); }
+                if (!res) {
+                    var x0 = val;
+                    steps.push({ label: 'Sprawdzam dziedzinę', math: v + ' = ' + fmt(x0, ctx) + ' ∈ D' });
+                    return finish(x0, fmt(x0, ctx), toNum(x0));
+                }
+            }
+            steps = steps.concat(res.steps);
+            var xs = answerOf(res), okDom = (lo === null || toNum(xs) > toNum(lo)) && (hi === null || toNum(xs) < toNum(hi));
+            steps.push({ label: okDom ? 'Sprawdzam dziedzinę' : 'Odrzucam rozwiązanie spoza dziedziny', math: v + ' = ' + fmt(xs, ctx) + (okDom ? ' ∈ D' : ' ∉ D') });
+            if (!okDom) { steps.push({ label: 'Odpowiedź', math: 'Brak rozwiązań' }); return done('Równanie', 'Brak rozwiązań', null, steps); }
+            return finish(xs, fmt(xs, ctx), toNum(xs));
+        }
+        // ── wykładnicze: g^(A) = g^(B) albo g^(A) = c ──
+        var sideOf = function (n) { // {base: q, exp: terms} albo {num: q}
+            if (n.k === 'pow' && n.a.k === 'num' && hasVars(n.b)) return { base: n.a.v, exp: linearIn(n.b, v), node: n };
+            if (!hasVars(n)) return { num: evalExact(n, {}) };
+            throw new NotSupported();
+        };
+        var P = sideOf(lhs), Q = sideOf(rhs);
+        if (!P.exp && !Q.exp) throw new NotSupported();
+        var firstB = (P.exp ? P.base : Q.base);
+        var g = smallestBase(firstB);
+        if (!g) throw new NotSupported();
+        var kOf = function (side) { return side.exp ? powerOf(side.base, g) : powerOf(side.num, g); };
+        var kP = kOf(P), kQ = kOf(Q), gs = g.toString();
+        var expText = function (k, t) { // [EN] wykładnik k·(a·x + b) jako tekst
+            var sc = collect(t.map(function (q) { return { c: mul(q.c, R(BigInt(k))), e: q.e }; }));
+            return showTerms(sc, ctx);
+        };
+        var powTxt = function (e) { e = e.replace(/^-/, '−'); return /^\d+$/.test(e) ? gs + sup(e) : /^[a-z]$/.test(e) ? gs + '^' + e : gs + '^(' + e + ')'; }; // [EN] 2³, 2^x, 2^(2x), 2^(−3)
+        if (kP === null || kQ === null) { // [EN] brak wspólnej podstawy: logarytmuję (np. 2^x = 5)
+            var E = P.exp ? P : Q, C = P.exp ? Q : P;
+            if (!C.num || C.num.n <= 0n || !isInt(E.base) || E.base.n < 2n) throw new NotSupported();
+            var bS = E.base.n.toString(), logT = 'log' + sub_(bS) + '(' + fmt(C.num, ctx) + ')', lv = Math.log(toNum(C.num)) / Math.log(Number(E.base.n));
+            var eT = expText(1, E.exp);
+            steps.push({ label: 'Logarytmuję obie strony', math: eT + ' = ' + logT });
+            if (eT !== v) throw new NotSupported(); // shortcut: logarytm tylko przy samym x w wykładniku, rozszerzyć o x + 1 = log₂(5), gdy ktoś o to poprosi
+            return finish(null, logT + ' ≈ ' + fmtApprox(lv), lv);
+        }
+        var sideTxt = function (s, k) { return s.exp ? (eq(s.base, R(g)) ? powTxt(expText(1, s.exp)) : '(' + gs + sup(String(k)) + ')' + '^' + (expText(1, s.exp).length > 1 ? '(' + expText(1, s.exp) + ')' : expText(1, s.exp))) : powTxt(String(k)); };
+        var raw = sideTxt(P, kP) + ' = ' + sideTxt(Q, kQ);
+        var flat = (P.exp ? powTxt(expText(kP, P.exp)) : powTxt(String(kP))) + ' = ' + (Q.exp ? powTxt(expText(kQ, Q.exp)) : powTxt(String(kQ)));
+        steps.push({ label: 'Zapisuję obie strony jako potęgi ' + gs, math: raw === flat ? raw : raw + '\n' + flat });
+        var eqE = (P.exp ? expText(kP, P.exp) : String(kP)) + ' = ' + (Q.exp ? expText(kQ, Q.exp) : String(kQ));
+        eqE = eqE.replace(/(^| )-(\d)/g, '$1−$2');
+        steps.push({ label: 'Porównuję wykładniki', math: eqE });
+        var r2 = inner(eqE);
+        steps = steps.concat(r2.steps);
+        var xv = answerOf(r2);
+        return finish(xv, fmt(xv, ctx), toNum(xv));
+    }
+
     // ── Równania wymierne (plan „jak Photomath”, pkt 3): dziedzina, mnożenie przez mianownik, odrzucanie ──
     function hasVarDen(n) { return !!n && ((n.k === 'div' && !n.colon && hasVars(n.b)) || hasVarDen(n.a) || hasVarDen(n.b)); }
     function fracOf(n) { // [EN] cała strona to jeden ułamek z x w mianowniku albo wielomian; inne postacie — później
@@ -682,6 +831,7 @@
     function solveEquation(lhs, rhs) {
         var ctx = { dec: hasDecimal(lhs) || hasDecimal(rhs) };
         if (hasVarDen(lhs) || hasVarDen(rhs)) return solveRational(lhs, rhs, ctx);
+        if (hasExpLog(lhs) || hasExpLog(rhs)) return solveExpLog(lhs, rhs, ctx);
         var steps = [{ label: 'Równanie', math: show(lhs, ctx) + ' = ' + show(rhs, ctx) }];
         // [EN] 5 = 2x − 7 → 2x − 7 = 5: niewiadoma po lewej, bez dwóch minusów (raport E, R2)
         if (!varsOf(collect(termsOf(lhs))).length && varsOf(collect(termsOf(rhs))).length) {

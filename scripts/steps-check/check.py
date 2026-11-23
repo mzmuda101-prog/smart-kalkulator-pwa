@@ -111,6 +111,7 @@ def to_expr(tex: str, var: Symbol, extra: dict) -> Expr:
          .replace(r"\operatorname{tg}", r"\tan").replace(r"\operatorname{ctg}", r"\cot")
          .replace(r"\operatorname{arctg}", r"\arctan").replace(r"\tg", r"\tan").replace(r"\ctg", r"\cot").replace(r"\arctg", r"\arctan"))
     t = re.sub(r"\\pi(?![a-z])", r" \\omega ", t)
+    t = re.sub(r"\\log(?!_)", r"\\log_{10}", t)  # w polskiej szkole „log” bez podstawy to log₁₀ (SymPy: ln)
     if t.startswith("[") and t.endswith("]"):
         raise Skip("symbol [ ]")  # [0/0], [∞/∞]: znacznik, nie wartość
     # nawias kwadratowy jak okrągły; iloczyn nawiasów jawnie (lark nie czyta „)(”, „}(”)

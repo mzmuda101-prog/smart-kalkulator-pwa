@@ -307,6 +307,17 @@
             level: 'Liceum rozszerzenie: trygonometria; całka: studia',
             more: ['Wzór wynika z $\\cos 2x=2\\cos^{2}x-1$.'],
         },
+        'definicja-logarytmu': {
+            name: 'Definicja logarytmu',
+            tex: '\\log_{a} b=c\\iff a^{c}=b',
+            why: 'Logarytm odpowiada na pytanie: do jakiej potęgi trzeba podnieść podstawę $a$, żeby dostać $b$.',
+            level: 'Liceum: logarytmy',
+            more: [
+                'Na przykład $\\log_{2} 8=3$, bo $2^{3}=8$, a $\\log_{10} 100=2$, bo $10^{2}=100$.',
+                'Podstawa $a$ jest dodatnia i różna od 1, a liczba $b$ pod logarytmem musi być dodatnia. Dlatego w równaniach z logarytmem zaczynamy od dziedziny.',
+                'Zapis $\\log b$ bez podstawy to logarytm dziesiętny, czyli $a=10$.',
+            ],
+        },
         'tg-kwadrat': {
             name: 'Tangens do kwadratu',
             tex: '\\operatorname{tg}^{2}x=\\frac{1}{\\cos^{2}x}-1',

@@ -37,7 +37,7 @@ function labels(q) { return S.run(q).explain.steps.map(s => s.label).join(' | ')
 ].forEach(([q, want]) => ok(q, text(q) === want, text(q)));
 
 // uczciwość: czego nie umiemy, tego nie zgadujemy
-['rozwiąż 1/x + 1/(x+1) = 1', 'rozwiąż sqrt(x)=3', 'rozwiąż 2^x=8', 'rozwiąż x^5+x+1000003=0', 'rozwiąż x^99=1']
+['rozwiąż 1/x + 1/(x+1) = 1', 'rozwiąż sqrt(x)=3', 'rozwiąż 2^x = x + 3', 'rozwiąż x^5+x+1000003=0', 'rozwiąż x^99=1']
     .forEach(q => ok('nie zgaduje: ' + q, text(q) === 'Jeszcze tego nie rozwiążę' && !S.run(q).explain, S.run(q)));
 ['rozwiąż 2x +', 'rozwiąż (x', 'rozwiąż x==2', 'kroki 2+', 'rozwiąż']
     .forEach(q => ok('niedopisane: ' + q, S.run(q) === null, S.run(q)));
@@ -259,6 +259,22 @@ pass += 3;
     ok('4c: odrzucam rozwiązanie spoza dziedziny', T('rozwiąż x^2/(x-1) = 1/(x-1)') === 'x = −1' && st('rozwiąż x^2/(x-1) = 1/(x-1)').some(x => /^Odrzucam/.test(x.label)), st('rozwiąż x^2/(x-1) = 1/(x-1)'));
     ok('4c: sprawdzenie w równaniu z ułamkiem', st('rozwiąż (x+1)/(x-2) = 3').some(x => x.label === 'Sprawdzenie'), st('rozwiąż (x+1)/(x-2) = 3'));
     ok('4c: tytuł Równanie wymierne', S.run('rozwiąż 1/x = 2').explain.title === 'Równanie');
+}
+
+// ── 4d: równania wykładnicze i logarytmiczne (plan „jak Photomath”, pkt 4) ──
+{
+    const T = q => { const r = S.run(q); return r && r.text; };
+    ok('4d: 2^x = 8', T('rozwiąż 2^x = 8') === 'x = 3' && has('rozwiąż 2^x = 8', 'Zapisuję obie strony jako potęgi 2', '2^x = 2³')
+        && has('rozwiąż 2^x = 8', 'Porównuję wykładniki', 'x = 3'), st('rozwiąż 2^x = 8'));
+    ok('4d: 3^(x+1) = 27', T('rozwiąż 3^(x+1) = 27') === 'x = 2' && has('rozwiąż 3^(x+1) = 27', 'Porównuję wykładniki', 'x + 1 = 3'), st('rozwiąż 3^(x+1) = 27'));
+    ok('4d: 4^x = 2^(x+3) — wspólna podstawa 2', T('rozwiąż 4^x = 2^(x+3)') === 'x = 3' && has('rozwiąż 4^x = 2^(x+3)', 'Zapisuję obie strony jako potęgi 2', '(2²)^x = 2^(x + 3)\n2^(2x) = 2^(x + 3)'), st('rozwiąż 4^x = 2^(x+3)'));
+    ok('4d: 2^x = 1/8 — ujemny wykładnik', T('rozwiąż 2^x = 1/8') === 'x = −3', T('rozwiąż 2^x = 1/8'));
+    ok('4d: 2^x = 5 — logarytm', T('rozwiąż 2^x = 5') === 'x = log₂(5) ≈ 2,32193' && st('rozwiąż 2^x = 5').some(x => x.label === 'Logarytmuję obie strony'), [T('rozwiąż 2^x = 5'), st('rozwiąż 2^x = 5')]);
+    ok('4d: log_2(x) = 3', T('rozwiąż log_2(x) = 3') === 'x = 8' && has('rozwiąż log_2(x) = 3', 'Korzystam z definicji logarytmu', 'x = ⟦2³⟧ = 8'), st('rozwiąż log_2(x) = 3'));
+    ok('4d: log_3(2x-1) = 2 — dziedzina', T('rozwiąż log_3(2x-1) = 2') === 'x = 5' && has('rozwiąż log_3(2x-1) = 2', 'Wyznaczam dziedzinę', '2x − 1 > 0\nx > 1/2'), st('rozwiąż log_3(2x-1) = 2'));
+    ok('4d: log(x) = 2 — podstawa 10', T('rozwiąż log(x) = 2') === 'x = 100', T('rozwiąż log(x) = 2'));
+    ok('4d: log_b(A) = log_b(B)', T('rozwiąż log_2(x+3) = log_2(2x)') === 'x = 3', T('rozwiąż log_2(x+3) = log_2(2x)'));
+    ok('4d: odrzucenie spoza dziedziny logarytmu', T('rozwiąż log_2(x-5) = log_2(1-x)') === 'Brak rozwiązań', T('rozwiąż log_2(x-5) = log_2(1-x)'));
 }
 
 console.log(`math-steps: ${pass} OK, ${fail} błędów`);
