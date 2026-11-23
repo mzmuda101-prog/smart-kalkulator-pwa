@@ -41,3 +41,15 @@ Etapy 2–4; sposoby dla 0 · ∞, ∞ − ∞ itp.; wybór „szkolny/najkróts
 - Node: `rozwiąż`/`lim` z 1^∞ i ∞/∞ mają 2 sposoby, wynik równy; wzór skrócony ma dymek `e-skrocony`.
 - e2e: kroki `lim n→∞ ((3n^2+4n+1)/(3n^2-2n+5))^(4n+3)` otwierają się na „Wzór skrócony” (krótszy), przełącznik
   pokazuje oba; układ `2x + y = 7, x - y = 2` otwiera się na krótszym sposobie.
+
+## Etap 2+3 (Mateusz 2026-11-24: „połączyć etap drugi z trzecim”)
+- Równanie kwadratowe z a = 1, b ≠ 0, c ≠ 0 i dwoma różnymi całkowitymi rozwiązaniami: drugi sposób „Suma i iloczyn”
+  (wzory Viète'a): krok „Szukam dwóch liczb o sumie −b i iloczynie c” z odgadniętą parą, postać iloczynowa,
+  przyrównanie czynników do zera, to samo sprawdzenie i odpowiedź. Delta zostaje pierwszym sposobem silnika;
+  domyślny wybiera zasada „najkrótszy”.
+- Równania stopnia ≥ 3 (twierdzenie Bezouta): krok dzielenia pokazany schematem Hornera — rysowana tabelka
+  (współczynniki, iloczyny po skosie ze strzałką, sumy pod kreską; po lewej pierwiastek r), w kolejności:
+  szukam pierwiastka → dzielę schematem Hornera → zapisuję iloczyn (dymek Bezouta).
+- Nowe hasła: `wzory-viete`, `schemat-hornera` (skąd wzór, skąd nazwa, try/expect, SymPy, „słaby uczeń”).
+- Tekst kroku z dzieleniem: `(W) : (x − r) = Q`, żeby SymPy sprawdzał wynik dzielenia; tabelka to dodatkowe pole
+  kroku `horner` rysowane w HTML (bez kanwasu), z opisem dla czytnika ekranu.
