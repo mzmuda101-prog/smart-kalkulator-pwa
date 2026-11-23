@@ -112,6 +112,7 @@
             komenda:    $('#panel-komenda'),
             warsztat:   $('#panel-warsztat'),
             constants:  $('#panel-constants'),
+            podrecznik: $('#panel-podrecznik'),
         };
 
         // Calculator
@@ -981,6 +982,7 @@
                 komenda:    'Komenda — Smart Kalkulator',
                 warsztat:   'Warsztat — Smart Kalkulator',
                 constants:  'Moje Stałe — Smart Kalkulator',
+                podrecznik: 'Podręcznik — Smart Kalkulator',
             };
             document.title = titles[tabName] || 'Smart Kalkulator';
             if (typeof _syncBottomNav === 'function') setTimeout(_syncBottomNav, 0);
@@ -999,6 +1001,7 @@
             if (tabName === 'constants') {
                 renderConstants();
             }
+            if (tabName === 'podrecznik' && hbView && !hbView.firstChild) _hbRender(null);
             if (tabName === 'calculator') {
                 setTimeout(function() {
                     _calcBtnScale = 1;
@@ -6038,6 +6041,158 @@
             var sr = b.list.querySelector('.steps-math.is-open .steps-formula-sr');
             if (sr) sr.focus({ preventScroll: true });
         }
+        // Podręcznik (spec 2026-11-23-podrecznik-design.md): start → dział → hasło, stos do „Wróć”.
+        // Dane i wyszukiwanie: MATM0_HANDBOOK (js/handbook.js); rysunki: ten sam MathLive co w krokach.
+        var hbView = $('#hbView'), hbSearch = $('#hbSearch');
+        var _hbStack = [{ view: 'home' }];
+        var _hbMl; // [EN] undefined = jeszcze nie próbowano, null = brak biblioteki (offline bez cache)
+        var _hbGen = 0;
+        var _HB_LEVELS = { lp: 'liceum', lr: 'rozszerzenie', st: 'studia' };
+        function _hbCount(n) { // [EN] 1 hasło, 2–4 hasła, 5+ haseł (12–14 haseł)
+            var t = n % 10, h = n % 100;
+            return n + (n === 1 ? ' hasło' : (t >= 2 && t <= 4 && (h < 12 || h > 14)) ? ' hasła' : ' haseł');
+        }
+        function _hbTex(el, ml, tex) {
+            if (ml) el.innerHTML = ml.convertLatexToMarkup(tex); // [EN] LaTeX z naszego słownika
+            else el.textContent = tex;
+            return el;
+        }
+        function _hbButton(cls, onClick) {
+            var b = _stepsEl('button', cls);
+            b.type = 'button';
+            b.addEventListener('click', onClick);
+            return b;
+        }
+        function _hbRow(name, side, onClick) {
+            var b = _hbButton('hb-row', onClick);
+            b.appendChild(_stepsEl('span', 'hb-row-name', name));
+            if (side) b.appendChild(side);
+            return b;
+        }
+        function _hbEntryRow(id, entry, chapter) {
+            var side = _stepsEl('span', 'hb-row-side', chapter || _HB_LEVELS[entry.poziom] || '');
+            return _hbRow(entry.name, side, function () { hbSearch.value = ''; hbShow('entry', id, { push: true }); });
+        }
+        function _hbBackLabel() {
+            var prev = _hbStack[_hbStack.length - 2];
+            if (!prev || prev.view === 'home') return 'Wszystkie działy';
+            var H = window.MATM0_HANDBOOK;
+            if (prev.view === 'chapter') { var c = H.chapters().find(function (x) { return x.id === prev.id; }); return c ? c.name : 'Wróć'; }
+            var g = H.get(prev.id);
+            return g ? g.entry.name : 'Wróć';
+        }
+        function _hbBackButton() {
+            var b = _hbButton('hb-back', hbBack);
+            b.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>';
+            b.appendChild(document.createTextNode(_hbBackLabel()));
+            b.setAttribute('aria-label', 'Wróć: ' + _hbBackLabel());
+            return b;
+        }
+        function _hbHome(box) {
+            var list = _stepsEl('div', 'hb-list'), ch = window.MATM0_HANDBOOK.chapters();
+            var total = ch.reduce(function (s, c) { return s + c.count; }, 0);
+            box.appendChild(_stepsEl('h2', 'hb-title', 'Podręcznik'));
+            box.appendChild(_stepsEl('p', 'hb-lead', _hbCount(total) + ' w ' + ch.length + ' działach. Przy każdym przykład, który od razu policzysz krok po kroku.'));
+            ch.forEach(function (c) {
+                list.appendChild(_hbRow(c.name, _stepsEl('span', 'hb-row-side', _hbCount(c.count)), function () { hbShow('chapter', c.id, { push: true }); }));
+            });
+            box.appendChild(list);
+        }
+        function _hbChapter(box, id) {
+            var c = window.MATM0_HANDBOOK.chapters().find(function (x) { return x.id === id; });
+            box.appendChild(_stepsEl('h2', 'hb-title', c ? c.name : ''));
+            var list = _stepsEl('div', 'hb-list');
+            window.MATM0_HANDBOOK.entries(id).forEach(function (x) { list.appendChild(_hbEntryRow(x.id, x.entry)); });
+            box.appendChild(list);
+        }
+        function _hbEntry(box, id, ml) {
+            var g = window.MATM0_HANDBOOK.get(id);
+            if (!g) return;
+            var f = g.entry;
+            box.appendChild(_stepsEl('h2', 'hb-title', f.name));
+            var tex = _hbTex(_stepsEl('div', 'hb-tex'), ml, f.tex);
+            if (ml) tex.setAttribute('aria-hidden', 'true');
+            box.appendChild(tex);
+            box.appendChild(_stepsRich(_stepsEl('p', 'hb-why'), ml, f.why));
+            (f.more || []).forEach(function (t) { box.appendChild(_stepsRich(_stepsEl('p', 'hb-p'), ml, t)); });
+            var meta = _stepsEl('p', 'hb-meta');
+            meta.appendChild(_stepsEl('span', 'hb-level', _HB_LEVELS[f.poziom] || ''));
+            meta.appendChild(document.createTextNode(f.level));
+            box.appendChild(meta);
+            var tryBtn = _hbButton('hb-try', function () { hbTry(id); });
+            tryBtn.appendChild(_stepsEl('span', 'hb-try-label', 'Spróbuj'));
+            tryBtn.appendChild(_stepsEl('code', 'hb-try-expr', f.try));
+            box.appendChild(tryBtn);
+            if (f.related && f.related.length) {
+                var rel = _stepsEl('section', 'hb-related');
+                rel.appendChild(_stepsEl('h3', 'hb-sub', 'Powiązane'));
+                f.related.forEach(function (rid) {
+                    var r = window.MATM0_HANDBOOK.get(rid);
+                    if (r) rel.appendChild(_hbRow(r.entry.name, null, function () { hbShow('entry', rid, { push: true }); }));
+                });
+                box.appendChild(rel);
+            }
+        }
+        function _hbSearchResults(box, q) {
+            var hits = window.MATM0_HANDBOOK.search(q);
+            box.appendChild(_stepsEl('p', 'hb-status', hits.length ? _hbCount(hits.length) : ''));
+            box.lastChild.setAttribute('role', 'status');
+            if (!hits.length) {
+                box.appendChild(_stepsEl('p', 'hb-empty', 'Nic nie pasuje do „' + q + '”. Spróbuj innego słowa, np. delta, pochodna, procent.'));
+                return;
+            }
+            var list = _stepsEl('div', 'hb-list');
+            hits.forEach(function (h) { list.appendChild(_hbEntryRow(h.id, h.entry, h.chapter)); });
+            box.appendChild(list);
+        }
+        function _hbRender(dir) {
+            if (!hbView || !window.MATM0_HANDBOOK) return;
+            var gen = ++_hbGen, top = _hbStack[_hbStack.length - 1], q = hbSearch ? hbSearch.value.trim() : '';
+            var draw = function (ml) {
+                if (gen !== _hbGen) return; // [EN] w międzyczasie inny widok
+                var box = _stepsEl('div', 'hb-page');
+                if (q) _hbSearchResults(box, q);
+                else {
+                    if (_hbStack.length > 1) box.appendChild(_hbBackButton());
+                    if (top.view === 'home') _hbHome(box);
+                    else if (top.view === 'chapter') _hbChapter(box, top.id);
+                    else _hbEntry(box, top.id, ml);
+                }
+                if (dir) box.classList.add(dir === 'back' ? 'hb-in-back' : 'hb-in');
+                hbView.textContent = '';
+                hbView.appendChild(box);
+                if (dir && !q) {
+                    var h = box.querySelector('h2');
+                    if (h) { h.tabIndex = -1; h.focus({ preventScroll: true }); }
+                    else if (hbSearch) hbSearch.focus({ preventScroll: true });
+                    var panel = $('#panel-podrecznik');
+                    if (panel) panel.scrollIntoView({ block: 'start' });
+                }
+            };
+            if (q || top.view !== 'entry' || _hbMl !== undefined) { draw(_hbMl || null); return; }
+            _loadFormulaLib().then(function (ml) { _hbMl = ml; draw(ml); }, function () { _hbMl = null; draw(null); });
+        }
+        function hbShow(view, id, opts) {
+            var item = { view: view, id: id };
+            if (opts && opts.push) _hbStack.push(item); else _hbStack[_hbStack.length - 1] = item;
+            _hbRender('fwd');
+        }
+        function hbBack() {
+            if (_hbStack.length < 2) return;
+            _hbStack.pop();
+            _hbRender('back');
+        }
+        function hbTry(id) {
+            var g = window.MATM0_HANDBOOK.get(id);
+            if (!g || !calcExpr) return;
+            calcExpr.value = g.entry.try;
+            calcExpr.setSelectionRange(g.entry.try.length, g.entry.try.length);
+            liveEval();
+            switchTab('calculator');
+            _syncBottomNav();
+        }
+        if (hbSearch) hbSearch.addEventListener('input', function () { _hbRender(null); });
+
         if (stepsView) stepsView.addEventListener('click', function (e) {
             var t = e.target;
             if (t.closest('.steps-back')) { _closeStepsMore(); return; }
@@ -6762,7 +6917,7 @@
             var sub = document.querySelector('.app-header .subtitle');
             if (sub) {
                 if (!sub.dataset.tagline) sub.dataset.tagline = sub.textContent;
-                var names = { komenda: 'Komenda · wykresy i podziały', warsztat: 'Warsztat · przeliczniki', constants: 'Moje stałe · wartości i jednostki' };
+                var names = { komenda: 'Komenda · wykresy i podziały', warsztat: 'Warsztat · przeliczniki', constants: 'Moje stałe · wartości i jednostki', podrecznik: 'Podręcznik · wzory i działy' };
                 sub.textContent = (window.innerWidth < 640 && names[tab]) ? names[tab] : sub.dataset.tagline;
             }
             bottomNav.querySelectorAll('.bottom-nav-btn').forEach(function(b) {

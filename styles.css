@@ -2182,6 +2182,55 @@
         .steps-back { justify-self: start; padding-inline-start: 8px; }
         .steps-more-name { margin: 0; font-size: 1.125rem; }
         .steps-more-tex { font-size: 1.2rem; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-md, 12px); text-align: center; }
+        /* Podręcznik (spec 2026-11-23-podrecznik-design.md): spis działów → dział → hasło */
+        .hb { display: grid; gap: 16px; max-inline-size: 720px; margin-inline: auto; min-inline-size: 0; }
+        .hb-search {
+            inline-size: 100%; min-inline-size: 0; block-size: 48px; padding: 0 16px;
+            border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card-bg);
+            color: var(--text); font: inherit; font-size: 1rem;
+        }
+        .hb-search:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+        .hb-page { display: grid; gap: 12px; min-inline-size: 0; color: var(--text); line-height: 1.55; overflow-wrap: anywhere; }
+        .hb-title { margin: 0; font-size: 1.75rem; line-height: 1.25; font-weight: 700; }
+        .hb-title:focus { outline: none; }
+        .hb-sub { margin: 8px 0 0; font-size: 1rem; font-weight: 600; color: var(--text-secondary); }
+        .hb-list { display: grid; gap: 8px; }
+        .hb-row, .hb-back, .hb-try {
+            display: flex; align-items: center; gap: 8px; min-block-size: 48px; padding: 8px 16px;
+            border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card-bg);
+            color: var(--text); font: inherit; text-align: start; cursor: pointer;
+            transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1), background-color 160ms ease;
+        }
+        .hb-row { justify-content: space-between; }
+        .hb-row-name { font-weight: 600; min-inline-size: 0; }
+        .hb-row-side { color: var(--text-secondary); font-size: 0.875rem; flex: none; }
+        .hb-back { justify-self: start; padding-inline-start: 8px; font-weight: 600; background: var(--surface-2); }
+        .hb-row:active, .hb-back:active, .hb-try:active { transform: scale(0.98); }
+        .hb-row:focus-visible, .hb-back:focus-visible, .hb-try:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+        @media (hover: hover) {
+            .hb-row:hover, .hb-back:hover { background: var(--surface); }
+            .hb-try:hover { background: var(--primary-hover); }
+        }
+        .hb-tex { font-size: 1.3rem; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); text-align: center; overflow-x: auto; overflow-y: hidden; background: var(--card-bg); }
+        .hb-why { margin: 0; font-weight: 600; }
+        .hb-lead { margin: 0 0 8px; color: var(--text-secondary); }
+        .hb-p, .hb-meta, .hb-empty, .hb-status { margin: 0; }
+        .hb-meta { color: var(--text-secondary); font-size: 0.875rem; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+        .hb-level { padding: 2px 8px; border-radius: var(--radius-pill); background: var(--primary-light); color: var(--text); font-weight: 600; }
+        .hb-status { color: var(--text-secondary); font-size: 0.875rem; }
+        .hb-status:empty { display: none; }
+        .hb-empty { padding: 24px 0; color: var(--text-secondary); }
+        .hb-try { justify-self: start; flex-wrap: wrap; background: var(--primary); border-color: var(--primary); color: var(--text-on-accent); font-weight: 600; }
+        .hb-try-expr { font-family: var(--font-mono); font-weight: 400; overflow-wrap: anywhere; }
+        .hb-related { display: grid; gap: 8px; }
+        .hb-in { animation: hb-in 240ms cubic-bezier(0.23, 1, 0.32, 1); }
+        .hb-in-back { animation: hb-in-back 240ms cubic-bezier(0.23, 1, 0.32, 1); }
+        @keyframes hb-in { from { opacity: 0; transform: translateX(16px); } }
+        @keyframes hb-in-back { from { opacity: 0; transform: translateX(-16px); } }
+        @media (prefers-reduced-motion: reduce) {
+            .hb-in, .hb-in-back { animation: hb-fade 120ms ease-out; }
+            @keyframes hb-fade { from { opacity: 0; } }
+        }
         .command-help-content h4 {
             color: var(--text);
             font-size: 0.875rem;
