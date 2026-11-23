@@ -38,6 +38,16 @@ const COVER = [
     ['pochodna x^2*e^x', 'pochodna-iloczynu', 'u = x², v = e^x'],
     ['pochodna x/(x+1)', 'pochodna-ilorazu', 'u = x, v = x + 1'],
     ['całka x*sin(x)', 'przez-czesci', 'u = x, dv = sin(x) dx'],
+    // Task 4: nierówności, wartość bezwzględna, trygonometria, wykładnicze
+    ['rozwiąż x^2 - 4 < 0', 'nierownosc-kwadratowa', 'x₁ = −2, x₂ = 2, a = 1'],
+    ['rozwiąż 5 - 2x ≥ 11', 'odwracanie-znaku', undefined],
+    ['rozwiąż |x-2| < 3', 'wartosc-bezwzgledna', 'a = 2, r = 3'],
+    ['rozwiąż |x-2| = 3', 'wartosc-bezwzgledna', 'a = 2, r = 3'],
+    ['rozwiąż sin(x) = 1/2', 'wartosci-trygonometryczne', undefined],
+    ['rozwiąż sin(x) = 1/2', 'okresowosc', undefined],
+    ['rozwiąż tg(x) = 1', 'okresowosc', undefined],
+    ['rozwiąż 4^x = 2^(x+3)', 'rownosc-poteg', 'a = 2'],
+    ['rozwiąż 2^x = 5', 'definicja-logarytmu', 'a = 2, b = 5'],
 ];
 
 for (const [q, id, here] of COVER) {

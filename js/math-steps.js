@@ -653,7 +653,7 @@
         var alpha = nicePi(T.f === 'sin' ? Math.asin(a) : T.f === 'cos' ? Math.acos(a) : Math.atan(a));
         var fn = T.f === 'sin' ? Math.sin : T.f === 'cos' ? Math.cos : Math.tan;
         if (!alpha || alpha.d > 6n) throw new NotSupported(); // [EN] tylko wartości z tablicy (0, ±1/2, ±√2/2, ±√3/2, ±1, ±√3, ±√3/3)
-        steps.push({ label: 'Odczytuję kąt z tablicy', math: name + '(' + piText(alpha) + ') = ' + show(other, ctx) });
+        steps.push({ label: 'Odczytuję kąt z tablicy', math: '⟦' + name + '(' + piText(alpha) + ')⟧ = ' + show(other, ctx), formula: { id: 'wartosci-trygonometryczne' } });
         // [EN] serie rozwiązań dla argumentu u: {base, period} — wielokrotności π
         var TWO = R(2n), fams;
         if (T.f === 'tan') fams = [{ b: alpha, k: ONE }];
@@ -662,9 +662,9 @@
         } else {
             fams = isZero(alpha) || eq(alpha, ONE) ? [{ b: alpha, k: TWO }] : Math.abs(a) < 1e-12 ? [{ b: alpha, k: ONE }] : [{ b: alpha, k: TWO }, { b: neg(alpha), k: TWO }];
         }
-        var series = function (f, scale) { var b = div(f.b, scale), k = div(f.k, scale); return isZero(b) ? kText(k) : piText(b) + ' + ' + kText(k); };
-        var line = function (lhsT, scale) { return fams.map(function (f) { return lhsT + ' = ' + series(f, scale); }).join(' lub '); };
-        steps.push({ label: 'Zapisuję wszystkie rozwiązania', math: line(u, ONE) + '\nk ∈ ℤ' });
+        var series = function (f, scale, mark) { var b = div(f.b, scale), k = div(f.k, scale), kt = mark ? '⟦' + kText(k) + '⟧' : kText(k); return isZero(b) ? kt : piText(b) + ' + ' + kt; };
+        var line = function (lhsT, scale, mark) { return fams.map(function (f) { return lhsT + ' = ' + series(f, scale, mark); }).join(' lub '); };
+        steps.push({ label: 'Zapisuję wszystkie rozwiązania', math: line(u, ONE, true) + '\nk ∈ ℤ', formula: { id: 'okresowosc' } }); // [EN] kolor na okresie
         if (!eq(p, ONE)) steps.push({ label: 'Wyliczam ' + v, math: line(v, p) + '\nk ∈ ℤ' });
         fams.forEach(function (f) { // [EN] bezpiecznik: każda seria spełnia równanie dla kilku k
             for (var k = -2; k <= 2; k++) {
@@ -705,6 +705,11 @@
         steps.push({ label: 'Odpowiedź', math: text.split(', ').join('\n') });
         return done('Równanie', text, sols.length === 1 ? sols[0].value : null, steps);
     }
+    function absFormula(A, c, ctx) { // [EN] |x − a| = r: liczby z zadania tylko dla samego x ± liczba (litery jak we wzorze hasła)
+        var m = /^[a-z](?: ([−+]) (\d+(?:,\d+)?))?$/.exec(A), f = { id: 'wartosc-bezwzgledna' };
+        if (m) f.here = 'a = ' + (!m[1] ? '0' : m[1] === '−' ? m[2] : '−' + m[2]) + ', r = ' + fmt(c, ctx);
+        return f;
+    }
     function firstVar(n) { if (!n) return null; if (n.k === 'var') return n.v; return firstVar(n.a) || firstVar(n.b); }
     function solveAbs(lhs, rhs, ctx) {
         var absSide = lhs.k === 'abs' ? lhs : rhs.k === 'abs' ? rhs : null, other = absSide === lhs ? rhs : lhs;
@@ -720,7 +725,7 @@
             var z = innerSolve(A + ' = 0');
             return listAnswer(v, z.sols, steps.concat(z.steps), lhs, rhs);
         }
-        steps.push({ label: 'Rozbijam na dwa przypadki', math: A + ' = ' + fmt(c, ctx) + ' lub ' + A + ' = ' + fmt(neg(c), ctx) });
+        steps.push({ label: 'Rozbijam na dwa przypadki', math: A + ' = ⟦' + fmt(c, ctx) + '⟧ lub ' + A + ' = ⟦' + fmt(neg(c), ctx) + '⟧', formula: absFormula(A, c, ctx) });
         var p1 = innerSolve(A + ' = ' + fmt(c, ctx)), p2 = innerSolve(A + ' = ' + fmt(neg(c), ctx));
         if (p1.sols.length !== 1 || p2.sols.length !== 1) throw new NotSupported();
         steps.push({ label: 'Rozwiązuję oba przypadki', math: v + ' = ' + p1.sols[0].text + ' lub ' + v + ' = ' + p2.sols[0].text });
@@ -890,7 +895,7 @@
             if (!C.num || C.num.n <= 0n || !isInt(E.base) || E.base.n < 2n) throw new NotSupported();
             var bS = E.base.n.toString(), logT = 'log' + sub_(bS) + '(' + fmt(C.num, ctx) + ')', lv = Math.log(toNum(C.num)) / Math.log(Number(E.base.n));
             var eT = expText(1, E.exp);
-            steps.push({ label: 'Zapisuję wykładnik jako logarytm', math: eT + ' = ' + logT });
+            steps.push({ label: 'Zapisuję wykładnik jako logarytm', math: eT + ' = ⟦' + logT + '⟧', formula: { id: 'definicja-logarytmu', here: 'a = ' + bS + ', b = ' + fmt(C.num, ctx) } });
             if (eT !== v) throw new NotSupported(); // shortcut: logarytm tylko przy samym x w wykładniku, rozszerzyć o x + 1 = log₂(5), gdy ktoś o to poprosi
             return finish(null, logT + ' ≈ ' + fmtApprox(lv), lv);
         }
@@ -900,7 +905,7 @@
         steps.push({ label: 'Zapisuję obie strony jako potęgi ' + gs, math: raw === flat ? raw : raw + '\n' + flat });
         var eqE = (P.exp ? expText(kP, P.exp) : String(kP)) + ' = ' + (Q.exp ? expText(kQ, Q.exp) : String(kQ));
         eqE = eqE.replace(/(^| )-(\d)/g, '$1−$2');
-        steps.push({ label: 'Porównuję wykładniki', math: eqE });
+        steps.push({ label: 'Porównuję wykładniki', math: eqE.split(' = ').map(function (x) { return '⟦' + x + '⟧'; }).join(' = '), formula: { id: 'rownosc-poteg', here: 'a = ' + gs } });
         var r2 = inner(eqE);
         steps = steps.concat(r2.steps);
         var xv = answerOf(r2);
@@ -1124,12 +1129,12 @@
         }
         var e1 = at(neg(c)), e2 = at(c), lo = e1.value < e2.value ? e1 : e2, hi = lo === e1 ? e2 : e1;
         if (less) {
-            steps.push({ label: 'Zamieniam na podwójną nierówność', math: fmt(neg(c), ctx) + ' ' + rel + ' ' + A + ' ' + rel + ' ' + fmt(c, ctx) });
+            steps.push({ label: 'Zamieniam na podwójną nierówność', math: '⟦' + fmt(neg(c), ctx) + '⟧ ' + rel + ' ' + A + ' ' + rel + ' ⟦' + fmt(c, ctx) + '⟧', formula: absFormula(A, c, ctx) });
             steps.push({ label: 'Rozwiązuję podwójną nierówność', math: lo.text + ' ' + rel + ' ' + v + ' ' + rel + ' ' + hi.text });
             parts = [{ lo: lo, hi: hi, loIn: closed, hiIn: closed }];
         } else {
             var lessRel = closed ? '≤' : '<';
-            steps.push({ label: 'Rozbijam na dwa przypadki', math: A + ' ' + lessRel + ' ' + fmt(neg(c), ctx) + ' lub ' + A + ' ' + rel + ' ' + fmt(c, ctx) });
+            steps.push({ label: 'Rozbijam na dwa przypadki', math: A + ' ' + lessRel + ' ⟦' + fmt(neg(c), ctx) + '⟧ lub ' + A + ' ' + rel + ' ⟦' + fmt(c, ctx) + '⟧', formula: absFormula(A, c, ctx) });
             steps.push({ label: 'Rozwiązuję oba przypadki', math: v + ' ' + lessRel + ' ' + lo.text + ' lub ' + v + ' ' + rel + ' ' + hi.text });
             parts = [{ lo: null, hi: lo, hiIn: closed }, { lo: hi, hi: null, loIn: closed }];
         }
@@ -1182,7 +1187,7 @@
                 } else steps.push({ label: 'Przenoszę ' + v + ' na lewo, liczby na prawo', math: moved });
             }
             var r = div(b, a), relX = a.n < 0n ? FLIP[rel] : rel;
-            if (a.n < 0n) steps.push({ label: 'Dzielę przez ' + fmt(a, ctx) + ' i odwracam znak', math: v + ' ' + relX + ' ' + fmt(b, ctx) + '/' + fmtDen(a, ctx) + ' = ' + fmt(r, ctx) });
+            if (a.n < 0n) steps.push({ label: 'Dzielę przez ' + fmt(a, ctx) + ' i odwracam znak', math: v + ' ' + relX + ' ⟦' + fmt(b, ctx) + '/' + fmtDen(a, ctx) + '⟧ = ' + fmt(r, ctx), formula: { id: 'odwracanie-znaku' } });
             else if (!eq(a, ONE)) steps.push({ label: 'Dzielę obie strony przez ' + fmt(a, ctx), math: v + ' ' + relX + ' ' + fmt(b, ctx) + '/' + fmtDen(a, ctx) + ' = ' + fmt(r, ctx) });
             var end = { text: fmt(r, ctx), value: toNum(r) };
             parts = relX === '<' || relX === '≤' ? [{ lo: null, hi: end, hiIn: !strict(relX) }] : [{ lo: end, hi: null, loIn: !strict(relX) }];
@@ -1202,7 +1207,9 @@
             .filter(function (q, i, all) { return !i || Math.abs(q.value - all[i - 1].value) > 1e-12; });
         var up = c[2].n > 0n, wantNeg = (rel === '<' || rel === '≤') === up; // [EN] „ujemne przy ramionach w górę” = między pierwiastkami
         var closed = !strict(rel);
-        steps.push({ label: 'Odczytuję znak z paraboli', math: 'a = ' + fmt(c[2], ctx) + (up ? ' > 0' : ' < 0'), parabola: { up: up, between: wantNeg, roots: roots.length } });
+        var zeros = roots.length === 2 ? v + '₁ = ' + roots[0].text + ', ' + v + '₂ = ' + roots[1].text + ', ' : roots.length === 1 ? v + '₀ = ' + roots[0].text + ', ' : '';
+        steps.push({ label: 'Odczytuję znak z paraboli', math: 'a = ⟦' + fmt(c[2], ctx) + '⟧' + (up ? ' > 0' : ' < 0'), parabola: { up: up, between: wantNeg, roots: roots.length },
+            formula: { id: 'nierownosc-kwadratowa', here: zeros + 'a = ' + fmt(c[2], ctx) } });
         if (roots.length === 2) {
             parts = wantNeg ? [{ lo: roots[0], hi: roots[1], loIn: closed, hiIn: closed }]
                 : [{ lo: null, hi: roots[0], hiIn: closed }, { lo: roots[1], hi: null, loIn: closed }];

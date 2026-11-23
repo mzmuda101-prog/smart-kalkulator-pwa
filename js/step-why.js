@@ -140,7 +140,7 @@
         [/^Wyłączam \w przed nawias$/, 'Nie ma wyrazu bez niewiadomej, więc każdy wyraz dzieli się przez nią.'],
         [/^Przyrównuję każdy czynnik do zera$/, 'Iloczyn jest zerem tylko wtedy, gdy któryś czynnik jest zerem.'],
         [/^Zmieniam znak obu stron$/, 'Mnożę obie strony przez $-1$, więc obie zmieniają znak.'],
-        [/^Dzielę przez .* i odwracam znak$/, 'Dzielenie obu stron przez liczbę ujemną odwraca znak nierówności, np. $2>1$, ale $-2<-1$.'],
+        [/^Dzielę przez .* i odwracam znak$/, 'Przy x stoi minus, więc razem z dzieleniem obracam też znak.'],
         [/^Odczytuję znak z paraboli$/, (s) => {
             const p = s.parabola;
             if (!p) return 'Znak trójmianu zależy od tego, czy ramiona paraboli idą w górę, czy w dół.';
@@ -202,8 +202,8 @@
             : / > 0/.test(s.math) ? 'Logarytm istnieje tylko dla liczb dodatnich, więc argument musi być większy od zera.'
             : 'Przez zero dzielić nie wolno, więc wykluczam liczby, które zerują mianownik.'],
         [/^Zapisuję obie strony jako potęgi /, 'Gdy obie strony mają tę samą podstawę, wystarczy porównać wykładniki.'],
-        [/^Porównuję wykładniki$/, 'Potęgi o tej samej podstawie są równe tylko wtedy, gdy mają równe wykładniki.'],
-        [/^Zapisuję wykładnik jako logarytm$/, 'Liczby nie da się zapisać jako potęgi tej podstawy, więc wykładnik zapisuję logarytmem.'],
+        [/^Porównuję wykładniki$/, 'Na dole po obu stronach stoi teraz ta sama liczba, więc wystarczy przyrównać to, co na górze.'],
+        [/^Zapisuję wykładnik jako logarytm$/, 'Prawej strony nie zamienię na potęgę z prostym wykładnikiem, więc wynik zostaje w postaci logarytmu.'],
         [/^Porównuję argumenty logarytmów$/, 'Logarytmy o tej samej podstawie są równe tylko wtedy, gdy równe są liczby pod nimi.'],
         [/^Korzystam z definicji logarytmu$/, 'Pozbywam się logarytmu: zostaje zwykłe równanie, które umiem rozwiązać.'],
         [/^Mnożę na krzyż$/, 'Dwa ułamki są równe, gdy licznik pierwszego razy mianownik drugiego daje to samo co na odwrót.'],

@@ -217,7 +217,7 @@ pass += 3;
     ok('4a: 2x + 3 > 7 → x > 2', T('rozwiąż 2x + 3 > 7') === 'x ∈ (2, +∞)', T('rozwiąż 2x + 3 > 7'));
     ok('4a: kroki jak w równaniu, odpowiedź z przedziałem', has('rozwiąż 2x + 3 > 7', 'Przenoszę liczby na prawo', '2x > 7 − 3')
         && has('rozwiąż 2x + 3 > 7', 'Dzielę obie strony przez 2', 'x > 4/2 = 2') && has('rozwiąż 2x + 3 > 7', 'Odpowiedź', 'x > 2\nx ∈ (2, +∞)'), st('rozwiąż 2x + 3 > 7'));
-    ok('4a: dzielenie przez ujemną odwraca znak', has('rozwiąż 5 - 2x ≥ 11', 'Dzielę przez −2 i odwracam znak', 'x ≤ 6/(−2) = −3') && T('rozwiąż 5 - 2x ≥ 11') === 'x ∈ (−∞, −3⟩', st('rozwiąż 5 - 2x ≥ 11'));
+    ok('4a: dzielenie przez ujemną odwraca znak', has('rozwiąż 5 - 2x ≥ 11', 'Dzielę przez −2 i odwracam znak', 'x ≤ ⟦6/(−2)⟧ = −3') && T('rozwiąż 5 - 2x ≥ 11') === 'x ∈ (−∞, −3⟩', st('rozwiąż 5 - 2x ≥ 11'));
     ok('4a: zapis <= i >=', T('rozwiąż x + 1 <= 4') === 'x ∈ (−∞, 3⟩', T('rozwiąż x + 1 <= 4'));
     ok('4a: kwadratowa < 0 między pierwiastkami', T('rozwiąż x^2 - 4 < 0') === 'x ∈ (−2, 2)', T('rozwiąż x^2 - 4 < 0'));
     ok('4a: kwadratowa ≥ 0 na zewnątrz, domknięte', T('rozwiąż x^2 - 5x + 6 ≥ 0') === 'x ∈ (−∞, 2⟩ ∪ ⟨3, +∞)', T('rozwiąż x^2 - 5x + 6 ≥ 0'));
@@ -265,8 +265,8 @@ pass += 3;
 {
     const T = q => { const r = S.run(q); return r && r.text; };
     ok('4d: 2^x = 8', T('rozwiąż 2^x = 8') === 'x = 3' && has('rozwiąż 2^x = 8', 'Zapisuję obie strony jako potęgi 2', '2^x = 2³')
-        && has('rozwiąż 2^x = 8', 'Porównuję wykładniki', 'x = 3'), st('rozwiąż 2^x = 8'));
-    ok('4d: 3^(x+1) = 27', T('rozwiąż 3^(x+1) = 27') === 'x = 2' && has('rozwiąż 3^(x+1) = 27', 'Porównuję wykładniki', 'x + 1 = 3'), st('rozwiąż 3^(x+1) = 27'));
+        && has('rozwiąż 2^x = 8', 'Porównuję wykładniki', '⟦x⟧ = ⟦3⟧'), st('rozwiąż 2^x = 8'));
+    ok('4d: 3^(x+1) = 27', T('rozwiąż 3^(x+1) = 27') === 'x = 2' && has('rozwiąż 3^(x+1) = 27', 'Porównuję wykładniki', '⟦x + 1⟧ = ⟦3⟧'), st('rozwiąż 3^(x+1) = 27'));
     ok('4d: 4^x = 2^(x+3) — wspólna podstawa 2', T('rozwiąż 4^x = 2^(x+3)') === 'x = 3' && has('rozwiąż 4^x = 2^(x+3)', 'Zapisuję obie strony jako potęgi 2', '(2²)^x = 2^(x + 3)\n2^(2x) = 2^(x + 3)'), st('rozwiąż 4^x = 2^(x+3)'));
     ok('4d: 2^x = 1/8 — ujemny wykładnik', T('rozwiąż 2^x = 1/8') === 'x = −3', T('rozwiąż 2^x = 1/8'));
     ok('4d: 2^x = 5 — logarytm', T('rozwiąż 2^x = 5') === 'x = log₂(5) ≈ 2,32193' && st('rozwiąż 2^x = 5').some(x => x.label === 'Zapisuję wykładnik jako logarytm'), [T('rozwiąż 2^x = 5'), st('rozwiąż 2^x = 5')]);
@@ -282,10 +282,10 @@ pass += 3;
 // ── 4e: wartość bezwzględna i równania z pierwiastkiem (plan „jak Photomath”, pkt 5) ──
 {
     const T = q => { const r = S.run(q); return r && r.text; };
-    ok('4e: |x − 2| = 3', T('rozwiąż |x-2| = 3') === 'x₁ = −1, x₂ = 5' && has('rozwiąż |x-2| = 3', 'Rozbijam na dwa przypadki', 'x − 2 = 3 lub x − 2 = −3'), st('rozwiąż |x-2| = 3'));
+    ok('4e: |x − 2| = 3', T('rozwiąż |x-2| = 3') === 'x₁ = −1, x₂ = 5' && has('rozwiąż |x-2| = 3', 'Rozbijam na dwa przypadki', 'x − 2 = ⟦3⟧ lub x − 2 = ⟦−3⟧'), st('rozwiąż |x-2| = 3'));
     ok('4e: |x| = −1 — brak', T('rozwiąż |x| = -1') === 'Brak rozwiązań', T('rozwiąż |x| = -1'));
     ok('4e: |2x + 1| = 0', T('rozwiąż |2x+1| = 0') === 'x = −1/2', T('rozwiąż |2x+1| = 0'));
-    ok('4e: |x − 2| < 3 → (−1, 5)', T('rozwiąż |x-2| < 3') === 'x ∈ (−1, 5)' && has('rozwiąż |x-2| < 3', 'Zamieniam na podwójną nierówność', '−3 < x − 2 < 3'), st('rozwiąż |x-2| < 3'));
+    ok('4e: |x − 2| < 3 → (−1, 5)', T('rozwiąż |x-2| < 3') === 'x ∈ (−1, 5)' && has('rozwiąż |x-2| < 3', 'Zamieniam na podwójną nierówność', '⟦−3⟧ < x − 2 < ⟦3⟧'), st('rozwiąż |x-2| < 3'));
     ok('4e: |x − 2| ≥ 3 → suma', T('rozwiąż |x-2| >= 3') === 'x ∈ (−∞, −1⟩ ∪ ⟨5, +∞)', T('rozwiąż |x-2| >= 3'));
     ok('4e: |x| > −2 → ℝ', T('rozwiąż |x| > -2') === 'x ∈ ℝ', T('rozwiąż |x| > -2'));
     ok('4e: √(x + 3) = x − 3 → x = 6 (1 odrzucone)', T('rozwiąż √(x+3) = x - 3') === 'x = 6'
@@ -298,7 +298,7 @@ pass += 3;
 {
     const T = q => { const r = S.run(q); return r && r.text; };
     ok('4f: sin x = 1/2', T('rozwiąż sin(x) = 1/2') === 'x = π/6 + 2kπ lub x = 5π/6 + 2kπ, k ∈ ℤ'
-        && has('rozwiąż sin(x) = 1/2', 'Odczytuję kąt z tablicy', 'sin(π/6) = 1/2'), st('rozwiąż sin(x) = 1/2'));
+        && has('rozwiąż sin(x) = 1/2', 'Odczytuję kąt z tablicy', '⟦sin(π/6)⟧ = 1/2'), st('rozwiąż sin(x) = 1/2'));
     ok('4f: cos x = √2/2', T('rozwiąż cos(x) = sqrt(2)/2') === 'x = π/4 + 2kπ lub x = −π/4 + 2kπ, k ∈ ℤ', T('rozwiąż cos(x) = sqrt(2)/2'));
     ok('4f: tg x = 1', T('rozwiąż tg(x) = 1') === 'x = π/4 + kπ, k ∈ ℤ', T('rozwiąż tg(x) = 1'));
     ok('4f: sin x = −1/2', T('rozwiąż sin(x) = -1/2') === 'x = −π/6 + 2kπ lub x = 7π/6 + 2kπ, k ∈ ℤ', T('rozwiąż sin(x) = -1/2'));
