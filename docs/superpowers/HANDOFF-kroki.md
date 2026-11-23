@@ -30,8 +30,12 @@ Starsze przekazanie: `docs/superpowers/HANDOFF-wzory.md` (rysunek wzoru, klawiat
 | v1.05.26 | **trygonometryczne** (`solveTrig`): sin/cos/tg(p·x) = wartość z tablicy, serie z okresem, k ∈ ℤ, |a| > 1 → brak; rysunek: tg/ctg/arctg (polska szkoła, w całej apce), ℤ; `√2` bez nawiasu |
 | v1.05.27 | **NWD/NWW** (`gcdLcm`: czynniki pierwsze, sprawdzone Euklidesem), **wierzchołek** (`vertex`: p, q = f(p), postać kanoniczna, dymek `wierzcholek`), **procenty** (`percentSteps`: P% z B, B ± P%, ile procent); rysunek `%` |
 
+| v1.05.30 | **Podręcznik** — zakładka wiedzy (spec `2026-11-23-podrecznik-design.md`, przekazanie `HANDOFF-podrecznik.md`) |
+| v1.05.31 | iPhone: pusty ekran po „Wróć do kroków” (content-visibility w Safari), test na WebKit |
+| v1.05.35 | **Dymki wszędzie** (spec `2026-11-23-dymki-design.md`): kolor + dymek w nierównościach, układach, wymiernych, wykładniczych, z pierwiastkiem, |x|, trygonometrii, NWD/NWW, procentach, ułamkach; 7 nowych haseł; linijka „W tym zadaniu:” (`formula.here`); „W podręczniku ›”; Esc zamyka dymek |
+
 ## Jak to działa (mapa)
-- Krok = `{ label, math, formula?: { id } }`. Fragment w `⟦…⟧` = miejsce użycia wzoru: rysowany kolorem akcentu,
+- Krok = `{ label, math, formula?: { id, here? } }` (`here` = liczby z zadania przy literach wzoru hasła, test `test/step-popovers.js`: tabela COVER + pokrycie każdego typu). Fragment w `⟦…⟧` = miejsce użycia wzoru: rysowany kolorem akcentu,
   stuknięcie → dymek (`_openStepsPop` w `app.js`), „Więcej” → widok z „Wróć”. Wzory: `js/step-formulas.js` (≈ 40 wpisów).
 - „Dlaczego”: `js/step-why.js` — reguły po nazwie kroku + kontekst; kroki-stwierdzenia (Wynik, Równanie…) bez zdania.
 - Rysunek kroku: `stepToLatex(math, fid)` dzieli tekst na kawałki („ = ”, „ → ”, „, ”…), każdy przez parser → LaTeX;
