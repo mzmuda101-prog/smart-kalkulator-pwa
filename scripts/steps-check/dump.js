@@ -51,6 +51,14 @@ for (const q of queries) {
 // Pomijamy warunki i definicje: strzałki, nierówności, słowa, „Δ = 0” (różne litery po stronach znaku =).
 /** @type {Record<string, string>} fragment → dlaczego SymPy go nie sprawdza */
 const SKIP_PROSE = {
+    'x+1=3(x-2)': 'równanie do rozwiązania (warunek), nie tożsamość; rozwiązanie sprawdza try/expect',
+    'x+1=3x-6': 'równanie do rozwiązania (warunek), nie tożsamość; rozwiązanie sprawdza try/expect',
+    '4^{x}=2^{x+3}': 'równanie do rozwiązania (warunek), nie tożsamość; rozwiązanie sprawdza try/expect',
+    '2^{2x}=2^{x+3}': 'równanie do rozwiązania (warunek), nie tożsamość; rozwiązanie sprawdza try/expect',
+    '2x=x+3': 'równanie do rozwiązania (warunek), nie tożsamość; rozwiązanie sprawdza try/expect',
+    '\\sqrt{x+3}=x-3': 'równanie do rozwiązania (warunek), nie tożsamość; rozwiązanie sprawdza try/expect',
+    'x+3=x^{2}-6x+9': 'równanie do rozwiązania (warunek), nie tożsamość; rozwiązanie sprawdza try/expect',
+    'x+3=(x-3)^{2}': 'równanie do rozwiązania (warunek), nie tożsamość; rozwiązanie sprawdza try/expect',
     '\\Delta=0': 'warunek (przypadek delty), nie rachunek',
     '2\\log_{4}(4n+5)=\\log_{4}(4n+5)^{2}': 'parser nie czyta log z potęgą argumentu; prawda: 2·log_a b = log_a b²',
     'x=x^{1}': 'zapis x jako potęgi, check.py traktuje „x = …” jak wstawienie',
