@@ -51,7 +51,7 @@ TDD (test czerwony → kod), potem **agent „słaby uczeń”** czyta kroki (JS
 skoki, niepasujące zdania; poprawki; zrzut z telefonu (Playwright 390×844); wydanie po „wysyłaj” Mateusza.
 Skrypt do zrzutu kroków do JSON: wzór w `HANDOFF` niżej (pliki w scratchpadzie znikają między rozmowami).
 
-## Do zrobienia — kolejność uzgodniona z Mateuszem: równania (pkt 2), potem podręcznik ze ściągi (zakładka „Wzory”, treść z `deep-explain`/`bottom-up`, przykłady przez bramkę SymPy)
+## Do zrobienia — NASTĘPNE: podręcznik (zakładka wiedzy), zob. `docs/superpowers/HANDOFF-podrecznik.md`
 
 ### Lista (raporty `research/raport-D-granice-kolor.md`, `raport-E-reszta-kolor.md`; zrobione w v1.05.15 pominięte)
 1. Całki: zrobione w v1.05.16; zostało `∫ x²/2 · 1/x dx = ∫ x/2 dx` w przez części (C4) i `x² + 2x + 5` w arctg (wzór z `x + 1`).
