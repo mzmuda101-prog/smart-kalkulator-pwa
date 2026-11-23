@@ -158,7 +158,13 @@
         [/^Prawe strony nie/, 'Te same lewe strony nie mogą dać różnych wyników, więc żadna para liczb nie spełni obu równań.'],
         [/^Zamieniam strony$/, 'Równość działa w obie strony, a niewiadomą wygodniej mieć po lewej.'],
         [/^Liczę prawą stronę$/, 'Po lewej jest już sama niewiadoma, więc wystarczy policzyć prawą stronę.'],
-        [/^Mnożę obie strony przez /, 'Niewiadoma jest podzielona przez liczbę, więc mnożenie obu stron cofa to dzielenie.'],
+        [/^Mnożę obie strony przez /, (s) => /przez .*[a-z(]/.test(s.label)
+            ? 'Mianownik nie jest zerem (to daje dziedzina), więc mnożę przez niego obie strony i ułamek znika.'
+            : 'Niewiadoma jest podzielona przez liczbę, więc mnożenie obu stron cofa to dzielenie.'],
+        [/^Wyznaczam dziedzinę$/, 'Przez zero dzielić nie wolno, więc wykluczam liczby, które zerują mianownik.'],
+        [/^Mnożę na krzyż$/, 'Dwa ułamki są równe, gdy licznik pierwszego razy mianownik drugiego daje to samo co na odwrót.'],
+        [/^Sprawdzam dziedzinę$/, 'Rozwiązanie nie może zerować mianownika, więc sprawdzam, czy należy do dziedziny.'],
+        [/^Odrzucam rozwiązanie spoza dziedziny$/, 'Ta liczba zeruje mianownik pierwotnego równania, więc nie jest rozwiązaniem.'],
         [/^Szukam pierwiastka/, 'Sprawdzam dzielniki liczby bez $x$. Jeśli któryś daje 0, mam rozwiązanie $r$ i nawias $(x-r)$.'],
         [/^Nie ma pierwiastków wymiernych/, 'Żaden dzielnik wyrazu wolnego nie zeruje wielomianu, więc prościej go nie rozłożymy.'],
         [/^Wyłączam wspólny czynnik/, 'Ten sam czynnik jest w każdym wyrazie, więc wyciągam go przed nawias.'],

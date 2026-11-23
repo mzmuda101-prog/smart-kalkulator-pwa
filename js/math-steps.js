@@ -600,8 +600,88 @@
         solveDegree(low, v, steps, ctx, sol);
     }
 
+    // ── Równania wymierne (plan „jak Photomath”, pkt 3): dziedzina, mnożenie przez mianownik, odrzucanie ──
+    function hasVarDen(n) { return !!n && ((n.k === 'div' && !n.colon && hasVars(n.b)) || hasVarDen(n.a) || hasVarDen(n.b)); }
+    function fracOf(n) { // [EN] cała strona to jeden ułamek z x w mianowniku albo wielomian; inne postacie — później
+        if (n.k === 'div' && !n.colon && hasVars(n.b) && !hasVarDen(n.a) && !hasVarDen(n.b)) return { num: n.a, den: n.b };
+        if (!hasVarDen(n)) return { num: n, den: null };
+        throw new NotSupported();
+    }
+    function rootsOf(n, v) { // [EN] miejsca zerowe wielomianu, tylko gdy rozkłada się na czynniki liniowe o pierwiastkach wymiernych
+        var c = coefs(collect(termsOf(n)), v), out = [];
+        while (c.length > 2) { var r = rationalRoot(c); if (!r) throw new NotSupported(); out.push(r); c = deflate(c, r); }
+        if (c.length === 2) out.push(neg(div(c[0], c[1])));
+        return out.filter(function (r, i) { return out.findIndex(function (q) { return eq(q, r); }) === i; });
+    }
+    function solveRational(lhs, rhs, ctx) {
+        var A = fracOf(lhs), B = fracOf(rhs), dens = [A.den, B.den].filter(Boolean);
+        var v = varsOf(collect(termsOf(dens[0])))[0];
+        if (!v || varsOf(collect(termsOf(A.num)).concat(collect(termsOf(B.num)))).some(function (w) { return w !== v; })) throw new NotSupported();
+        var steps = [{ label: 'Równanie', math: show(lhs, ctx) + ' = ' + show(rhs, ctx) }];
+        var bare = function (n) { return show(Object.assign({}, n, { paren: false }), ctx); }; // [EN] bez nawiasu z wpisu: (x − 2), nie ((x − 2))
+        var wrap = function (n) { return n.k === 'add' || n.k === 'sub' || n.k === 'neg' ? '(' + bare(n) + ')' : bare(n); };
+        var bad = [], lines = [];
+        dens.forEach(function (d) {
+            if (lines.indexOf(bare(d) + ' ≠ 0') >= 0) return;
+            lines.push(bare(d) + ' ≠ 0');
+            rootsOf(d, v).forEach(function (r) { if (!bad.some(function (q) { return eq(q, r); })) bad.push(r); });
+        });
+        bad.sort(function (p, q) { return toNum(p) - toNum(q); });
+        var only = lines.length === 1 && lines[0] === v + ' ≠ 0';
+        steps.push({ label: 'Wyznaczam dziedzinę', math: lines.join('\n') + (only ? '' : '\n' + bad.map(function (r) { return v + ' ≠ ' + fmt(r, ctx); }).join(',  '))
+            + '\nD = ℝ \\ {' + bad.map(function (r) { return fmt(r, ctx); }).join(', ') + '}' });
+        var times = function (a, b) { // [EN] 3(x − 2), x(x + 1), (x + 1)(x − 2) — bez zbędnej jedynki
+            if (a.k === 'num' && eq(a.v, ONE)) return bare(b);
+            var left = wrap(a), right = wrap(b);
+            return left + (/^\(/.test(right) || (/[\d)]$/.test(left) && /^[a-z]/.test(right)) ? '' : ' · ') + right;
+        };
+        var cleared;
+        if (A.den && B.den && bare(A.den) === bare(B.den)) {
+            cleared = bare(A.num) + ' = ' + bare(B.num);
+            steps.push({ label: 'Mnożę obie strony przez ' + wrap(A.den), math: cleared });
+        } else if (A.den && B.den) {
+            cleared = times(A.num, B.den) + ' = ' + times(B.num, A.den);
+            steps.push({ label: 'Mnożę na krzyż', math: cleared });
+        } else {
+            var f = A.den ? A : B, o = A.den ? B : A;
+            cleared = A.den ? bare(f.num) + ' = ' + times(o.num, f.den) : times(o.num, f.den) + ' = ' + bare(f.num);
+            steps.push({ label: 'Mnożę obie strony przez ' + wrap(f.den), math: cleared });
+        }
+        var pr = parseEquationParts(cleared.replace(/−/g, '-').replace(/·/g, '*'), {});
+        var inner = solveEquation(pr.lhs, pr.rhs);
+        var inSteps = inner.explain ? inner.explain.steps : [];
+        steps = steps.concat(inSteps.filter(function (st, i) { return i && st.label !== 'Sprawdzenie' && st.label !== 'Odpowiedź'; }));
+        var last = inSteps[inSteps.length - 1], found = [];
+        if (last && last.label === 'Odpowiedź') last.math.split('\n').forEach(function (l) {
+            var t = l.replace(/^[a-z][₀-₉]*\s*=\s*/, '');
+            found.push({ text: t, value: evalNum(parseTokens(tokenize(t.replace(/−/g, '-'), {})), {}) });
+        });
+        else if (inner.text !== 'Brak rozwiązań' && !/Brak rozwiązań/.test(inner.text)) throw new NotSupported(); // [EN] np. tożsamość — później
+        var isBad = function (s) { return bad.some(function (r) { return Math.abs(toNum(r) - s.value) < 1e-12; }); };
+        var kept = found.filter(function (s) { return !isBad(s); });
+        if (found.length) steps.push({ label: kept.length === found.length ? 'Sprawdzam dziedzinę' : 'Odrzucam rozwiązanie spoza dziedziny',
+            math: found.map(function (s) { return v + ' = ' + s.text + (isBad(s) ? ' ∉ D' : ' ∈ D'); }).join('\n') });
+        kept.forEach(function (s) { // [EN] bezpiecznik: oryginał spełniony liczbowo
+            var env = {}; env[v] = s.value;
+            var l = evalNum(lhs, env), r = evalNum(rhs, env);
+            if (!isFinite(l) || !isFinite(r) || Math.abs(l - r) > 1e-9 * (1 + Math.abs(l) + Math.abs(r))) throw new NotSupported();
+        });
+        var exact = kept.filter(function (s) { return /^[−\d/]+$/.test(s.text); });
+        if (exact.length) steps.push({ label: 'Sprawdzenie', math: exact.map(function (s) {
+            var q = parseTokens(tokenize(s.text.replace(/−/g, '-'), {})), val = evalExact(q, {});
+            var env = {}; env[v] = val;
+            var side = function (n) { var t = show(plugIn(n, v, val), ctx), w = fmt(evalExact(n, env), ctx); return t === w ? t : t + ' = ' + w; };
+            return v + ' = ' + s.text + ':  L = ' + side(lhs) + ',  P = ' + side(rhs) + ' ✓';
+        }).join('\n') });
+        var text = !kept.length ? 'Brak rozwiązań' : kept.length === 1 ? v + ' = ' + kept[0].text
+            : kept.map(function (s, i) { return v + sub_(i + 1) + ' = ' + s.text; }).join(', ');
+        steps.push({ label: 'Odpowiedź', math: text.split(', ').join('\n') });
+        return done('Równanie', text, kept.length === 1 ? kept[0].value : null, steps);
+    }
+
     function solveEquation(lhs, rhs) {
         var ctx = { dec: hasDecimal(lhs) || hasDecimal(rhs) };
+        if (hasVarDen(lhs) || hasVarDen(rhs)) return solveRational(lhs, rhs, ctx);
         var steps = [{ label: 'Równanie', math: show(lhs, ctx) + ' = ' + show(rhs, ctx) }];
         // [EN] 5 = 2x − 7 → 2x − 7 = 5: niewiadoma po lewej, bez dwóch minusów (raport E, R2)
         if (!varsOf(collect(termsOf(lhs))).length && varsOf(collect(termsOf(rhs))).length) {

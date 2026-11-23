@@ -108,7 +108,7 @@
     // Kawałek, którego parser nie zna (słowa, „brak rozwiązań”), zostaje tekstem.
     // ⟦…⟧ = fragment, w którym działa wzór (step.formula) — rysowany w kolorze akcentu, do stuknięcia.
     const SEPS = [[', więc ', ',\\ \\text{więc}\\ '], [' lub ', '\\quad\\text{lub}\\quad '], [':  ', ':\\quad '],
-        [': ', ':\\quad '], [',  ', ',\\quad '], [', ', ',\\ '], [' = ', '='], [' ≈ ', '\\approx '], [' < ', '<'], [' > ', '>'], [' ≤ ', '\\le '], [' ≥ ', '\\ge '], [' ≠ ', '\\ne '], [' ∈ ', '\\in '], [' → ', '\\to '],
+        [': ', ':\\quad '], [',  ', ',\\quad '], [', ', ',\\ '], [' = ', '='], [' ≈ ', '\\approx '], [' < ', '<'], [' > ', '>'], [' ≤ ', '\\le '], [' ≥ ', '\\ge '], [' ≠ ', '\\ne '], [' ∈ ', '\\in '], [' ∉ ', '\\notin '], [' → ', '\\to '],
         [' ✓', '\\ \\checkmark']];
     const OPEN = '([⟦⟨', CLOSE = ')]⟧⟩';
     const SUBS = { '₀': '0', '₁': '1', '₂': '2', '₃': '3', 'ₙ': 'n', 'ₖ': 'k' };
@@ -148,7 +148,8 @@
             if (part === 'ℝ') return '\\mathbb{R}';
             if (part === '∅') return '\\varnothing ';
             let m = /^ℝ \\ \{(.+)\}$/.exec(part);
-            if (m) { const x = pieceTex(m[1], fid); return x == null ? null : '\\mathbb{R}\\setminus\\{' + x + '\\}'; }
+            const list = (/** @type {string} */ t) => { const xs = t.split(', ').map(e => pieceTex(e, fid)); return xs.some(e => e == null) ? null : xs.join(',\\,'); };
+            if (m) { const x = list(m[1]); return x == null ? null : '\\mathbb{R}\\setminus\\{' + x + '\\}'; }
             m = /^\{(.+)\}$/.exec(part);
             if (m) { const x = pieceTex(m[1], fid); return x == null ? null : '\\{' + x + '\\}'; }
             m = /^([(⟨])(.+), (.+)([)⟩])$/.exec(part);

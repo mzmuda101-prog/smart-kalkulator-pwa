@@ -37,7 +37,7 @@ function labels(q) { return S.run(q).explain.steps.map(s => s.label).join(' | ')
 ].forEach(([q, want]) => ok(q, text(q) === want, text(q)));
 
 // uczciwość: czego nie umiemy, tego nie zgadujemy
-['rozwiąż 1/x=2', 'rozwiąż sqrt(x)=3', 'rozwiąż 2^x=8', 'rozwiąż x^5+x+1000003=0', 'rozwiąż x^99=1']
+['rozwiąż 1/x + 1/(x+1) = 1', 'rozwiąż sqrt(x)=3', 'rozwiąż 2^x=8', 'rozwiąż x^5+x+1000003=0', 'rozwiąż x^99=1']
     .forEach(q => ok('nie zgaduje: ' + q, text(q) === 'Jeszcze tego nie rozwiążę' && !S.run(q).explain, S.run(q)));
 ['rozwiąż 2x +', 'rozwiąż (x', 'rozwiąż x==2', 'kroki 2+', 'rozwiąż']
     .forEach(q => ok('niedopisane: ' + q, S.run(q) === null, S.run(q)));
@@ -46,7 +46,7 @@ function labels(q) { return S.run(q).explain.steps.map(s => s.label).join(' | ')
 
 // gołe równania
 ok('gołe równanie', S.runBare('2x + 3 = 7').text === 'x = 2');
-['x = 5', 'cena = 5', 'km = 5', '2x3=6', 'a = b = 3', '2 + 3 = 5', '1/x=2']
+['x = 5', 'cena = 5', 'km = 5', '2x3=6', 'a = b = 3', '2 + 3 = 5', '1/x + 1/(x+1) = 1']
     .forEach(q => ok('gołe odrzuca: ' + q, S.runBare(q) === null, S.runBare(q)));
 
 // upraszczanie, rozkład, rachunki
@@ -247,6 +247,18 @@ pass += 3;
     ok('4b: sprzeczny', S.run('rozwiąż x + y = 1, x + y = 2').text === 'Brak rozwiązań', S.run('rozwiąż x + y = 1, x + y = 2').text);
     ok('4b: nieoznaczony', /^Nieskończenie wiele/.test(S.run('rozwiąż x + y = 1, 2x + 2y = 2').text), S.run('rozwiąż x + y = 1, 2x + 2y = 2').text);
     ok('4b: przecinek dziesiętny nie dzieli', S.run('rozwiąż x + 2,5 = 4').text === 'x = 1,5', S.run('rozwiąż x + 2,5 = 4').text);
+}
+
+// ── 4c: równania wymierne (plan „jak Photomath”, pkt 3) ──
+{
+    const T = q => { const r = S.run(q); return r && r.text; };
+    ok('4c: 1/x = 2', T('rozwiąż 1/x = 2') === 'x = 1/2', T('rozwiąż 1/x = 2'));
+    ok('4c: dziedzina jako pierwszy krok', has('rozwiąż (x+1)/(x-2) = 3', 'Wyznaczam dziedzinę', 'x − 2 ≠ 0\nx ≠ 2\nD = ℝ \\ {2}'), st('rozwiąż (x+1)/(x-2) = 3'));
+    ok('4c: mnożę przez mianownik', has('rozwiąż (x+1)/(x-2) = 3', 'Mnożę obie strony przez (x − 2)', 'x + 1 = 3(x − 2)') && T('rozwiąż (x+1)/(x-2) = 3') === 'x = 7/2', st('rozwiąż (x+1)/(x-2) = 3'));
+    ok('4c: na krzyż', has('rozwiąż (x+3)/(x-1) = (x-1)/(x+1)', 'Mnożę na krzyż', '(x + 3)(x + 1) = (x − 1)(x − 1)') && T('rozwiąż (x+3)/(x-1) = (x-1)/(x+1)') === 'x = −1/3', st('rozwiąż (x+3)/(x-1) = (x-1)/(x+1)'));
+    ok('4c: odrzucam rozwiązanie spoza dziedziny', T('rozwiąż x^2/(x-1) = 1/(x-1)') === 'x = −1' && st('rozwiąż x^2/(x-1) = 1/(x-1)').some(x => /^Odrzucam/.test(x.label)), st('rozwiąż x^2/(x-1) = 1/(x-1)'));
+    ok('4c: sprawdzenie w równaniu z ułamkiem', st('rozwiąż (x+1)/(x-2) = 3').some(x => x.label === 'Sprawdzenie'), st('rozwiąż (x+1)/(x-2) = 3'));
+    ok('4c: tytuł Równanie wymierne', S.run('rozwiąż 1/x = 2').explain.title === 'Równanie');
 }
 
 console.log(`math-steps: ${pass} OK, ${fail} błędów`);
