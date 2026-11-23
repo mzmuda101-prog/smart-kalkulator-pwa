@@ -2210,12 +2210,13 @@
         .hb-tex { font-size: 1.3rem; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); text-align: center; overflow-x: auto; overflow-y: hidden; background: var(--card-bg); }
         .hb-why { margin: 0; font-weight: 600; }
         .hb-lead { margin: 0 0 8px; color: var(--text-secondary); }
-        .hb-p, .hb-meta, .hb-empty, .hb-status { margin: 0; }
+        .hb-p, .hb-meta, .hb-status { margin: 0; }
         .hb-meta { color: var(--text-secondary); font-size: 0.875rem; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
         .hb-level { padding: 2px 8px; border-radius: var(--radius-pill); background: var(--primary-light); color: var(--text); font-weight: 600; }
         .hb-status { color: var(--text-secondary); font-size: 0.875rem; }
+        .hb-status { margin-block-start: -8px; }
         .hb-status:empty { display: none; }
-        .hb-empty { padding: 24px 0; color: var(--text-secondary); }
+        .hb-status.is-empty { margin-block-start: 0; padding: 24px 0; font-size: 1rem; }
         .hb-try { justify-self: start; flex-wrap: wrap; background: var(--primary); border-color: var(--primary); color: var(--text-on-accent); font-weight: 600; }
         .hb-try-expr { font-family: var(--font-mono); font-weight: 400; overflow-wrap: anywhere; }
         .hb-related { display: grid; gap: 8px; }

@@ -42,8 +42,11 @@ test('wyszukiwanie bez polskich znaków i pusty wynik', async ({ page }) => {
   await page.locator('#hbSearch').fill('wyroznik');
   await expect(page.locator('#hbView').getByRole('button', { name: /Delta \(wyróżnik\)/ })).toBeVisible();
   await expect(page.locator('#hbView')).toContainText('Równania i nierówności');
+  const status = page.locator('#hbStatus'); // jeden stały obszar „status”: czytnik ekranu ogłasza każdą zmianę
+  await expect(status).toHaveAttribute('role', 'status');
+  await expect(status).toContainText('hasło');
   await page.locator('#hbSearch').fill('zzzz');
-  await expect(page.locator('#hbView')).toContainText('Nic nie pasuje do „zzzz”');
+  await expect(status).toContainText('Nic nie pasuje do „zzzz”');
   await page.locator('#hbSearch').fill('');
   await expect(page.locator('#hbView').getByRole('button', { name: /Granice/ })).toBeVisible();
 });
@@ -128,4 +131,23 @@ test('z kroków: po zmianie wyrażenia nie ma „Wróć do kroków”', async ({
   await openHandbook(page);
   await expect(page.locator('#hbView h2')).toHaveText('Delta (wyróżnik)');
   await expect(page.locator('#hbView')).not.toContainText('Wróć do kroków');
+});
+
+test('z kroków klawiaturą: Wróć do kroków oddaje fokus wzorowi, Esc wraca do przycisku kroków', async ({ page }) => {
+  await boot(page);
+  await page.waitForFunction(() => !!window.MATM0_TEX);
+  await page.locator('#calcExpr').fill('rozwiąż x^2 - 5x + 6 = 0');
+  await page.locator('#calcExplainTip').focus();
+  await page.keyboard.press('Enter');
+  await page.locator('#stepsView .steps-ink [data-formula="delta"]').first().click();
+  const more = page.locator('#stepsView .steps-pop').getByRole('button', { name: 'Więcej' });
+  await more.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#hbView .hb-back')).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#stepsView .steps-pop')).toBeVisible();
+  await page.waitForTimeout(100); // po klatce animacji szuflada nie może przejąć fokusu
+  await expect(page.locator('#stepsView .steps-formula-sr[data-formula="delta"]').first()).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#calcExplainTip')).toBeFocused();
 });

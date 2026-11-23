@@ -6008,7 +6008,7 @@
         }
         // Podręcznik (spec 2026-11-23-podrecznik-design.md): start → dział → hasło, stos do „Wróć”.
         // Dane i wyszukiwanie: MATM0_HANDBOOK (js/handbook.js); rysunki: ten sam MathLive co w krokach.
-        var hbView = $('#hbView'), hbSearch = $('#hbSearch');
+        var hbView = $('#hbView'), hbSearch = $('#hbSearch'), hbStatus = $('#hbStatus');
         var _hbStack = [{ view: 'home' }];
         var _hbFromSteps = null; // [EN] { list, scroll, expr, title } — kroki, do których wraca „Wróć do kroków”
         var _hbMl; // [EN] undefined = jeszcze nie próbowano, null = brak biblioteki (offline bez cache)
@@ -6114,12 +6114,12 @@
         }
         function _hbSearchResults(box, q) {
             var hits = window.MATM0_HANDBOOK.search(q);
-            box.appendChild(_stepsEl('p', 'hb-status', hits.length ? _hbCount(hits.length) : ''));
-            box.lastChild.setAttribute('role', 'status');
-            if (!hits.length) {
-                box.appendChild(_stepsEl('p', 'hb-empty', 'Nic nie pasuje do „' + q + '”. Spróbuj innego słowa, np. delta, pochodna, procent.'));
-                return;
+            if (hbStatus) {
+                hbStatus.textContent = hits.length ? 'Znaleziono: ' + _hbCount(hits.length)
+                    : 'Nic nie pasuje do „' + q + '”. Spróbuj innego słowa, np. delta, pochodna, procent.';
+                hbStatus.classList.toggle('is-empty', !hits.length);
             }
+            if (!hits.length) return;
             var list = _stepsEl('div', 'hb-list');
             hits.forEach(function (h) { list.appendChild(_hbEntryRow(h.id, h.entry, h.chapter)); });
             box.appendChild(list);
@@ -6130,6 +6130,7 @@
             var draw = function (ml) {
                 if (gen !== _hbGen) return; // [EN] w międzyczasie inny widok
                 var box = _stepsEl('div', 'hb-page');
+                if (hbStatus && !q) { hbStatus.textContent = ''; hbStatus.classList.remove('is-empty'); }
                 if (q) _hbSearchResults(box, q);
                 else {
                     if (_hbStack.length > 1) box.appendChild(_hbBackButton());
@@ -6166,8 +6167,9 @@
             var g = window.MATM0_HANDBOOK && window.MATM0_HANDBOOK.get(id);
             if (!g || !stepsView || !stepsView.firstChild) return;
             var scroller = _stepsScroller();
+            var d = (_dialogStack || []).filter(function (x) { return x.el === commandHelpDrawer; })[0];
             _hbFromSteps = { list: stepsView.firstChild, scroll: scroller ? scroller.scrollTop : 0, expr: calcExpr ? calcExpr.value : '',
-                title: commandHelpTitle ? commandHelpTitle.textContent : '' };
+                title: commandHelpTitle ? commandHelpTitle.textContent : '', ret: d ? d.ret : null };
             closeCommandHelp();
             if (hbSearch) hbSearch.value = '';
             _hbStack = [{ view: 'home' }, { view: 'chapter', id: g.entry.dzial }, { view: 'entry', id: id, fromSteps: true }];
@@ -6185,10 +6187,15 @@
             stepsView.textContent = '';
             stepsView.appendChild(b.list);
             _showStepsDrawer(b.title);
+            var top = _dialogStack && _dialogStack[_dialogStack.length - 1];
+            if (top && top.el === commandHelpDrawer && b.ret) top.ret = b.ret; // [EN] Esc wraca tam, skąd otwarto kroki, nie do ukrytego podręcznika
             var scroller = _stepsScroller();
             if (scroller) scroller.scrollTop = b.scroll; // [EN] to samo miejsce w krokach, dymek dalej otwarty
             var sr = b.list.querySelector('.steps-math.is-open .steps-formula-sr');
-            if (sr) sr.focus({ preventScroll: true });
+            if (sr) {
+                sr.focus({ preventScroll: true });
+                requestAnimationFrame(function () { sr.focus({ preventScroll: true }); }); // [EN] po klatce dialogOpened (fokus na ×)
+            }
         }
         function hbTry(id) {
             var g = window.MATM0_HANDBOOK.get(id);

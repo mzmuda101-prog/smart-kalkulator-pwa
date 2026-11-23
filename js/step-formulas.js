@@ -351,11 +351,11 @@
         },
         'uklad-podstawianie': {
             name: 'Układ równań: metoda podstawiania',
-            tex: 'x-y=2\\;\\Rightarrow\\;x=y+2',
+            tex: '2x+y=7\\;\\Rightarrow\\;y=7-2x',
             why: 'Z jednego równania wyznaczamy jedną niewiadomą i wstawiamy ją do drugiego. Zostaje zwykłe równanie z jedną niewiadomą, które już umiemy rozwiązać.',
             level: 'Liceum, zakres podstawowy: układy równań liniowych',
             more: [
-                'Przykład: $2x+y=7$ i $x-y=2$. Z drugiego równania $x=y+2$. Wstawiamy do pierwszego: $2(y+2)+y=7$, czyli $3y+4=7$, więc $y=1$, a potem $x=3$.',
+                'Przykład: $2x+y=7$ i $x-y=2$. Z pierwszego równania $y=7-2x$. Wstawiamy do drugiego: $x-(7-2x)=2$, czyli $3x-7=2$, więc $x=3$, a potem $y=7-2\\cdot 3=1$.',
                 'Najwygodniej wyznaczać tę niewiadomą, przy której stoi jedynka, bo wtedy nie pojawiają się ułamki.',
                 'Sprawdzamy w obu równaniach: $2\\cdot 3+1=7$ i $3-1=2$. Sprawdzenie w jednym równaniu nie wystarczy, bo para liczb musi spełniać oba naraz.',
             ],
@@ -484,7 +484,7 @@
         'roznica-kwadratow': ['wyrazenia', 'lp', ['różnica kwadratów', 'wzory skróconego mnożenia', 'rozkład na czynniki'], 'rozłóż x^2 - 9', '(x − 3)(x + 3)', ['kwadrat-sumy', 'sprzezenie', 'postac-iloczynowa']],
         'postac-iloczynowa': ['funkcje', 'lp', ['postać iloczynowa', 'rozkład trójmianu', 'funkcja kwadratowa', 'miejsca zerowe'], 'rozłóż x^2 - 5x + 6', '(x − 2)(x − 3)', ['delta', 'wzory-x12', 'wierzcholek']],
         'kwadrat-sumy': ['wyrazenia', 'lp', ['kwadrat sumy', 'wzory skróconego mnożenia', 'nawias do kwadratu'], 'kroki (x+3)^2', 'x² + 6x + 9', ['roznica-kwadratow', 'wzor-x0']],
-        'pochodna-potegi': ['pochodne', 'lr', ['pochodna potęgi', 'pochodna x do n', 'różniczkowanie'], 'pochodna x/(x+1)', 'f′(x) = 1/(x + 1)²', ['tablica-pochodnych', 'pochodna-iloczynu', 'calka-potegi']],
+        'pochodna-potegi': ['pochodne', 'lr', ['pochodna potęgi', 'pochodna x do n', 'różniczkowanie'], 'pochodna 5x^3', 'f′(x) = 15x²', ['tablica-pochodnych', 'pochodna-iloczynu', 'calka-potegi']],
         'pochodna-iloczynu': ['pochodne', 'lr', ['pochodna iloczynu', 'iloczyn funkcji', 'różniczkowanie'], 'pochodna x^2*e^x', 'f′(x) = 2x · e^x + x² · e^x', ['pochodna-ilorazu', 'pochodna-potegi', 'przez-czesci']],
         'pochodna-ilorazu': ['pochodne', 'lr', ['pochodna ilorazu', 'pochodna ułamka', 'różniczkowanie'], 'pochodna x/(x+1)', 'f′(x) = 1/(x + 1)²', ['pochodna-iloczynu', 'pochodna-potegi']],
         'pochodna-zlozona': ['pochodne', 'st', ['pochodna funkcji złożonej', 'pochodna wewnętrzna', 'reguła łańcuchowa'], 'pochodna sin(x^2)', 'f′(x) = 2x · cos(x²)', ['tablica-pochodnych', 'pochodna-iloczynu']],
