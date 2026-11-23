@@ -2167,6 +2167,8 @@
         .steps-pop-name { font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary); }
         .steps-pop-tex { margin: 6px 0; font-size: 1.1rem; overflow-x: auto; overflow-y: hidden; }
         .steps-pop-why { margin: 0; }
+        .steps-pop-here { margin: 0 0 8px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; color: var(--text-secondary); font-size: 0.875rem; }
+        .steps-pop-here-ink { color: var(--text); font-size: 1rem; display: inline-flex; flex-wrap: wrap; gap: 4px 16px; }
         .steps-tex { white-space: nowrap; }
         .steps-pop-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
         .steps-pop-level { color: var(--text-secondary); font-size: 0.8125rem; }

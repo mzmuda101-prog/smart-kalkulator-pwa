@@ -97,7 +97,7 @@ async function stepsMore(page, expr, fid) {
   await page.locator('#calcExpr').fill(expr);
   await page.locator('#calcExplainTip').click();
   await page.locator('#stepsView .steps-ink [data-formula="' + fid + '"]').first().click();
-  await page.locator('#stepsView .steps-pop').getByRole('button', { name: 'Więcej' }).click();
+  await page.locator('#stepsView .steps-pop').getByRole('button', { name: /W podręczniku/ }).click();
 }
 
 test('z kroków: Powiązane tam i z powrotem, Wróć ×3 kończy na krokach z dymkiem', async ({ page }) => {
@@ -140,7 +140,7 @@ test('z kroków klawiaturą: Wróć do kroków oddaje fokus wzorowi, Esc wraca d
   await page.locator('#calcExplainTip').focus();
   await page.keyboard.press('Enter');
   await page.locator('#stepsView .steps-ink [data-formula="delta"]').first().click();
-  const more = page.locator('#stepsView .steps-pop').getByRole('button', { name: 'Więcej' });
+  const more = page.locator('#stepsView .steps-pop').getByRole('button', { name: /W podręczniku/ });
   await more.focus();
   await page.keyboard.press('Enter');
   await expect(page.locator('#hbView .hb-back')).toBeFocused();
@@ -148,6 +148,8 @@ test('z kroków klawiaturą: Wróć do kroków oddaje fokus wzorowi, Esc wraca d
   await expect(page.locator('#stepsView .steps-pop')).toBeVisible();
   await page.waitForTimeout(100); // po klatce animacji szuflada nie może przejąć fokusu
   await expect(page.locator('#stepsView .steps-formula-sr[data-formula="delta"]').first()).toBeFocused();
-  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape'); // pierwsze Esc zamyka dymek
+  await expect(page.locator('#stepsView .steps-pop')).toHaveCount(0);
+  await page.keyboard.press('Escape'); // drugie zamyka kroki
   await expect(page.locator('#calcExplainTip')).toBeFocused();
 });

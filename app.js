@@ -4987,6 +4987,8 @@
                 closeHistoryDrawer();
             }
             if (e.key === 'Escape' && document.body.classList.contains('help-open')) {
+                e.preventDefault();
+                if (_stepsPopEscape()) { e.stopImmediatePropagation(); return; } // [EN] otwarty dymek: Esc zamyka tylko dymek
                 closeCommandHelp();
                 e.preventDefault();
                 e.stopImmediatePropagation(); // [EN] don't close notepad on same Esc
@@ -5969,6 +5971,30 @@
             stepsView.querySelectorAll('.steps-formula-sr[aria-expanded="true"]').forEach(function (b) { b.setAttribute('aria-expanded', 'false'); });
             stepsView.querySelectorAll('.steps-math.is-open').forEach(function (m) { m.classList.remove('is-open'); });
         }
+        function _stepsPopEscape() { // [EN] zamyka otwarty dymek, fokus na fragment wzoru; false = nie było dymku
+            var open = stepsView && !stepsView.hidden && stepsView.querySelector('.steps-math.is-open');
+            if (!open) return false;
+            var sr = open.querySelector('.steps-formula-sr');
+            _closeStepsPop();
+            if (sr) sr.focus({ preventScroll: true });
+            return true;
+        }
+        function _stepsHere(li, ml) { // [EN] „W tym zadaniu: a = 1, b = −5, c = 6” — rysowane jak krok
+            var here = li.dataset.formulaHere;
+            if (!here) return null;
+            var p = _stepsEl('p', 'steps-pop-here');
+            p.setAttribute('aria-label', 'W tym zadaniu: ' + here);
+            p.appendChild(_stepsEl('span', 'steps-pop-here-label', 'W tym zadaniu:'));
+            var ink = _stepsEl('span', 'steps-pop-here-ink', here);
+            ink.setAttribute('aria-hidden', 'true');
+            try {
+                if (ml && window.MATM0_TEX) ink.innerHTML = here.split(', ').map(function (pair) { // [EN] każda para „a = 1” osobno, z odstępem
+                    return '<span class="steps-pop-here-pair">' + ml.convertLatexToMarkup(window.MATM0_TEX.stepToLatex(pair).join('')) + '</span>';
+                }).join('');
+            } catch (e) { /* zostaje tekst */ }
+            p.appendChild(ink);
+            return p;
+        }
         function _openStepsPop(li, id) {
             var f = _stepsFormulas()[id], math = li.querySelector('.steps-math');
             if (!f || !math) return;
@@ -5987,15 +6013,16 @@
                 tex.setAttribute('aria-hidden', 'true');
                 if (ml) tex.innerHTML = ml.convertLatexToMarkup(f.tex);
                 pop.appendChild(tex);
+                var here = _stepsHere(li, ml);
+                if (here) pop.appendChild(here);
                 pop.appendChild(_stepsRich(_stepsEl('p', 'steps-pop-why'), ml, f.why));
                 var foot = _stepsEl('div', 'steps-pop-foot');
                 foot.appendChild(_stepsEl('span', 'steps-pop-level', f.level));
-                if (f.more && f.more.length) {
-                    var more = _stepsEl('button', 'steps-pop-more', 'Więcej');
-                    more.type = 'button';
-                    more.dataset.formulaMore = id;
-                    foot.appendChild(more);
-                }
+                var more = _stepsEl('button', 'steps-pop-more', 'W podręczniku'); // [EN] każde hasło jest w podręczniku
+                more.type = 'button';
+                more.dataset.formulaMore = id;
+                more.insertAdjacentHTML('beforeend', '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>');
+                foot.appendChild(more);
                 pop.appendChild(foot);
                 // [EN] strzałka dymku i punkt, z którego rośnie, celują w podkreślony fragment
                 var hit = math.querySelector('.steps-ink [data-formula]') || math;
@@ -6243,6 +6270,7 @@
                     var btn = _stepsEl('button', 'steps-formula-sr', formulas[fid].name + ', wyjaśnienie');
                     btn.type = 'button';
                     btn.dataset.formula = fid;
+                    if (step.formula.here) li.dataset.formulaHere = step.formula.here; // [EN] liczby z zadania do dymku
                     btn.setAttribute('aria-expanded', 'false');
                     math.appendChild(btn);
                 }

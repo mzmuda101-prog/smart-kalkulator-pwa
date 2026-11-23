@@ -14,7 +14,7 @@ test('Safari: kroki → Więcej → przewinięcie do Powiązanych → Wróć do 
   await page.locator('#calcExpr').fill('rozwiąż x^2 - 5x + 6 = 0');
   await page.locator('#calcExplainTip').tap();
   await page.locator('#stepsView .steps-ink [data-formula="delta"]').first().tap();
-  await page.locator('#stepsView .steps-pop').getByRole('button', { name: 'Więcej' }).tap();
+  await page.locator('#stepsView .steps-pop').getByRole('button', { name: /W podręczniku/ }).tap();
   const h2 = page.locator('#hbView h2');
   await expect(h2).toHaveText('Delta (wyróżnik)');
   await page.locator('#hbView .hb-related').getByRole('button', { name: 'Wzory na rozwiązania równania kwadratowego' }).tap();

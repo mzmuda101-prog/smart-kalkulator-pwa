@@ -36,7 +36,7 @@ test('lim n→∞ (1 − 1/n)^n: kroki narysowane, wzór na e w dymku i w „Wi�
   await expect(pop).toContainText('Wzór na liczbę e');
   await expect(page.locator('#stepsView .steps-formula-sr[data-formula="e"]')).toHaveAttribute('aria-expanded', 'true');
 
-  await pop.getByRole('button', { name: 'Więcej' }).click(); // „Więcej” = to samo hasło w podręczniku
+  await pop.getByRole('button', { name: /W podręczniku/ }).click(); // „Więcej” = to samo hasło w podręczniku
   await expect(page.locator('#panel-podrecznik')).toBeVisible();
   await expect(page.locator('#hbView h2')).toHaveText('Wzór na liczbę e');
   await expect(page.locator('#hbView .hb-back')).toBeFocused();
@@ -90,4 +90,20 @@ test('sposoby: 0/0 — rozkład albo de l\'Hospital, przełącznik nad krokami',
   await page.locator('#calcExplainTip').click();
   await expect(page.locator('#stepsView .steps-item').first()).toBeVisible();
   await expect(page.locator('#stepsView .steps-methods')).toHaveCount(0);
+});
+
+test('dymek: liczby z zadania, przycisk „W podręczniku”, Esc zamyka dymek, nie szufladę', async ({ page }) => {
+  await page.goto('index.html', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => !!window.MATM0_TEX && !!window.MATM0_FORMULAS);
+  await page.locator('#calcExpr').fill('rozwiąż x^2 - 5x + 6 = 0');
+  await page.locator('#calcExplainTip').click();
+  await page.locator('#stepsView .steps-ink [data-formula="delta"]').first().click();
+  const pop = page.locator('#stepsView .steps-pop');
+  await expect(pop.locator('.steps-pop-here')).toContainText('W tym zadaniu');
+  await expect(pop.locator('.steps-pop-here .ML__latex, .steps-pop-here .ML__base').first()).toBeAttached(); // narysowane, nie tekst
+  await expect(pop.getByRole('button', { name: /W podręczniku/ })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(pop).toHaveCount(0);
+  await expect(page.locator('#commandHelpDrawer')).toHaveAttribute('aria-hidden', 'false');
+  await expect(page.locator('#stepsView .steps-formula-sr[data-formula="delta"]').first()).toBeFocused();
 });
