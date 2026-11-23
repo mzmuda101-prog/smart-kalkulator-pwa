@@ -15306,6 +15306,10 @@
                 { expr: 'lim n→∞ (n/(n+3))^(2n)', value: Math.exp(-6), tol: 1e-12 },
                 { expr: 'granica sin(3x)/x przy x → 0', value: 3, tol: 1e-9 },
                 { expr: 'uprość √8', value: 2 * Math.SQRT2, tol: 1e-9 },
+                // podręcznik: przykłady „Spróbuj” z liczbą w wyniku (js/step-formulas.js)
+                { expr: 'kroki 20% z 150', value: 30 },
+                { expr: 'kroki 150 + 20%', value: 180 },
+                { expr: 'nwd(12, 18)', value: 6 },
                 // klawiatura „Wzory” (etap 2a): polskie nazwy funkcji, |x|, n!, log o podstawie, sin²x, mod
                 { expr: 'tg(pi/4)', value: 1, tol: 1e-9 },
                 { expr: 'ctg(pi/4)', value: 1, tol: 1e-9 },

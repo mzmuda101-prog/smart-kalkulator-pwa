@@ -23,6 +23,8 @@ for (const [id, f] of Object.entries(FORMULAS)) {
     ok(id + ': dział z listy', dzialy.has(f.dzial), f.dzial);
     ok(id + ': poziom lp/lr/st', ['lp', 'lr', 'st'].includes(f.poziom), f.poziom);
     ok(id + ': treść', !!(f.name && f.tex && f.why), f.name);
+    // zgubiony ukośnik w źródle: '\;' w JS to sam średnik, na ekranie „2;⇒;x” zamiast odstępu
+    ok(id + ': LaTeX bez zgubionych ukośników', ![f.tex, f.why].concat(f.more || []).some(t => /[^\\\s];\\[a-zA-Z]|[a-zA-Z0-9];\\/.test(t)), f.tex);
     ok(id + ': słowa do wyszukiwarki', Array.isArray(f.keywords) && f.keywords.length > 0, f.keywords);
     ok(id + ': powiązane istnieją', Array.isArray(f.related) && f.related.every(r => r !== id && FORMULAS[r]), f.related);
     ok(id + ': nazwa bez dubla', !names.has(f.name), names.get(f.name));
