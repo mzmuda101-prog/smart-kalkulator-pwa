@@ -72,8 +72,8 @@ od najczęstszych w szkole):
 7. Procenty krok po kroku, NWD/NWW, funkcja kwadratowa (wierzchołek, postać kanoniczna).
 Każdy nowy typ: TDD + bramka SymPy (`npm run check:steps`, dopisać przykłady do `EXTRA` w `scripts/steps-check/dump.js`) + agent „słaby uczeń”.
 
-- Bramka SymPy w równaniach/nierównościach/układach sprawdza tylko rachunki na liczbach. Pomysł na następny krok bramki:
-  każde równanie w krokach musi być spełnione przez odpowiedź (przekształcenia równoważne) — złapałoby np. sklejone „23 + 3y”.
+- Bramka SymPy w równaniach i układach sprawdza też równania po drodze: każde musi być spełnione przez odpowiedź
+  (`answers`/`satisfied` w `check.py`; przy kilku pierwiastkach — przez któryś). Nierówności: tylko rachunki na liczbach.
 
 ## Pułapki
 - **Nie sprawdzaj silnika przez `node -e`** (decimal.js) — skrypt w pliku, `require` modułów z `js/`, na końcu `process.exit(0)`.

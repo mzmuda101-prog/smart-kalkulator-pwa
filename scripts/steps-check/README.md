@@ -19,8 +19,8 @@ Po każdej zmianie w krokach (`js/math-limits.js`, `js/math-calculus.js`, `js/ma
 
 - `dump.js`: wszystkie przykłady (zestaw granic, ściąga, lista `EXTRA`) → `steps.json`. Nowe zadanie z krokami dopisz do `EXTRA`.
 - `check.py`: „=” to tożsamość (granice — w punktach blisko celu, całka nieoznaczona — przez pochodną),
-  „→” liczy SymPy `limit`, „≈” liczbowo. W równaniach tylko rachunki na liczbach (x to niewiadoma).
+  „→” liczy SymPy `limit`, „≈” liczbowo. W równaniach i układach każde równanie po drodze musi spełniać odpowiedź z kroku „Odpowiedź”; w nierównościach tylko rachunki na liczbach.
   Kawałki z literami pomocniczymi (u, A, aₙ, F, Δ) i słowami są pomijane — raport podaje ile.
-- Auto-test (`--self-test`): bramka musi złapać trzy celowo fałszywe kroki i przepuścić prawdziwe.
+- Auto-test (`--self-test`): bramka musi złapać cztery celowo fałszywe kroki (w tym zły krok układu) i przepuścić prawdziwe.
 
 Bezpieczeństwo: `parse_latex(backend='lark')` to gramatyka, bez wykonywania kodu (bez `parse_expr`/`sympify` na tekście).

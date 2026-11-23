@@ -27,7 +27,8 @@ warnings.filterwarnings("ignore")
 HERE = Path(__file__).resolve().parent
 REL = ("=", r"\approx ", r"\to ", "<", ">")
 OK_SYMS = {"C"}
-PARAM_A = [False]  # „a” jako parametr tylko w pochodnej a · t² (we wzorze ∫ 1/(x² + a²) to litera ze wzoru)
+PARAM_A = [False]
+UNKNOWNS = [set()]  # niewiadome z odpowiedzi równania/układu (x, y) — mogą stać w krokach  # „a” jako parametr tylko w pochodnej a · t² (we wzorze ∫ 1/(x² + a²) to litera ze wzoru)
 # znaczniki: lark czyta \alpha jako jeden symbol (zwykłe wieloliterowe nazwy czyta jako iloczyn liter)
 MARKS = ["alpha", "beta", "gamma", "zeta", "eta", "theta", "kappa", "lambda", "mu", "nu", "xi", "rho", "sigma", "tau", "chi", "psi"]
 
@@ -159,7 +160,7 @@ def to_expr(tex: str, var: Symbol, extra: dict) -> Expr:
     e = e.subs({Symbol("e"): E, Symbol("omega"): pi})
     e = e.subs({Symbol(k): v for k, v in extra.items()})
     e = nsimplify(e, rational=True) if any(f.is_Float for f in e.atoms()) else e  # 2.5 → 5/2 (na wyrażeniu, nie na tekście)
-    foreign = {s.name for s in e.free_symbols} - {str(var)} - OK_SYMS - ({"a"} if PARAM_A[0] else set())
+    foreign = {s.name for s in e.free_symbols} - {str(var)} - OK_SYMS - ({"a"} if PARAM_A[0] else set()) - UNKNOWNS[0]
     if foreign:
         raise Skip("litery: " + ",".join(sorted(foreign)))
     return e
@@ -257,13 +258,16 @@ SELF_TEST = [
         "lines": [["\\lim_{x\\to 0}\\frac{\\sin x}{x}", "=2"]]}]},
     {"q": "ZŁE równanie", "title": "Równanie", "steps": [{"label": "e", "math": "Δ = 25 − 24 = 2",
         "lines": [["\\Delta", "=25-24", "=2"]]}]},
+    {"q": "ZŁY krok układu", "title": "Układ równań", "steps": [{"label": "f", "math": "23 + 3y = 12", "lines": [["23+3y", "=12"]]},
+        {"label": "g", "math": "x + y = 5", "lines": [["x+y", "=5"]]},
+        {"label": "Odpowiedź", "math": "x = 3\ny = 2", "lines": [["x", "=3"], ["y", "=2"]]}]},
 ]
 
 
 def main() -> int:
     if "--self-test" in sys.argv:
         global_bad = run(SELF_TEST)
-        want = sorted(["ZŁE pochodna", "ZŁE granica", "ZŁE równanie"])
+        want = sorted(["ZŁE pochodna", "ZŁE granica", "ZŁE równanie", "ZŁY krok układu"])
         got = sorted({b.split(" | ")[0] for b in global_bad})
         print("auto-test:", "✅ łapie fałsz, przepuszcza prawdę" if got == want else f"❌ {got}")
         return 0 if got == want else 1
@@ -278,6 +282,41 @@ def main() -> int:
     return 0
 
 
+def answers(prob, var):
+    """rozwiązania z kroku „Odpowiedź”: x = 3 / y = 2 → [{x: 3, y: 2}]; x₁ = 2 / x₂ = 3 → [{x: 2}, {x: 3}]; None, gdy to nie liczby"""
+    last = prob["steps"][-1]
+    if last["label"] != "Odpowiedź":
+        return None
+    pairs = []
+    for line in last["lines"]:
+        if len(line) != 2 or not line[1].startswith("="):
+            return None
+        name = re.sub(r"_\{\d\}$", "", strip_html_data(line[0]).strip())
+        if not re.fullmatch(r"[a-z]", name):
+            return None
+        try:
+            pairs.append((name, to_expr(line[1][1:], var, {})))
+        except Skip:
+            return None
+        if pairs[-1][1].free_symbols:
+            return None
+    names = [n for n, _ in pairs]
+    if len(set(names)) == len(names):
+        return [{Symbol(n): v for n, v in pairs}]
+    return [{Symbol(n): v} for n, v in pairs]  # kilka pierwiastków jednej niewiadomej
+
+
+def satisfied(a: Expr, b: Expr, sols) -> bool:
+    """równanie z krokiem jest spełnione przez któreś rozwiązanie (x − 3 = 0 dotyczy tylko x = 3)"""
+    for sol in sols:
+        try:
+            if abs(complex((a - b).subs(sol).evalf())) < 1e-9:
+                return True
+        except TypeError:
+            continue
+    return False
+
+
 def run(data) -> list:
     checked = skipped = 0
     bad, reasons = [], {}
@@ -285,6 +324,10 @@ def run(data) -> list:
         var, ctx = context(prob)
         PARAM_A[0] = prob["title"] == "Pochodna"
         numbers_only = prob["title"] in ("Równanie", "Nierówność", "Układ równań")
+        UNKNOWNS[0] = set()
+        sols = answers(prob, var) if prob["title"] in ("Równanie", "Układ równań") else None
+        if sols:
+            UNKNOWNS[0] = {str(k) for sol in sols for k in sol}
         for si, st in enumerate(prob["steps"]):
             for line in st["lines"]:
                 prev = None
@@ -293,7 +336,7 @@ def run(data) -> list:
                     body = piece[len(rel):] if rel else re.sub(r"^(\\quad |,\\ |:\\quad |\\quad\\text\{lub\}\\quad )", "", piece)
                     try:
                         cur = to_expr(body, var, {})
-                        if numbers_only and cur.free_symbols:
+                        if numbers_only and cur.free_symbols and not sols:
                             raise Skip("niewiadoma w równaniu")
                     except Skip as why:
                         reasons[str(why)] = reasons.get(str(why), 0) + 1
@@ -301,6 +344,12 @@ def run(data) -> list:
                             print("   ?", str(why)[:20], body[:90])
                         prev = None
                         skipped += 1
+                        continue
+                    if rel == "=" and prev is not None and sols and (prev.free_symbols or cur.free_symbols):
+                        checked += 1  # równanie w krokach: odpowiedź musi je spełniać (przekształcenia równoważne)
+                        if not satisfied(prev, cur, sols):
+                            bad.append(f'{prob["q"]} | krok {si + 1} „{st["label"]}” | {st["math"]}  (odpowiedź nie spełnia)')
+                        prev = None if body.rstrip().endswith((",", "{:}")) else cur
                         continue
                     if rel == "=" and prev == var and not ctx.get("at"):
                         prev = None  # „x = −1:” to wstawienie liczby, nie tożsamość
