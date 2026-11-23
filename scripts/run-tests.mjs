@@ -43,6 +43,7 @@ const SUITES = [
     'test/latex-to-expr.js',
     'test/expr-to-latex.js',
     'test/handbook-data.js',
+    'test/handbook.js',
     'test/step-why.js',
     'test/formula-keys.js',
     'test/formula-image.js',

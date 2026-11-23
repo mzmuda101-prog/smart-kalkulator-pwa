@@ -49,6 +49,7 @@ const ASSETS_TO_CACHE = [
     './js/latex-to-expr.js',
     './js/expr-to-latex.js',
     './js/step-formulas.js',
+    './js/handbook.js',
     './js/step-why.js',
     './js/formula-keys.js',
     './js/scanner.js',
