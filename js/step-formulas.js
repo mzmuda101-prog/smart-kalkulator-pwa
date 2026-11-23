@@ -307,6 +307,17 @@
             level: 'Liceum rozszerzenie: trygonometria; całka: studia',
             more: ['Wzór wynika z $\\cos 2x=2\\cos^{2}x-1$.'],
         },
+        wierzcholek: {
+            name: 'Wierzchołek paraboli',
+            tex: 'p=\\frac{-b}{2a},\\quad q=f(p)',
+            why: 'Parabola jest symetryczna, a oś symetrii przechodzi przez $x=\\frac{-b}{2a}$. Tam leży wierzchołek; jego wysokość to wartość funkcji w tym punkcie.',
+            level: 'Liceum: funkcja kwadratowa',
+            more: [
+                'Postać kanoniczna $f(x)=a(x-p)^{2}+q$ od razu pokazuje wierzchołek $W=(p,q)$.',
+                'Gdy $a>0$, wierzchołek to najniższy punkt paraboli (minimum), a gdy $a<0$ — najwyższy (maksimum).',
+                'Drugą współrzędną można też policzyć wzorem $q=\\frac{-\\Delta}{4a}$.',
+            ],
+        },
         'definicja-logarytmu': {
             name: 'Definicja logarytmu',
             tex: '\\log_{a} b=c\\iff a^{c}=b',

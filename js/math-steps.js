@@ -1735,6 +1735,9 @@
         { re: /^(?:rozwiaz|solve)\b[:\s]*/, mode: 'solve' },
         { re: /^(?:uprosc|rozwin|simplify|expand)\b[:\s]*/, mode: 'simplify' },
         { re: /^(?:rozloz|factor)\b[:\s]*/, mode: 'factor' },
+        { re: /^(?:nwd|gcd)(?=[\s(]|$)[:\s]*/, mode: 'gcd' },
+        { re: /^(?:nww|lcm)(?=[\s(]|$)[:\s]*/, mode: 'lcm' },
+        { re: /^(?:wierzcholek|vertex)\b[:\s]*/, mode: 'vertex' },
         { re: /^(?:krok po kroku|kroki|step by step|steps)\b[:\s]*/, mode: 'auto' }
     ];
     var TAIL = /\s+(?:krok po kroku|step by step)$/;
@@ -1762,7 +1765,107 @@
         return { lhs: parseTokens(tokens.slice(0, at)), rhs: parseTokens(tokens.slice(at + 1)), rel: tokens[at].v };
     }
 
+    // ── NWD i NWW przez rozkład na czynniki pierwsze (plan „jak Photomath”, pkt 7) ──
+    function primeFactors(n) {
+        var out = [];
+        for (var p = 2n; p * p <= n; p++) while (n % p === 0n) { out.push(p); n /= p; }
+        if (n > 1n) out.push(n);
+        return out;
+    }
+    function gcdLcm(src, mode) {
+        if (!/^[\s(),;\d]+$/.test(src)) throw new SyntaxError('nwd');
+        var nums = (src.match(/\d+/g) || []).map(function (x) { return BigInt(x); });
+        if (nums.length < 2 || nums.some(function (n) { return n < 1n || n > 1000000000n; })) throw new NotSupported();
+        var NAME = mode === 'gcd' ? 'NWD' : 'NWW', head = NAME + '(' + nums.join(', ') + ')';
+        var fs = nums.map(primeFactors);
+        var steps = [{ label: 'Liczby', math: nums.join(', ') }];
+        steps.push({ label: 'Rozkładam na czynniki pierwsze', math: nums.map(function (n, i) { return n + ' = ' + (fs[i].length ? fs[i].join(' · ') : '1'); }).join('\n') });
+        var count = function (list) { var m = {}; list.forEach(function (p) { m[p] = (m[p] || 0) + 1; }); return m; };
+        var maps = fs.map(count), primes = Object.keys(Object.assign.apply(null, [{}].concat(maps))).map(BigInt).sort(function (a, b) { return a < b ? -1 : 1; });
+        var pick = [];
+        primes.forEach(function (p) {
+            var ks = maps.map(function (m) { return m[p] || 0; }), k = mode === 'gcd' ? Math.min.apply(null, ks) : Math.max.apply(null, ks);
+            for (var j = 0; j < k; j++) pick.push(p);
+        });
+        var value = pick.reduce(function (a, b) { return a * b; }, 1n);
+        // [EN] bezpiecznik: wynik dzieli wszystkie liczby (NWD) / jest ich wielokrotnością (NWW), sprawdzone Euklidesem
+        var e = nums.reduce(function (a, b) { return gcd(a, b); }), l = nums.reduce(function (a, b) { return a / gcd(a, b) * b; });
+        if (value !== (mode === 'gcd' ? e : l)) throw new NotSupported();
+        if (!pick.length) steps.push({ label: 'Nie ma wspólnych czynników', math: head + ' = 1' });
+        else steps.push({ label: mode === 'gcd' ? 'Mnożę wspólne czynniki' : 'Mnożę czynniki w najwyższej potędze', math: head + ' = ' + (pick.length > 1 ? pick.join(' · ') + ' = ' : '') + value });
+        steps.push({ label: 'Wynik', math: head + ' = ' + value });
+        return done(NAME, value.toString(), Number(value), steps);
+    }
+
+    // ── Wierzchołek paraboli: p = −b/(2a), q = f(p), postać kanoniczna ──
+    function vertex(src) {
+        var body = src.replace(/^(?:y|f\s*\(\s*x\s*\))\s*=\s*/, '');
+        var ast = parseTokens(tokenize(body, {}));
+        var t = collect(termsOf(ast)), vars = varsOf(t);
+        if (vars.length !== 1) throw new NotSupported();
+        var v = vars[0], c = coefs(t, v), ctx = { dec: hasDecimal(ast) };
+        if (c.length !== 3 || isZero(c[2])) throw new NotSupported();
+        var a = c[2], b = c[1], k = c[0], twoA = mul(R(2), a), p = div(neg(b), twoA);
+        var env = {}; env[v] = p;
+        var q = evalExact(ast, env);
+        var f = 'f(' + v + ')';
+        var steps = [{ label: 'Funkcja', math: f + ' = ' + polyText(c, v, ctx) }];
+        steps.push({ label: 'Odczytuję współczynniki', math: 'a = ' + fmt(a, ctx) + ', b = ' + fmt(b, ctx) + ', c = ' + fmt(k, ctx) });
+        var mb = b.n < 0n ? '−(' + fmt(b, ctx) + ')' : '−' + fmt(b, ctx);
+        var raw = fmt(neg(b), ctx) + '/' + fmtDen(twoA, ctx);
+        steps.push({ label: 'Liczę p', math: 'p = ⟦' + mb + '/(2 · ' + fmtParen(a, ctx) + ')⟧ = ' + (raw === fmt(p, ctx) || eq(twoA, ONE) ? '' : raw + ' = ') + fmt(p, ctx), formula: { id: 'wierzcholek' } });
+        steps.push({ label: 'Liczę q', math: 'q = f(' + fmt(p, ctx) + ') = ' + show(plugIn(ast, v, p), ctx) + ' = ' + fmt(q, ctx) });
+        var inner = isZero(p) ? v : '(' + v + (p.n < 0n ? ' + ' + fmt(neg(p), ctx) : ' − ' + fmt(p, ctx)) + ')';
+        var lead = eq(a, ONE) ? '' : eq(a, neg(ONE)) ? '−' : fmt(a, ctx);
+        var canon = lead + inner + '²' + (isZero(q) ? '' : q.n < 0n ? ' − ' + fmt(neg(q), ctx) : ' + ' + fmt(q, ctx));
+        steps.push({ label: 'Zapisuję postać kanoniczną', math: f + ' = ' + canon });
+        if (!isZero(add(mul(twoA, p), b))) throw new NotSupported(); // [EN] bezpiecznik: f′(p) = 2ap + b = 0
+        var text = 'W = (' + fmt(p, ctx) + ', ' + fmt(q, ctx) + ')';
+        steps.push({ label: 'Odpowiedź', math: text });
+        return done('Funkcja kwadratowa', text, null, steps);
+    }
+
+    // ── Procenty krok po kroku: P% z B, B ± P%, ile procent A z B ──
+    function percentSteps(src) {
+        var N = '(\\d+(?:[.,]\\d+)?)', num = function (t) {
+            var x = t.replace(',', '.').split('.');
+            return x[1] ? R(BigInt(x[0] + x[1]), 10n ** BigInt(x[1].length)) : R(BigInt(x[0]));
+        };
+        var ctx = { dec: /[.,]\d/.test(src) }, steps, m;
+        var toFrac = function (P) { // 20% = 20/100 = 1/5
+            var f = div(P, R(100n)), raw = fmt(P, ctx) + '/100';
+            return { f: f, step: { label: 'Zamieniam procent na ułamek', math: fmt(P, ctx) + '% = ' + raw + (fmt(f, ctx) === raw ? '' : ' = ' + fmt(f, ctx)) } };
+        };
+        if ((m = new RegExp('^' + N + '\\s*%\\s*(?:z|of)\\s*' + N + '$').exec(src))) {
+            var P = num(m[1]), B = num(m[2]), tf = toFrac(P), v = mul(tf.f, B);
+            steps = [{ label: 'Działanie', math: fmt(P, ctx) + '% z ' + fmt(B, ctx) }, tf.step, { label: 'Mnożę ułamek przez liczbę', math: fmt(tf.f, ctx) + ' · ' + fmt(B, ctx) + ' = ' + fmt(v, ctx) }];
+            steps.push({ label: 'Wynik', math: fmt(v, ctx) });
+            return done('Procenty', fmt(v, ctx), toNum(v), steps);
+        }
+        if ((m = new RegExp('^' + N + '\\s*([+\\-−])\\s*' + N + '\\s*%$').exec(src))) {
+            var B2 = num(m[1]), plus = m[2] === '+', P2 = num(m[3]), tf2 = toFrac(P2), part = mul(tf2.f, B2), v2 = plus ? add(B2, part) : sub(B2, part);
+            steps = [{ label: 'Działanie', math: fmt(B2, ctx) + (plus ? ' + ' : ' − ') + fmt(P2, ctx) + '%' }, tf2.step,
+                { label: 'Liczę procent z liczby', math: fmt(tf2.f, ctx) + ' · ' + fmt(B2, ctx) + ' = ' + fmt(part, ctx) },
+                { label: plus ? 'Dodaję procent do liczby' : 'Odejmuję procent od liczby', math: fmt(B2, ctx) + (plus ? ' + ' : ' − ') + fmt(part, ctx) + ' = ' + fmt(v2, ctx) }];
+            steps.push({ label: 'Wynik', math: fmt(v2, ctx) });
+            return done('Procenty', fmt(v2, ctx), toNum(v2), steps);
+        }
+        if ((m = new RegExp('^ile\\s*(?:procent|%)\\s*(?:stanowi\\s*)?' + N + '\\s*z\\s*' + N + '$').exec(src))) {
+            var A = num(m[1]), B3 = num(m[2]);
+            if (isZero(B3)) throw new NotSupported();
+            var q = div(A, B3), pc = mul(q, R(100n)), raw3 = fmt(A, ctx) + '/' + fmt(B3, ctx);
+            steps = [{ label: 'Działanie', math: 'ile procent ' + fmt(A, ctx) + ' z ' + fmt(B3, ctx) },
+                { label: 'Zapisuję część jako ułamek', math: raw3 + (fmt(q, ctx) === raw3 ? '' : ' = ' + fmt(q, ctx)) },
+                { label: 'Zamieniam ułamek na procent', math: fmt(q, ctx) + ' · 100% = ' + fmt(pc, ctx) + '%' }];
+            steps.push({ label: 'Wynik', math: fmt(pc, ctx) + '%' });
+            return done('Procenty', fmt(pc, ctx) + '%', toNum(pc), steps);
+        }
+        return null;
+    }
     function runParsed(d, opts) {
+        if (d.mode === 'auto' && /%|procent/.test(d.src)) { var pr = percentSteps(d.src.trim()); if (pr) return pr; }
+        if (d.mode === 'gcd' || d.mode === 'lcm') return gcdLcm(d.src, d.mode);
+        if (d.mode === 'vertex') return vertex(d.src);
         // [EN] układ: „x + y = 5, x − y = 1” albo ze średnikiem; przecinek bez spacji to ułamek dziesiętny (2,5)
         var eqs = d.mode === 'simplify' || d.mode === 'factor' ? [d.src] : d.src.split(/\s*;\s*|,\s+(?=[^,]*=)/);
         if (eqs.length === 2 && eqs.every(function (e) { return e.indexOf('=') >= 0; })) {

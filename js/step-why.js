@@ -50,7 +50,7 @@
     /** @type {[RegExp, string | ((s: Step, title: string, c: Ctx) => string | null)][]} */
     const RULES = [
         // ── stwierdzenia: bez zdania ──
-        [/^(Wynik|Odpowiedź|Równanie|Równanie trygonometryczne|Układ równań|Nierówność|Funkcja|Całka|Działanie|Wyrażenie|Wynik w przybliżeniu)$/, ''],
+        [/^(Wynik|Odpowiedź|Liczby|Równanie|Równanie trygonometryczne|Układ równań|Nierówność|Funkcja|Całka|Działanie|Wyrażenie|Wynik w przybliżeniu)$/, ''],
         // ── granice ──
         [/^Granica$/, (s, _t, c) => {
             const m = /\s\s\[⟦?([^\]⟧]+)⟧?\]$/.exec(s.math);
@@ -179,6 +179,20 @@
             : /\+ kπ|= kπ/.test(s.math) ? 'Ta wartość powtarza się co $\\pi$, więc do kąta dodaję dowolną wielokrotność $\\pi$.'
                 : 'Wykres powtarza się co $2\\pi$, więc do kąta dodaję dowolną wielokrotność $2\\pi$.'],
         [/^Wyliczam \w$/, 'Dzielę każdą serię przez liczbę przy niewiadomej; okres też się dzieli.'],
+        [/^Rozkładam na czynniki pierwsze$/, 'Dzielę każdą liczbę przez najmniejsze liczby pierwsze, aż zostanie 1. Wtedy widać, z czego się składa.'],
+        [/^Mnożę wspólne czynniki$/, 'Biorę czynniki, które są w każdej liczbie, tyle razy, ile występują najmniej. Ich iloczyn dzieli wszystkie liczby.'],
+        [/^Mnożę czynniki w najwyższej potędze$/, 'Biorę każdy czynnik tyle razy, ile najwięcej występuje. Ten iloczyn dzieli się przez każdą z liczb.'],
+        [/^Nie ma wspólnych czynników$/, 'Liczby nie mają wspólnego czynnika pierwszego, więc jedynym wspólnym dzielnikiem jest 1.'],
+        [/^Liczę p$/, 'Wstawiam $a$ i $b$ z tej funkcji; $p$ to pierwsza współrzędna wierzchołka.'],
+        [/^Liczę q$/, 'Wierzchołek leży na wykresie, więc jego wysokość to wartość funkcji w punkcie $p$.'],
+        [/^Zapisuję postać kanoniczną$/, 'Postać $a(x-p)^{2}+q$ od razu pokazuje wierzchołek i to, czy parabola idzie w górę, czy w dół.'],
+        [/^Zamieniam procent na ułamek$/, 'Procent to setna część, więc dzielę przez 100.'],
+        [/^Mnożę ułamek przez liczbę$/, 'Procent z liczby to ta część liczby, więc mnożę ułamek przez nią.'],
+        [/^Liczę procent z liczby$/, 'Najpierw sprawdzam, ile to jest ten procent z liczby.'],
+        [/^Dodaję procent do liczby$/, 'Podwyżka o procent to liczba plus jej część.'],
+        [/^Odejmuję procent od liczby$/, 'Obniżka o procent to liczba minus jej część.'],
+        [/^Zapisuję część jako ułamek$/, 'Część dzielona przez całość mówi, jaki to kawałek całości.'],
+        [/^Zamieniam ułamek na procent$/, 'Ułamek razy 100% daje procent: ile setnych części całości to jest.'],
         [/^Zamieniam strony$/, 'Równość działa w obie strony, a niewiadomą wygodniej mieć po lewej.'],
         [/^Liczę prawą stronę$/, 'Po lewej jest już sama niewiadoma, więc wystarczy policzyć prawą stronę.'],
         [/^Mnożę obie strony przez /, (s) => /przez .*[a-z(]/.test(s.label)

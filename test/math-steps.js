@@ -309,5 +309,31 @@ pass += 3;
     ok('4f: tytuł', S.run('rozwiąż sin(x) = 1/2').explain.title === 'Równanie trygonometryczne');
 }
 
+// ── 4g: NWD, NWW, wierzchołek paraboli (plan „jak Photomath”, pkt 7) ──
+{
+    const T = q => { const r = S.run(q); return r && r.text; };
+    ok('4g: nwd(12, 18) = 6', T('nwd(12, 18)') === '6' && has('nwd(12, 18)', 'Rozkładam na czynniki pierwsze', '12 = 2 · 2 · 3\n18 = 2 · 3 · 3')
+        && has('nwd(12, 18)', 'Mnożę wspólne czynniki', 'NWD(12, 18) = 2 · 3 = 6'), st('nwd(12, 18)'));
+    ok('4g: NWD 12 18 (bez nawiasów, wielkie litery)', T('NWD 12 18') === '6', T('NWD 12 18'));
+    ok('4g: nww(4, 6) = 12', T('nww(4, 6)') === '12' && has('nww(4, 6)', 'Mnożę czynniki w najwyższej potędze', 'NWW(4, 6) = 2 · 2 · 3 = 12'), st('nww(4, 6)'));
+    ok('4g: względnie pierwsze', T('nwd(8, 15)') === '1' && T('nww(8, 15)') === '120', [T('nwd(8, 15)'), T('nww(8, 15)')]);
+    ok('4g: trzy liczby', T('nwd(12, 18, 30)') === '6' && T('nww(2, 3, 4)') === '12', [T('nwd(12, 18, 30)'), T('nww(2, 3, 4)')]);
+    ok('4g: wierzchołek x² − 4x + 3', T('wierzchołek x^2 - 4x + 3') === 'W = (2, −1)'
+        && has('wierzchołek x^2 - 4x + 3', 'Liczę q', 'q = f(2) = 2² − 4 · 2 + 3 = −1')
+        && has('wierzchołek x^2 - 4x + 3', 'Zapisuję postać kanoniczną', 'f(x) = (x − 2)² − 1'), st('wierzchołek x^2 - 4x + 3'));
+    ok('4g: wierzchołek z ułamkiem i a ≠ 1', T('wierzchołek 2x^2 + 3x - 2') === 'W = (−3/4, −25/8)', T('wierzchołek 2x^2 + 3x - 2'));
+    ok('4g: wierzchołek y = …', T('wierzchołek y = -x^2 + 2x') === 'W = (1, 1)', T('wierzchołek y = -x^2 + 2x'));
+}
+
+// ── 4h: procenty krok po kroku ──
+{
+    const T = q => { const r = S.run(q); return r && r.text; };
+    ok('4h: 20% z 150', T('kroki 20% z 150') === '30' && has('kroki 20% z 150', 'Zamieniam procent na ułamek', '20% = 20/100 = 1/5') && has('kroki 20% z 150', 'Mnożę ułamek przez liczbę', '1/5 · 150 = 30'), st('kroki 20% z 150'));
+    ok('4h: 150 + 20%', T('kroki 150 + 20%') === '180' && has('kroki 150 + 20%', 'Dodaję procent do liczby', '150 + 30 = 180'), st('kroki 150 + 20%'));
+    ok('4h: 200 − 15%', T('kroki 200 - 15%') === '170', T('kroki 200 - 15%'));
+    ok('4h: ile procent 30 z 120', T('kroki ile procent 30 z 120') === '25%' && has('kroki ile procent 30 z 120', 'Zamieniam ułamek na procent', '1/4 · 100% = 25%'), st('kroki ile procent 30 z 120'));
+    ok('4h: 12,5% z 80', T('kroki 12,5% z 80') === '10', T('kroki 12,5% z 80'));
+}
+
 console.log(`math-steps: ${pass} OK, ${fail} błędów`);
 process.exit(fail ? 1 : 0);

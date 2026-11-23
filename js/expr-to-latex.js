@@ -193,6 +193,7 @@
                 s += hold(c === '[' ? '\\left[' + inner + '\\right]' : '\\htmlData{formula=' + fid + '}{' + inner + '}');
                 i = j + 1; continue;
             }
+            if (c === '%') { s += hold('\\%'); i++; continue; } // 100% — znak procentu po liczbie
             if (c === '|') {
                 const j = p.indexOf('|', i + 1), inner = j > 0 ? pieceTex(p.slice(i + 1, j), fid) : null;
                 if (inner == null) return null;
