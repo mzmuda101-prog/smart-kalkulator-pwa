@@ -25,7 +25,7 @@ const extra = ['lim n→∞ (1-1/n)^2', 'lim x→-∞ sqrt(7-2x)(sqrt(15-8x)-sqr
     'lim x→0+ 1/x', 'lim n→∞ 5(1+1/n)^n', 'rozwiąż 2x + 3 = 11', 'rozwiąż x^2 = 9', 'kroki 3/4 - 1/6', 'pochodna sin(x^2)',
     'pochodna x/(x+1)', 'całka 1/(x^2+4)', 'całka sin(x)^2', 'rozwiąż x^2 + 1 = 0', 'pochodna 3x^2',
     'całka 1/(x^2-1)', 'całka x*sin(x)', 'całka (2x+1)^3', 'całka tan(x)^2', 'całka √x', 'całka sin(x) od 0 do pi', 'pochodna (3x+1)^5',
-    'pochodna √x', 'pochodna 5x^3', 'pochodna (x^2+1)/(x-1)', 'pochodna x^2*e^x', 'całka x^3/(x^2-1)', 'rozwiąż 5 - 2x ≥ 11', 'rozwiąż x^2 + 2 > 2x', 'rozwiąż x^2 + 1 < 0', 'rozwiąż x^2 - 4x + 4 > 0', 'rozwiąż -x^2 + 1 > 0', 'rozwiąż x + 1 > x'];
+    'pochodna √x', 'pochodna 5x^3', 'pochodna (x^2+1)/(x-1)', 'pochodna x^2*e^x', 'całka x^3/(x^2-1)', 'rozwiąż 5 - 2x ≥ 11', 'rozwiąż x^2 + 2 > 2x', 'rozwiąż x^2 + 1 < 0', 'rozwiąż x^2 - 4x + 4 > 0', 'rozwiąż -x^2 + 1 > 0', 'rozwiąż x + 1 > x', 'rozwiąż 2x + 3y = 12; 3x - 2y = 5', 'rozwiąż x = 2y, x + y = 9', 'rozwiąż x + y = 1, x + y = 2', 'rozwiąż x + y = 1, 2x + 2y = 2', 'rozwiąż 3x - y = 1, -x + 2y = 3'];
 
 const missing = new Set(), bad = [], dubs = new Set();
 const { FORMULAS } = require(path.join(root, 'js', 'step-formulas.js'));

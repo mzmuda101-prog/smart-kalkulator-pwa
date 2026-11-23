@@ -1,4 +1,4 @@
-# Przekazanie: kroki rozwiązania zrozumiałe — stan na 2026-11-23, v1.05.21
+# Przekazanie: kroki rozwiązania zrozumiałe — stan na 2026-11-23, v1.05.22
 
 Dla nowej rozmowy. Najpierw: `AGENTS.md`, `../ZASADY-AGENTOW.md`, plan `docs/superpowers/plans/2026-11-22-kroki-zrozumiale.md`
 (etapy 3b–3f, decyzje Mateusza, co zostało), raporty agentów `docs/superpowers/research/raport-{A,B,C}-*.md`.
@@ -23,6 +23,7 @@ Starsze przekazanie: `docs/superpowers/HANDOFF-wzory.md` (rysunek wzoru, klawiat
 | v1.05.19 | **sposoby**: 0/0 przy x → liczba ma drugi sposób de l'Hospital (`explain.methods`, `_prefer`/`_first` w `math-limits.js`), przełącznik `settings-seg` nad krokami; de l'Hospital pokazuje same pochodne przed uproszczeniem; bramki (rysunek, „dlaczego”, SymPy) sprawdzają każdy sposób |
 | v1.05.20 | ułamki: **błąd `3/5 : 9/10` = 1/150 naprawiony** (po „:” i „·” liczba/liczba to jeden ułamek, `colon` w drzewie, rysunek `{:}`); mnożenie i dzielenie ułamków po szkolnemu, dodawanie liczników z rachunkiem, „dlaczego” przy wspólnym mianowniku z liczbami (`step.dens`) |
 | v1.05.21 | **nierówności** liniowe i kwadratowe (`solveInequality` w `math-steps.js`): odwracanie znaku przy ujemnej, miejsca zerowe + „Odczytuję znak z paraboli”, przedziały ⟨ ⟩, ∪, ℝ, ∅, ℝ \\ {a}; bezpiecznik w punktach próbnych; rysunek zbiorów (`setTex` w `expr-to-latex.js`); wpis w ściądze |
+| v1.05.22 | **układy równań 2×2** (`solveSystem`): dwa sposoby (podstawianie, przeciwne współczynniki) w przełączniku, sprzeczny i nieoznaczony, sprawdzenie w obu równaniach, wynik liczony wzorami Cramera i porównany z krokami; separator „, ” albo „;” |
 
 ## Jak to działa (mapa)
 - Krok = `{ label, math, formula?: { id } }`. Fragment w `⟦…⟧` = miejsce użycia wzoru: rysowany kolorem akcentu,
@@ -63,13 +64,16 @@ Skrypt do zrzutu kroków do JSON: wzór w `HANDOFF` niżej (pliki w scratchpadzi
 Przegląd: rachunki, ułamki, potęgi, pierwiastki, wielomiany, rozkład, pochodne, całki, granice — są. Brakuje (kolejność propozycji,
 od najczęstszych w szkole):
 1. Nierówności — ZROBIONE v1.05.21 (liniowe, kwadratowe). Później: szkic paraboli z zaznaczonym zbiorem (Photomath), wymierne `1/x > 2`.
-2. Układy równań 2×2 (`x + y = 5, x − y = 1`) — dwa sposoby: podstawianie i przeciwne współczynniki (przełącznik sposobów już jest).
+2. Układy równań 2×2 — ZROBIONE v1.05.22. Później: klamra układu na rysunku, 3×3, sposób graficzny.
 3. Równania wymierne i upraszczanie ułamków algebraicznych (`1/x = 2`, `(x² − 1)/(x − 1)`) — dziedzina!
 4. Wykładnicze i logarytmiczne (`2^x = 8`, `log₂(x) = 3`, `3^(x+1) = 27`).
 5. Wartość bezwzględna, równania z pierwiastkiem (sprawdzenie odrzuca fałszywe rozwiązania).
 6. Trygonometryczne (`sin x = 1/2`) — rozwiązania ogólne z okresem.
 7. Procenty krok po kroku, NWD/NWW, funkcja kwadratowa (wierzchołek, postać kanoniczna).
 Każdy nowy typ: TDD + bramka SymPy (`npm run check:steps`, dopisać przykłady do `EXTRA` w `scripts/steps-check/dump.js`) + agent „słaby uczeń”.
+
+- Bramka SymPy w równaniach/nierównościach/układach sprawdza tylko rachunki na liczbach. Pomysł na następny krok bramki:
+  każde równanie w krokach musi być spełnione przez odpowiedź (przekształcenia równoważne) — złapałoby np. sklejone „23 + 3y”.
 
 ## Pułapki
 - **Nie sprawdzaj silnika przez `node -e`** (decimal.js) — skrypt w pliku, `require` modułów z `js/`, na końcu `process.exit(0)`.

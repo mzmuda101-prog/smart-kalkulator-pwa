@@ -74,7 +74,7 @@ ok('zestaw: 58/58 rysunków wraca do tego samego zadania', bad.length === 0, bad
     const extra = ['lim x→0 sin(3x)/x', 'lim x→0 tan(2x)/x', 'lim x→0 arcsin(2x)/x', 'lim x→0 arctg(3x)/x', 'lim x→0 ln(1+2x)/x',
         'lim x→0 (e^x-1)/x', 'lim x→0 (x - sin(x))/x^3', 'rozwiąż x^2 - 4x + 4 = 0', 'rozłóż x^2 - 9', 'rozwiąż x^2 - 2x - 1 = 0',
         'rozwiąż x^2 = 9', 'kroki 3/4 - 1/6', 'pochodna x/(x+1)', 'pochodna sin(x^2)', 'całka 1/(x^2+4)', 'całka sin(x)^2',
-        'całka cos(x)^2', 'całka tan(x)^2', 'całka x^2 od 0 do 1', 'rozwiąż 5 - 2x ≥ 11', 'rozwiąż x^2 + 2 > 2x', 'rozwiąż x^2 + 1 < 0', 'rozwiąż x^2 - 4x + 4 > 0', 'rozwiąż x^2 - 2x - 1 < 0'];
+        'całka cos(x)^2', 'całka tan(x)^2', 'całka x^2 od 0 do 1', 'rozwiąż 5 - 2x ≥ 11', 'rozwiąż x^2 + 2 > 2x', 'rozwiąż x^2 + 1 < 0', 'rozwiąż x^2 - 4x + 4 > 0', 'rozwiąż x^2 - 2x - 1 < 0', 'rozwiąż 2x + 3y = 12; 3x - 2y = 5', 'rozwiąż x = 2y, x + y = 9', 'rozwiąż x + y = 1, x + y = 2', 'rozwiąż x + y = 1, 2x + 2y = 2', 'rozwiąż 2x + y = 1, x - y = 1'];
     for (const q of ZESTAW.map(z => z.input).concat(sciaga, extra)) {
         let r; try { r = S.run(q); } catch { continue; }
         if (!r || !r.explain || !r.explain.steps) continue;

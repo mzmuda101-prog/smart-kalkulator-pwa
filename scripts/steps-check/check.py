@@ -284,7 +284,7 @@ def run(data) -> list:
     for prob in data:
         var, ctx = context(prob)
         PARAM_A[0] = prob["title"] == "Pochodna"
-        numbers_only = prob["title"] in ("Równanie", "Nierówność")
+        numbers_only = prob["title"] in ("Równanie", "Nierówność", "Układ równań")
         for si, st in enumerate(prob["steps"]):
             for line in st["lines"]:
                 prev = None

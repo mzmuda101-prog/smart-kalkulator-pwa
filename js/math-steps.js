@@ -619,7 +619,8 @@
         // [EN] x = 52 + 65: po lewej już samo x — tylko liczę prawą stronę, sprawdzenie nic by nie dodało
         var lone = L.length === 1 && eq(L[0].c, ONE) && Object.keys(L[0].e).length === 1 && L[0].e[Object.keys(L[0].e)[0]] === 1 && !varsOf(Rr).length;
         if (lone) ctx.noCheck = true;
-        var merged = rawL.length !== L.length || rawR.length !== Rr.length; // [EN] sam inny zapis (x/2 → (1/2)x) to nie krok
+        var nz = function (list) { return list.filter(function (t) { return !isZero(t.c); }).length; };
+        var merged = nz(rawL) !== L.length || nz(rawR) !== Rr.length; // [EN] sam inny zapis (x/2 → (1/2)x) to nie krok
         if (reduced !== steps[steps.length - 1].math && (merged || parens)) {
             steps.push({ label: lone ? 'Liczę prawą stronę' : parens && opened === reduced ? 'Opuszczam nawiasy' : 'Porządkuję i redukuję wyrazy podobne', math: reduced });
         }
@@ -654,7 +655,7 @@
                 }
             }
             if (moved !== steps[steps.length - 1].math) {
-                steps.push({ label: 'Przenoszę ' + v + ' na lewo, liczby na prawo', math: moved });
+                steps.push({ label: xR.length && !cL.length ? 'Przenoszę ' + v + ' na lewo' : !xR.length && cL.length ? 'Przenoszę liczby na prawo' : 'Przenoszę ' + v + ' na lewo, liczby na prawo', math: moved });
             }
             if (!eq(a, ONE) && !isInt(a)) { // [EN] (1/2)x = 2 → mnożę przez 2, nie dzielę przez 1/2 (raport E, R3)
                 var inv = div(ONE, a);
@@ -771,6 +772,111 @@
             parts = wantNeg ? (closed ? [{ point: true, lo: roots[0] }] : []) : (closed ? [{ lo: null, hi: null }] : [{ lo: null, hi: null, minus: roots[0] }]);
         } else parts = wantNeg ? [] : [{ lo: null, hi: null }];
         return answer('');
+    }
+
+    // ── Układ dwóch równań liniowych (plan „jak Photomath”, pkt 2): podstawianie i przeciwne współczynniki ──
+    function solveSystem(parts) {
+        if (parts.some(function (p) { return !p.lhs || p.rel !== '='; })) throw new NotSupported();
+        var ctx = { dec: parts.some(function (p) { return hasDecimal(p.lhs) || hasDecimal(p.rhs); }) };
+        var diffs = parts.map(function (p) { return collect(termsOf(p.lhs).concat(negTerms(termsOf(p.rhs)))); });
+        var vars = varsOf(diffs[0].concat(diffs[1])).sort();
+        if (vars.length !== 2) throw new NotSupported();
+        var X = vars[0], Y = vars[1];
+        // [EN] a·x + b·y = c, tylko liniowo
+        var lin = diffs.map(function (d) {
+            var row = { a: ZERO, b: ZERO, c: ZERO };
+            d.forEach(function (t) {
+                var ks = Object.keys(t.e);
+                if (!ks.length) row.c = neg(t.c);
+                else if (ks.length === 1 && t.e[ks[0]] === 1) row[ks[0] === X ? 'a' : 'b'] = t.c;
+                else throw new NotSupported();
+            });
+            return row;
+        });
+        var eqText = function (r) {
+            var list = [];
+            if (!isZero(r.a)) list.push({ c: r.a, e: (function () { var e = {}; e[X] = 1; return e; })() });
+            if (!isZero(r.b)) list.push({ c: r.b, e: (function () { var e = {}; e[Y] = 1; return e; })() });
+            return showTerms(list, ctx, true) + ' = ' + fmt(r.c, ctx);
+        };
+        var head = [{ label: 'Układ równań', math: parts.map(function (p) { return show(p.lhs, ctx) + ' = ' + show(p.rhs, ctx); }).join('\n') }];
+        var tidy = lin.map(eqText).join('\n');
+        if (tidy !== head[0].math) head.push({ label: 'Porządkuję równania', math: tidy });
+        var A = lin[0], B = lin[1], det = sub(mul(A.a, B.b), mul(B.a, A.b));
+        if (isZero(det)) { // [EN] lewe strony proporcjonalne: sprzeczny albo nieoznaczony
+            var k = !isZero(A.a) ? div(B.a, A.a) : div(B.b, A.b), same = eq(mul(A.c, k), B.c);
+            var steps0 = head.concat([{ label: 'Lewe strony są proporcjonalne', math: '(' + eqText(B).split(' = ')[0] + ') = ' + fmtParen(k, ctx) + ' · (' + eqText(A).split(' = ')[0] + ')' },
+                { label: same ? 'Prawe strony też — to jedno równanie' : 'Prawe strony nie — układ jest sprzeczny', math: fmt(B.c, ctx) + (same ? ' = ' : ' ≠ ') + fmtParen(k, ctx) + ' · ' + fmtParen(A.c, ctx) }]);
+            var free = !isZero(A.b) ? Y + ' = ' + showTerms(collect([{ c: div(A.c, A.b), e: {} }, { c: neg(div(A.a, A.b)), e: (function () { var e = {}; e[X] = 1; return e; })() }]), ctx) : X + ' = ' + fmt(div(A.c, A.a), ctx);
+            var text0 = same ? 'Nieskończenie wiele rozwiązań: ' + free : 'Brak rozwiązań';
+            steps0.push({ label: 'Odpowiedź', math: text0 });
+            return done('Układ równań', text0, null, steps0);
+        }
+        var xv = div(sub(mul(A.c, B.b), mul(B.c, A.b)), det), yv = div(sub(mul(A.a, B.c), mul(B.a, A.c)), det);
+        // [EN] bezpiecznik: wynik spełnia oba równania wprowadzone przez użytkownika, dokładnie
+        var env = {}; env[X] = xv; env[Y] = yv;
+        parts.forEach(function (p) { if (!eq(evalExact(p.lhs, env), evalExact(p.rhs, env))) throw new NotSupported(); });
+        var plugged = function (n) { return show(plugIn(plugIn(n, X, xv), Y, yv), ctx); };
+        var check = { label: 'Sprawdzenie', math: parts.map(function (p) {
+            var l = evalExact(p.lhs, env), lt = plugged(p.lhs), rt = plugged(p.rhs);
+            return lt + (lt === fmt(l, ctx) ? '' : ' = ' + fmt(l, ctx)) + (rt === fmt(l, ctx) ? '' : ' = ' + rt) + ' ✓';
+        }).join('\n') };
+        var ans = X + ' = ' + fmt(xv, ctx) + '\n' + Y + ' = ' + fmt(yv, ctx);
+        var inner = function (src) { // [EN] kroki równania z jedną niewiadomą, bez nagłówka, sprawdzenia i odpowiedzi
+            var pr = parseEquationParts(src, {}), r = solveEquation(pr.lhs, pr.rhs);
+            return r.explain.steps.filter(function (st, i) { return i && st.label !== 'Sprawdzenie' && st.label !== 'Odpowiedź'; });
+        };
+        var ord = ['pierwszego', 'drugiego'];
+        // ── podstawianie: niewiadoma ze współczynnikiem ±1, najlepiej y z pierwszego ──
+        var pick = [[0, 'b'], [0, 'a'], [1, 'b'], [1, 'a']].filter(function (q) { var c0 = lin[q[0]][q[1]]; return eq(c0, ONE) || eq(c0, neg(ONE)); })[0] || [0, isZero(A.b) ? 'a' : 'b'];
+        var I = pick[0], key = pick[1], W = key === 'b' ? Y : X, O = key === 'b' ? X : Y, oKey = key === 'b' ? 'a' : 'b';
+        var row = lin[I], other = lin[1 - I], kw = row[key];
+        var oe = {}; oe[O] = 1;
+        var cT = { c: div(row.c, kw), e: {} }, vT = { c: neg(div(row[oKey], kw)), e: oe };
+        // [EN] jak w zeszycie: y = 3x − 1, ale y = 5 − x (bez minusa na początku)
+        var exprTerms = (vT.c.n < 0n && cT.c.n > 0n ? [cT, vT] : [vT, cT]).filter(function (t) { return !isZero(t.c); });
+        var expr = exprTerms.length ? showTerms(exprTerms, ctx, true) : '0';
+        var put = function (coef, txt, first) { // [EN] k · (wyrażenie) z dobrym znakiem; liczba po liczbie z kropką: 2 · 3, nie 23
+            if (isZero(coef)) return '';
+            var abs = coef.n < 0n ? neg(coef) : coef, body = eq(abs, ONE) ? txt : fmt(abs, ctx) + (/^[\d(]/.test(txt) && !/^\(.*[+−].*\)$/.test(txt) ? ' · ' : '') + txt;
+            return (first ? (coef.n < 0n ? '−' : '') : (coef.n < 0n ? ' − ' : ' + ')) + body;
+        };
+        // [EN] nawias tylko wokół sumy albo gdy przed wyrażeniem stoi liczba: 3x − 2(4 − x), ale 2y + y
+        var wrapped = exprTerms.length > 1 || !eq(other[key].n < 0n ? neg(other[key]) : other[key], ONE) || /^−/.test(expr) ? '(' + expr + ')' : expr;
+        var subst = (oKey === 'a' ? put(other[oKey], O, true) + put(other[key], wrapped, isZero(other[oKey])) : put(other[key], wrapped, true) + put(other[oKey], O, false)) + ' = ' + fmt(other.c, ctx);
+        var oVal = O === X ? xv : yv, wVal = W === X ? xv : yv;
+        var exprAst = parseTokens(tokenize(expr.replace(/−/g, '-'), {}));
+        var back = show(plugIn(exprAst, O, oVal), ctx);
+        var subSteps = head.concat([
+            { label: 'Wyznaczam ' + W + ' z ' + ord[I] + ' równania', math: W + ' = ' + expr },
+            { label: 'Podstawiam do ' + ord[1 - I] + ' równania', math: subst }
+        ], inner(subst), [
+            { label: 'Wstawiam ' + O + ' = ' + fmt(oVal, ctx), math: W + ' = ' + back + (back === fmt(wVal, ctx) ? '' : ' = ' + fmt(wVal, ctx)) },
+            check, { label: 'Odpowiedź', math: ans }
+        ]);
+        // ── przeciwne współczynniki: usuwam y (albo x, gdy już są przeciwne) ──
+        var eKey = eq(A.a, neg(B.a)) && !eq(A.b, neg(B.b)) ? 'a' : 'b', keep = eKey === 'b' ? 'a' : 'b', V = keep === 'a' ? X : Y, U = keep === 'a' ? Y : X;
+        var m1 = B[eKey], m2 = neg(A[eKey]);
+        if (isInt(m1) && isInt(m2)) { var g = R(gcd(m1.n < 0n ? -m1.n : m1.n, m2.n < 0n ? -m2.n : m2.n)); m1 = div(m1, g); m2 = div(m2, g); }
+        if (m1.n < 0n) { m1 = neg(m1); m2 = neg(m2); }
+        var scale = function (r, m) { return { a: mul(r.a, m), b: mul(r.b, m), c: mul(r.c, m) }; };
+        var s1 = scale(A, m1), s2 = scale(B, m2), sumK = add(s1[keep], s2[keep]), sumC = add(s1.c, s2.c);
+        var elSteps = head.slice();
+        if (!eq(m1, ONE) || !eq(m2, ONE)) {
+            var what = [eq(m1, ONE) ? '' : 'pierwsze przez ' + fmt(m1, ctx), eq(m2, ONE) ? '' : 'drugie przez ' + fmt(m2, ctx)].filter(Boolean).join(', ');
+            elSteps.push({ label: 'Mnożę ' + what, math: eqText(s1) + '\n' + eqText(s2) });
+        }
+        var ve = {}; ve[V] = 1;
+        elSteps.push({ label: 'Dodaję równania stronami', math: showTerms([{ c: sumK, e: ve }], ctx, true) + ' = ' + fmt(sumC, ctx) });
+        var vVal = V === X ? xv : yv;
+        if (!eq(sumK, ONE)) elSteps.push({ label: 'Dzielę obie strony przez ' + fmt(sumK, ctx), math: V + ' = ' + fmt(sumC, ctx) + '/' + fmtDen(sumK, ctx) + ' = ' + fmt(vVal, ctx) });
+        var into = isZero(A[eKey]) ? 1 : 0, back2 = put(lin[into][keep], fmtParen(vVal, ctx), true);
+        var withV = (keep === 'a' ? back2 + put(lin[into][eKey], U, !back2) : put(lin[into][eKey], U, true) + put(lin[into][keep], fmtParen(vVal, ctx), false)) + ' = ' + fmt(lin[into].c, ctx);
+        elSteps = elSteps.concat([{ label: 'Wstawiam ' + V + ' = ' + fmt(vVal, ctx) + ' do ' + ord[into] + ' równania', math: withV }], inner(withV), [check, { label: 'Odpowiedź', math: ans, final: true }]);
+        var text = X + ' = ' + fmt(xv, ctx) + ', ' + Y + ' = ' + fmt(yv, ctx);
+        var res = done('Układ równań', text, null, subSteps);
+        res.explain.methods = [{ label: 'Podstawianie', steps: subSteps }, { label: 'Przeciwne współczynniki', steps: elSteps }];
+        return res;
     }
 
     function solveForVariable(diff, v, steps, ctx) { // [EN] kilka zmiennych: tylko liniowo względem v
@@ -1221,6 +1327,11 @@
     }
 
     function runParsed(d, opts) {
+        // [EN] układ: „x + y = 5, x − y = 1” albo ze średnikiem; przecinek bez spacji to ułamek dziesiętny (2,5)
+        var eqs = d.mode === 'simplify' || d.mode === 'factor' ? [d.src] : d.src.split(/\s*;\s*|,\s+(?=[^,]*=)/);
+        if (eqs.length === 2 && eqs.every(function (e) { return e.indexOf('=') >= 0; })) {
+            return solveSystem(eqs.map(function (e) { return parseEquationParts(e, opts || {}); }));
+        }
         var parts = parseEquationParts(d.src, opts || {});
         if (parts.lhs) {
             if (d.mode === 'simplify' || d.mode === 'factor') return null;

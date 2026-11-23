@@ -50,7 +50,7 @@
     /** @type {[RegExp, string | ((s: Step, title: string, c: Ctx) => string | null)][]} */
     const RULES = [
         // ── stwierdzenia: bez zdania ──
-        [/^(Wynik|Odpowiedź|Równanie|Nierówność|Funkcja|Całka|Działanie|Wyrażenie|Wynik w przybliżeniu)$/, ''],
+        [/^(Wynik|Odpowiedź|Równanie|Układ równań|Nierówność|Funkcja|Całka|Działanie|Wyrażenie|Wynik w przybliżeniu)$/, ''],
         // ── granice ──
         [/^Granica$/, (s, _t, c) => {
             const m = /\s\s\[⟦?([^\]⟧]+)⟧?\]$/.exec(s.math);
@@ -113,7 +113,8 @@
         [/^Dzielę obie strony przez /, 'Chcę, żeby niewiadoma została sama. Dzieląc obie strony przez tę samą liczbę, nie zmieniam równania.'],
         [/^Sprawdzenie$/, (_s, title) => /Całka/.test(title)
             ? 'Pochodna wyniku musi dać funkcję spod całki. Wtedy wiemy, że całka jest dobra.'
-            : 'Wstawiam wynik do równania: lewa strona (L) i prawa (P) muszą dać to samo.'],
+            : /Układ/.test(title) ? 'Wstawiam obie liczby do obu równań: każde musi wyjść prawdziwe.'
+                : 'Wstawiam wynik do równania: lewa strona (L) i prawa (P) muszą dać to samo.'],
         [/^Odczytuję współczynniki$/, 'Wzory na deltę i rozwiązania potrzebują liczb $a$, $b$, $c$ z postaci $ax^{2}+bx+c=0$.'],
         [/^Liczę deltę$/, 'Wstawiam $a$, $b$, $c$ z tego równania do wzoru na deltę.'],
         [/^Upraszczam pierwiastek z delty$/, 'Wyciągamy spod pierwiastka pełny kwadrat, żeby wynik był prostszy.'],
@@ -146,6 +147,15 @@
             const sign = p.between === p.up ? 'ujemne' : 'dodatnie';
             return arms + ': wartości ' + sign + ' są ' + (p.between ? 'między miejscami zerowymi.' : 'na zewnątrz miejsc zerowych.');
         }],
+        [/^Porządkuję równania$/, 'Ustawiam oba równania tak samo: niewiadome po lewej w tej samej kolejności, liczba po prawej.'],
+        [/^Podstawiam do (pierwszego|drugiego) równania$/, 'W miejsce wyznaczonej niewiadomej wpisuję jej wyrażenie. Zostaje równanie z jedną niewiadomą.'],
+        [/^Wstawiam \w = .* do (pierwszego|drugiego) równania$/, 'Znam już jedną niewiadomą, więc z dowolnego równania wyliczę drugą.'],
+        [/^Wstawiam \w = [^ ]+$/, 'Znam już jedną niewiadomą, więc wstawiam ją do wyrażenia na drugą.'],
+        [/^Mnożę (pierwsze|drugie) przez/, 'Chcę, żeby przy jednej niewiadomej stały przeciwne liczby. Wtedy po dodaniu równań ta niewiadoma zniknie.'],
+        [/^Dodaję równania stronami$/, 'Lewą stronę dodaję do lewej, prawą do prawej. Przeciwne wyrazy się znoszą i zostaje jedna niewiadoma.'],
+        [/^Lewe strony są proporcjonalne$/, 'Drugie równanie po lewej to pierwsze pomnożone przez liczbę, więc oba opisują tę samą prostą albo proste równoległe.'],
+        [/^Prawe strony też/, 'Oba równania mówią to samo, więc każda para liczb spełniająca jedno spełnia też drugie.'],
+        [/^Prawe strony nie/, 'Te same lewe strony nie mogą dać różnych wyników, więc żadna para liczb nie spełni obu równań.'],
         [/^Zamieniam strony$/, 'Równość działa w obie strony, a niewiadomą wygodniej mieć po lewej.'],
         [/^Liczę prawą stronę$/, 'Po lewej jest już sama niewiadoma, więc wystarczy policzyć prawą stronę.'],
         [/^Mnożę obie strony przez /, 'Niewiadoma jest podzielona przez liczbę, więc mnożenie obu stron cofa to dzielenie.'],

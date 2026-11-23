@@ -229,5 +229,25 @@ pass += 3;
     ok('4a: tytuł Nierówność', S.run('rozwiąż 2x + 3 > 7').explain.title === 'Nierówność');
 }
 
+// ── 4b: układy równań 2×2 (plan „jak Photomath”, pkt 2): podstawianie i przeciwne współczynniki ──
+{
+    const R1 = 'rozwiąż x + y = 5, x - y = 1';
+    const r = S.run(R1), m = r && r.explain && r.explain.methods;
+    ok('4b: x + y = 5, x − y = 1 → x = 3, y = 2', r && r.text === 'x = 3, y = 2', r && r.text);
+    ok('4b: tytuł i dwa sposoby', r && r.explain.title === 'Układ równań' && m && m.map(x => x.label).join('|') === 'Podstawianie|Przeciwne współczynniki', m && m.map(x => x.label));
+    const sub = m ? m[0].steps : [], el = m ? m[1].steps : [];
+    ok('4b: podstawianie — wyznaczam y, podstawiam', sub.some(x => x.label === 'Wyznaczam y z pierwszego równania' && x.math === 'y = 5 − x')
+        && sub.some(x => x.label === 'Podstawiam do drugiego równania' && x.math === 'x − (5 − x) = 1')
+        && sub.some(x => x.label === 'Wstawiam x = 3' && x.math === 'y = 5 − 3 = 2'), sub);
+    ok('4b: przeciwne współczynniki — dodaję stronami', el.some(x => x.label === 'Dodaję równania stronami' && x.math === '2x = 6'), el);
+    ok('4b: obie drogi kończą sprawdzeniem i tą samą odpowiedzią', [sub, el].every(s => s.some(x => x.label === 'Sprawdzenie') && s[s.length - 1].math === 'x = 3\ny = 2' && s[s.length - 1].final));
+    ok('4b: mnożenie równania, gdy współczynniki nie są przeciwne', S.run('rozwiąż 2x + 3y = 12; 3x - 2y = 5').text === 'x = 3, y = 2'
+        && S.run('rozwiąż 2x + 3y = 12; 3x - 2y = 5').explain.methods[1].steps.some(x => /^Mnożę/.test(x.label)), S.run('rozwiąż 2x + 3y = 12; 3x - 2y = 5').explain.methods[1].steps);
+    ok('4b: ułamkowe rozwiązanie', S.run('rozwiąż 2x + y = 1, x - y = 1').text === 'x = 2/3, y = −1/3', S.run('rozwiąż 2x + y = 1, x - y = 1').text);
+    ok('4b: sprzeczny', S.run('rozwiąż x + y = 1, x + y = 2').text === 'Brak rozwiązań', S.run('rozwiąż x + y = 1, x + y = 2').text);
+    ok('4b: nieoznaczony', /^Nieskończenie wiele/.test(S.run('rozwiąż x + y = 1, 2x + 2y = 2').text), S.run('rozwiąż x + y = 1, 2x + 2y = 2').text);
+    ok('4b: przecinek dziesiętny nie dzieli', S.run('rozwiąż x + 2,5 = 4').text === 'x = 1,5', S.run('rozwiąż x + 2,5 = 4').text);
+}
+
 console.log(`math-steps: ${pass} OK, ${fail} błędów`);
 process.exit(fail ? 1 : 0);

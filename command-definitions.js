@@ -195,6 +195,7 @@
                     { syntax: 'rozwiąż równanie', syntaxAlt: 'solve equation', command: 'rozwiąż 3(x - 2) = x + 4', yields: 'x = 5', description: 'liniowe; samo równanie też działa' },
                     { syntax: 'rozwiąż kwadratowe', syntaxAlt: 'solve quadratic', command: 'rozwiąż x^2 - 5x + 6 = 0', yields: 'x₁ = 2, x₂ = 3', description: 'przez wyróżnik Δ' },
                     { syntax: 'rozwiąż wielomian', command: 'rozwiąż x^3 - 6x^2 + 11x - 6 = 0', yields: 'x₁ = 1, x₂ = 2, x₃ = 3', description: 'gdy ma pierwiastek wymierny' },
+                    { syntax: 'rozwiąż układ równań', syntaxAlt: 'solve system', command: 'rozwiąż x + y = 5, x - y = 1', yields: 'x = 3, y = 2', description: 'dwa sposoby: podstawianie i przeciwne współczynniki; równania rozdziela przecinek ze spacją albo średnik' },
                     { syntax: 'rozwiąż nierówność', syntaxAlt: 'solve inequality', command: 'rozwiąż x^2 - 5x + 6 >= 0', yields: 'x ∈ (−∞, 2⟩ ∪ ⟨3, +∞)', description: 'liniowe i kwadratowe; znaki < > <= >=' },
                     { syntax: 'uprość wyrażenie', syntaxAlt: ['rozwiń', 'simplify', 'expand'], command: 'uprość (x + 1)^2 + 2x', yields: 'x² + 4x + 1', description: 'nawiasy i wyrazy podobne' },
                     { syntax: 'rozłóż wyrażenie', syntaxAlt: 'factor', command: 'rozłóż x^2 - 5x + 6', yields: '(x − 2)(x − 3)', description: 'rozkład na czynniki' },
