@@ -151,7 +151,7 @@
             return arms + ': wartości ' + sign + ' są ' + (p.between ? 'między miejscami zerowymi.' : 'na zewnątrz miejsc zerowych.');
         }],
         [/^Porządkuję równania$/, 'Ustawiam oba równania tak samo: niewiadome po lewej w tej samej kolejności, liczba po prawej.'],
-        [/^Podstawiam do (pierwszego|drugiego) równania$/, 'W miejsce wyznaczonej niewiadomej wpisuję jej wyrażenie. Zostaje równanie z jedną niewiadomą.'],
+        [/^Podstawiam do (pierwszego|drugiego) równania$/, 'Zamiast tej litery wpisuję to, co wyszło w poprzednim kroku.'],
         [/^Wstawiam \w = .* do (pierwszego|drugiego) równania$/, 'Znam już jedną niewiadomą, więc z dowolnego równania wyliczę drugą.'],
         [/^Wstawiam \w = [^ ]+$/, 'Znam już jedną niewiadomą, więc wstawiam ją do wyrażenia na drugą.'],
         [/^Mnożę (pierwsze|drugie) przez/, 'Chcę, żeby przy jednej niewiadomej stały przeciwne liczby. Wtedy po dodaniu równań ta niewiadoma zniknie.'],
@@ -169,7 +169,7 @@
         [/^Wartość bezwzględna jest zerem tylko dla zera$/, 'Odległość od zera wynosi zero tylko wtedy, gdy wnętrze jest zerem.'],
         [/^Wartość bezwzględna jest dodatnia poza zerem$/, 'Odległość od zera jest dodatnia wszędzie, poza punktem, w którym wnętrze jest zerem.'],
         [/^Pierwiastek nie jest ujemny$/, 'Pierwiastek kwadratowy nigdy nie daje liczby ujemnej, więc równanie nie ma rozwiązań.'],
-        [/^Podnoszę obie strony do kwadratu$/, 'Kwadrat usuwa pierwiastek. Może jednak dodać fałszywe rozwiązania, więc na końcu każde sprawdzę.'],
+        [/^Podnoszę obie strony do kwadratu$/, 'Po obu stronach stoi ta sama liczba, więc ich kwadraty też są równe, a pierwiastek znika.'],
         [/^Odrzucam fałszywe rozwiązanie$/, 'Ta liczba spełnia równanie po podniesieniu do kwadratu, ale w oryginale pierwiastek równałby się liczbie ujemnej.'],
         [/^Sprawdzam rozwiązania$/, 'Po podniesieniu do kwadratu sprawdzam każde rozwiązanie w równaniu wyjściowym.'],
         [/^(Sinus|Cosinus) przyjmuje wartości od −1 do 1$/, 'Ta liczba leży poza przedziałem od −1 do 1, więc żaden kąt jej nie daje.'],
@@ -186,17 +186,17 @@
         [/^Liczę p$/, 'Wstawiam $a$ i $b$ z tej funkcji; $p$ to pierwsza współrzędna wierzchołka.'],
         [/^Liczę q$/, 'Wierzchołek leży na wykresie, więc jego wysokość to wartość funkcji w punkcie $p$.'],
         [/^Zapisuję postać kanoniczną$/, 'Postać $a(x-p)^{2}+q$ od razu pokazuje wierzchołek i to, czy parabola idzie w górę, czy w dół.'],
-        [/^Zamieniam procent na ułamek$/, 'Procent to setna część, więc dzielę przez 100.'],
+        [/^Zamieniam procent na ułamek$/, 'Liczę, ile to setnych: liczbę procentów dzielę przez 100.'],
         [/^Mnożę ułamek przez liczbę$/, 'Procent z liczby to ta część liczby, więc mnożę ułamek przez nią.'],
         [/^Liczę procent z liczby$/, 'Najpierw sprawdzam, ile to jest ten procent z liczby.'],
-        [/^Dodaję procent do liczby$/, 'Podwyżka o procent to liczba plus jej część.'],
-        [/^Odejmuję procent od liczby$/, 'Obniżka o procent to liczba minus jej część.'],
+        [/^Dodaję procent do liczby$/, 'Do wyjściowej kwoty dokładam część policzoną przed chwilą.'],
+        [/^Odejmuję procent od liczby$/, 'Od wyjściowej kwoty zabieram część policzoną przed chwilą.'],
         [/^Zapisuję część jako ułamek$/, 'Część dzielona przez całość mówi, jaki to kawałek całości.'],
         [/^Zamieniam ułamek na procent$/, 'Ułamek razy 100% daje procent: ile setnych części całości to jest.'],
         [/^Zamieniam strony$/, 'Równość działa w obie strony, a niewiadomą wygodniej mieć po lewej.'],
         [/^Liczę prawą stronę$/, 'Po lewej jest już sama niewiadoma, więc wystarczy policzyć prawą stronę.'],
         [/^Mnożę obie strony przez /, (s) => /przez .*[a-z(]/.test(s.label)
-            ? 'Mianownik nie jest zerem (to daje dziedzina), więc mnożę przez niego obie strony i ułamek znika.'
+            ? 'Po pomnożeniu x wychodzi z dołu ułamka, a liczby spoza dziedziny odrzucę na końcu.'
             : 'Mnożę przez odwrotność liczby stojącej przy niewiadomej, żeby niewiadoma została sama.'],
         [/^Wyznaczam dziedzinę$/, (s) => / ≥ 0/.test(s.math) ? 'Pierwiastek kwadratowy liczymy tylko z liczb nieujemnych i sam nie jest ujemny.'
             : / > 0/.test(s.math) ? 'Logarytm istnieje tylko dla liczb dodatnich, więc argument musi być większy od zera.'

@@ -48,6 +48,20 @@ const COVER = [
     ['rozwiąż tg(x) = 1', 'okresowosc', undefined],
     ['rozwiąż 4^x = 2^(x+3)', 'rownosc-poteg', 'a = 2'],
     ['rozwiąż 2^x = 5', 'definicja-logarytmu', 'a = 2, b = 5'],
+    // Task 5: układy, wymierne, pierwiastek, NWD/NWW, procenty, ułamki
+    ['rozwiąż 2x + y = 7, x - y = 2', 'uklad-podstawianie', undefined],
+    ['rozwiąż 2x + y = 7, x - y = 2', 'uklad-przeciwne', undefined],
+    ['rozwiąż (x+1)/(x-2) = 3', 'rownanie-wymierne', undefined],
+    ['rozwiąż (x+3)/(x-1) = (x-1)/(x+1)', 'rownanie-wymierne', undefined],
+    ['rozwiąż √(x+3) = x - 3', 'rownanie-z-pierwiastkiem', undefined],
+    ['nwd(12, 18)', 'nwd-nww', undefined],
+    ['nww(4, 6)', 'nwd-nww', undefined],
+    ['kroki 20% z 150', 'procent-z-liczby', 'p = 20, B = 150'],
+    ['kroki 150 + 20%', 'zmiana-o-procent', 'p = 20, B = 150'],
+    ['kroki ile procent 30 z 120', 'procent-z-liczby', undefined],
+    ['kroki 3/4 - 1/6', 'wspolny-mianownik', undefined],
+    ['kroki 2/3 * 9/4', 'mnozenie-ulamkow', undefined],
+    ['kroki 3/5 : 9/10', 'dzielenie-ulamkow', undefined],
 ];
 
 for (const [q, id, here] of COVER) {
@@ -59,6 +73,12 @@ for (const [q, id, here] of COVER) {
     const got = st[0].formula.here;
     ok(q + ' → ' + id + ': liczby z zadania', got === here, got);
     if (got) ok(q + ' → ' + id + ': liczby narysowane bez zapisu z klawiatury', !leaks(got), stepToLatex(got));
+}
+
+// pokrycie (spec, cel 1): każdy typ zadania z tabeli ma co najmniej jeden dymek w każdym sposobie
+for (const q of [...new Set(COVER.map(c => c[0]))]) {
+    const r = S.run(q);
+    for (const m of (r.explain.methods || [r.explain])) ok(q + (m.label ? ' [' + m.label + ']' : '') + ': co najmniej jeden dymek', m.steps.some(s => s.formula), m.steps.map(s => s.label));
 }
 
 console.log(`step-popovers: ${pass} ok, ${fail} błędów`);

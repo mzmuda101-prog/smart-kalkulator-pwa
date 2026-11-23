@@ -742,7 +742,7 @@
         }
         steps.push({ label: 'Wyznaczam dziedzinę', math: A + ' ≥ 0' + (hasVars(other) ? '\n' + B + ' ≥ 0' : '') });
         var sq = A + ' = ' + (hasVars(other) || evalExact(other, {}).n < 0n || !isInt(evalExact(other, {})) ? '(' + B + ')²' : B + '²');
-        steps.push({ label: 'Podnoszę obie strony do kwadratu', math: sq });
+        steps.push({ label: 'Podnoszę obie strony do kwadratu', math: sq.replace(/ = (.*)$/, ' = ⟦$1⟧'), formula: { id: 'rownanie-z-pierwiastkiem' } });
         var inn = innerSolve(sq.replace(/²/g, '^2'));
         steps = steps.concat(inn.steps);
         var good = [], bad = [];
@@ -950,14 +950,15 @@
         var cleared;
         if (A.den && B.den && bare(A.den) === bare(B.den)) {
             cleared = bare(A.num) + ' = ' + bare(B.num);
-            steps.push({ label: 'Mnożę obie strony przez ' + wrap(A.den), math: cleared });
+            steps.push({ label: 'Mnożę obie strony przez ' + wrap(A.den), math: '⟦' + bare(A.num) + '⟧ = ⟦' + bare(B.num) + '⟧', formula: { id: 'rownanie-wymierne' } });
         } else if (A.den && B.den) {
             cleared = times(A.num, B.den) + ' = ' + times(B.num, A.den);
-            steps.push({ label: 'Mnożę na krzyż', math: cleared });
+            steps.push({ label: 'Mnożę na krzyż', math: '⟦' + times(A.num, B.den) + '⟧ = ⟦' + times(B.num, A.den) + '⟧', formula: { id: 'rownanie-wymierne' } });
         } else {
             var f = A.den ? A : B, o = A.den ? B : A;
             cleared = A.den ? bare(f.num) + ' = ' + times(o.num, f.den) : times(o.num, f.den) + ' = ' + bare(f.num);
-            steps.push({ label: 'Mnożę obie strony przez ' + wrap(f.den), math: cleared });
+            var tm = '⟦' + times(o.num, f.den) + '⟧'; // [EN] kolor: strona pomnożona przez mianownik
+            steps.push({ label: 'Mnożę obie strony przez ' + wrap(f.den), math: A.den ? bare(f.num) + ' = ' + tm : tm + ' = ' + bare(f.num), formula: { id: 'rownanie-wymierne' } });
         }
         var pr = parseEquationParts(cleared.replace(/−/g, '-').replace(/·/g, '*'), {});
         var inner = solveEquation(pr.lhs, pr.rhs);
@@ -1294,7 +1295,7 @@
         var back = show(plugIn(exprAst, O, oVal), ctx);
         var subSteps = head.concat([
             { label: 'Wyznaczam ' + W + ' z ' + ord[I] + ' równania', math: W + ' = ' + expr },
-            { label: 'Podstawiam do ' + ord[1 - I] + ' równania', math: subst }
+            { label: 'Podstawiam do ' + ord[1 - I] + ' równania', math: subst.replace(/^(.*?) = /, '⟦$1⟧ = '), formula: { id: 'uklad-podstawianie' } }
         ], inner(subst), [
             { label: 'Wstawiam ' + O + ' = ' + fmt(oVal, ctx), math: W + ' = ' + back + (back === fmt(wVal, ctx) ? '' : ' = ' + fmt(wVal, ctx)) },
             check, { label: 'Odpowiedź', math: ans }
@@ -1312,7 +1313,7 @@
             elSteps.push({ label: 'Mnożę ' + what, math: eqText(s1) + '\n' + eqText(s2) });
         }
         var ve = {}; ve[V] = 1;
-        elSteps.push({ label: 'Dodaję równania stronami', math: showTerms([{ c: sumK, e: ve }], ctx, true) + ' = ' + fmt(sumC, ctx) });
+        elSteps.push({ label: 'Dodaję równania stronami', math: '⟦' + showTerms([{ c: sumK, e: ve }], ctx, true) + '⟧ = ⟦' + fmt(sumC, ctx) + '⟧', formula: { id: 'uklad-przeciwne' } });
         var vVal = V === X ? xv : yv;
         if (!eq(sumK, ONE)) elSteps.push({ label: 'Dzielę obie strony przez ' + fmt(sumK, ctx), math: V + ' = ' + fmt(sumC, ctx) + '/' + fmtDen(sumK, ctx) + ' = ' + fmt(vVal, ctx) });
         var into = isZero(A[eKey]) ? 1 : 0, back2 = put(lin[into][keep], fmtParen(vVal, ctx), true);
@@ -1686,7 +1687,8 @@
                 steps.push({
                     dens: [node.a.v.d.toString(), node.b.v.d.toString(), lcm.toString()], // [EN] do zdania „dlaczego”: 12 dzieli 4 i 6
                     label: 'Sprowadzam do wspólnego mianownika ' + lcm.toString(),
-                    math: widen(node.a.v) + op + widen(node.b.v) + ' = ' + fmt(mul(node.a.v, R(lcm))) + '/' + lcm + op + fmt(mul(node.b.v, R(lcm))) + '/' + lcm
+                    math: '⟦' + widen(node.a.v) + op + widen(node.b.v) + '⟧ = ' + fmt(mul(node.a.v, R(lcm))) + '/' + lcm + op + fmt(mul(node.b.v, R(lcm))) + '/' + lcm,
+                    formula: { id: 'wspolny-mianownik' }
                 });
             }
             if (fracs) label = node.paren ? 'Najpierw nawias: ' + (node.k === 'add' ? 'dodaję liczniki' : 'odejmuję liczniki') : (node.k === 'add' ? 'Dodaję liczniki' : 'Odejmuję liczniki');
@@ -1704,22 +1706,24 @@
                     continue;
                 }
             }
-            var whole = null;
+            var whole = null, fid = null;
             if (fracs && node === tree && value.d === den) whole = counted.replace(/ = [^=]*$/, '') + ' = ' + fmt(value); // [EN] bez skracania
             var fr = !ctx.dec && node === tree && (node.k === 'mul' || node.k === 'div') && node.a.k === 'num' && node.b.k === 'num' && !(isInt(node.a.v) && isInt(node.b.v));
             if (fr) { // [EN] 2/3 · 9/4 = (2 · 9)/(3 · 4) = 18/12 = 3/2; dzielenie: mnożę przez odwrotność
                 var A = node.a.v, B = node.k === 'div' ? div(ONE, node.b.v) : node.b.v;
                 var piece = function (x, y) { return x === 1n ? fmt(R(y)) : y === 1n ? fmt(R(x)) : fmt(R(x)) + ' · ' + fmt(R(y)); };
                 var topN = A.n * B.n, botN = A.d * B.d;
-                var chain = (node.k === 'div' ? fmtQ(A) + ' : ' + fmtQ(node.b.v) + ' = ' : '') + fmtQ(A) + ' · ' + fmtQ(B) + ' = (' + piece(A.n, B.n) + ')/' + (A.d === 1n || B.d === 1n ? piece(A.d, B.d) : '(' + piece(A.d, B.d) + ')')
+                var prod = '(' + piece(A.n, B.n) + ')/' + (A.d === 1n || B.d === 1n ? piece(A.d, B.d) : '(' + piece(A.d, B.d) + ')');
+                var chain = (node.k === 'div' ? fmtQ(A) + ' : ' + fmtQ(node.b.v) + ' = ⟦' + fmtQ(A) + ' · ' + fmtQ(B) + '⟧ = ' + prod : fmtQ(A) + ' · ' + fmtQ(B) + ' = ⟦' + prod + '⟧')
                     + ' = ' + fmt(R(topN)) + (botN === 1n ? '' : '/' + botN) + (fmt(R(topN, botN)) === fmt(R(topN)) + (botN === 1n ? '' : '/' + botN) ? '' : ' = ' + fmt(value));
                 label = node.k === 'mul' ? 'Mnożę ułamki' : 'Dzielę ułamki';
+                fid = node.k === 'mul' ? 'mnozenie-ulamkow' : 'dzielenie-ulamkow';
                 whole = chain;
             }
             ['a', 'b'].forEach(function (key) { delete node[key]; });
             node.k = 'num'; node.v = value; node.paren = false; node.implicit = false;
             node.frac = !isInt(value);
-            steps.push({ label: label, math: whole || show(tree, ctx) });
+            steps.push(fid ? { label: label, math: whole, formula: { id: fid } } : { label: label, math: whole || show(tree, ctx) });
         }
         if (tree.k !== 'num') throw new NotSupported();
         var text = fmt(tree.v, ctx);
@@ -1801,7 +1805,7 @@
         var e = nums.reduce(function (a, b) { return gcd(a, b); }), l = nums.reduce(function (a, b) { return a / gcd(a, b) * b; });
         if (value !== (mode === 'gcd' ? e : l)) throw new NotSupported();
         if (!pick.length) steps.push({ label: 'Nie ma wspólnych czynników', math: head + ' = 1' });
-        else steps.push({ label: mode === 'gcd' ? 'Mnożę wspólne czynniki' : 'Mnożę czynniki w najwyższej potędze', math: head + ' = ' + (pick.length > 1 ? pick.join(' · ') + ' = ' : '') + value });
+        else steps.push({ label: mode === 'gcd' ? 'Mnożę wspólne czynniki' : 'Mnożę czynniki w najwyższej potędze', math: head + ' = ⟦' + (pick.length > 1 ? pick.join(' · ') + '⟧ = ' + value : value + '⟧'), formula: { id: 'nwd-nww' } });
         steps.push({ label: 'Wynik', math: head + ' = ' + value });
         return done(NAME, value.toString(), Number(value), steps);
     }
@@ -1843,10 +1847,11 @@
         var ctx = { dec: /[.,]\d/.test(src) }, steps, m;
         var toFrac = function (P) { // 20% = 20/100 = 1/5
             var f = div(P, R(100n)), raw = fmt(P, ctx) + '/100';
-            return { f: f, step: { label: 'Zamieniam procent na ułamek', math: fmt(P, ctx) + '% = ' + raw + (fmt(f, ctx) === raw ? '' : ' = ' + fmt(f, ctx)) } };
+            return { f: f, step: { label: 'Zamieniam procent na ułamek', math: fmt(P, ctx) + '% = ⟦' + raw + '⟧' + (fmt(f, ctx) === raw ? '' : ' = ' + fmt(f, ctx)), formula: { id: 'procent-z-liczby' } } };
         };
         if ((m = new RegExp('^' + N + '\\s*%\\s*(?:z|of)\\s*' + N + '$').exec(src))) {
             var P = num(m[1]), B = num(m[2]), tf = toFrac(P), v = mul(tf.f, B);
+            tf.step.formula.here = 'p = ' + fmt(P, ctx) + ', B = ' + fmt(B, ctx);
             steps = [{ label: 'Działanie', math: fmt(P, ctx) + '% z ' + fmt(B, ctx) }, tf.step, { label: 'Mnożę ułamek przez liczbę', math: fmt(tf.f, ctx) + ' · ' + fmt(B, ctx) + ' = ' + fmt(v, ctx) }];
             steps.push({ label: 'Wynik', math: fmt(v, ctx) });
             return done('Procenty', fmt(v, ctx), toNum(v), steps);
@@ -1855,7 +1860,8 @@
             var B2 = num(m[1]), plus = m[2] === '+', P2 = num(m[3]), tf2 = toFrac(P2), part = mul(tf2.f, B2), v2 = plus ? add(B2, part) : sub(B2, part);
             steps = [{ label: 'Działanie', math: fmt(B2, ctx) + (plus ? ' + ' : ' − ') + fmt(P2, ctx) + '%' }, tf2.step,
                 { label: 'Liczę procent z liczby', math: fmt(tf2.f, ctx) + ' · ' + fmt(B2, ctx) + ' = ' + fmt(part, ctx) },
-                { label: plus ? 'Dodaję procent do liczby' : 'Odejmuję procent od liczby', math: fmt(B2, ctx) + (plus ? ' + ' : ' − ') + fmt(part, ctx) + ' = ' + fmt(v2, ctx) }];
+                { label: plus ? 'Dodaję procent do liczby' : 'Odejmuję procent od liczby', math: '⟦' + fmt(B2, ctx) + (plus ? ' + ' : ' − ') + fmt(part, ctx) + '⟧ = ' + fmt(v2, ctx),
+                    formula: { id: 'zmiana-o-procent', here: 'p = ' + fmt(P2, ctx) + ', B = ' + fmt(B2, ctx) } }];
             steps.push({ label: 'Wynik', math: fmt(v2, ctx) });
             return done('Procenty', fmt(v2, ctx), toNum(v2), steps);
         }
@@ -1865,7 +1871,7 @@
             var q = div(A, B3), pc = mul(q, R(100n)), raw3 = fmt(A, ctx) + '/' + fmt(B3, ctx);
             steps = [{ label: 'Działanie', math: 'ile procent ' + fmt(A, ctx) + ' z ' + fmt(B3, ctx) },
                 { label: 'Zapisuję część jako ułamek', math: raw3 + (fmt(q, ctx) === raw3 ? '' : ' = ' + fmt(q, ctx)) },
-                { label: 'Zamieniam ułamek na procent', math: fmt(q, ctx) + ' · 100% = ' + fmt(pc, ctx) + '%' }];
+                { label: 'Zamieniam ułamek na procent', math: '⟦' + fmt(q, ctx) + ' · 100%⟧ = ' + fmt(pc, ctx) + '%', formula: { id: 'procent-z-liczby' } }];
             steps.push({ label: 'Wynik', math: fmt(pc, ctx) + '%' });
             return done('Procenty', fmt(pc, ctx) + '%', toNum(pc), steps);
         }

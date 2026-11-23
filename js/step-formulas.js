@@ -338,7 +338,7 @@
         },
         'nierownosc-kwadratowa': {
             name: 'Nierówność kwadratowa: znak z paraboli',
-            tex: 'ax^{2}+bx+c<0\\quad\\text{między miejscami zerowymi, gdy } a>0,\\ \\Delta>0',
+            tex: 'ax^{2}+bx+c<0\\iff x_{1}<x<x_{2}\\quad(a>0)',
             why: 'Najpierw szukamy miejsc zerowych, bo tylko w nich trójmian może zmienić znak. Potem z kształtu paraboli odczytujemy, gdzie leży pod osią, a gdzie nad nią.',
             level: 'Liceum, zakres podstawowy: funkcja kwadratowa',
             more: [

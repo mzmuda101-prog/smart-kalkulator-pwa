@@ -133,7 +133,7 @@ ok('3e: rozkład przez miejsca zerowe (z delty, R5)', has('rozłóż x^2 - 5x + 
 // kwadrat sumy
 ok('3e: kwadrat sumy', has('uprość (x + 1)^2 + 2x', 'Rozpisuję kwadrat sumy') && fm('uprość (x + 1)^2 + 2x', 'kwadrat-sumy'), st('uprość (x + 1)^2 + 2x'));
 // ułamki: rozszerzanie widać, czasowniki
-ok('3e: rozszerzanie ułamków', has('kroki 1/2 + 1/3', 'Sprowadzam do wspólnego mianownika 6', '(1 · 3)/(2 · 3) + (1 · 2)/(3 · 2) = 3/6 + 2/6'), st('kroki 1/2 + 1/3'));
+ok('3e: rozszerzanie ułamków', has('kroki 1/2 + 1/3', 'Sprowadzam do wspólnego mianownika 6', '⟦(1 · 3)/(2 · 3) + (1 · 2)/(3 · 2)⟧ = 3/6 + 2/6'), st('kroki 1/2 + 1/3'));
 ok('3e: Dodaję liczniki', has('kroki 1/2 + 1/3', 'Dodaję liczniki'), st('kroki 1/2 + 1/3'));
 // wielomian: krótka etykieta, W(r) = 0
 ok('3e: wielomian W(1) = 0', st('rozwiąż x^3 - 6x^2 + 11x - 6 = 0').some(x => x.label === 'Szukam pierwiastka wśród dzielników' && /W\(1\) = .* = 0/.test(x.math)), st('rozwiąż x^3 - 6x^2 + 11x - 6 = 0'));
@@ -201,8 +201,8 @@ pass += 3;
 {
     ok('3h: 3/5 : 9/10 = 2/3 (ułamek przez ułamek, nie 1/150)', S.run('kroki 3/5 : 9/10').text === '2/3', S.run('kroki 3/5 : 9/10').text);
     ok('3h: dzielenie ułamków — znak „:” w zapisie i mnożenie przez odwrotność', has('kroki 3/5 : 9/10', 'Działanie', '3/5 : 9/10')
-        && has('kroki 3/5 : 9/10', 'Dzielę ułamki', '3/5 : 9/10 = 3/5 · 10/9 = (3 · 10)/(5 · 9) = 30/45 = 2/3'), st('kroki 3/5 : 9/10'));
-    ok('3h: mnożenie ułamków — licznik razy licznik', has('kroki 2/3 * 9/4', 'Mnożę ułamki', '2/3 · 9/4 = (2 · 9)/(3 · 4) = 18/12 = 3/2'), st('kroki 2/3 * 9/4'));
+        && has('kroki 3/5 : 9/10', 'Dzielę ułamki', '3/5 : 9/10 = ⟦3/5 · 10/9⟧ = (3 · 10)/(5 · 9) = 30/45 = 2/3'), st('kroki 3/5 : 9/10'));
+    ok('3h: mnożenie ułamków — licznik razy licznik', has('kroki 2/3 * 9/4', 'Mnożę ułamki', '2/3 · 9/4 = ⟦(2 · 9)/(3 · 4)⟧ = 18/12 = 3/2'), st('kroki 2/3 * 9/4'));
     ok('3h: 6 : 2 · 3 = 9 (od lewej, bez zmian)', S.run('kroki 6 : 2 * 3').text === '9', S.run('kroki 6 : 2 * 3').text);
     ok('3h: dodawanie liczników z rachunkiem', has('kroki 1/2 + 1/3', 'Dodaję liczniki', '3/6 + 2/6 = (3 + 2)/6 = 5/6'), st('kroki 1/2 + 1/3'));
     ok('3h: odejmowanie liczników z rachunkiem', has('kroki 3/4 - 1/6', 'Odejmuję liczniki', '9/12 − 2/12 = (9 − 2)/12 = 7/12'), st('kroki 3/4 - 1/6'));
@@ -237,9 +237,9 @@ pass += 3;
     ok('4b: tytuł i dwa sposoby', r && r.explain.title === 'Układ równań' && m && m.map(x => x.label).join('|') === 'Podstawianie|Przeciwne współczynniki', m && m.map(x => x.label));
     const sub = m ? m[0].steps : [], el = m ? m[1].steps : [];
     ok('4b: podstawianie — wyznaczam y, podstawiam', sub.some(x => x.label === 'Wyznaczam y z pierwszego równania' && x.math === 'y = 5 − x')
-        && sub.some(x => x.label === 'Podstawiam do drugiego równania' && x.math === 'x − (5 − x) = 1')
+        && sub.some(x => x.label === 'Podstawiam do drugiego równania' && x.math === '⟦x − (5 − x)⟧ = 1')
         && sub.some(x => x.label === 'Wstawiam x = 3' && x.math === 'y = 5 − 3 = 2'), sub);
-    ok('4b: przeciwne współczynniki — dodaję stronami', el.some(x => x.label === 'Dodaję równania stronami' && x.math === '2x = 6'), el);
+    ok('4b: przeciwne współczynniki — dodaję stronami', el.some(x => x.label === 'Dodaję równania stronami' && x.math === '⟦2x⟧ = ⟦6⟧'), el);
     ok('4b: obie drogi kończą sprawdzeniem i tą samą odpowiedzią', [sub, el].every(s => s.some(x => x.label === 'Sprawdzenie') && s[s.length - 1].math === 'x = 3\ny = 2' && s[s.length - 1].final));
     ok('4b: mnożenie równania, gdy współczynniki nie są przeciwne', S.run('rozwiąż 2x + 3y = 12; 3x - 2y = 5').text === 'x = 3, y = 2'
         && S.run('rozwiąż 2x + 3y = 12; 3x - 2y = 5').explain.methods[1].steps.some(x => /^Mnożę/.test(x.label)), S.run('rozwiąż 2x + 3y = 12; 3x - 2y = 5').explain.methods[1].steps);
@@ -254,8 +254,8 @@ pass += 3;
     const T = q => { const r = S.run(q); return r && r.text; };
     ok('4c: 1/x = 2', T('rozwiąż 1/x = 2') === 'x = 1/2', T('rozwiąż 1/x = 2'));
     ok('4c: dziedzina jako pierwszy krok', has('rozwiąż (x+1)/(x-2) = 3', 'Wyznaczam dziedzinę', 'x − 2 ≠ 0\nx ≠ 2\nD = ℝ \\ {2}'), st('rozwiąż (x+1)/(x-2) = 3'));
-    ok('4c: mnożę przez mianownik', has('rozwiąż (x+1)/(x-2) = 3', 'Mnożę obie strony przez (x − 2)', 'x + 1 = 3(x − 2)') && T('rozwiąż (x+1)/(x-2) = 3') === 'x = 7/2', st('rozwiąż (x+1)/(x-2) = 3'));
-    ok('4c: na krzyż', has('rozwiąż (x+3)/(x-1) = (x-1)/(x+1)', 'Mnożę na krzyż', '(x + 3)(x + 1) = (x − 1)(x − 1)') && T('rozwiąż (x+3)/(x-1) = (x-1)/(x+1)') === 'x = −1/3', st('rozwiąż (x+3)/(x-1) = (x-1)/(x+1)'));
+    ok('4c: mnożę przez mianownik', has('rozwiąż (x+1)/(x-2) = 3', 'Mnożę obie strony przez (x − 2)', 'x + 1 = ⟦3(x − 2)⟧') && T('rozwiąż (x+1)/(x-2) = 3') === 'x = 7/2', st('rozwiąż (x+1)/(x-2) = 3'));
+    ok('4c: na krzyż', has('rozwiąż (x+3)/(x-1) = (x-1)/(x+1)', 'Mnożę na krzyż', '⟦(x + 3)(x + 1)⟧ = ⟦(x − 1)(x − 1)⟧') && T('rozwiąż (x+3)/(x-1) = (x-1)/(x+1)') === 'x = −1/3', st('rozwiąż (x+3)/(x-1) = (x-1)/(x+1)'));
     ok('4c: odrzucam rozwiązanie spoza dziedziny', T('rozwiąż x^2/(x-1) = 1/(x-1)') === 'x = −1' && st('rozwiąż x^2/(x-1) = 1/(x-1)').some(x => /^Odrzucam/.test(x.label)), st('rozwiąż x^2/(x-1) = 1/(x-1)'));
     ok('4c: sprawdzenie w równaniu z ułamkiem', st('rozwiąż (x+1)/(x-2) = 3').some(x => x.label === 'Sprawdzenie'), st('rozwiąż (x+1)/(x-2) = 3'));
     ok('4c: tytuł Równanie wymierne', S.run('rozwiąż 1/x = 2').explain.title === 'Równanie');
@@ -289,7 +289,7 @@ pass += 3;
     ok('4e: |x − 2| ≥ 3 → suma', T('rozwiąż |x-2| >= 3') === 'x ∈ (−∞, −1⟩ ∪ ⟨5, +∞)', T('rozwiąż |x-2| >= 3'));
     ok('4e: |x| > −2 → ℝ', T('rozwiąż |x| > -2') === 'x ∈ ℝ', T('rozwiąż |x| > -2'));
     ok('4e: √(x + 3) = x − 3 → x = 6 (1 odrzucone)', T('rozwiąż √(x+3) = x - 3') === 'x = 6'
-        && has('rozwiąż √(x+3) = x - 3', 'Podnoszę obie strony do kwadratu', 'x + 3 = (x − 3)²') && st('rozwiąż √(x+3) = x - 3').some(x => /^Odrzucam/.test(x.label)), st('rozwiąż √(x+3) = x - 3'));
+        && has('rozwiąż √(x+3) = x - 3', 'Podnoszę obie strony do kwadratu', 'x + 3 = ⟦(x − 3)²⟧') && st('rozwiąż √(x+3) = x - 3').some(x => /^Odrzucam/.test(x.label)), st('rozwiąż √(x+3) = x - 3'));
     ok('4e: sqrt(2x − 1) = 3', T('rozwiąż sqrt(2x-1) = 3') === 'x = 5', T('rozwiąż sqrt(2x-1) = 3'));
     ok('4e: √x = −2 — brak', T('rozwiąż √x = -2') === 'Brak rozwiązań', T('rozwiąż √x = -2'));
 }
@@ -313,9 +313,9 @@ pass += 3;
 {
     const T = q => { const r = S.run(q); return r && r.text; };
     ok('4g: nwd(12, 18) = 6', T('nwd(12, 18)') === '6' && has('nwd(12, 18)', 'Rozkładam na czynniki pierwsze', '12 = 2 · 2 · 3\n18 = 2 · 3 · 3')
-        && has('nwd(12, 18)', 'Mnożę wspólne czynniki', 'NWD(12, 18) = 2 · 3 = 6'), st('nwd(12, 18)'));
+        && has('nwd(12, 18)', 'Mnożę wspólne czynniki', 'NWD(12, 18) = ⟦2 · 3⟧ = 6'), st('nwd(12, 18)'));
     ok('4g: NWD 12 18 (bez nawiasów, wielkie litery)', T('NWD 12 18') === '6', T('NWD 12 18'));
-    ok('4g: nww(4, 6) = 12', T('nww(4, 6)') === '12' && has('nww(4, 6)', 'Mnożę czynniki w najwyższej potędze', 'NWW(4, 6) = 2 · 2 · 3 = 12'), st('nww(4, 6)'));
+    ok('4g: nww(4, 6) = 12', T('nww(4, 6)') === '12' && has('nww(4, 6)', 'Mnożę czynniki w najwyższej potędze', 'NWW(4, 6) = ⟦2 · 2 · 3⟧ = 12'), st('nww(4, 6)'));
     ok('4g: względnie pierwsze', T('nwd(8, 15)') === '1' && T('nww(8, 15)') === '120', [T('nwd(8, 15)'), T('nww(8, 15)')]);
     ok('4g: trzy liczby', T('nwd(12, 18, 30)') === '6' && T('nww(2, 3, 4)') === '12', [T('nwd(12, 18, 30)'), T('nww(2, 3, 4)')]);
     ok('4g: wierzchołek x² − 4x + 3', T('wierzchołek x^2 - 4x + 3') === 'W = (2, −1)'
@@ -328,10 +328,10 @@ pass += 3;
 // ── 4h: procenty krok po kroku ──
 {
     const T = q => { const r = S.run(q); return r && r.text; };
-    ok('4h: 20% z 150', T('kroki 20% z 150') === '30' && has('kroki 20% z 150', 'Zamieniam procent na ułamek', '20% = 20/100 = 1/5') && has('kroki 20% z 150', 'Mnożę ułamek przez liczbę', '1/5 · 150 = 30'), st('kroki 20% z 150'));
-    ok('4h: 150 + 20%', T('kroki 150 + 20%') === '180' && has('kroki 150 + 20%', 'Dodaję procent do liczby', '150 + 30 = 180'), st('kroki 150 + 20%'));
+    ok('4h: 20% z 150', T('kroki 20% z 150') === '30' && has('kroki 20% z 150', 'Zamieniam procent na ułamek', '20% = ⟦20/100⟧ = 1/5') && has('kroki 20% z 150', 'Mnożę ułamek przez liczbę', '1/5 · 150 = 30'), st('kroki 20% z 150'));
+    ok('4h: 150 + 20%', T('kroki 150 + 20%') === '180' && has('kroki 150 + 20%', 'Dodaję procent do liczby', '⟦150 + 30⟧ = 180'), st('kroki 150 + 20%'));
     ok('4h: 200 − 15%', T('kroki 200 - 15%') === '170', T('kroki 200 - 15%'));
-    ok('4h: ile procent 30 z 120', T('kroki ile procent 30 z 120') === '25%' && has('kroki ile procent 30 z 120', 'Zamieniam ułamek na procent', '1/4 · 100% = 25%'), st('kroki ile procent 30 z 120'));
+    ok('4h: ile procent 30 z 120', T('kroki ile procent 30 z 120') === '25%' && has('kroki ile procent 30 z 120', 'Zamieniam ułamek na procent', '⟦1/4 · 100%⟧ = 25%'), st('kroki ile procent 30 z 120'));
     ok('4h: 12,5% z 80', T('kroki 12,5% z 80') === '10', T('kroki 12,5% z 80'));
 }
 
