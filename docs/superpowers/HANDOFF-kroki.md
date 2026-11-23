@@ -34,6 +34,14 @@ Starsze przekazanie: `docs/superpowers/HANDOFF-wzory.md` (rysunek wzoru, klawiat
 | v1.05.31 | iPhone: pusty ekran po „Wróć do kroków” (content-visibility w Safari), test na WebKit |
 | v1.05.35 | **Dymki wszędzie** (spec `2026-11-23-dymki-design.md`): kolor + dymek w nierównościach, układach, wymiernych, wykładniczych, z pierwiastkiem, |x|, trygonometrii, NWD/NWW, procentach, ułamkach; 7 nowych haseł; linijka „W tym zadaniu:” (`formula.here`); „W podręczniku ›”; Esc zamyka dymek |
 
+| v1.05.36 | hasła: „skąd wzór” i „skąd nazwa” (delta, wzory, e, iloczyn, przez części, logarytm, sprzężenie); bramka SymPy: filtr `\le` łapał `\left` |
+| v1.05.40 | **sposoby, etap 1** (spec `2026-11-23-sposoby-design.md`): domyślnie najkrótszy sposób; 1^∞ — „Wzór skrócony” (hasło `e-skrocony`); ∞/∞ dla funkcji (x) — de l'Hospital; „Wróć do kroków” przywraca przełącznik sposobów |
+
+Dalej (kolejność z projektu sposobów): 2) sposoby w innych typach zadań (np. równanie kwadratowe: delta albo rozkład),
+3) schemat Hornera jako rysowana tabelka ze strzałkami, 4) czytelność długich wzorów (łamanie „aₙ = …”, mały wykładnik).
+Uwagi z przeglądu, odłożone: brak drugiego sposobu dla `5(1+1/n)^n` (symbol z współczynnikiem) i dwustronnego x→0;
+krok „e^(+∞) = +∞” bez „−5 · (+∞)” przy ujemnym współczynniku; dziwne kroki ∞/∞ dla `(√x+1)/x`.
+
 ## Jak to działa (mapa)
 - Krok = `{ label, math, formula?: { id, here? } }` (`here` = liczby z zadania przy literach wzoru hasła, test `test/step-popovers.js`: tabela COVER + pokrycie każdego typu). Fragment w `⟦…⟧` = miejsce użycia wzoru: rysowany kolorem akcentu,
   stuknięcie → dymek (`_openStepsPop` w `app.js`), „Więcej” → widok z „Wróć”. Wzory: `js/step-formulas.js` (≈ 40 wpisów).
