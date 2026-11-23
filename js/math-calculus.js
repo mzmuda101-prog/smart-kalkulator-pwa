@@ -373,8 +373,8 @@
 
     // ── Pochodne ─────────────────────────────────────────────
     // [EN] formula = id wzoru ze słownika (js/step-formulas.js); fragment ⟦…⟧ w math jest wyróżniony kolorem i do stuknięcia
-    function line(log, label, math, formula) {
-        if (log) log.push(formula ? { label: label, math: math, formula: { id: formula } } : { label: label, math: math });
+    function line(log, label, math, formula, here) { // [EN] here: liczby z zadania przy literach wzoru (dymek)
+        if (log) log.push(formula ? { label: label, math: math, formula: here ? { id: formula, here: here } : { id: formula } } : { label: label, math: math });
     }
     function grpT(x) { return x.length > 1 ? '(' + show(x) + ')' : show(x); } // [EN] suma w nawiasie przy mnożeniu
     function grpN(x) { var t = grpT(x); return t[0] === '−' ? '(' + t + ')' : t; } // [EN] 3 · (−2/x³), nie 3 · −2/x³
@@ -430,7 +430,7 @@
             var opened = '(' + show(left) + right.map(function (t) { return (t.c.n < 0n ? ' + ' : ' − ') + showTerm(t); }).join('') + ')/' + grpT(bottom) + '²';
             var done = show(cMul(constant, res));
             line(log, 'Wstawiam do wzoru', U + '′ = ' + show(dt) + ',  ' + V + '′ = ' + show(db) + '\n(' + U + '′ · ' + V + ' − ' + U + ' · ' + V + '′)/' + V + '² = ⟦(' + grpT(dt) + ' · ' + grpT(bottom) + ' − ' + grpT(top) + ' · ' + grpT(db) + ')/' + grpT(bottom) + '²⟧'
-                + (opened !== done ? ' = ' + opened : '') + ' = ' + done, 'pochodna-ilorazu');
+                + (opened !== done ? ' = ' + opened : '') + ' = ' + done, 'pochodna-ilorazu', U + ' = ' + showInner(top) + ', ' + V + ' = ' + showInner(bottom));
             return cMul(constant, res);
         } else {
             var head = [term(ONE, [moving[0]])], tail = [term(ONE, moving.slice(1))];
@@ -439,7 +439,7 @@
             res = cAdd(cMul(df, tail), cMul(head, dg));
             var put = grpT(df) + ' · ' + grpT(tail) + ' + ' + grpT(head) + ' · ' + grpT(dg); // [EN] kolejność jak we wzorze
             var out1 = cMul(constant, res);
-            line(log, 'Wstawiam do wzoru', U + '′ = ' + show(df) + ',  ' + V + '′ = ' + show(dg) + '\n' + U + '′ · ' + V + ' + ' + U + ' · ' + V + '′ = ⟦' + put + '⟧' + (sameText(show(out1), put) ? '' : ' = ' + show(out1)), 'pochodna-iloczynu');
+            line(log, 'Wstawiam do wzoru', U + '′ = ' + show(df) + ',  ' + V + '′ = ' + show(dg) + '\n' + U + '′ · ' + V + ' + ' + U + ' · ' + V + '′ = ⟦' + put + '⟧' + (sameText(show(out1), put) ? '' : ' = ' + show(out1)), 'pochodna-iloczynu', U + ' = ' + showInner(head) + ', ' + V + ' = ' + showInner(tail));
             return out1;
         }
     }
@@ -709,7 +709,7 @@
         var uv = show(cMul(u, bigV)), sign = flip ? ' + ' : ' − ';
         line(log, 'Całkuję przez części',
             'u = ' + show(u) + ', dv = ' + show(dv) + ' d' + v + '\ndu = ' + paren(du) + ' d' + v + ', v = ' + show(bigV));
-        line(log, 'Podstawiam do wzoru', 'u · v − ∫ v du = ⟦' + uv + ' − ' + integralText(next, v) + '⟧' + (flip ? ' = ' + uv + sign + integralText(small, v) : ''), 'przez-czesci');
+        line(log, 'Podstawiam do wzoru', 'u · v − ∫ v du = ⟦' + uv + ' − ' + integralText(next, v) + '⟧' + (flip ? ' = ' + uv + sign + integralText(small, v) : ''), 'przez-czesci', 'u = ' + show(u) + ', dv = ' + show(dv) + ' d' + v);
         inner.forEach(function (s) { log.push(s); });
         var out = flip ? cAdd(cMul(u, bigV), rest) : cSub(cMul(u, bigV), rest);
         line(log, 'Wstawiam policzoną całkę', uv + sign + (rest.length > 1 ? '(' + show(rest) + ')' : show(rest)) + (sameText(uv + sign + show(rest), show(out)) ? '' : ' = ' + show(out)));

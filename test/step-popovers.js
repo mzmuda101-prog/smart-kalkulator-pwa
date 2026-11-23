@@ -1,0 +1,55 @@
+// Dymki w krokach (spec 2026-11-23-dymki-design.md): który krok ma dymek i jakie liczby z zadania pokazuje.
+// Uruchom: node test/step-popovers.js
+'use strict';
+const path = require('path');
+const root = path.join(__dirname, '..');
+const S = require(path.join(root, 'js', 'math-steps.js'));
+require(path.join(root, 'js', 'math-calculus.js'));
+require(path.join(root, 'js', 'math-limits.js'));
+const { stepToLatex } = require(path.join(root, 'js', 'expr-to-latex.js'));
+const { FORMULAS } = require(path.join(root, 'js', 'step-formulas.js'));
+
+let pass = 0, fail = 0;
+function ok(name, cond, got) {
+    if (cond) { pass++; return; }
+    fail++;
+    console.log('  ✗', name, got === undefined ? '' : '→ ' + JSON.stringify(got));
+}
+/** kroki wszystkich sposobów, które wskazują hasło `id` */
+function stepsWith(q, id) {
+    const r = S.run(q);
+    if (!r || !r.explain) return [];
+    return (r.explain.methods || [r.explain]).flatMap(m => m.steps).filter(s => s.formula && s.formula.id === id);
+}
+// ta sama reguła co w test/expr-to-latex.js: bez zapisu z klawiatury
+const leaks = (/** @type {string} */ t) => {
+    const tex = stepToLatex(t).join(' ');
+    return (tex.match(/\\text\{[^}]*\}/g) || []).some(w => /[/^²³]|\\\^|√\(|sqrt/.test(w)) || /sqrt\(|\^\(|√\(/.test(tex);
+};
+
+// [zapytanie, hasło, oczekiwane „here” (undefined = bez linijki)]
+/** @type {Array<[string, string, string | undefined]>} */
+const COVER = [
+    ['rozwiąż x^2 - 5x + 6 = 0', 'delta', 'a = 1, b = −5, c = 6'],
+    ['rozwiąż x^2 - 5x + 6 = 0', 'wzory-x12', 'a = 1, b = −5, Δ = 1'],
+    ['rozwiąż -x^2 + 7x - 6 = 0', 'delta', 'a = −1, b = 7, c = −6'],
+    ['rozwiąż x^2 - 4x + 4 = 0', 'wzor-x0', 'a = 1, b = −4, c = 4'],
+    ['wierzchołek 2x^2 + 3x - 2', 'wierzcholek', 'a = 2, b = 3'],
+    ['pochodna x^2*e^x', 'pochodna-iloczynu', 'u = x², v = e^x'],
+    ['pochodna x/(x+1)', 'pochodna-ilorazu', 'u = x, v = x + 1'],
+    ['całka x*sin(x)', 'przez-czesci', 'u = x, dv = sin(x) dx'],
+];
+
+for (const [q, id, here] of COVER) {
+    ok(id + ': wpis w słowniku', !!FORMULAS[id], id);
+    const st = stepsWith(q, id);
+    ok(q + ' → dymek ' + id, st.length > 0, st.length);
+    if (!st.length) continue;
+    ok(q + ' → ' + id + ': kolor w kroku', st.every(s => /⟦/.test(s.math)), st.map(s => s.math));
+    const got = st[0].formula.here;
+    ok(q + ' → ' + id + ': liczby z zadania', got === here, got);
+    if (got) ok(q + ' → ' + id + ': liczby narysowane bez zapisu z klawiatury', !leaks(got), stepToLatex(got));
+}
+
+console.log(`step-popovers: ${pass} ok, ${fail} błędów`);
+process.exit(fail ? 1 : 0);

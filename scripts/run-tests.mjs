@@ -44,6 +44,7 @@ const SUITES = [
     'test/expr-to-latex.js',
     'test/handbook-data.js',
     'test/handbook.js',
+    'test/step-popovers.js',
     'test/step-why.js',
     'test/formula-keys.js',
     'test/formula-image.js',

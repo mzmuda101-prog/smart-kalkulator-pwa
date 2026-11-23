@@ -537,12 +537,14 @@
             return;
         }
         var delta = sub(mul(b, b), mul(R(4), mul(a, k)));
+        var abc = 'a = ' + fmt(a, ctx) + ', b = ' + fmt(b, ctx) + ', c = ' + fmt(k, ctx); // [EN] dymek: liczby z zadania przy literach wzoru
+        var abD = 'a = ' + fmt(a, ctx) + ', b = ' + fmt(b, ctx) + ', Δ = ' + fmt(delta, ctx);
         steps.push({ // [EN] wzór w dymku (słownik: delta), nie w etykiecie
             label: 'Liczę deltę',
             // [EN] 25 − 24 przed wynikiem; przy c < 0 widać 4 + 4 (minus razy minus)
             math: 'Δ = ⟦' + fmtParen(b, ctx) + '² − 4 · ' + fmtParen(a, ctx) + ' · ' + fmtParen(k, ctx) + '⟧ = ' + fmt(mul(b, b), ctx)
                 + (mul(a, k).n < 0n ? ' + ' + fmt(neg(mul(R(4), mul(a, k))), ctx) : ' − ' + fmt(mul(R(4), mul(a, k)), ctx)) + ' = ' + fmt(delta, ctx),
-            formula: { id: 'delta' }
+            formula: { id: 'delta', here: abc }
         });
         var twoA = mul(R(2), a);
         var minusB = neg(b);
@@ -552,7 +554,7 @@
         }
         if (isZero(delta)) {
             var x0 = div(minusB, twoA);
-            steps.push({ label: 'Liczę jedno rozwiązanie', math: v + '₀ = ⟦' + fmt(minusB, ctx) + ' / (2 · ' + fmtParen(a, ctx) + ')⟧ = ' + overThen(minusB, twoA, ctx), formula: { id: 'wzor-x0' } });
+            steps.push({ label: 'Liczę jedno rozwiązanie', math: v + '₀ = ⟦' + fmt(minusB, ctx) + ' / (2 · ' + fmtParen(a, ctx) + ')⟧ = ' + overThen(minusB, twoA, ctx), formula: { id: 'wzor-x0', here: abc } });
             sol.push({ r: x0 });
             return;
         }
@@ -565,7 +567,7 @@
                 label: 'Liczę dwa rozwiązania',
                 math: v + '₁ = ⟦(' + fmt(minusB, ctx) + ' − ' + fmt(root, ctx) + ')' + den2 + '⟧ = ' + overThen(sub(minusB, root), twoA, ctx) +
                     '\n' + v + '₂ = ⟦(' + fmt(minusB, ctx) + ' + ' + fmt(root, ctx) + ')' + den2 + '⟧ = ' + overThen(add(minusB, root), twoA, ctx),
-                formula: { id: 'wzory-x12' }
+                formula: { id: 'wzory-x12', here: abD }
             });
             sol.push({ r: x1 }, { r: x2 });
             return;
@@ -575,7 +577,7 @@
         var r1 = surdRoot(p, q, s.t, -1), r2 = surdRoot(p, q, s.t, 1);
         steps.push({ label: 'Upraszczam pierwiastek z delty', math: '√Δ = √' + fmt(delta, ctx) + ' = ' + surdText(s.q, s.t) });
         steps.push({
-            label: 'Liczę dwa rozwiązania', formula: { id: 'wzory-x12' },
+            label: 'Liczę dwa rozwiązania', formula: { id: 'wzory-x12', here: abD },
             // [EN] podkreślone podstawienie do wzoru, potem wynik (nie sam gotowy wynik)
             math: v + '₁ = ⟦(' + fmt(minusB, ctx) + ' − ' + surdText(s.q, s.t) + ') / (2 · ' + fmtParen(a, ctx) + ')⟧ = ' + r1.text + ' ≈ ' + fmtApprox(r1.value) +
                 '\n' + v + '₂ = ⟦(' + fmt(minusB, ctx) + ' + ' + surdText(s.q, s.t) + ') / (2 · ' + fmtParen(a, ctx) + ')⟧ = ' + r2.text + ' ≈ ' + fmtApprox(r2.value)
@@ -1813,7 +1815,7 @@
         steps.push({ label: 'Odczytuję współczynniki', math: 'a = ' + fmt(a, ctx) + ', b = ' + fmt(b, ctx) + ', c = ' + fmt(k, ctx) });
         var mb = b.n < 0n ? '−(' + fmt(b, ctx) + ')' : '−' + fmt(b, ctx);
         var raw = fmt(neg(b), ctx) + '/' + fmtDen(twoA, ctx);
-        steps.push({ label: 'Liczę p', math: 'p = ⟦' + mb + '/(2 · ' + fmtParen(a, ctx) + ')⟧ = ' + (raw === fmt(p, ctx) || eq(twoA, ONE) ? '' : raw + ' = ') + fmt(p, ctx), formula: { id: 'wierzcholek' } });
+        steps.push({ label: 'Liczę p', math: 'p = ⟦' + mb + '/(2 · ' + fmtParen(a, ctx) + ')⟧ = ' + (raw === fmt(p, ctx) || eq(twoA, ONE) ? '' : raw + ' = ') + fmt(p, ctx), formula: { id: 'wierzcholek', here: 'a = ' + fmt(a, ctx) + ', b = ' + fmt(b, ctx) } });
         steps.push({ label: 'Liczę q', math: 'q = f(' + fmt(p, ctx) + ') = ' + show(plugIn(ast, v, p), ctx) + ' = ' + fmt(q, ctx) });
         var inner = isZero(p) ? v : '(' + v + (p.n < 0n ? ' + ' + fmt(neg(p), ctx) : ' − ' + fmt(p, ctx)) + ')';
         var lead = eq(a, ONE) ? '' : eq(a, neg(ONE)) ? '−' : fmt(a, ctx);
