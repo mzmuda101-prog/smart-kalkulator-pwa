@@ -68,7 +68,7 @@ ok('zestaw: 58/58 rysunków wraca do tego samego zadania', bad.length === 0, bad
     const defs = require('fs').readFileSync(path.join(root, 'command-definitions.js'), 'utf8');
     const sciaga = [...html.matchAll(/data-command="([^"]*)"/g)].map(m => decode(m[1]))
         .concat([...defs.matchAll(/command: '((?:[^'\\]|\\.)*)'/g)].map(m => m[1].replace(/\\'/g, "'")));
-    const used = new Set(), leaks = [];
+    const leaks = [];
     let steps = 0;
     // znane granice i de l'Hospital — po jednym przykładzie na każdy wzór słownika
     const extra = ['lim x→0 sin(3x)/x', 'lim x→0 tan(2x)/x', 'lim x→0 arcsin(2x)/x', 'lim x→0 arctg(3x)/x', 'lim x→0 ln(1+2x)/x',
@@ -86,14 +86,12 @@ ok('zestaw: 58/58 rysunków wraca do tego samego zadania', bad.length === 0, bad
             const words = (tex.match(/\\text\{[^}]*\}/g) || []).filter(w => /[/^²³]|\\\^|√\(|∛\(|sqrt/.test(w));
             if (words.length || /sqrt\(|\^\(|√\(|∛\(/.test(tex)) leaks.push(q + ' | ' + st.math + ' → ' + tex);
             if (/[⟦⟧]/.test(st.math) && !(fid && FORMULAS[fid] && tex.includes('\\htmlData{formula=' + fid + '}'))) leaks.push('wzór bez słownika: ' + st.math);
-            if (fid) used.add(fid);
         }
     }
     console.log('  kroki sprawdzone:', steps, '(ściąga: ' + sciaga.length + ' przykładów)');
     ok('kroki: ' + steps + ' kroków (zestaw + ściąga) narysowanych bez zapisu z klawiatury', steps > 300 && leaks.length === 0, leaks.slice(0, 8));
-    // każdy wzór ze słownika ma przykład, w którym krok go używa, i treść dymku
+    // każdy wzór ze słownika ma treść dymku; hasło może istnieć tylko w podręczniku (krok bez wpisu łapie „wzór bez słownika”)
     for (const [id, f] of Object.entries(FORMULAS)) {
-        ok('wzór ' + id + ': użyty w kroku', used.has(id));
         ok('wzór ' + id + ': ma treść dymku', !!(f.name && f.tex && f.why && f.level));
         ok('wzór ' + id + ': dymek bez zapisu z klawiatury', ![f.why].concat(f.more).some(t => /\^\(|sqrt\(|√\(/.test(t.replace(/\$[^$]*\$/g, ''))));
     }

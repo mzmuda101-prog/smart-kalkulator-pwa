@@ -5,7 +5,7 @@
     // a fragment, w którym wzór działa, jest w jego tekście w ⟦…⟧ (wyróżniony kolorem, do stuknięcia).
     // tex — rysunek wzoru; why — „po co tu”; level — skąd jest; more — dłuższe wyjaśnienie.
     // W why/more kawałki między $…$ to LaTeX (rysowany jak na kartce, bez zapisu z klawiatury).
-    /** @type {Record<string, {name: string, tex: string, why: string, level: string, more: string[]}>} */
+    /** @type {Record<string, {name: string, tex: string, why: string, level: string, more: string[], dzial?: string, poziom?: 'lp'|'lr'|'st', keywords?: string[], try?: string, expect?: string, related?: string[]}>} */
     const FORMULAS = {
         e: {
             name: 'Wzór na liczbę e',
@@ -346,7 +346,64 @@
         });
     }
 
-    const API = { FORMULAS: FORMULAS };
+    // Podręcznik (spec 2026-11-23-podrecznik-design.md): działy w kolejności jak w szkole.
+    const DZIALY = [
+        { id: 'liczby', name: 'Liczby i procenty' },
+        { id: 'wyrazenia', name: 'Wyrażenia algebraiczne' },
+        { id: 'rownania', name: 'Równania i nierówności' },
+        { id: 'funkcje', name: 'Funkcje' },
+        { id: 'potegi-log', name: 'Potęgi i logarytmy' },
+        { id: 'trygonometria', name: 'Trygonometria' },
+        { id: 'granice', name: 'Granice' },
+        { id: 'pochodne', name: 'Pochodne' },
+        { id: 'calki', name: 'Całki' },
+    ];
+    // id: [dział, poziom (najniższy, na którym uczeń poznaje wzór), słowa do wyszukiwarki, „Spróbuj”, obiecany wynik, powiązane]
+    /** @type {Record<string, [string, 'lp'|'lr'|'st', string[], string, string, string[]]>} */
+    const HANDBOOK = {
+        e: ['granice', 'st', ['liczba e', 'jeden do nieskończoności', 'granica ciągu'], 'lim n→∞ (1-1/n)^n', '1/e', ['nieoznaczone', 'ln1u', 'potega-ilorazu']],
+        sprzezenie: ['granice', 'lp', ['sprzężenie', 'mnożenie przez sprzężenie', 'nieskończoność minus nieskończoność', 'pierwiastki'], 'lim n→∞ (sqrt(2n+5)-sqrt(2n+1))', '0', ['roznica-kwadratow', 'roznica-szescianow', 'nieoznaczone']],
+        'roznica-szescianow': ['wyrazenia', 'lr', ['sześciany', 'pierwiastek trzeciego stopnia', 'wzory skróconego mnożenia'], 'lim n→∞ (∛(n^3+8n^2)-∛(n^3+2n^2))', '2', ['sprzezenie', 'roznica-czwartych']],
+        'roznica-czwartych': ['wyrazenia', 'st', ['czwarte potęgi', 'pierwiastek czwartego stopnia'], 'lim n→∞ (∜(n^4+7n^3)-∜(n^4-n^3))', '2', ['roznica-szescianow', 'sprzezenie']],
+        'pierwiastek-z-kwadratu': ['wyrazenia', 'lp', ['wartość bezwzględna', 'moduł', 'pierwiastek z kwadratu'], 'lim x→-∞ x/sqrt(3x^2+5)', '−√3/3', ['sprzezenie']],
+        'log-iloraz': ['potegi-log', 'lp', ['logarytm ilorazu', 'różnica logarytmów', 'log'], 'lim n→∞ (log_2(8n+1)-log_2(n+6))', '3', ['definicja-logarytmu']],
+        'potega-ilorazu': ['potegi-log', 'lp', ['potęga ilorazu', 'potęga ułamka', 'działania na potęgach'], 'lim n→∞ (n+3)^(2n^2+12n)/(n^2+6n)^(n^2+6n)', 'e⁹', ['e']],
+        sinu: ['granice', 'st', ['sinus', 'granica specjalna', 'sin x przez x'], 'lim x→0 sin(3x)/x', '3', ['tgu', 'arcsinu', 'arctgu', 'lhospital']],
+        ln1u: ['granice', 'st', ['logarytm naturalny', 'granica specjalna', 'ln'], 'lim x→0 ln(1+2x)/x', '2', ['eu', 'e']],
+        eu: ['granice', 'st', ['funkcja wykładnicza', 'granica specjalna', 'e do x'], 'lim x→0 (e^x-1)/x', '1', ['ln1u', 'e']],
+        lhospital: ['granice', 'st', ['de l\'Hospital', 'reguła de l\'Hospitala', 'zero przez zero', 'pochodne'], 'lim x→0 sin(3x)/x', '3', ['nieoznaczone', 'sinu', 'tablica-pochodnych']],
+        nieoznaczone: ['granice', 'st', ['symbol nieoznaczony', 'zero przez zero', 'nieskończoność przez nieskończoność'], 'lim x→0 sin(3x)/x', '3', ['lhospital', 'e', 'sprzezenie']],
+        delta: ['rownania', 'lp', ['delta', 'wyróżnik', 'równanie kwadratowe', 'trójmian'], 'rozwiąż x^2 - 5x + 6 = 0', 'x₁ = 2, x₂ = 3', ['wzory-x12', 'wzor-x0', 'postac-iloczynowa']],
+        'wzory-x12': ['rownania', 'lp', ['pierwiastki trójmianu', 'miejsca zerowe', 'równanie kwadratowe', 'x1 x2'], 'rozwiąż x^2 - 2x - 1 = 0', 'x₁ = 1 − √2, x₂ = 1 + √2', ['delta', 'wzor-x0', 'postac-iloczynowa']],
+        'wzor-x0': ['rownania', 'lp', ['pierwiastek podwójny', 'delta równa zero', 'jedno rozwiązanie'], 'rozwiąż x^2 - 4x + 4 = 0', 'x = 2', ['delta', 'wzory-x12', 'kwadrat-sumy']],
+        bezout: ['rownania', 'lr', ['twierdzenie Bezouta', 'wielomian', 'pierwiastek wielomianu', 'dzielniki wyrazu wolnego'], 'rozwiąż x^3-6x^2+11x-6=0', 'x₁ = 1, x₂ = 2, x₃ = 3', ['postac-iloczynowa', 'delta']],
+        'roznica-kwadratow': ['wyrazenia', 'lp', ['różnica kwadratów', 'wzory skróconego mnożenia', 'rozkład na czynniki'], 'rozłóż x^2 - 9', '(x − 3)(x + 3)', ['kwadrat-sumy', 'sprzezenie', 'postac-iloczynowa']],
+        'postac-iloczynowa': ['funkcje', 'lp', ['postać iloczynowa', 'rozkład trójmianu', 'funkcja kwadratowa', 'miejsca zerowe'], 'rozłóż x^2 - 5x + 6', '(x − 2)(x − 3)', ['delta', 'wzory-x12', 'wierzcholek']],
+        'kwadrat-sumy': ['wyrazenia', 'lp', ['kwadrat sumy', 'wzory skróconego mnożenia', 'nawias do kwadratu'], 'kroki (x+3)^2', 'x² + 6x + 9', ['roznica-kwadratow', 'wzor-x0']],
+        'pochodna-potegi': ['pochodne', 'lr', ['pochodna potęgi', 'pochodna x do n', 'różniczkowanie'], 'pochodna x/(x+1)', 'f′(x) = 1/(x + 1)²', ['tablica-pochodnych', 'pochodna-iloczynu', 'calka-potegi']],
+        'pochodna-iloczynu': ['pochodne', 'lr', ['pochodna iloczynu', 'iloczyn funkcji', 'różniczkowanie'], 'pochodna x^2*e^x', 'f′(x) = 2x · e^x + x² · e^x', ['pochodna-ilorazu', 'pochodna-potegi', 'przez-czesci']],
+        'pochodna-ilorazu': ['pochodne', 'lr', ['pochodna ilorazu', 'pochodna ułamka', 'różniczkowanie'], 'pochodna x/(x+1)', 'f′(x) = 1/(x + 1)²', ['pochodna-iloczynu', 'pochodna-potegi']],
+        'pochodna-zlozona': ['pochodne', 'st', ['pochodna funkcji złożonej', 'pochodna wewnętrzna', 'reguła łańcuchowa'], 'pochodna sin(x^2)', 'f′(x) = 2x · cos(x²)', ['tablica-pochodnych', 'pochodna-iloczynu']],
+        'tablica-pochodnych': ['pochodne', 'lr', ['tablica pochodnych', 'pochodne funkcji elementarnych', 'sin', 'cos', 'ln', 'e do x'], 'pochodna ln(x^2+1)', 'f′(x) = 2x/(x² + 1)', ['pochodna-potegi', 'pochodna-zlozona', 'tablica-calek']],
+        'calka-potegi': ['calki', 'st', ['całka potęgi', 'całka x do n', 'funkcja pierwotna'], 'całka x^2 od 0 do 1', '1/3', ['tablica-calek', 'pochodna-potegi', 'newton-leibniz']],
+        'tablica-calek': ['calki', 'st', ['tablica całek', 'całki elementarne', 'funkcja pierwotna'], 'całka sin(x) od 0 do π', '2', ['calka-potegi', 'tablica-pochodnych', 'przez-czesci']],
+        'calka-arctg': ['calki', 'st', ['arcus tangens', 'arctg', 'całka wymierna'], 'całka 1/(x^2+4)', 'arctg(x/2)/2 + C', ['tablica-calek']],
+        'przez-czesci': ['calki', 'st', ['całkowanie przez części', 'całka iloczynu'], 'całka x*sin(x)', 'sin(x) − x · cos(x) + C', ['pochodna-iloczynu', 'tablica-calek']],
+        'newton-leibniz': ['calki', 'st', ['całka oznaczona', 'Newton-Leibniz', 'pole pod wykresem', 'granice całkowania'], 'całka 1/x od 1 do e', '1', ['calka-potegi', 'tablica-calek']],
+        'sin-kwadrat': ['trygonometria', 'lr', ['sinus do kwadratu', 'cosinus podwojonego kąta', 'tożsamości trygonometryczne'], 'całka sin(x)^2', 'x/2 − sin(2x)/4 + C', ['cos-kwadrat', 'tg-kwadrat']],
+        'cos-kwadrat': ['trygonometria', 'lr', ['cosinus do kwadratu', 'cosinus podwojonego kąta', 'tożsamości trygonometryczne'], 'całka cos(x)^2', 'x/2 + sin(2x)/4 + C', ['sin-kwadrat', 'tg-kwadrat']],
+        wierzcholek: ['funkcje', 'lp', ['wierzchołek paraboli', 'postać kanoniczna', 'funkcja kwadratowa', 'p q'], 'wierzchołek x^2 - 4x + 3', 'W = (2, −1)', ['postac-iloczynowa', 'delta']],
+        'definicja-logarytmu': ['potegi-log', 'lp', ['logarytm', 'definicja logarytmu', 'log', 'podstawa logarytmu'], 'rozwiąż log(x) = 2', 'x = 100', ['log-iloraz']],
+        'tg-kwadrat': ['trygonometria', 'lr', ['tangens do kwadratu', 'jedynka trygonometryczna', 'tożsamości trygonometryczne'], 'całka tan(x)^2', 'tg(x) − x + C', ['sin-kwadrat', 'cos-kwadrat']],
+        tgu: ['granice', 'st', ['tangens', 'granica specjalna', 'tg x przez x'], 'lim x→0 tan(2x)/x', '2', ['sinu', 'arctgu']],
+        arcsinu: ['granice', 'st', ['arcus sinus', 'granica specjalna', 'arcsin'], 'lim x→0 arcsin(2x)/x', '2', ['sinu', 'arctgu']],
+        arctgu: ['granice', 'st', ['arcus tangens', 'granica specjalna', 'arctg'], 'lim x→0 arctg(3x)/x', '3', ['tgu', 'arcsinu', 'calka-arctg']],
+    };
+    for (const [id, [dzial, poziom, keywords, tryExpr, expect, related]] of Object.entries(HANDBOOK)) {
+        if (FORMULAS[id]) Object.assign(FORMULAS[id], { dzial: dzial, poziom: poziom, keywords: keywords, try: tryExpr, expect: expect, related: related });
+    }
+
+    const API = { FORMULAS: FORMULAS, DZIALY: DZIALY };
     const g = /** @type {any} */ (typeof window !== 'undefined' ? window : globalThis);
     g.MATM0_FORMULAS = API;
     if (typeof module !== 'undefined' && module.exports) module.exports = API;
