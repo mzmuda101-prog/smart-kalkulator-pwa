@@ -51,6 +51,17 @@ for (const q of queries) {
 // Pomijamy warunki i definicje: strzałki, nierówności, słowa, „Δ = 0” (różne litery po stronach znaku =).
 /** @type {Record<string, string>} fragment → dlaczego SymPy go nie sprawdza */
 const SKIP_PROSE = {
+    '(a-b)(a+b)=a\\cdot a+a\\cdot b-b\\cdot a-b\\cdot b': 'tożsamość z literami a, b; parser nie czyta; sprawdzone ręcznie w SymPy',
+    'x^{2}+\\frac{b}{a}x=\\left(x+\\frac{b}{2a}\\right)^{2}-\\frac{b^{2}}{4a^{2}}': 'tożsamość z literami a, b; parser nie czyta; sprawdzone ręcznie w SymPy',
+    '\\left(1-\\frac{1}{n}\\right)^{n}=\\left[\\left(1+\\frac{1}{-n}\\right)^{-n}\\right]^{-1}': 'tożsamość potęg; sprawdzone ręcznie w SymPy',
+    '\\left|x\\right|=-x': 'warunek: tylko dla x < 0 (zdanie mówi „gdy x jest ujemne”); sprawdzone ręcznie',
+    '(n+3)^{2g}=\\left((n+3)^{2}\\right)^{g}': 'potęga potęgi; parser nie czyta tego zapisu; sprawdzone ręcznie w SymPy',
+    '\\frac{\\ln(1+u)}{u}=\\ln\\left(1+u\\right)^{\\frac{1}{u}}': 'logarytm potęgi; sprawdzone ręcznie w SymPy (u > 0)',
+    '\\left(5x^{2}\\right)^{\\prime}=5\\cdot 2x=10x': 'pochodna z prim; parser nie czyta; sprawdzone ręcznie w SymPy',
+    '(u+\\Delta u)(v+\\Delta v)-uv=v\\,\\Delta u+u\\,\\Delta v+\\Delta u\\,\\Delta v': 'przyrosty Δu, Δv; parser nie czyta; sprawdzone ręcznie w SymPy',
+    '\\left(\\sin\\left(x^{2}\\right)\\right)^{\\prime}=\\cos\\left(x^{2}\\right)\\cdot 2x': 'pochodna z prim; parser nie czyta; sprawdzone ręcznie w SymPy',
+    '\\left(a^{x}\\right)^{\\prime}=a^{x}\\ln a': 'pochodna z prim; parser nie czyta; sprawdzone ręcznie w SymPy',
+    '\\int uv^{\\prime}\\,dx=uv-\\int u^{\\prime}v\\,dx': 'całki z funkcjami u, v; równoważne pochodnej iloczynu; sprawdzone ręcznie w SymPy',
     'x+1=3(x-2)': 'równanie do rozwiązania (warunek), nie tożsamość; rozwiązanie sprawdza try/expect',
     'x+1=3x-6': 'równanie do rozwiązania (warunek), nie tożsamość; rozwiązanie sprawdza try/expect',
     '4^{x}=2^{x+3}': 'równanie do rozwiązania (warunek), nie tożsamość; rozwiązanie sprawdza try/expect',
@@ -83,7 +94,7 @@ for (const [id, f] of Object.entries(FORMULAS)) {
             const frag = m[1];
             const parts = splitTop(frag).map(p => p.trim());
             if (parts.length < 2 || parts.some(p => !p)) continue;
-            if (SKIP_PROSE[frag] || /\\to|\\approx|\\text|\\quad|\\le|\\ge|\\neq|\\pm|[<>]|\\infty/.test(frag)
+            if (SKIP_PROSE[frag] || /\\to(?![a-z])|\\approx|\\text|\\quad|\\le(?![a-z])|\\ge(?![a-z])|\\neq|\\pm|[<>]|\\infty/.test(frag)
                 || new Set(parts.map(letters)).size > 1) { proseSkipped++; continue; }
             out.push({ q: 'hasło ' + id, title: 'Hasło', steps: [{ label: 'tekst', math: frag, lines: [[parts[0]].concat(parts.slice(1).map(p => '=' + p))] }] });
         }

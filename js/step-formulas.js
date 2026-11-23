@@ -14,6 +14,7 @@
                 + '$1+\\frac{1}{a_{n}}$, a kolorową potęgę zastępujemy przez $e$.',
             level: 'Studia: analiza matematyczna, granice ciągów',
             more: [
+                'Skąd ta liczba: z procentu składanego. Wkładamy 1 zł na 100% rocznie. Gdy odsetki dopisuje się raz na rok, po roku jest 2 zł. Gdy dwa razy, po pół roku dochodzi połowa, potem połowa od większej kwoty: $\\left(1+\\frac{1}{2}\\right)^{2}=2{,}25$. Przy $n$ dopisaniach mamy $\\left(1+\\frac{1}{n}\\right)^{n}$, a im częściej, tym bliżej jest liczba $e$, której ta kwota nigdy nie przekroczy.',
                 'Liczba $e\\approx 2{,}71828$ to granica $\\left(1+\\frac{1}{n}\\right)^{n}$ przy $n\\to\\infty$. Tak się ją często definiuje.',
                 'Dla $n=10$ wychodzi około 2,594, dla $n=100$ około 2,705, a dla $n=1000$ około 2,717. Wartości rosną i zbliżają się do $e$.',
                 'Dlaczego nie 1? Podstawa jest tylko trochę większa (albo mniejsza) od 1, ale podnosimy ją do coraz większej potęgi. '
@@ -21,6 +22,7 @@
                 'Wzór działa dla każdego ciągu $a_{n}$, który dąży do $+\\infty$ albo do $-\\infty$, nie tylko dla $n$. Na przykład '
                     + '$\\left(1-\\frac{1}{n}\\right)^{n}=\\left[\\left(1+\\frac{1}{-n}\\right)^{-n}\\right]^{-1}$, czyli $a_{n}=-n$, '
                     + 'więc granica to $e^{-1}=\\frac{1}{e}$.',
+                'Skąd nazwa: Jakob Bernoulli w 1683 roku, licząc właśnie procent składany, zauważył, że kwota rośnie do jakiejś granicy między 2 a 3. Oznaczenie $e$ wprowadził Leonhard Euler w pierwszej połowie XVIII wieku. To, że litera pochodzi od jego nazwiska, jest raczej legendą, bo sam tego nigdzie nie tłumaczył.',
             ],
         },
         sprzezenie: {
@@ -33,6 +35,8 @@
                 'Przykład: $\\left(\\sqrt{x+4}-3\\right)\\left(\\sqrt{x+4}+3\\right)=(x+4)-9=x-5$. Pierwiastka już nie ma.',
                 'Żeby nie zmienić wartości, mnożymy i licznik, i mianownik przez ten sam nawias. To tak, jakbyśmy mnożyli przez 1.',
                 'Przy $n\\to\\infty$ różnica pierwiastków daje $\\infty-\\infty$, a po sprzężeniu w mianowniku stoi suma, która już nie sprawia kłopotu.',
+                'Skąd wzór: mnożymy każdy wyraz przez każdy: $(a-b)(a+b)=a\\cdot a+a\\cdot b-b\\cdot a-b\\cdot b$. Środkowe wyrazy się znoszą i zostaje $a^{2}-b^{2}$. Gdy $a$ albo $b$ jest pierwiastkiem, każdy nawias go zawiera, a iloczyn już nie, bo pierwiastek trafia do kwadratu.',
+                'Skąd nazwa: łacińskie „coniugare” (od „con” i „iugum”, czyli wspólne jarzmo) znaczy „sprzęgać, łączyć w parę”. Wyrażenia $a-b$ i $a+b$ tworzą właśnie taką parę.',
             ],
         },
         'roznica-szescianow': {
@@ -138,9 +142,12 @@
             why: 'Równanie ma postać $ax^{2}+bx+c=0$. Liczba $\\Delta$ mówi, ile ma rozwiązań: $\\Delta>0$ dwa, $\\Delta=0$ jedno, $\\Delta<0$ żadnego.',
             level: 'Liceum, zakres podstawowy: funkcja kwadratowa',
             more: [
+                'Skąd wzór: dopełniamy do kwadratu. Na przykładzie $x^{2}+6x+5=0$: ponieważ $x^{2}+6x=(x+3)^{2}-9$, równanie to $(x+3)^{2}=4$. W ogólnym równaniu dzielimy przez $a$: $x^{2}+\\frac{b}{a}x+\\frac{c}{a}=0$, i tak samo dopełniamy: $x^{2}+\\frac{b}{a}x=\\left(x+\\frac{b}{2a}\\right)^{2}-\\frac{b^{2}}{4a^{2}}$. Po przeniesieniu wychodzi $\\left(x+\\frac{b}{2a}\\right)^{2}=\\frac{b^{2}-4ac}{4a^{2}}$. Lewa strona to kwadrat, więc nie bywa ujemna, a mianownik $4a^{2}$ jest dodatni. O wszystkim decyduje licznik $b^{2}-4ac$, i to właśnie jest $\\Delta$.',
+                'Co z tego wynika: gdy $\\Delta<0$, kwadrat musiałby być ujemny, więc rozwiązań nie ma. Gdy $\\Delta=0$, kwadrat jest zerem i rozwiązanie jest jedno. Gdy $\\Delta>0$, kwadrat ma dwa pierwiastki, dodatni i ujemny. W przykładzie $\\Delta=36-20=16$, więc $x+3=2$ albo $x+3=-2$, czyli $x=-1$ albo $x=-5$.',
                 'Delta to część wzoru na rozwiązania, która stoi pod pierwiastkiem. Dlatego jej znak decyduje o wszystkim: z liczby ujemnej pierwiastka nie policzymy.',
                 'Na wykresie: $\\Delta>0$ znaczy, że parabola przecina oś $x$ w dwóch miejscach, $\\Delta=0$ że dotyka jej w jednym, $\\Delta<0$ że nie dotyka wcale.',
                 'Uwaga na nawias: przy $b=-5$ liczymy $(-5)^{2}=25$, a nie $-5^{2}=-25$.',
+                'Skąd nazwa: angielskie słowo „discriminant” (po polsku wyróżnik) wprowadził w 1851 roku James Joseph Sylvester. Łacińskie „discriminare” znaczy „rozróżniać”, a ta liczba rozróżnia przypadki: dwa, jedno albo zero rozwiązań.',
             ],
         },
         'wzory-x12': {
@@ -149,6 +156,7 @@
             why: 'Delta jest dodatnia, więc wstawiamy $-b$, $\\sqrt{\\Delta}$ i $2a$ do wzorów. Raz z minusem, raz z plusem przed pierwiastkiem.',
             level: 'Liceum, zakres podstawowy: funkcja kwadratowa',
             more: [
+                'Skąd wzór: z dopełnienia do kwadratu (zobacz hasło o delcie) mamy $\\left(x+\\frac{b}{2a}\\right)^{2}=\\frac{\\Delta}{4a^{2}}$. Pierwiastkujemy obie strony, pamiętając o dwóch znakach: $x+\\frac{b}{2a}=\\pm\\frac{\\sqrt{\\Delta}}{2a}$. Przenosimy $\\frac{b}{2a}$ na prawo i dostajemy oba wzory naraz. Gdy $a<0$, pierwiastek z $4a^{2}$ to $-2a$, a nie $2a$, ale znak $\\pm$ i tak obejmuje oba przypadki, więc wzór się nie zmienia. Pierwiastkować wolno tylko przy $\\Delta\\ge 0$.',
                 'Zapis $-b$ znaczy „liczba przeciwna do $b$”. Gdy $b=-5$, to $-b=5$.',
                 'Mianownik to $2a$, czyli dwa razy liczba przy $x^{2}$, a nie samo 2.',
                 'Wzory biorą się z dopełnienia do kwadratu: $ax^{2}+bx+c=0$ przekształca się do $\\left(x+\\frac{b}{2a}\\right)^{2}=\\frac{\\Delta}{4a^{2}}$, a potem pierwiastkujemy obie strony.',
@@ -209,6 +217,7 @@
             why: 'Funkcja to iloczyn dwóch czynników zależnych od $x$. Pochodna to: pochodna pierwszego razy drugi plus pierwszy razy pochodna drugiego.',
             level: 'Liceum, zakres rozszerzony: rachunek różniczkowy',
             more: [
+                'Skąd wzór: z pola prostokąta o bokach $u$ i $v$. Gdy boki urosną o małe kawałki $\\Delta u$ i $\\Delta v$, pole urośnie o dwa paski i mały róg: $(u+\\Delta u)(v+\\Delta v)-uv=v\\,\\Delta u+u\\,\\Delta v+\\Delta u\\,\\Delta v$. Dzielimy przez przyrost $\\Delta x$: dostajemy $v\\frac{\\Delta u}{\\Delta x}+u\\frac{\\Delta v}{\\Delta x}+\\frac{\\Delta u}{\\Delta x}\\Delta v$. Pierwsze dwa ułamki dążą do $u^{\\prime}$ i $v^{\\prime}$. W rogu $\\frac{\\Delta u}{\\Delta x}$ dąży do $u^{\\prime}$, a $\\Delta v$ do zera, więc cały róg znika. Zostają dwa paski, czyli $u^{\\prime}v+uv^{\\prime}$.',
                 'To nie jest $u^{\\prime}\\cdot v^{\\prime}$. Na przykład $(x\\cdot x)^{\\prime}=\\left(x^{2}\\right)^{\\prime}=2x$, a $1\\cdot 1=1$.',
                 'Kolejność składników nie zmienia wyniku, ale łatwiej sprawdzać, gdy trzymamy się wzoru.',
             ],
@@ -277,6 +286,7 @@
             why: 'Pod całką jest iloczyn. Jedną część ($u$) różniczkujemy, drugą ($dv$) całkujemy, tak żeby nowa całka $\\int v\\,du$ była prostsza.',
             level: 'Studia: analiza matematyczna',
             more: [
+                'Skąd wzór: z pochodnej iloczynu. Całka z pochodnej daje z powrotem samą funkcję (stałą $C$ dopisujemy na końcu). Z $(uv)^{\\prime}=u^{\\prime}v+uv^{\\prime}$ po scałkowaniu obu stron wychodzi $uv=\\int u^{\\prime}v\\,dx+\\int uv^{\\prime}\\,dx$. Przenosimy jedną całkę na drugą stronę: $\\int uv^{\\prime}\\,dx=uv-\\int u^{\\prime}v\\,dx$. To ten sam wzór co wyżej, bo $dv$ to krótszy zapis $v^{\\prime}\\,dx$, a $du$ to $u^{\\prime}\\,dx$.',
                 'Za $u$ wybieramy to, co po zróżniczkowaniu się upraszcza: logarytm, potem potęgę $x$. Za $dv$ to, co łatwo scałkować: $e^{x}$, $\\sin x$, $\\cos x$.',
                 '$du$ to pochodna $u$ razy $dx$, a $v$ to całka z $dv$ (bez $+C$).',
                 'Wzór wynika z pochodnej iloczynu: $(uv)^{\\prime}=u^{\\prime}v+uv^{\\prime}$, po scałkowaniu obu stron.',
@@ -327,6 +337,7 @@
                 'Na przykład $\\log_{2} 8=3$, bo $2^{3}=8$, a $\\log_{10} 100=2$, bo $10^{2}=100$.',
                 'Podstawa $a$ jest dodatnia i różna od 1, a liczba $b$ pod logarytmem musi być dodatnia. Dlatego w równaniach z logarytmem zaczynamy od dziedziny.',
                 'Zapis $\\log b$ bez podstawy to logarytm dziesiętny, czyli $a=10$.',
+                'Skąd nazwa: słowo „logarytm” ułożył John Napier, który w 1614 roku opublikował pierwsze tablice logarytmów. Złożył je z greckich słów „logos” (tu: stosunek) i „arithmos” (liczba).',
             ],
         },
         'tg-kwadrat': {

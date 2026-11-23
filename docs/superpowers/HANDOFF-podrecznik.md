@@ -23,7 +23,12 @@ Projekt: `docs/superpowers/specs/2026-11-23-podrecznik-design.md`, plan: `docs/s
 ## Nowe hasło — jak dodać
 1. Wpis w `FORMULAS` (`name`, `tex`, `why`, `level`, `more`) i wiersz w `HANDBOOK`.
 2. `try` w postaci jawnej komendy („rozwiąż …”, „pochodna …”, „lim …”, „kroki …”), `expect` = tekst wyniku po sprawdzeniu poprawności.
-3. `node test/handbook-data.js`, `npm run check:steps`, potem agent „słaby uczeń” czyta hasło.
+3. `node test/handbook-data.js`, `npm run check:steps`, potem agent „słaby uczeń” czyta hasło (JSON z hasłami; przypomnij mu,
+   że ukośniki LaTeX w JSON są podwojone). Pytanie obowiązkowe: „czy wiesz, skąd ten wzór się wziął, czy tylko jak go użyć?”.
+4. Hasła z wyprowadzeniem: akapit „Skąd wzór:” (zasady skilla `bottom-up`: od czegoś, co uczeń umie, krok po kroku) i „Skąd nazwa:”
+   (skill `term-origins`: tylko sprawdzone fakty, legendę nazywamy legendą). Są przy: delta, wzory-x12, e, pochodna-iloczynu,
+   przez-czesci, definicja-logarytmu, sprzezenie (test w `test/handbook-data.js`).
+5. Równości, których parser SymPy nie czyta: sprawdź ręcznie w SymPy i wpisz do `SKIP_PROSE` z powodem.
 
 ## Dalej (pomysły, bez decyzji)
 - Ulepszenie dymków w krokach (Mateusz: osobna praca).
