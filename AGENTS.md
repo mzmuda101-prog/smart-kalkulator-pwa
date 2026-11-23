@@ -21,6 +21,8 @@ Czysty JavaScript + HTML + CSS, bez frameworka i bez budowania.
 - `node test/smoke-node.js` — szybki test prawdziwego kodu bez przeglądarki (0 = OK).
 - `npm test` — runner `scripts/run-tests.mjs` (strażnicy wydania idą pierwsi; nie zamieniaj na łańcuch `&&`).
 - `npm run test:e2e` — Playwright.
+- `npm run check:steps` — SymPy sprawdza każde „=” w krokach (po zmianach w krokach, przed wydaniem;
+  pierwsze uruchomienie: `scripts/steps-check/README.md`).
 - Każdą nową/rozbudowaną komendę: dopisz smoke-testy do runnerów w `app.js` (`{expr, value/unit/tol}`
   z komentarzem), wepnij w podpowiedzi i przykłady, i zaktualizuj ściągę — każdy przykład ze ściągi
   musi naprawdę dawać obiecany wynik.

@@ -1,0 +1,26 @@
+# Bramka „każde = jest prawdą” (SymPy)
+
+Narzędzie deweloperskie, nie część aplikacji. Sprawdza, czy każda równość w krokach rozwiązań jest prawdziwa,
+a nie tylko wynik końcowy. Niezależne od silnika apki: czyta LaTeX, który rysuje ekran (`stepToLatex`), parserem SymPy.
+
+## Pierwsze uruchomienie (raz)
+
+    python3 -m venv scripts/steps-check/.venv
+    scripts/steps-check/.venv/bin/pip install "sympy==1.14.0" "mpmath==1.3.0" lark
+
+## Użycie
+
+    npm run check:steps        # ok. 1–2 min; kod wyjścia 1 = jest fałszywa równość
+
+Po każdej zmianie w krokach (`js/math-limits.js`, `js/math-calculus.js`, `js/math-steps.js`) przed wydaniem.
+`check.py -v` pokazuje kawałki, których parser nie przeczytał (do zwiększania pokrycia).
+
+## Co sprawdza
+
+- `dump.js`: wszystkie przykłady (zestaw granic, ściąga, lista `EXTRA`) → `steps.json`. Nowe zadanie z krokami dopisz do `EXTRA`.
+- `check.py`: „=” to tożsamość (granice — w punktach blisko celu, całka nieoznaczona — przez pochodną),
+  „→” liczy SymPy `limit`, „≈” liczbowo. W równaniach tylko rachunki na liczbach (x to niewiadoma).
+  Kawałki z literami pomocniczymi (u, A, aₙ, F, Δ) i słowami są pomijane — raport podaje ile.
+- Auto-test (`--self-test`): bramka musi złapać trzy celowo fałszywe kroki i przepuścić prawdziwe.
+
+Bezpieczeństwo: `parse_latex(backend='lark')` to gramatyka, bez wykonywania kodu (bez `parse_expr`/`sympify` na tekście).

@@ -73,3 +73,7 @@ ROADMAP-QOL.md
 ### Granice / skaner — materiały lokalne i narzędzia dev ###
 test/fixtures-local/
 scripts/limits-reference/.venv/
+
+# bramka SymPy kroków (scripts/steps-check): środowisko i zrzut
+scripts/steps-check/.venv/
+scripts/steps-check/steps.json

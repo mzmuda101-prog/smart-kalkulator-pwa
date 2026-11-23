@@ -6,6 +6,7 @@
     "serve": "python3 -m http.server 3000 --bind 127.0.0.1",
     "test": "npm run test:all",
     "test:smoke": "node test/smoke-node.js",
+    "check:steps": "node scripts/steps-check/dump.js && scripts/steps-check/.venv/bin/python scripts/steps-check/check.py --self-test && scripts/steps-check/.venv/bin/python scripts/steps-check/check.py",
     "test:prop": "node test/property.js",
     "test:qty": "node test/quantity.js",
     "test:units": "node test/engine-units.js",

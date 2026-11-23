@@ -32,12 +32,17 @@ Starsze przekazanie: `docs/superpowers/HANDOFF-wzory.md` (rysunek wzoru, klawiat
 - `test/math-{limits,steps,calculus}.js`: sekcje „3b”–„3f” (kolejność, podstawienia, etykiety bez wzorów, dymki).
 - e2e `test/e2e/steps-drawing.spec.js`, `formula-drawing.spec.js`.
 
+- **Bramka SymPy** `npm run check:steps` (2026-11-23): 377 równości z 771 kroków sprawdzonych, 0 fałszywych; auto-test łapie fałsz.
+  Nie jest w `npm test` (wymaga venv, ~1 min) — uruchamiaj po zmianach kroków. Pokrycie: `check.py -v`.
+
 ## Sposób pracy, który się sprawdził
 TDD (test czerwony → kod), potem **agent „słaby uczeń”** czyta kroki (JSON z kroków + `why`) i zgłasza błędy zapisu,
 skoki, niepasujące zdania; poprawki; zrzut z telefonu (Playwright 390×844); wydanie po „wysyłaj” Mateusza.
 Skrypt do zrzutu kroków do JSON: wzór w `HANDOFF` niżej (pliki w scratchpadzie znikają między rozmowami).
 
-## Do zrobienia (raporty `research/raport-D-granice-kolor.md`, `raport-E-reszta-kolor.md`; zrobione w v1.05.15 pominięte)
+## Do zrobienia — kolejność uzgodniona z Mateuszem: równania (pkt 2), potem podręcznik ze ściągi (zakładka „Wzory”, treść z `deep-explain`/`bottom-up`, przykłady przez bramkę SymPy)
+
+### Lista (raporty `research/raport-D-granice-kolor.md`, `raport-E-reszta-kolor.md`; zrobione w v1.05.15 pominięte)
 1. Całki: zrobione w v1.05.16; zostało `∫ x²/2 · 1/x dx = ∫ x/2 dx` w przez części (C4) i `x² + 2x + 5` w arctg (wzór z `x + 1`).
 2. Równania: Δ z `25 − 24` i `−(−5)` (R1); `5 = 2x − 7` zamiana stron (R2); `x/2 + 1 = 3` mnożenie przez 2 (R3);
    `x² − 3x = 0` bez martwego kroku, z `x − 3 = 0` (R4); rozkład z rachunkiem miejsc zerowych (R5); Bezout z dzielnikami i dzieleniem (R6).
