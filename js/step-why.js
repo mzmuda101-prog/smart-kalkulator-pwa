@@ -140,7 +140,7 @@
         [/^Wyłączam \w przed nawias$/, 'Nie ma wyrazu bez niewiadomej, więc każdy wyraz dzieli się przez nią.'],
         [/^Przyrównuję każdy czynnik do zera$/, 'Iloczyn jest zerem tylko wtedy, gdy któryś czynnik jest zerem.'],
         [/^Zmieniam znak obu stron$/, 'Mnożę obie strony przez $-1$, więc obie zmieniają znak.'],
-        [/^Dzielę przez .* i odwracam znak$/, 'Przy x stoi minus, więc razem z dzieleniem obracam też znak.'],
+        [/^Dzielę przez .* i odwracam znak$/, 'Przy niewiadomej stoi minus, więc razem z dzieleniem obracam też znak.'],
         [/^Odczytuję znak z paraboli$/, (s) => {
             const p = s.parabola;
             if (!p) return 'Znak trójmianu zależy od tego, czy ramiona paraboli idą w górę, czy w dół.';
@@ -169,14 +169,14 @@
         [/^Wartość bezwzględna jest zerem tylko dla zera$/, 'Odległość od zera wynosi zero tylko wtedy, gdy wnętrze jest zerem.'],
         [/^Wartość bezwzględna jest dodatnia poza zerem$/, 'Odległość od zera jest dodatnia wszędzie, poza punktem, w którym wnętrze jest zerem.'],
         [/^Pierwiastek nie jest ujemny$/, 'Pierwiastek kwadratowy nigdy nie daje liczby ujemnej, więc równanie nie ma rozwiązań.'],
-        [/^Podnoszę obie strony do kwadratu$/, 'Po obu stronach stoi ta sama liczba, więc ich kwadraty też są równe, a pierwiastek znika.'],
+        [/^Podnoszę obie strony do kwadratu$/, 'Lewa i prawa część są równe, więc po podniesieniu do potęgi 2 nadal będą równe.'],
         [/^Odrzucam fałszywe rozwiązanie$/, 'Ta liczba spełnia równanie po podniesieniu do kwadratu, ale w oryginale pierwiastek równałby się liczbie ujemnej.'],
         [/^Sprawdzam rozwiązania$/, 'Po podniesieniu do kwadratu sprawdzam każde rozwiązanie w równaniu wyjściowym.'],
         [/^(Sinus|Cosinus) przyjmuje wartości od −1 do 1$/, 'Ta liczba leży poza przedziałem od −1 do 1, więc żaden kąt jej nie daje.'],
         [/^Odczytuję kąt z tablicy$/, 'Szukam kąta, dla którego funkcja daje tę wartość. Takie kąty warto znać na pamięć.'],
         [/^Zapisuję wszystkie rozwiązania$/, (s) => / lub /.test(s.math)
             ? 'Wykres powtarza się co $2\\pi$, a w każdym okresie ta wartość pojawia się dwa razy.'
-            : /\+ kπ|= kπ/.test(s.math) ? 'Ta wartość powtarza się co $\\pi$, więc do kąta dodaję dowolną wielokrotność $\\pi$.'
+            : /[+=] ⟦?kπ/.test(s.math) ? 'Ta wartość powtarza się co $\\pi$, więc do kąta dodaję dowolną wielokrotność $\\pi$.'
                 : 'Wykres powtarza się co $2\\pi$, więc do kąta dodaję dowolną wielokrotność $2\\pi$.'],
         [/^Wyliczam \w$/, 'Dzielę każdą serię przez liczbę przy niewiadomej; okres też się dzieli.'],
         [/^Rozkładam na czynniki pierwsze$/, 'Dzielę każdą liczbę przez najmniejsze liczby pierwsze, aż zostanie 1. Wtedy widać, z czego się składa.'],
@@ -196,7 +196,7 @@
         [/^Zamieniam strony$/, 'Równość działa w obie strony, a niewiadomą wygodniej mieć po lewej.'],
         [/^Liczę prawą stronę$/, 'Po lewej jest już sama niewiadoma, więc wystarczy policzyć prawą stronę.'],
         [/^Mnożę obie strony przez /, (s) => /przez .*[a-z(]/.test(s.label)
-            ? 'Po pomnożeniu x wychodzi z dołu ułamka, a liczby spoza dziedziny odrzucę na końcu.'
+            ? 'Po pomnożeniu niewiadoma wychodzi z dołu ułamka, a liczby spoza dziedziny odrzucę na końcu.'
             : 'Mnożę przez odwrotność liczby stojącej przy niewiadomej, żeby niewiadoma została sama.'],
         [/^Wyznaczam dziedzinę$/, (s) => / ≥ 0/.test(s.math) ? 'Pierwiastek kwadratowy liczymy tylko z liczb nieujemnych i sam nie jest ujemny.'
             : / > 0/.test(s.math) ? 'Logarytm istnieje tylko dla liczb dodatnich, więc argument musi być większy od zera.'

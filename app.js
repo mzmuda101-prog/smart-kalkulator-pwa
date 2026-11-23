@@ -4990,7 +4990,6 @@
                 e.preventDefault();
                 if (_stepsPopEscape()) { e.stopImmediatePropagation(); return; } // [EN] otwarty dymek: Esc zamyka tylko dymek
                 closeCommandHelp();
-                e.preventDefault();
                 e.stopImmediatePropagation(); // [EN] don't close notepad on same Esc
             }
         });
@@ -5983,8 +5982,8 @@
             var here = li.dataset.formulaHere;
             if (!here) return null;
             var p = _stepsEl('p', 'steps-pop-here');
-            p.setAttribute('aria-label', 'W tym zadaniu: ' + here);
             p.appendChild(_stepsEl('span', 'steps-pop-here-label', 'W tym zadaniu:'));
+            p.appendChild(_stepsEl('span', 'steps-sr', here)); // [EN] czytnik ekranu: liczby jako tekst (rysunek ma aria-hidden)
             var ink = _stepsEl('span', 'steps-pop-here-ink', here);
             ink.setAttribute('aria-hidden', 'true');
             try {

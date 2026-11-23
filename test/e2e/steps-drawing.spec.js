@@ -101,6 +101,7 @@ test('dymek: liczby z zadania, przycisk „W podręczniku”, Esc zamyka dymek, 
   const pop = page.locator('#stepsView .steps-pop');
   await expect(pop.locator('.steps-pop-here')).toContainText('W tym zadaniu');
   await expect(pop.locator('.steps-pop-here .ML__latex, .steps-pop-here .ML__base').first()).toBeAttached(); // narysowane, nie tekst
+  await expect(pop.locator('.steps-pop-here .steps-sr')).toHaveText('a = 1, b = −5, c = 6'); // czytnik ekranu: liczby jako tekst
   await expect(pop.getByRole('button', { name: /W podręczniku/ })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(pop).toHaveCount(0);

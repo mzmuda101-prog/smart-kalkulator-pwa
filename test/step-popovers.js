@@ -75,6 +75,15 @@ for (const [q, id, here] of COVER) {
     if (got) ok(q + ' → ' + id + ': liczby narysowane bez zapisu z klawiatury', !leaks(got), stepToLatex(got));
 }
 
+// przegląd: przy a < 0 dymek paraboli nazywa miejsca zerowe tak jak wcześniejszy krok ze wzorami
+{
+    const st = stepsWith('rozwiąż -x^2 + 7x - 6 > 0', 'nierownosc-kwadratowa');
+    const x12 = stepsWith('rozwiąż -x^2 + 7x - 6 > 0', 'wzory-x12')[0];
+    const x1 = x12 && /x₁ = .* = (−?\d+)\n/.exec(x12.math);
+    ok('a < 0: x₁ w dymku paraboli jak w kroku ze wzorami', !!(st[0] && x1 && st[0].formula.here.startsWith('x₁ = ' + x1[1] + ',')), [st[0] && st[0].formula.here, x12 && x12.math]);
+    ok('Δ < 0: bez dymku x₁ < x < x₂', stepsWith('rozwiąż x^2 + 1 > 0', 'nierownosc-kwadratowa').length === 0);
+}
+
 // pokrycie (spec, cel 1): każdy typ zadania z tabeli ma co najmniej jeden dymek w każdym sposobie
 for (const q of [...new Set(COVER.map(c => c[0]))]) {
     const r = S.run(q);

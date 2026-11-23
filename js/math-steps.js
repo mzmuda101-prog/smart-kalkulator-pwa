@@ -1208,9 +1208,14 @@
             .filter(function (q, i, all) { return !i || Math.abs(q.value - all[i - 1].value) > 1e-12; });
         var up = c[2].n > 0n, wantNeg = (rel === '<' || rel === '≤') === up; // [EN] „ujemne przy ramionach w górę” = między pierwiastkami
         var closed = !strict(rel);
-        var zeros = roots.length === 2 ? v + '₁ = ' + roots[0].text + ', ' + v + '₂ = ' + roots[1].text + ', ' : roots.length === 1 ? v + '₀ = ' + roots[0].text + ', ' : '';
-        steps.push({ label: 'Odczytuję znak z paraboli', math: 'a = ⟦' + fmt(c[2], ctx) + '⟧' + (up ? ' > 0' : ' < 0'), parabola: { up: up, between: wantNeg, roots: roots.length },
-            formula: { id: 'nierownosc-kwadratowa', here: zeros + 'a = ' + fmt(c[2], ctx) } });
+        // [EN] dymek (wzór x₁ < x < x₂) tylko przy dwóch miejscach zerowych; x₁, x₂ w kolejności z kroku ze wzorami, nie posortowane
+        var named = sol.map(function (q) { return q.r ? fmt(q.r, ctx) : q.text; });
+        var sign = { label: 'Odczytuję znak z paraboli', math: 'a = ' + fmt(c[2], ctx) + (up ? ' > 0' : ' < 0'), parabola: { up: up, between: wantNeg, roots: roots.length } };
+        if (roots.length === 2 && named.length === 2) {
+            sign.math = 'a = ⟦' + fmt(c[2], ctx) + '⟧' + (up ? ' > 0' : ' < 0');
+            sign.formula = { id: 'nierownosc-kwadratowa', here: v + '₁ = ' + named[0] + ', ' + v + '₂ = ' + named[1] + ', a = ' + fmt(c[2], ctx) };
+        }
+        steps.push(sign);
         if (roots.length === 2) {
             parts = wantNeg ? [{ lo: roots[0], hi: roots[1], loIn: closed, hiIn: closed }]
                 : [{ lo: null, hi: roots[0], hiIn: closed }, { lo: roots[1], hi: null, loIn: closed }];
