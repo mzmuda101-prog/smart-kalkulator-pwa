@@ -108,9 +108,9 @@
     // Kawałek, którego parser nie zna (słowa, „brak rozwiązań”), zostaje tekstem.
     // ⟦…⟧ = fragment, w którym działa wzór (step.formula) — rysowany w kolorze akcentu, do stuknięcia.
     const SEPS = [[', więc ', ',\\ \\text{więc}\\ '], [' lub ', '\\quad\\text{lub}\\quad '], [':  ', ':\\quad '],
-        [': ', ':\\quad '], [',  ', ',\\quad '], [', ', ',\\ '], [' = ', '='], [' ≈ ', '\\approx '], [' < ', '<'], [' > ', '>'], [' → ', '\\to '],
+        [': ', ':\\quad '], [',  ', ',\\quad '], [', ', ',\\ '], [' = ', '='], [' ≈ ', '\\approx '], [' < ', '<'], [' > ', '>'], [' ≤ ', '\\le '], [' ≥ ', '\\ge '], [' ≠ ', '\\ne '], [' ∈ ', '\\in '], [' → ', '\\to '],
         [' ✓', '\\ \\checkmark']];
-    const OPEN = '([⟦', CLOSE = ')]⟧';
+    const OPEN = '([⟦⟨', CLOSE = ')]⟧⟩';
     const SUBS = { '₀': '0', '₁': '1', '₂': '2', '₃': '3', 'ₙ': 'n', 'ₖ': 'k' };
     const SUPS = { '⁺': '+', '⁻': '-' };
     // słowo = 3+ litery albo krótkie polskie słowo; „at”, „2ab” to iloczyny
@@ -140,10 +140,31 @@
     const targetTex = (/** @type {string} */ t) => t.replace('−', '-').replace('∞', '\\infty ').replace(',', '{,}')
         .replace(/[⁺⁻]$/, m => '^{' + SUPS[/** @type {'⁺'} */ (m)] + '}');
 
+    /** zbiór rozwiązań nierówności: (2, +∞), ⟨−2, 2⟩, (−∞, 2⟩ ∪ ⟨3, +∞), ℝ, ℝ \ {2}, ∅, {2}; null, gdy to nie zbiór
+     * @param {string} p @param {string} fid @returns {string|null} */
+    function setTex(p, fid) {
+        const end = (/** @type {string} */ e) => e === '−∞' ? '-\\infty ' : e === '+∞' ? '+\\infty ' : pieceTex(e, fid);
+        const out = p.split(' ∪ ').map(part => {
+            if (part === 'ℝ') return '\\mathbb{R}';
+            if (part === '∅') return '\\varnothing ';
+            let m = /^ℝ \\ \{(.+)\}$/.exec(part);
+            if (m) { const x = pieceTex(m[1], fid); return x == null ? null : '\\mathbb{R}\\setminus\\{' + x + '\\}'; }
+            m = /^\{(.+)\}$/.exec(part);
+            if (m) { const x = pieceTex(m[1], fid); return x == null ? null : '\\{' + x + '\\}'; }
+            m = /^([(⟨])(.+), (.+)([)⟩])$/.exec(part);
+            if (!m) return null;
+            const a = end(m[2]), b = end(m[3]);
+            if (a == null || b == null) return null;
+            return (m[1] === '(' ? '\\left(' : '\\left\\langle ') + a + ',\\,' + b + (m[4] === ')' ? '\\right)' : '\\right\\rangle ');
+        });
+        return out.some(x => x == null) ? null : out.join('\\cup ');
+    }
+
     /** jeden kawałek wzoru → LaTeX; null, gdy parser go nie zna @param {string} p @param {string} fid @returns {string|null} */
     function pieceTex(p, fid) {
         p = p.trim();
         if (!p) return '';
+        if (/^(ℝ|∅|\{)/.test(p) || /^[(⟨][^()⟨⟩]*, [^()⟨⟩]*[)⟩]( ∪ |$)/.test(p)) { const st = setTex(p, fid); if (st != null) return st; }
         const lim = /^lim\((\w)→([^)]*)\)\s*([\s\S]*)$/.exec(p);
         if (lim) {
             const rest = pieceTex(lim[3], fid);

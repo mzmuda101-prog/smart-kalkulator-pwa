@@ -133,6 +133,8 @@
                 continue;
             }
             if ('²³⁴⁵⁶⁷⁸⁹'.indexOf(c) >= 0) { out.push({ t: 'op', v: '^' }); out.push({ t: 'num', v: String('²³⁴⁵⁶⁷⁸⁹'.indexOf(c) + 2) }); i++; continue; }
+            if ((c === '<' || c === '>') && s.charAt(i + 1) === '=') { out.push({ t: 'op', v: c === '<' ? '≤' : '≥' }); i += 2; continue; }
+            if ('<>≤≥'.indexOf(c) >= 0) { out.push({ t: 'op', v: c }); i++; continue; } // [EN] nierówności
             if ('+-*/^()='.indexOf(c) >= 0) { out.push({ t: 'op', v: c }); i++; continue; }
             if (c === '−' || c === '–') { out.push({ t: 'op', v: '-' }); i++; continue; }
             if (c === '×' || c === '·' || c === '∙') { out.push({ t: 'op', v: '*' }); i++; continue; }
@@ -674,6 +676,103 @@
         return finishSolutions(sol, v, lhs, rhs, steps, ctx);
     }
 
+    // ── Nierówności (plan „jak Photomath”, pkt 1): liniowe i kwadratowe ──
+    var FLIP = { '<': '>', '>': '<', '≤': '≥', '≥': '≤' };
+    function strict(rel) { return rel === '<' || rel === '>'; }
+    // [EN] zbiór: lista przedziałów {lo, hi, loIn, hiIn} (null = ∞) i opis tekstowy jak w szkole: (2, +∞), ⟨−2, 2⟩, ℝ, ∅
+    function setText(parts, txt) {
+        if (!parts.length) return '∅';
+        return parts.map(function (p) {
+            if (p.point) return '{' + txt(p.lo) + '}';
+            if (p.lo === null && p.hi === null) return p.minus ? 'ℝ \\ {' + txt(p.minus) + '}' : 'ℝ';
+            return (p.lo === null ? '(−∞' : (p.loIn ? '⟨' : '(') + txt(p.lo)) + ', ' + (p.hi === null ? '+∞)' : txt(p.hi) + (p.hiIn ? '⟩' : ')'));
+        }).join(' ∪ ');
+    }
+    function inSet(parts, x) {
+        return parts.some(function (p) {
+            if (p.point) return Math.abs(x - p.lo.value) < 1e-12;
+            if (p.minus) return Math.abs(x - p.minus.value) > 1e-12;
+            var okLo = p.lo === null || x > p.lo.value || (p.loIn && Math.abs(x - p.lo.value) < 1e-12);
+            var okHi = p.hi === null || x < p.hi.value || (p.hiIn && Math.abs(x - p.hi.value) < 1e-12);
+            return okLo && okHi;
+        });
+    }
+    function holds(val, rel) { return rel === '<' ? val < 0 : rel === '>' ? val > 0 : rel === '≤' ? val <= 1e-12 : val >= -1e-12; }
+    function solveInequality(lhs, rel, rhs) {
+        var ctx = { dec: hasDecimal(lhs) || hasDecimal(rhs) };
+        var steps = [{ label: 'Nierówność', math: show(lhs, ctx) + ' ' + rel + ' ' + show(rhs, ctx) }];
+        var rawL = termsOf(lhs), rawR = termsOf(rhs), L = collect(rawL), Rr = collect(rawR);
+        var diff = collect(rawL.concat(negTerms(rawR))), vars = varsOf(diff);
+        var parts, v = vars.indexOf('x') >= 0 ? 'x' : vars[0];
+        var answer = function (pre) {
+            var txt = function (e) { return e.text; };
+            var text = v + ' ∈ ' + setText(parts, txt);
+            // [EN] bezpiecznik: każdy punkt próbny musi spełniać nierówność dokładnie wtedy, gdy należy do zbioru
+            var c0 = v ? coefs(diff, v) : [diff.length ? diff[0].c : ZERO];
+            var cuts = [0];
+            parts.forEach(function (p) { [p.lo, p.hi, p.minus].forEach(function (e) { if (e) cuts.push(e.value); }); });
+            var probe = [-1000, 1000];
+            cuts.forEach(function (c) { probe.push(c, c - 0.5, c + 0.5, c - 1e-4, c + 1e-4); });
+            probe.forEach(function (x) {
+                var val = c0.reduce(function (acc, k, i) { return acc + toNum(k) * Math.pow(x, i); }, 0);
+                if (holds(val, rel) !== inSet(parts, x)) throw new NotSupported();
+            });
+            steps.push({ label: 'Odpowiedź', math: (pre ? pre + '\n' : '') + text });
+            return done('Nierówność', text, null, steps);
+        };
+        if (!vars.length) { // [EN] x + 1 > x: zmienna znika, zostaje zdanie prawdziwe albo fałszywe
+            var k = diff.length ? diff[0].c : ZERO, truth = holds(toNum(k), rel);
+            steps.push({ label: truth ? 'Zmienna się skróciła, a zostało zdanie prawdziwe' : 'Zmienna się skróciła, a zostało zdanie fałszywe', math: fmt(k, ctx) + ' ' + rel + ' 0' });
+            v = varsOf(collect(rawL)).concat(varsOf(collect(rawR)))[0] || 'x';
+            parts = truth ? [{ lo: null, hi: null }] : [];
+            return answer('');
+        }
+        if (vars.length > 1) throw new NotSupported();
+        var c = coefs(diff, v);
+        if (c.length === 2) {
+            var a = c[1], b = neg(c[0]);
+            var hasV = function (t) { return !!t.e[v]; };
+            var xR = Rr.filter(hasV), cL = L.filter(function (t) { return !hasV(t); });
+            var moved = polyText([ZERO, a], v, ctx) + ' ' + rel + ' ' + fmt(b, ctx);
+            if (xR.length || cL.length) {
+                var xs = L.filter(hasV).concat(negTerms(xR)), cs = Rr.filter(function (t) { return !hasV(t); }).concat(negTerms(cL));
+                var shift = (xs.length ? showTerms(xs, ctx, true) : '0') + ' ' + rel + ' ' + (cs.length ? showTerms(cs, ctx, true) : '0');
+                if (shift !== moved) {
+                    steps.push({ label: xR.length && cL.length ? 'Przenoszę ' + v + ' na lewo, liczby na prawo' : xR.length ? 'Przenoszę ' + v + ' na lewo' : 'Przenoszę liczby na prawo', math: shift });
+                    steps.push({ label: 'Redukuję wyrazy podobne', math: moved });
+                } else steps.push({ label: 'Przenoszę ' + v + ' na lewo, liczby na prawo', math: moved });
+            }
+            var r = div(b, a), relX = a.n < 0n ? FLIP[rel] : rel;
+            if (a.n < 0n) steps.push({ label: 'Dzielę przez ' + fmt(a, ctx) + ' i odwracam znak', math: v + ' ' + relX + ' ' + fmt(b, ctx) + '/' + fmtDen(a, ctx) + ' = ' + fmt(r, ctx) });
+            else if (!eq(a, ONE)) steps.push({ label: 'Dzielę obie strony przez ' + fmt(a, ctx), math: v + ' ' + relX + ' ' + fmt(b, ctx) + '/' + fmtDen(a, ctx) + ' = ' + fmt(r, ctx) });
+            var end = { text: fmt(r, ctx), value: toNum(r) };
+            parts = relX === '<' || relX === '≤' ? [{ lo: null, hi: end, hiIn: !strict(relX) }] : [{ lo: end, hi: null, loIn: !strict(relX) }];
+            return answer(v + ' ' + relX + ' ' + end.text);
+        }
+        if (c.length !== 3) throw new NotSupported();
+        if (L.length !== diff.length || Rr.length) steps.push({ label: 'Przenoszę wszystko na lewą stronę', math: polyText(c, v, ctx) + ' ' + rel + ' 0' });
+        steps.push({ label: 'Szukam miejsc zerowych', math: polyText(c, v, ctx) + ' = 0' });
+        var sol = [], mark = steps.length;
+        solveQuadratic(c, v, steps, ctx, sol);
+        steps.slice(mark).forEach(function (st) { // [EN] w nierówności „brak rozwiązań” równania znaczy tylko: parabola nie przecina osi
+            if (/^Delta ujemna/.test(st.label)) { st.label = 'Brak miejsc zerowych'; st.math = 'Δ < 0'; }
+            else if (/^Kwadrat nie może być ujemny/.test(st.label)) { st.label = 'Brak miejsc zerowych'; st.math = polyText(c, v, ctx) + ' ≠ 0'; }
+        });
+        var roots = sol.map(function (q) { return q.r ? { text: fmt(q.r, ctx), value: toNum(q.r) } : { text: q.text, value: q.value }; })
+            .sort(function (p, q) { return p.value - q.value; })
+            .filter(function (q, i, all) { return !i || Math.abs(q.value - all[i - 1].value) > 1e-12; });
+        var up = c[2].n > 0n, wantNeg = (rel === '<' || rel === '≤') === up; // [EN] „ujemne przy ramionach w górę” = między pierwiastkami
+        var closed = !strict(rel);
+        steps.push({ label: 'Odczytuję znak z paraboli', math: 'a = ' + fmt(c[2], ctx) + (up ? ' > 0' : ' < 0'), parabola: { up: up, between: wantNeg, roots: roots.length } });
+        if (roots.length === 2) {
+            parts = wantNeg ? [{ lo: roots[0], hi: roots[1], loIn: closed, hiIn: closed }]
+                : [{ lo: null, hi: roots[0], hiIn: closed }, { lo: roots[1], hi: null, loIn: closed }];
+        } else if (roots.length === 1) {
+            parts = wantNeg ? (closed ? [{ point: true, lo: roots[0] }] : []) : (closed ? [{ lo: null, hi: null }] : [{ lo: null, hi: null, minus: roots[0] }]);
+        } else parts = wantNeg ? [] : [{ lo: null, hi: null }];
+        return answer('');
+    }
+
     function solveForVariable(diff, v, steps, ctx) { // [EN] kilka zmiennych: tylko liniowo względem v
         var a = ZERO, others = [];
         diff.forEach(function (t) {
@@ -1115,16 +1214,17 @@
     function parseEquationParts(src, opts) {
         var tokens = tokenize(src, opts);
         var at = -1, count = 0;
-        tokens.forEach(function (t, i) { if (t.t === 'op' && t.v === '=') { at = i; count++; } });
+        tokens.forEach(function (t, i) { if (t.t === 'op' && '=<>≤≥'.indexOf(t.v) >= 0) { at = i; count++; } });
         if (count > 1) throw new SyntaxError('eq');
         if (at < 0) return { expr: parseTokens(tokens) };
-        return { lhs: parseTokens(tokens.slice(0, at)), rhs: parseTokens(tokens.slice(at + 1)) };
+        return { lhs: parseTokens(tokens.slice(0, at)), rhs: parseTokens(tokens.slice(at + 1)), rel: tokens[at].v };
     }
 
     function runParsed(d, opts) {
         var parts = parseEquationParts(d.src, opts || {});
         if (parts.lhs) {
             if (d.mode === 'simplify' || d.mode === 'factor') return null;
+            if (parts.rel !== '=') return solveInequality(parts.lhs, parts.rel, parts.rhs);
             return solveEquation(parts.lhs, parts.rhs);
         }
         var ast = parts.expr;
@@ -1165,8 +1265,8 @@
     }
     function runBare(raw) { // [EN] gołe „2x + 3 = 7”, gdy parser nie dał wyniku
         var s = fold(raw);
-        if (!s || s.length > MAX_INPUT || s.indexOf('=') < 0 || !/[a-z]/.test(s)) return null;
-        if (/^[a-z]\s*=\s*[\d.,]+$/.test(s)) return null; // [EN] „x = 5” to już odpowiedź
+        if (!s || s.length > MAX_INPUT || !/[=<>≤≥]/.test(s) || !/[a-z]/.test(s)) return null;
+        if (/^[a-z]\s*(?:=|<=?|>=?|≤|≥)\s*-?[\d.,]+$/.test(s)) return null; // [EN] „x = 5”, „x > 2” to już odpowiedź
         var res = memo('b:' + raw, function () {
             return runParsed({ mode: 'solve', src: s }, { singleLetters: true });
         });

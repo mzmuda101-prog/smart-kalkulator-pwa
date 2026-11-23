@@ -18,7 +18,7 @@ const decode = (/** @type {string} */ t) => t.replace(/&quot;/g, '"').replace(/&
 const EXTRA = ['lim x→0 sin(3x)/x', 'lim x→0 tan(2x)/x', 'lim x→0 arcsin(2x)/x', 'lim x→0 arctg(3x)/x', 'lim x→0 ln(1+2x)/x',
     'lim x→0 (e^x-1)/x', 'lim x→0 (x - sin(x))/x^3', 'lim n→∞ (1-1/n)^2', 'lim n→∞ 5(1+1/n)^n', 'lim x→0+ 1/x',
     'rozwiąż x^2 - 4x + 4 = 0', 'rozłóż x^2 - 9', 'rozwiąż x^2 - 2x - 1 = 0', 'rozwiąż x^2 = 9', 'rozwiąż 2x + 3 = 11',
-    'rozwiąż 5 = 2x - 7', 'rozwiąż x/2 + 1 = 3', 'rozwiąż x^2 - 3x = 0', 'rozwiąż x^2 + 1 = 0', 'rozłóż x^3 - x', 'rozwiąż x=52+65', 'rozwiąż 2x/3 = 4', 'rozwiąż 7 = 3 - x', 'rozwiąż 2x^2 - 6x = 0',
+    'rozwiąż 5 = 2x - 7', 'rozwiąż x/2 + 1 = 3', 'rozwiąż x^2 - 3x = 0', 'rozwiąż x^2 + 1 = 0', 'rozłóż x^3 - x', 'rozwiąż x=52+65', 'rozwiąż 2x/3 = 4', 'rozwiąż 7 = 3 - x', 'rozwiąż 2x^2 - 6x = 0', 'rozwiąż 5 - 2x ≥ 11', 'rozwiąż x^2 + 2 > 2x', 'rozwiąż x^2 - 4 < 0', 'rozwiąż x^2 - 2x - 1 < 0',
     'kroki 3/4 - 1/6', 'kroki 5/6 + 1/4', 'kroki 3/5 : 9/10', 'kroki 2/3 * 9/4', 'kroki 2/3 + 5/6', 'kroki 6 : 2 * 3', 'pochodna x/(x+1)', 'pochodna sin(x^2)', 'pochodna (3x+1)^5', 'pochodna √x',
     'pochodna 1/x', 'pochodna 3/x^2', 'pochodna 5x^3', 'pochodna x^2*e^x', 'pochodna (x^2+1)/(x-1)', 'pochodna ln(x^2+1)',
     'pochodna √(x^2+1)', 'pochodna e^(2x)', 'pochodna x^2*sin(2x)', 'pochodna sin(x)^2', 'pochodna x^(2/3)',

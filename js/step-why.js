@@ -50,7 +50,7 @@
     /** @type {[RegExp, string | ((s: Step, title: string, c: Ctx) => string | null)][]} */
     const RULES = [
         // ── stwierdzenia: bez zdania ──
-        [/^(Wynik|Odpowiedź|Równanie|Funkcja|Całka|Działanie|Wyrażenie|Wynik w przybliżeniu)$/, ''],
+        [/^(Wynik|Odpowiedź|Równanie|Nierówność|Funkcja|Całka|Działanie|Wyrażenie|Wynik w przybliżeniu)$/, ''],
         // ── granice ──
         [/^Granica$/, (s, _t, c) => {
             const m = /\s\s\[⟦?([^\]⟧]+)⟧?\]$/.exec(s.math);
@@ -121,7 +121,10 @@
         [/^Liczę dwa rozwiązania$/, 'Wstawiam liczby: raz odejmuję $\\sqrt{\\Delta}$, raz dodaję, i tak dostaję $x_{1}$ oraz $x_{2}$.'],
         [/^Liczę jedno rozwiązanie$/, 'Tu $\\Delta=0$, więc zostaje tylko $-b$ podzielone przez $2a$.'],
         [/^Delta ujemna/, 'Delta jest ujemna, a pierwiastka z liczby ujemnej nie ma, więc równanie nie ma rozwiązań.'],
-        [/^Szukam miejsc zerowych$/, 'Miejsca zerowe to liczby, dla których wyrażenie jest zerem. Z nich zbudujemy nawiasy.'],
+        [/^Szukam miejsc zerowych$/, (_s, title) => title === 'Nierówność'
+            ? 'Miejsca zerowe dzielą oś na części, w których wyrażenie nie zmienia znaku.'
+            : 'Miejsca zerowe to liczby, dla których wyrażenie jest zerem. Z nich zbudujemy nawiasy.'],
+        [/^Brak miejsc zerowych$/, 'Wyrażenie nigdy nie jest zerem, więc wykres nie przecina osi.'],
         [/^Zapisuję postać iloczynową$/, 'Mam już rozwiązania z poprzedniego kroku, więc składam z nich wynik.'],
         [/^Rozkładam różnicę kwadratów$/, 'Oba wyrazy są kwadratami, więc od razu widać, co wstawić do wzoru.'],
         [/^Rozpisuję kwadrat sumy$/, 'Po rozpisaniu nawiasu można zredukować wyrazy podobne.'],
@@ -133,6 +136,16 @@
         [/^Wyłączam \w przed nawias$/, 'Nie ma wyrazu bez niewiadomej, więc każdy wyraz dzieli się przez nią.'],
         [/^Przyrównuję każdy czynnik do zera$/, 'Iloczyn jest zerem tylko wtedy, gdy któryś czynnik jest zerem.'],
         [/^Zmieniam znak obu stron$/, 'Mnożę obie strony przez $-1$, więc obie zmieniają znak.'],
+        [/^Dzielę przez .* i odwracam znak$/, 'Dzielenie obu stron przez liczbę ujemną odwraca znak nierówności, np. $2>1$, ale $-2<-1$.'],
+        [/^Odczytuję znak z paraboli$/, (s) => {
+            const p = s.parabola;
+            if (!p) return 'Znak trójmianu zależy od tego, czy ramiona paraboli idą w górę, czy w dół.';
+            const arms = p.up ? 'Ramiona paraboli idą w górę' : 'Ramiona paraboli idą w dół';
+            if (!p.roots) return arms + ', a parabola nie przecina osi, więc znak jest wszędzie ten sam.';
+            if (p.roots === 1) return arms + ' i parabola tylko dotyka osi, więc znak zmienia się wyłącznie w tym jednym punkcie.';
+            const sign = p.between === p.up ? 'ujemne' : 'dodatnie';
+            return arms + ': wartości ' + sign + ' są ' + (p.between ? 'między miejscami zerowymi.' : 'na zewnątrz miejsc zerowych.');
+        }],
         [/^Zamieniam strony$/, 'Równość działa w obie strony, a niewiadomą wygodniej mieć po lewej.'],
         [/^Liczę prawą stronę$/, 'Po lewej jest już sama niewiadoma, więc wystarczy policzyć prawą stronę.'],
         [/^Mnożę obie strony przez /, 'Niewiadoma jest podzielona przez liczbę, więc mnożenie obu stron cofa to dzielenie.'],

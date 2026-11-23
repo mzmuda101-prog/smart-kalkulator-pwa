@@ -211,5 +211,23 @@ pass += 3;
     ok('3h: skąd wspólny mianownik — konkretnie', /4.*6.*12|12.*4.*6/.test(whyCd('kroki 3/4 - 1/6')), whyCd('kroki 3/4 - 1/6'));
 }
 
+// ── 4a: nierówności (plan „jak Photomath”, pkt 1) ──
+{
+    const T = q => { const r = S.run(q); return r && r.text; };
+    ok('4a: 2x + 3 > 7 → x > 2', T('rozwiąż 2x + 3 > 7') === 'x ∈ (2, +∞)', T('rozwiąż 2x + 3 > 7'));
+    ok('4a: kroki jak w równaniu, odpowiedź z przedziałem', has('rozwiąż 2x + 3 > 7', 'Przenoszę liczby na prawo', '2x > 7 − 3')
+        && has('rozwiąż 2x + 3 > 7', 'Dzielę obie strony przez 2', 'x > 4/2 = 2') && has('rozwiąż 2x + 3 > 7', 'Odpowiedź', 'x > 2\nx ∈ (2, +∞)'), st('rozwiąż 2x + 3 > 7'));
+    ok('4a: dzielenie przez ujemną odwraca znak', has('rozwiąż 5 - 2x ≥ 11', 'Dzielę przez −2 i odwracam znak', 'x ≤ 6/(−2) = −3') && T('rozwiąż 5 - 2x ≥ 11') === 'x ∈ (−∞, −3⟩', st('rozwiąż 5 - 2x ≥ 11'));
+    ok('4a: zapis <= i >=', T('rozwiąż x + 1 <= 4') === 'x ∈ (−∞, 3⟩', T('rozwiąż x + 1 <= 4'));
+    ok('4a: kwadratowa < 0 między pierwiastkami', T('rozwiąż x^2 - 4 < 0') === 'x ∈ (−2, 2)', T('rozwiąż x^2 - 4 < 0'));
+    ok('4a: kwadratowa ≥ 0 na zewnątrz, domknięte', T('rozwiąż x^2 - 5x + 6 ≥ 0') === 'x ∈ (−∞, 2⟩ ∪ ⟨3, +∞)', T('rozwiąż x^2 - 5x + 6 ≥ 0'));
+    ok('4a: ramiona w dół', T('rozwiąż -x^2 + 1 > 0') === 'x ∈ (−1, 1)', T('rozwiąż -x^2 + 1 > 0'));
+    ok('4a: parabola — krok z ramionami', st('rozwiąż x^2 - 4 < 0').some(x => x.label === 'Odczytuję znak z paraboli'), st('rozwiąż x^2 - 4 < 0'));
+    ok('4a: Δ < 0 — wszystkie albo żadna', T('rozwiąż x^2 + 1 > 0') === 'x ∈ ℝ' && T('rozwiąż x^2 + 1 < 0') === 'x ∈ ∅', [T('rozwiąż x^2 + 1 > 0'), T('rozwiąż x^2 + 1 < 0')]);
+    ok('4a: pierwiastek podwójny', T('rozwiąż x^2 - 4x + 4 > 0') === 'x ∈ ℝ \\ {2}' && T('rozwiąż x^2 - 4x + 4 ≤ 0') === 'x ∈ {2}', [T('rozwiąż x^2 - 4x + 4 > 0'), T('rozwiąż x^2 - 4x + 4 ≤ 0')]);
+    ok('4a: zawsze prawdziwa / fałszywa', T('rozwiąż x + 1 > x') === 'x ∈ ℝ' && T('rozwiąż x + 1 < x') === 'x ∈ ∅', [T('rozwiąż x + 1 > x'), T('rozwiąż x + 1 < x')]);
+    ok('4a: tytuł Nierówność', S.run('rozwiąż 2x + 3 > 7').explain.title === 'Nierówność');
+}
+
 console.log(`math-steps: ${pass} OK, ${fail} błędów`);
 process.exit(fail ? 1 : 0);
