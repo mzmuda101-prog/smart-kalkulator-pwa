@@ -12,6 +12,7 @@ test('lim n→∞ (1 − 1/n)^n: kroki narysowane, wzór na e w dymku i w „Wi�
   await page.waitForFunction(() => !!window.MATM0_TEX && !!window.MATM0_FORMULAS);
   await page.locator('#calcExpr').fill('lim n→∞ (1 - 1/n)^n');
   await page.locator('#calcExplainTip').click();
+  await page.locator('#stepsView .steps-methods').getByRole('button', { name: 'Dorabianie jedynki' }).click(); // domyślnie najkrótszy: wzór skrócony
   const steps = page.locator('#stepsView .steps-item');
   await expect(steps).toHaveCount(4);
   await expect(page.locator('#stepsView .steps-ink.is-drawn')).toHaveCount(4);
@@ -55,6 +56,7 @@ test('„dlaczego” zależy od kroku obok: po sprzężeniu mówi o pierwiastkac
   await page.waitForFunction(() => !!window.MATM0_TEX && !!window.MATM0_WHY);
   await page.locator('#calcExpr').fill('lim x→5 (x-5)/(3-sqrt(x+4))');
   await page.locator('#calcExplainTip').click();
+  await page.locator('#stepsView .steps-methods').getByRole('button', { name: 'Sprzężenie' }).click(); // domyślnie najkrótszy: de l'Hospital
   const item = page.locator('#stepsView .steps-item', { has: page.locator('.steps-label', { hasText: 'Upraszczamy' }) });
   await expect(item.locator('.steps-why')).toContainText('pierwiastki się skasowały');
 });
@@ -77,16 +79,17 @@ test('sposoby: 0/0 — rozkład albo de l\'Hospital, przełącznik nad krokami',
   await page.locator('#calcExplainTip').click();
   const ways = page.locator('#stepsView .steps-methods .settings-seg-btn');
   await expect(ways).toHaveText(['Rozkład na czynniki', "de l'Hospital"]);
-  await expect(ways.first()).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('#stepsView .steps-label').nth(1)).toContainText('Rozkładamy na czynniki');
-  await ways.nth(1).click();
-  await expect(page.locator('#stepsView .steps-label').nth(1)).toContainText("Reguła de l'Hospitala");
+  // domyślnie najkrótszy sposób (spec 2026-11-23-sposoby-design.md): tu de l'Hospital
   await expect(ways.nth(1)).toHaveAttribute('aria-pressed', 'true');
-  await expect(ways.nth(1)).toBeFocused();
+  await expect(page.locator('#stepsView .steps-label').nth(1)).toContainText("Reguła de l'Hospitala");
+  await ways.first().click();
+  await expect(page.locator('#stepsView .steps-label').nth(1)).toContainText('Rozkładamy na czynniki');
+  await expect(ways.first()).toHaveAttribute('aria-pressed', 'true');
+  await expect(ways.first()).toBeFocused();
   await expect(page.locator('#stepsView .steps-item.is-final')).toContainText('1');
   // jedno rozwiązanie — bez przełącznika
   await page.keyboard.press('Escape');
-  await page.locator('#calcExpr').fill('lim n→∞ (2n+1)/(6n+5)');
+  await page.locator('#calcExpr').fill('lim x→2 (x+1)/(x+3)');
   await page.locator('#calcExplainTip').click();
   await expect(page.locator('#stepsView .steps-item').first()).toBeVisible();
   await expect(page.locator('#stepsView .steps-methods')).toHaveCount(0);
@@ -107,4 +110,22 @@ test('dymek: liczby z zadania, przycisk „W podręczniku”, Esc zamyka dymek, 
   await expect(pop).toHaveCount(0);
   await expect(page.locator('#commandHelpDrawer')).toHaveAttribute('aria-hidden', 'false');
   await expect(page.locator('#stepsView .steps-formula-sr[data-formula="delta"]').first()).toBeFocused();
+});
+
+test('sposoby: domyślnie najkrótszy (1^∞ → wzór skrócony, układ → przeciwne współczynniki), drugi w przełączniku', async ({ page }) => {
+  await page.goto('index.html', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => !!window.MATM0_TEX);
+  const open = async (q) => {
+    await page.locator('#calcExpr').fill(q);
+    await page.locator('#calcExplainTip').click();
+    await expect(page.locator('#stepsView .steps-methods')).toBeVisible();
+  };
+  await open('lim n→∞ ((3n^2+4n+1)/(3n^2-2n+5))^(4n+3)');
+  await expect(page.locator('#stepsView .steps-methods .active')).toHaveText('Wzór skrócony');
+  await expect(page.locator('#stepsView .steps-label', { hasText: 'Liczę wykładnik ze wzoru skróconego' })).toHaveCount(1);
+  await page.locator('#stepsView .steps-methods').getByRole('button', { name: 'Dorabianie jedynki' }).click();
+  await expect(page.locator('#stepsView .steps-label', { hasText: 'Dorabiamy jedynkę' })).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await open('rozwiąż 2x + y = 7, x - y = 2');
+  await expect(page.locator('#stepsView .steps-methods .active')).toHaveText('Przeciwne współczynniki');
 });

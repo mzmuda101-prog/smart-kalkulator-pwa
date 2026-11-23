@@ -406,7 +406,19 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
         && m[1].steps[m[1].steps.length - 1].math === m[0].steps[m[0].steps.length - 1].math && m[1].steps[m[1].steps.length - 1].final, m && m[1].steps);
     ok('sposoby: 9a — sprzężenie i de l\'Hospital', JSON.stringify(names('lim x→5 (x-5)/(3-sqrt(x+4))')) === JSON.stringify(['Sprzężenie', "de l'Hospital"]), names('lim x→5 (x-5)/(3-sqrt(x+4))'));
     ok('sposoby: ∛ — różnica sześcianów, nie sprzężenie', names('lim x→3 (x^2-8x+15)/(∛(3x-1)-2)')[0] === 'Różnica sześcianów', names('lim x→3 (x^2-8x+15)/(∛(3x-1)-2)'));
-    ok('sposoby: bez 0/0 — jeden sposób, bez przełącznika', names('lim x→2 (x+1)/(x+3)').length === 0 && names('lim n→∞ (2n+1)/(6n+5)').length === 0);
+    ok('sposoby: bez symbolu nieoznaczonego — jeden sposób, bez przełącznika', names('lim x→2 (x+1)/(x+3)').length === 0);
+    // etap 1 sposobów (spec 2026-11-23-sposoby-design.md): 1^∞ — wzór skrócony, ∞/∞ — de l'Hospital
+    const end = st => st[st.length - 1];
+    const E = 'lim n→∞ ((3n^2+4n+1)/(3n^2-2n+5))^(4n+3)';
+    ok('sposoby: 1^∞ — dorabianie jedynki i wzór skrócony', JSON.stringify(names(E)) === JSON.stringify(['Dorabianie jedynki', 'Wzór skrócony']), names(E));
+    const me = run(E).explain.methods;
+    ok('sposoby: 1^∞ — ten sam wynik e⁸, wzór skrócony krótszy i z dymkiem', !!me && end(me[1].steps).math === end(me[0].steps).math && /e⁸$/.test(end(me[1].steps).math)
+        && me[1].steps.length < me[0].steps.length && me[1].steps.some(x => x.formula && x.formula.id === 'e-skrocony' && /⟦/.test(x.math)), me && me[1].steps);
+    ok('sposoby: 1^∞ przy (1 − 1/n)^n też ma wzór skrócony', names('lim n→∞ (1-1/n)^n').includes('Wzór skrócony'), names('lim n→∞ (1-1/n)^n'));
+    const D = 'lim n→∞ (2n+1)/(6n+5)';
+    ok('sposoby: ∞/∞ — najwyższa potęga i de l\'Hospital', JSON.stringify(names(D)) === JSON.stringify(['Najwyższa potęga', "de l'Hospital"]), names(D));
+    const md = run(D).explain.methods;
+    ok('sposoby: ∞/∞ — ten sam wynik', !!md && end(md[1].steps).math === end(md[0].steps).math, md && md.map(m => end(m.steps).math));
     ok('sposoby: znana granica sin(3x)/x też ma de l\'Hospitala', names('lim x→0 sin(3x)/x').length === 2, names('lim x→0 sin(3x)/x'));
 }
 

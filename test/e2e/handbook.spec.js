@@ -153,3 +153,22 @@ test('z kroków klawiaturą: Wróć do kroków oddaje fokus wzorowi, Esc wraca d
   await page.keyboard.press('Escape'); // drugie zamyka kroki
   await expect(page.locator('#calcExplainTip')).toBeFocused();
 });
+
+test('z kroków z przełącznikiem sposobów: Wróć do kroków przywraca przełącznik i listę', async ({ page }) => {
+  await boot(page);
+  await page.waitForFunction(() => !!window.MATM0_TEX);
+  await stepsMore(page, 'rozwiąż x^2 - 5x + 6 = 0', 'delta'); // bez sposobów — punkt odniesienia
+  await page.locator('#hbView .hb-back').click();
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await page.locator('#calcExpr').fill('lim x→4 (x^2-6x+8)/(3x^2-10x-8)');
+  await page.locator('#calcExplainTip').click();
+  await page.locator('#stepsView .steps-methods').getByRole('button', { name: 'Rozkład na czynniki' }).click();
+  const n = await page.locator('#stepsView .steps-item').count();
+  await page.locator('#stepsView .steps-ink [data-formula="postac-iloczynowa"], #stepsView .steps-ink [data-formula]').first().click();
+  await page.locator('#stepsView .steps-pop').getByRole('button', { name: /W podręczniku/ }).click();
+  await page.locator('#hbView .hb-back').click();
+  await expect(page.locator('#stepsView .steps-methods')).toBeVisible();
+  await expect(page.locator('#stepsView .steps-methods .active')).toHaveText('Rozkład na czynniki');
+  await expect(page.locator('#stepsView .steps-item')).toHaveCount(n);
+});

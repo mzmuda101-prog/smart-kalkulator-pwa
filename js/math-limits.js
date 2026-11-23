@@ -844,6 +844,32 @@
             return res;
         }
     };
+    // [EN] drugi sposób dla 1^∞ (spec 2026-11-23-sposoby-design.md): lim f^g = e^(lim g·(f − 1)) — bez dorabiania jedynki
+    var eShortcut = {
+        name: 'eShortcut',
+        test: eLimit.test,
+        apply: function (e, v, t, log, depth) {
+            var p = expOf(e), h = minusOne(p.f), gh = fold(C.cMul(p.g, h));
+            var grp = function (x) { var s = C.show(x); return x.length > 1 || /[+−]/.test(s) ? '(' + s + ')' : s; }; // [EN] n · (−1/n), nie n · −1/n
+            var put = grp(p.g) + ' · ' + grp(h), sgh = C.show(gh), still = !C.hasVar(gh, v);
+            line(log, 'Liczę wykładnik ze wzoru skróconego', '⟦' + grp(p.g) + ' · (' + C.show(p.f) + ' − 1)⟧ = ' + put + (put === sgh ? '' : ' = ' + sgh), 'e-skrocony');
+            var mark = log ? log.length : 0;
+            if (!still) line(log, 'Granica wykładnika', limOf(v, t, gh));
+            var L = limitOf(gh, v, t, still ? null : log, depth);
+            if (!still && log && log.length === mark + 1 && L.kind === 'num') log[mark].math += ' = ' + C.show(rationalize(fold(L.e)));
+            var pw = function (x) { return x === '1' ? '' : /^\d+$/.test(x) ? K.sup(x) : '^(' + x + ')'; };
+            if (L.kind === 'inf') {
+                line(log, 'Potęga e', L.sign > 0 ? '→ e^(+∞) = +∞' : '→ e^(−∞) = 0');
+                if (L.sign < 0) return { kind: 'num', e: [] };
+                return { kind: 'inf', sign: p.c.n < 0n ? -1 : 1 };
+            }
+            if (L.kind !== 'num') throw new NotSupported();
+            var res = { kind: 'num', e: C.cMul(C.num(p.c), C.cExp(C.E_CONST, L.e)) };
+            var et = 'e' + pw(C.show(rationalize(fold(L.e)))), ct = K.eq(p.c, ONE) ? '' : K.fmt(p.c) + ' · ', fin = formatAnswer(res).text;
+            line(log, 'Składamy wynik', ct + et + (fin !== ct + et ? ' = ' + fin : ''));
+            return res;
+        }
+    };
     // [EN] aᵍᵏ/bᵍ = (aᵏ/b)ᵍ — wspólny wykładnik dla ilorazu potęg (zad. 6h)
     var sameExponent = {
         name: 'sameExponent',
@@ -1182,10 +1208,25 @@
             } catch (err) { if (!(err instanceof NotSupported) && !(err instanceof RangeError)) throw err; }
             finally { _prefer = null; _budget = Infinity; }
         }
+        // [EN] etap 1 sposobów: 1^∞ — wzór skrócony obok dorabiania jedynki; ∞/∞ — de l'Hospital obok najwyższej potęgi
+        var other = !res.explain.methods && (ind === '1^∞' && first === 'eLimit' ? eShortcut : ind === '∞/∞' && first === 'dominantPower' ? lHospital : null);
+        if (other) {
+            var alt2 = steps.slice(0, steps.length - 1).filter(function (s, i) { return i === 0 || s.label === 'Zapisujemy inaczej'; });
+            _prefer = other; _work = 0; _budget = WORK_BUDGET;
+            try {
+                var ans2 = limitOf(e, d.v, d.target, alt2, 0);
+                if (_first === other.name && agrees(ans2, truth) && formatAnswer(ans2).text === out.text) {
+                    alt2.push({ label: 'Wynik', math: userLim(d, e) + ' = ' + out.text, final: true });
+                    res.explain.methods = [{ label: METHOD[first], steps: steps }, { label: METHOD[other.name], steps: alt2 }];
+                }
+            } catch (err) { if (!(err instanceof NotSupported) && !(err instanceof RangeError)) throw err; }
+            finally { _prefer = null; _budget = Infinity; }
+        }
         return res;
     }
     // [EN] nazwy sposobów do przełącznika w krokach (pierwszy ruch silnika)
-    var METHOD = { factorCancel: 'Rozkład na czynniki', conjugate: 'Sprzężenie', knownLimits: 'Znana granica', commonDenominator: 'Wspólny mianownik' };
+    var METHOD = { factorCancel: 'Rozkład na czynniki', conjugate: 'Sprzężenie', knownLimits: 'Znana granica', commonDenominator: 'Wspólny mianownik',
+        eLimit: 'Dorabianie jedynki', eShortcut: 'Wzór skrócony', dominantPower: 'Najwyższa potęga', lHospital: "de l'Hospital" };
 
     var API = {
         detect: detect, run: run, numericLimit: numericLimit, numericLimitAst: numericLimitAst, _evalDec: evalDec,

@@ -6194,7 +6194,8 @@
             if (!g || !stepsView || !stepsView.firstChild) return;
             var scroller = _stepsScroller();
             var d = (_dialogStack || []).filter(function (x) { return x.el === commandHelpDrawer; })[0];
-            _hbFromSteps = { list: stepsView.firstChild, scroll: scroller ? scroller.scrollTop : 0, expr: calcExpr ? calcExpr.value : '',
+            _hbFromSteps = { nodes: Array.prototype.slice.call(stepsView.childNodes), // [EN] przełącznik sposobów + lista, nie tylko pierwszy węzeł
+                 scroll: scroller ? scroller.scrollTop : 0, expr: calcExpr ? calcExpr.value : '',
                 title: commandHelpTitle ? commandHelpTitle.textContent : '', ret: d ? d.ret : null };
             closeCommandHelp();
             if (hbSearch) hbSearch.value = '';
@@ -6211,13 +6212,13 @@
             switchTab('calculator');
             _syncBottomNav();
             stepsView.textContent = '';
-            stepsView.appendChild(b.list);
+            b.nodes.forEach(function (n) { stepsView.appendChild(n); });
             _showStepsDrawer(b.title);
             var top = _dialogStack && _dialogStack[_dialogStack.length - 1];
             if (top && top.el === commandHelpDrawer && b.ret) top.ret = b.ret; // [EN] Esc wraca tam, skąd otwarto kroki, nie do ukrytego podręcznika
             var scroller = _stepsScroller();
             if (scroller) scroller.scrollTop = b.scroll; // [EN] to samo miejsce w krokach, dymek dalej otwarty
-            var sr = b.list.querySelector('.steps-math.is-open .steps-formula-sr');
+            var sr = stepsView.querySelector('.steps-math.is-open .steps-formula-sr');
             if (sr) {
                 sr.focus({ preventScroll: true });
                 requestAnimationFrame(function () { sr.focus({ preventScroll: true }); }); // [EN] po klatce dialogOpened (fokus na ×)
@@ -6327,6 +6328,10 @@
         }
         function openStepsView(explain) { // [EN] ta sama szuflada co ściąga: Esc, tło, × i przeciąganie już działają
             if (!stepsView || !commandHelpDrawer) return;
+            if (explain.methods && explain.methods.length > 1 && !explain.picked) { // [EN] domyślnie najkrótszy sposób (remis → kolejność silnika)
+                explain.picked = true;
+                explain.steps = explain.methods.reduce(function (best, m) { return m.steps.length < best.steps.length ? m : best; }).steps;
+            }
             renderStepsView(explain);
             _showStepsDrawer(explain.title + ' krok po kroku');
         }

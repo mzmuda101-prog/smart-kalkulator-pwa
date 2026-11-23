@@ -439,6 +439,17 @@
                 'Podwyżka o 20%, a potem obniżka o 20% nie wraca do ceny wyjściowej: $150\\cdot 1{,}2\\cdot 0{,}8=144$, bo obniżka liczy się już od wyższej ceny.',
             ],
         },
+        'e-skrocony': {
+            name: 'Wzór skrócony dla symbolu 1^∞',
+            tex: '\\lim f^{g}=e^{\\lim g\\cdot(f-1)}\\quad\\text{gdy } f\\to 1,\\ g\\to\\pm\\infty',
+            why: 'Zamiast dorabiać jedynkę, od razu liczymy granicę wykładnika $g\\cdot(f-1)$. Wynik to $e$ podniesione do tej granicy.',
+            level: 'Studia: analiza matematyczna, granice ciągów i funkcji',
+            more: [
+                'Skąd wzór: zapisujemy podstawę jako $f=1+(f-1)$ i oznaczamy $a=\\frac{1}{f-1}$, czyli $f=1+\\frac{1}{a}$. Wtedy $f^{g}=\\left[\\left(1+\\frac{1}{a}\\right)^{a}\\right]^{\\frac{g}{a}}$. Nawias kwadratowy dąży do $e$ (wzór na liczbę e), a wykładnik $\\frac{g}{a}$ to właśnie $g\\cdot(f-1)$.',
+                'Przykład: $\\left(1+\\frac{2}{n}\\right)^{n}$. Tu $f-1=\\frac{2}{n}$, więc $g\\cdot(f-1)=n\\cdot\\frac{2}{n}=2$ i granica to $e^{2}$.',
+                'To ten sam wynik co przy dorabianiu jedynki, tylko bez szukania $a_{n}$. Wzór działa wyłącznie dla symbolu $1^{\\infty}$: podstawa musi dążyć do 1, a wykładnik do nieskończoności.',
+            ],
+        },
         'odwracanie-znaku': {
             name: 'Dzielenie nierówności przez liczbę ujemną',
             tex: '-2x\\ge 6\\;\\Rightarrow\\;x\\le\\frac{6}{-2}',
@@ -554,7 +565,7 @@
     // id: [dział, poziom (najniższy, na którym uczeń poznaje wzór), słowa do wyszukiwarki, „Spróbuj”, obiecany wynik, powiązane]
     /** @type {Record<string, [string, 'lp'|'lr'|'st', string[], string, string, string[]]>} */
     const HANDBOOK = {
-        e: ['granice', 'st', ['liczba e', 'jeden do nieskończoności', 'granica ciągu'], 'lim n→∞ (1-1/n)^n', '1/e', ['nieoznaczone', 'ln1u', 'potega-ilorazu']],
+        e: ['granice', 'st', ['liczba e', 'jeden do nieskończoności', 'granica ciągu'], 'lim n→∞ (1-1/n)^n', '1/e', ['nieoznaczone', 'ln1u', 'potega-ilorazu', 'e-skrocony']],
         sprzezenie: ['granice', 'lp', ['sprzężenie', 'mnożenie przez sprzężenie', 'nieskończoność minus nieskończoność', 'pierwiastki'], 'lim n→∞ (sqrt(2n+5)-sqrt(2n+1))', '0', ['roznica-kwadratow', 'roznica-szescianow', 'nieoznaczone']],
         'roznica-szescianow': ['wyrazenia', 'lr', ['sześciany', 'pierwiastek trzeciego stopnia', 'wzory skróconego mnożenia'], 'lim n→∞ (∛(n^3+8n^2)-∛(n^3+2n^2))', '2', ['sprzezenie', 'roznica-czwartych']],
         'roznica-czwartych': ['wyrazenia', 'st', ['czwarte potęgi', 'pierwiastek czwartego stopnia'], 'lim n→∞ (∜(n^4+7n^3)-∜(n^4-n^3))', '2', ['roznica-szescianow', 'sprzezenie']],
@@ -599,6 +610,7 @@
         okresowosc: ['trygonometria', 'lp', ['okres', 'okresowość', 'k całkowite', 'seria rozwiązań', 'równanie trygonometryczne'], 'rozwiąż tg(x) = 1', 'x = π/4 + kπ, k ∈ ℤ', ['wartosci-trygonometryczne']],
         'procent-z-liczby': ['liczby', 'lp', ['procent', 'procent z liczby', 'ile procent', 'część całości'], 'kroki 20% z 150', '30', ['zmiana-o-procent']],
         'zmiana-o-procent': ['liczby', 'lp', ['podwyżka', 'obniżka', 'zmiana o procent', 'rabat', 'VAT'], 'kroki 150 + 20%', '180', ['procent-z-liczby']],
+        'e-skrocony': ['granice', 'st', ['wzór skrócony', 'jeden do nieskończoności', 'liczba e', 'granica potęgi'], 'lim n→∞ (1+2/n)^n', 'e²', ['e', 'nieoznaczone']],
         'odwracanie-znaku': ['rownania', 'lp', ['odwracanie znaku', 'nierówność liniowa', 'dzielenie przez liczbę ujemną', 'znak nierówności'], 'rozwiąż 5 - 2x ≥ 11', 'x ∈ (−∞, −3⟩', ['nierownosc-kwadratowa']],
         'rownanie-wymierne': ['rownania', 'lr', ['równanie wymierne', 'mianownik', 'dziedzina', 'ułamek z x'], 'rozwiąż (x+1)/(x-2) = 3', 'x = 7/2', ['wspolny-mianownik', 'rownanie-z-pierwiastkiem']],
         'rownosc-poteg': ['potegi-log', 'lp', ['równanie wykładnicze', 'wspólna podstawa', 'porównanie wykładników', 'potęgi'], 'rozwiąż 4^x = 2^(x+3)', 'x = 3', ['definicja-logarytmu', 'potega-ilorazu']],
