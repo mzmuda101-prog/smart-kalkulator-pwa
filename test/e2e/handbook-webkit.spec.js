@@ -11,7 +11,7 @@ test.beforeEach(({}, info) => test.skip(info.project.name !== 'mobile', 'jeden p
 test('Safari: kroki → Więcej → przewinięcie do Powiązanych → Wróć do kroków stuknięciem', async ({ page }) => {
   await page.goto('index.html', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => !!window.MATM0_HANDBOOK && !!window.MATM0_TEX);
-  await page.locator('#calcExpr').fill('rozwiąż x^2 - 5x + 6 = 0');
+  await page.locator('#calcExpr').fill('rozwiąż 2x^2 - 10x + 12 = 0');
   await page.locator('#calcExplainTip').tap();
   await page.locator('#stepsView .steps-ink [data-formula="delta"]').first().tap();
   await page.locator('#stepsView .steps-pop').getByRole('button', { name: /W podręczniku/ }).tap();

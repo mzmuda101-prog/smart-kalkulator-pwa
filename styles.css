@@ -2167,6 +2167,14 @@
         .steps-pop-name { font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary); }
         .steps-pop-tex { margin: 6px 0; font-size: 1.1rem; overflow-x: auto; overflow-y: hidden; }
         .steps-pop-why { margin: 0; }
+        /* schemat Hornera pod krokiem: tabelka jak na kartce */
+        .steps-horner { margin-block-start: 8px; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 1rem; max-inline-size: 100%; }
+        .steps-horner td { padding: 4px 12px; text-align: end; white-space: nowrap; color: var(--text); }
+        .steps-horner td svg { color: var(--primary); margin-inline-end: 2px; vertical-align: baseline; }
+        .steps-horner .steps-horner-r { border-inline-end: 2px solid var(--border-strong, var(--text-secondary)); font-weight: 600; }
+        .steps-horner tr:nth-child(2) td:not(.steps-horner-r) { color: var(--text-secondary); font-size: 0.875rem; }
+        .steps-horner tr.is-sum td { border-block-start: 2px solid var(--border-strong, var(--text-secondary)); font-weight: 600; }
+        .steps-horner .steps-horner-rest { color: var(--primary); }
         .steps-pop-here { margin: 0 0 8px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; color: var(--text-secondary); font-size: 0.875rem; }
         .steps-pop-here-ink { color: var(--text); font-size: 1rem; display: inline-flex; flex-wrap: wrap; gap: 4px 16px; }
         .steps-tex { white-space: nowrap; }

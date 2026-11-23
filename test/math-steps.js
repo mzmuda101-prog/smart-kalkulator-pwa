@@ -335,5 +335,23 @@ pass += 3;
     ok('4h: 12,5% z 80', T('kroki 12,5% z 80') === '10', T('kroki 12,5% z 80'));
 }
 
+// sposoby etap 2+3 (spec 2026-11-23-sposoby-design.md): suma i iloczyn obok delty, schemat Hornera przy Bezoucie
+{
+    const meth = q => { const m = S.run(q).explain.methods; return m ? m.map(x => x.label) : []; };
+    const Q = 'rozwiąż x^2 - 5x + 6 = 0', mq = S.run(Q).explain.methods;
+    ok('2+3: x² − 5x + 6 — delta i suma i iloczyn', JSON.stringify(meth(Q)) === JSON.stringify(['Delta', 'Suma i iloczyn']), meth(Q));
+    const vs = mq && mq[1].steps.find(x => x.formula && x.formula.id === 'wzory-viete');
+    ok('2+3: suma i iloczyn — para liczb i dymek z liczbami', !!vs && /⟦/.test(vs.math) && /2 \+ 3 = 5/.test(vs.math) && /2 · 3 = 6/.test(vs.math) && vs.formula.here === 'a = 1, b = −5, c = 6', vs);
+    ok('2+3: ta sama odpowiedź, krócej', !!mq && mq[1].steps[mq[1].steps.length - 1].math === mq[0].steps[mq[0].steps.length - 1].math && mq[1].steps.length < mq[0].steps.length, mq && mq.map(m => m.steps.length));
+    ok('2+3: x² + x − 12 — ujemny pierwiastek', meth('rozwiąż x^2 + x - 12 = 0').length === 2, meth('rozwiąż x^2 + x - 12 = 0'));
+    ok('2+3: bez sumy i iloczynu przy niewymiernych, a ≠ 1, podwójnym', meth('rozwiąż x^2 - 2x - 1 = 0').length === 0 && meth('rozwiąż 2x^2 - 6x + 4 = 0').length === 0 && meth('rozwiąż x^2 - 4x + 4 = 0').length === 0);
+    const C = st('rozwiąż x^3 - 6x^2 + 11x - 6 = 0'), labs = C.map(x => x.label);
+    const hi = labs.indexOf('Dzielę schematem Hornera'), h = C[hi];
+    ok('2+3: kolejność — pierwiastek, Horner, iloczyn', hi > 0 && labs[hi - 1] === 'Szukam pierwiastka wśród dzielników' && labs[hi + 1] === 'Zapisuję iloczyn', labs);
+    ok('2+3: Horner — tekst dzielenia i tabelka', !!h && h.math.replace(/[⟦⟧]/g, '') === '(x³ − 6x² + 11x − 6) : (x − 1) = x² − 5x + 6'
+        && JSON.stringify(h.horner) === JSON.stringify({ r: '1', top: ['1', '−6', '11', '−6'], mid: ['', '1', '−5', '6'], bot: ['1', '−5', '6', '0'] }), h);
+    ok('2+3: dymek Bezouta przy iloczynie', !!C[hi + 1] && C[hi + 1].formula && C[hi + 1].formula.id === 'bezout' && /⟦\(x − 1\)\(x² − 5x \+ 6\)⟧/.test(C[hi + 1].math), C[hi + 1]);
+}
+
 console.log(`math-steps: ${pass} OK, ${fail} błędów`);
 process.exit(fail ? 1 : 0);

@@ -610,9 +610,22 @@
         var lin = '(' + v + (r.n < 0n ? ' + ' + fmt(neg(r), ctx) : ' − ' + fmt(r, ctx)) + ')';
         // [EN] skąd kandydaci: dzielniki wyrazu wolnego (gdy przy najwyższej potędze stoi 1), raport E, R6
         var divs = isInt(c[0]) && eq(c[c.length - 1], ONE) && !isZero(c[0]) ? divisorsText(c[0]) : '';
-        steps.push({ // [EN] W(r) = 0 → W dzieli się przez (x − r) (słownik: bezout)
+        steps.push({
             label: 'Szukam pierwiastka wśród dzielników',
-            math: 'W(' + v + ') = ' + polyText(c, v, ctx) + (divs ? '\ndzielniki ' + fmt(c[0], ctx) + ': ' + divs : '') + '\nW(' + fmt(r, ctx) + ') = ' + plugPoly(c, r, ctx) + ' = 0, więc W(' + v + ') = ⟦' + lin + '(' + polyText(low, v, ctx) + ')⟧',
+            math: 'W(' + v + ') = ' + polyText(c, v, ctx) + (divs ? '\ndzielniki ' + fmt(c[0], ctx) + ': ' + divs : '') + '\nW(' + fmt(r, ctx) + ') = ' + plugPoly(c, r, ctx) + ' = 0'
+        });
+        // [EN] schemat Hornera (spec sposobów, etap 2+3): współczynniki, iloczyny po skosie, sumy pod kreską
+        var top = c.slice().reverse(), mid = [''], bot = [top[0]];
+        for (var hi = 1; hi < top.length; hi++) { var m = mul(r, bot[hi - 1]); mid.push(m); bot.push(add(top[hi], m)); }
+        steps.push({
+            label: 'Dzielę schematem Hornera',
+            math: '⟦(' + polyText(c, v, ctx) + ') : ' + lin + '⟧ = ' + polyText(low, v, ctx),
+            formula: { id: 'schemat-hornera' },
+            horner: { r: fmt(r, ctx), top: top.map(function (x) { return fmt(x, ctx); }), mid: mid.map(function (x) { return x === '' ? '' : fmt(x, ctx); }), bot: bot.map(function (x) { return fmt(x, ctx); }) }
+        });
+        steps.push({ // [EN] W(r) = 0 → W dzieli się przez (x − r) (słownik: bezout)
+            label: 'Zapisuję iloczyn',
+            math: 'W(' + v + ') = ⟦' + lin + '(' + polyText(low, v, ctx) + ')⟧',
             formula: { id: 'bezout' }
         });
         steps.push({ label: 'Przyrównuję każdy czynnik do zera', math: lin.slice(1, -1) + ' = 0 lub ' + polyText(low, v, ctx) + ' = 0\n' + v + ' = ' + fmt(r, ctx) + ' lub ' + polyText(low, v, ctx) + ' = 0' });
@@ -1073,7 +1086,30 @@
             }
             solveDegree(c, v, steps, ctx, sol);
         }
-        return finishSolutions(sol, v, lhs, rhs, steps, ctx);
+        var res = finishSolutions(sol, v, lhs, rhs, steps, ctx);
+        return c.length === 3 ? withVieta(res, c, v, sol, ctx) : res;
+    }
+    // [EN] drugi sposób dla x² + bx + c = 0 z całkowitymi różnymi pierwiastkami: „suma i iloczyn” (wzory Viète'a)
+    function withVieta(res, c, v, sol, ctx) {
+        var main = res && res.explain && res.explain.steps;
+        if (!main || !eq(c[2], ONE) || isZero(c[1]) || isZero(c[0]) || sol.length !== 2) return res;
+        var rs = sol.map(function (q) { return q.r; });
+        if (!rs.every(function (x) { return x && isInt(x); }) || eq(rs[0], rs[1])) return res;
+        rs.sort(function (p, q) { return toNum(p) - toNum(q); });
+        var iCoef = main.findIndex(function (x) { return x.label === 'Odczytuję współczynniki'; });
+        var iTail = main.findIndex(function (x) { return x.label === 'Sprawdzenie' || x.label === 'Odpowiedź'; });
+        if (iCoef < 0 || iTail < iCoef) return res;
+        var sum = neg(c[1]), prod = c[0], A = fmt(rs[0], ctx), B = fmtParen(rs[1], ctx);
+        var lin = function (x) { return v + (x.n < 0n ? ' + ' + fmt(neg(x), ctx) : ' − ' + fmt(x, ctx)); };
+        var vieta = [
+            { label: 'Szukam dwóch liczb o sumie ' + fmt(sum, ctx) + ' i iloczynie ' + fmt(prod, ctx),
+                math: '⟦' + v + '₁ + ' + v + '₂⟧ = ' + fmt(sum, ctx) + ', ⟦' + v + '₁ · ' + v + '₂⟧ = ' + fmt(prod, ctx) + '\n' + A + ' + ' + B + ' = ' + fmt(sum, ctx) + ', ' + A + ' · ' + B + ' = ' + fmt(prod, ctx),
+                formula: { id: 'wzory-viete', here: 'a = 1, b = ' + fmt(c[1], ctx) + ', c = ' + fmt(c[0], ctx) } },
+            { label: 'Zapisuję postać iloczynową', math: polyText(c, v, ctx) + ' = ⟦(' + lin(rs[0]) + ')(' + lin(rs[1]) + ')⟧', formula: { id: 'postac-iloczynowa' } },
+            { label: 'Przyrównuję każdy czynnik do zera', math: lin(rs[0]) + ' = 0 lub ' + lin(rs[1]) + ' = 0\n' + v + ' = ' + fmt(rs[0], ctx) + ' lub ' + v + ' = ' + fmt(rs[1], ctx) }
+        ];
+        res.explain.methods = [{ label: 'Delta', steps: main }, { label: 'Suma i iloczyn', steps: main.slice(0, iCoef).concat(vieta, main.slice(iTail)) }];
+        return res;
     }
 
     // ── Nierówności (plan „jak Photomath”, pkt 1): liniowe i kwadratowe ──

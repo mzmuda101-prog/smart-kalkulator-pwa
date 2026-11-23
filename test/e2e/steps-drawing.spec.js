@@ -98,13 +98,13 @@ test('sposoby: 0/0 — rozkład albo de l\'Hospital, przełącznik nad krokami',
 test('dymek: liczby z zadania, przycisk „W podręczniku”, Esc zamyka dymek, nie szufladę', async ({ page }) => {
   await page.goto('index.html', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => !!window.MATM0_TEX && !!window.MATM0_FORMULAS);
-  await page.locator('#calcExpr').fill('rozwiąż x^2 - 5x + 6 = 0');
+  await page.locator('#calcExpr').fill('rozwiąż 2x^2 - 10x + 12 = 0');
   await page.locator('#calcExplainTip').click();
   await page.locator('#stepsView .steps-ink [data-formula="delta"]').first().click();
   const pop = page.locator('#stepsView .steps-pop');
   await expect(pop.locator('.steps-pop-here')).toContainText('W tym zadaniu');
   await expect(pop.locator('.steps-pop-here .ML__latex, .steps-pop-here .ML__base').first()).toBeAttached(); // narysowane, nie tekst
-  await expect(pop.locator('.steps-pop-here .steps-sr')).toHaveText('a = 1, b = −5, c = 6'); // czytnik ekranu: liczby jako tekst
+  await expect(pop.locator('.steps-pop-here .steps-sr')).toHaveText('a = 2, b = −10, c = 12'); // czytnik ekranu: liczby jako tekst
   await expect(pop.getByRole('button', { name: /W podręczniku/ })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(pop).toHaveCount(0);
@@ -128,4 +128,26 @@ test('sposoby: domyślnie najkrótszy (1^∞ → wzór skrócony, układ → prz
   await page.keyboard.press('Escape');
   await open('rozwiąż 2x + y = 7, x - y = 2');
   await expect(page.locator('#stepsView .steps-methods .active')).toHaveText('Przeciwne współczynniki');
+});
+
+test('schemat Hornera: tabelka pod krokiem (współczynniki, iloczyny po skosie, sumy), suma i iloczyn domyślnie', async ({ page }) => {
+  await page.goto('index.html', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => !!window.MATM0_TEX);
+  await page.locator('#calcExpr').fill('rozwiąż x^3 - 6x^2 + 11x - 6 = 0');
+  await page.locator('#calcExplainTip').click();
+  const t = page.locator('#stepsView .steps-horner');
+  await expect(t).toHaveCount(1);
+  await expect(t).toHaveAttribute('aria-label', /Schemat Hornera/);
+  const rows = t.locator('tr');
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(0).locator('td')).toHaveText(['', '1', '−6', '11', '−6']);
+  await expect(rows.nth(1).locator('td')).toHaveText(['1', '', '1', '−5', '6']);
+  await expect(rows.nth(2).locator('td')).toHaveText(['', '1', '−5', '6', '0']);
+  await expect(rows.nth(1).locator('svg')).toHaveCount(3); // strzałka po skosie przy każdym iloczynie
+  const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(over).toBeLessThanOrEqual(0);
+  await page.keyboard.press('Escape');
+  await page.locator('#calcExpr').fill('rozwiąż x^2 - 5x + 6 = 0');
+  await page.locator('#calcExplainTip').click();
+  await expect(page.locator('#stepsView .steps-methods .active')).toHaveText('Suma i iloczyn');
 });

@@ -103,7 +103,7 @@ async function stepsMore(page, expr, fid) {
 test('z kroków: Powiązane tam i z powrotem, Wróć ×3 kończy na krokach z dymkiem', async ({ page }) => {
   await boot(page);
   await page.waitForFunction(() => !!window.MATM0_TEX);
-  await stepsMore(page, 'rozwiąż x^2 - 5x + 6 = 0', 'delta');
+  await stepsMore(page, 'rozwiąż 2x^2 - 10x + 12 = 0', 'delta');
   const h2 = page.locator('#hbView h2');
   await expect(h2).toHaveText('Delta (wyróżnik)');
   await page.locator('#hbView .hb-related').getByRole('button', { name: 'Wzory na rozwiązania równania kwadratowego' }).click();
@@ -123,7 +123,7 @@ test('z kroków: Powiązane tam i z powrotem, Wróć ×3 kończy na krokach z dy
 test('z kroków: po zmianie wyrażenia nie ma „Wróć do kroków”', async ({ page }) => {
   await boot(page);
   await page.waitForFunction(() => !!window.MATM0_TEX);
-  await stepsMore(page, 'rozwiąż x^2 - 5x + 6 = 0', 'delta');
+  await stepsMore(page, 'rozwiąż 2x^2 - 10x + 12 = 0', 'delta');
   await expect(page.locator('#hbView .hb-back')).toContainText('Wróć do kroków');
   const calc = page.locator('.tab-btn[data-tab="calculator"]:visible, #bottomNav [data-nav="calc"]:visible').first();
   await calc.click();
@@ -136,7 +136,7 @@ test('z kroków: po zmianie wyrażenia nie ma „Wróć do kroków”', async ({
 test('z kroków klawiaturą: Wróć do kroków oddaje fokus wzorowi, Esc wraca do przycisku kroków', async ({ page }) => {
   await boot(page);
   await page.waitForFunction(() => !!window.MATM0_TEX);
-  await page.locator('#calcExpr').fill('rozwiąż x^2 - 5x + 6 = 0');
+  await page.locator('#calcExpr').fill('rozwiąż 2x^2 - 10x + 12 = 0');
   await page.locator('#calcExplainTip').focus();
   await page.keyboard.press('Enter');
   await page.locator('#stepsView .steps-ink [data-formula="delta"]').first().click();
@@ -157,7 +157,7 @@ test('z kroków klawiaturą: Wróć do kroków oddaje fokus wzorowi, Esc wraca d
 test('z kroków z przełącznikiem sposobów: Wróć do kroków przywraca przełącznik i listę', async ({ page }) => {
   await boot(page);
   await page.waitForFunction(() => !!window.MATM0_TEX);
-  await stepsMore(page, 'rozwiąż x^2 - 5x + 6 = 0', 'delta'); // bez sposobów — punkt odniesienia
+  await stepsMore(page, 'rozwiąż 2x^2 - 10x + 12 = 0', 'delta'); // bez sposobów — punkt odniesienia
   await page.locator('#hbView .hb-back').click();
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
