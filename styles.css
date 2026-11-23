@@ -2168,8 +2168,12 @@
         .steps-pop-tex { margin: 6px 0; font-size: 1.1rem; overflow-x: auto; overflow-y: hidden; }
         .steps-pop-why { margin: 0; }
         /* schemat Hornera pod krokiem: tabelka jak na kartce */
-        .steps-horner { margin-block-start: 8px; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 1rem; max-inline-size: 100%; }
-        .steps-horner td { padding: 4px 12px; text-align: end; white-space: nowrap; color: var(--text); }
+        .steps-horner-wrap { margin-block-start: 8px; max-inline-size: 100%; overflow-x: auto; overscroll-behavior-x: contain;
+            /* krawędź zanika, gdy tabelka idzie dalej w prawo (widoczny znak przewijania) */
+            mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); }
+        .steps-horner-wrap:not(:hover):not(:focus-within) { scrollbar-width: thin; }
+        .steps-horner { border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 1rem; }
+        .steps-horner td { padding: 4px 8px; text-align: end; white-space: nowrap; color: var(--text); }
         .steps-horner td svg { color: var(--primary); margin-inline-end: 2px; vertical-align: baseline; }
         .steps-horner .steps-horner-r { border-inline-end: 2px solid var(--border-strong, var(--text-secondary)); font-weight: 600; }
         .steps-horner tr:nth-child(2) td:not(.steps-horner-r) { color: var(--text-secondary); font-size: 0.875rem; }

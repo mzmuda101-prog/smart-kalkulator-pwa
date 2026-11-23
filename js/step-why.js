@@ -213,7 +213,7 @@
         [/^Dzielę schematem Hornera$/, 'Wiem już, że nawias z tym pierwiastkiem dzieli wielomian, więc liczę, co zostaje po podzieleniu.'],
         [/^Zapisuję iloczyn$/, 'Wielomian to dzielnik razy wynik dzielenia, więc rozpisuję go na dwa nawiasy.'],
         [/^Szukam dwóch liczb o sumie/, 'Sprawdzam pary dzielników wyrazu wolnego, aż zgodzi się też suma.'],
-        [/^Szukam pierwiastka/, 'Całkowity pierwiastek takiego wielomianu musi dzielić liczbę bez $x$, więc sprawdzam jej dzielniki, aż któryś da 0.'],
+        [/^Szukam pierwiastka/, (s) => /dzielniki/.test(s.math) ? 'Całkowity pierwiastek takiego wielomianu musi dzielić liczbę bez $x$, więc sprawdzam jej dzielniki, aż któryś da 0.' : 'Szukam liczby, dla której wielomian daje 0. Wtedy nawias z tą liczbą dzieli wielomian.'],
         [/^Nie ma pierwiastków wymiernych/, 'Żaden dzielnik wyrazu wolnego nie zeruje wielomianu, więc prościej go nie rozłożymy.'],
         [/^Wyłączam wspólny czynnik/, 'Ten sam czynnik jest w każdym wyrazie, więc wyciągam go przed nawias.'],
         [/^Nie ma wspólnego czynnika/, 'Żaden czynnik nie powtarza się we wszystkich wyrazach.'],

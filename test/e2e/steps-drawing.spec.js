@@ -151,3 +151,20 @@ test('schemat Hornera: tabelka pod krokiem (współczynniki, iloczyny po skosie,
   await page.locator('#calcExplainTip').click();
   await expect(page.locator('#stepsView .steps-methods .active')).toHaveText('Suma i iloczyn');
 });
+
+test('schemat Hornera stopnia 5 na wąskim ekranie: tabelka przewija się w swoim pudełku, strona nie', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 780 });
+  await page.goto('index.html', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => !!window.MATM0_TEX);
+  await page.locator('#calcExpr').fill('rozwiąż x^5-15x^4+85x^3-225x^2+274x-120=0');
+  await page.locator('#calcExplainTip').click();
+  const box = page.locator('#stepsView .steps-horner-wrap').first();
+  await expect(box).toBeVisible();
+  const r = await box.evaluate((el) => ({ ox: getComputedStyle(el).overflowX, fits: el.getBoundingClientRect().right <= el.closest('.steps-item').getBoundingClientRect().right + 0.5, scrolls: el.scrollWidth > el.clientWidth }));
+  expect(r.ox).toBe('auto');
+  expect(r.fits).toBe(true); // tabelka nie wychodzi poza kartę, przewija się w swoim pudełku
+  expect(r.scrolls).toBe(true); // shortcut: długi zapis dzielenia nad tabelką wciąż rozpycha kartę — etap 4 (długie wzory)
+  const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(over).toBeLessThanOrEqual(0);
+  await expect(page.locator('#stepsView .steps-horner').first()).toHaveAttribute('aria-label', /iloraz .*; reszta 0/);
+});

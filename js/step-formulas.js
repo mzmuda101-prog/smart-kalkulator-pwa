@@ -472,7 +472,7 @@
                 'Jak liczyć: w górnym wierszu piszemy współczynniki wielomianu, a po lewej $r$. Pierwszy współczynnik spisujemy w dół. Potem w kółko: liczbę z dołu mnożymy przez $r$, wynik wpisujemy po skosie pod następny współczynnik i dodajemy w pionie.',
                 'Przykład: $x^{3}-6x^{2}+11x-6$ przez $(x-1)$. Spisujemy 1. Dalej $1\\cdot 1=1$ i $-6+1=-5$, potem $-5\\cdot 1=-5$ i $11+(-5)=6$, na końcu $6\\cdot 1=6$ i $-6+6=0$. Wynik ma stopień o jeden niższy, więc dolne liczby bez ostatniej (1, −5, 6) to współczynniki przy $x^{2}$, $x$ i wyraz wolny, czyli $x^{2}-5x+6$. Ostatnia liczba, 0, to reszta.',
                 'Skąd to działa: to zwykłe dzielenie pisemne wielomianów, w którym zostawiamy same współczynniki i nie przepisujemy liter. Dlaczego reszta to $W(r)$: wstawiamy $x=r$ do $W(x)=(x-r)\\cdot Q(x)+R$. Nawias $(r-r)$ daje 0, więc zostaje $W(r)=R$. Dlatego zero na końcu potwierdza, że $r$ jest pierwiastkiem.',
-                'Skąd nazwa: od Williama George\'a Hornera, angielskiego matematyka, który opisał ten sposób w 1819 roku. Wcześniej, w 1804 roku, opisał ją Paolo Ruffini, a w Chinach znał ją już w XIII wieku Qin Jiushao.',
+                'Skąd nazwa: od Williama George\'a Hornera, angielskiego matematyka, który opisał ten sposób w 1819 roku. Wcześniej, w 1804 roku, opisał go Paolo Ruffini, a w Chinach znał go już w XIII wieku Qin Jiushao.',
             ],
         },
         'odwracanie-znaku': {
