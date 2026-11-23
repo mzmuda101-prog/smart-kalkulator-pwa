@@ -1001,7 +1001,8 @@
             if (tabName === 'constants') {
                 renderConstants();
             }
-            if (tabName === 'podrecznik' && hbView && !hbView.firstChild) _hbRender(null);
+            if (tabName === 'podrecznik' && hbView && (!hbView.firstChild
+                || (_hbStack[_hbStack.length - 1].fromSteps && !_hbStepsValid()))) _hbRender(null); // [EN] kroki już nieaktualne: bez „Wróć do kroków”
             if (tabName === 'calculator') {
                 setTimeout(function() {
                     _calcBtnScale = 1;
@@ -5942,7 +5943,6 @@
         // Kroki rysowane jak na kartce (spec 5.12): tekst kroku → kawałki LaTeX (MATM0_TEX.stepToLatex, z drzewa parsera),
         // rysuje ten sam MathLive co wzór obok wyniku. Bez biblioteki (offline bez cache) zostaje tekst.
         // Fragment ⟦…⟧ to miejsce użycia wzoru: podkreślony, stuknięcie → dymek, „Więcej” → widok z „Wróć”.
-        var _stepsBack = null; // [EN] { list, scroll, id } — gdzie wrócić z widoku „Więcej”
         var _stepsGen = 0; // [EN] numer widoku: spóźnione wczytanie biblioteki nie podmienia nowszych kroków
         function _stepsFormulas() { return (window.MATM0_FORMULAS && window.MATM0_FORMULAS.FORMULAS) || {}; }
         function _stepsRich(el, ml, text) { // [EN] tekst z $…$ → zdania z narysowanymi wzorami (bez zapisu z klawiatury)
@@ -6006,45 +6006,11 @@
                 if (sr) sr.setAttribute('aria-expanded', 'true');
             });
         }
-        function _openStepsMore(id) {
-            var f = _stepsFormulas()[id], scroller = _stepsScroller();
-            if (!f || !stepsView.firstChild) return;
-            var back0 = _stepsBack = { list: stepsView.firstChild, scroll: scroller ? scroller.scrollTop : 0, id: id };
-            _loadFormulaLib().catch(function () { return null; }).then(function (ml) {
-                if (_stepsBack !== back0) return; // [EN] w międzyczasie nowe kroki albo „Wróć”
-                var view = _stepsEl('div', 'steps-more');
-                var back = _stepsEl('button', 'steps-back');
-                back.type = 'button';
-                back.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>';
-                back.appendChild(document.createTextNode('Wróć do kroków'));
-                view.appendChild(back);
-                view.appendChild(_stepsEl('h4', 'steps-more-name', f.name));
-                var tex = _stepsEl('div', 'steps-pop-tex steps-more-tex');
-                tex.setAttribute('aria-hidden', 'true');
-                if (ml) tex.innerHTML = ml.convertLatexToMarkup(f.tex);
-                view.appendChild(tex);
-                [f.why].concat(f.more).forEach(function (t) { view.appendChild(_stepsRich(_stepsEl('p', 'steps-more-p'), ml, t)); });
-                view.appendChild(_stepsEl('p', 'steps-pop-level', f.level));
-                stepsView.textContent = '';
-                stepsView.appendChild(view);
-                if (scroller) scroller.scrollTop = 0;
-                back.focus();
-            });
-        }
-        function _closeStepsMore() {
-            if (!_stepsBack) return;
-            var b = _stepsBack, scroller = _stepsScroller();
-            _stepsBack = null;
-            stepsView.textContent = '';
-            stepsView.appendChild(b.list);
-            if (scroller) scroller.scrollTop = b.scroll; // [EN] to samo miejsce w krokach, dymek dalej otwarty
-            var sr = b.list.querySelector('.steps-math.is-open .steps-formula-sr');
-            if (sr) sr.focus({ preventScroll: true });
-        }
         // Podręcznik (spec 2026-11-23-podrecznik-design.md): start → dział → hasło, stos do „Wróć”.
         // Dane i wyszukiwanie: MATM0_HANDBOOK (js/handbook.js); rysunki: ten sam MathLive co w krokach.
         var hbView = $('#hbView'), hbSearch = $('#hbSearch');
         var _hbStack = [{ view: 'home' }];
+        var _hbFromSteps = null; // [EN] { list, scroll, expr, title } — kroki, do których wraca „Wróć do kroków”
         var _hbMl; // [EN] undefined = jeszcze nie próbowano, null = brak biblioteki (offline bez cache)
         var _hbGen = 0;
         var _HB_LEVELS = { lp: 'liceum', lr: 'rozszerzenie', st: 'studia' };
@@ -6081,7 +6047,20 @@
             var g = H.get(prev.id);
             return g ? g.entry.name : 'Wróć';
         }
+        function _hbStepsValid() { // [EN] kroki aktualne tylko, dopóki w kalkulatorze jest to samo wyrażenie
+            if (_hbFromSteps && calcExpr && calcExpr.value === _hbFromSteps.expr) return true;
+            _hbFromSteps = null;
+            _hbStack.forEach(function (x) { delete x.fromSteps; });
+            return false;
+        }
         function _hbBackButton() {
+            var top = _hbStack[_hbStack.length - 1];
+            if (top.fromSteps && _hbStepsValid()) {
+                var s = _hbButton('hb-back hb-back-steps', hbReturnToSteps);
+                s.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>';
+                s.appendChild(document.createTextNode('Wróć do kroków'));
+                return s;
+            }
             var b = _hbButton('hb-back', hbBack);
             b.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>';
             b.appendChild(document.createTextNode(_hbBackLabel()));
@@ -6162,8 +6141,8 @@
                 hbView.textContent = '';
                 hbView.appendChild(box);
                 if (dir && !q) {
-                    var h = box.querySelector('h2');
-                    if (h) { h.tabIndex = -1; h.focus({ preventScroll: true }); }
+                    var h = box.querySelector('.hb-back-steps') || box.querySelector('h2');
+                    if (h) { if (h.tagName === 'H2') h.tabIndex = -1; h.focus({ preventScroll: true }); }
                     else if (hbSearch) hbSearch.focus({ preventScroll: true });
                     var panel = $('#panel-podrecznik');
                     if (panel) panel.scrollIntoView({ block: 'start' });
@@ -6178,9 +6157,38 @@
             _hbRender('fwd');
         }
         function hbBack() {
+            if (_hbStack[_hbStack.length - 1].fromSteps && _hbStepsValid()) { hbReturnToSteps(); return; }
             if (_hbStack.length < 2) return;
             _hbStack.pop();
             _hbRender('back');
+        }
+        function hbOpenFromSteps(id) { // [EN] „Więcej” w dymku: to samo hasło w podręczniku, kroki czekają na powrót
+            var g = window.MATM0_HANDBOOK && window.MATM0_HANDBOOK.get(id);
+            if (!g || !stepsView || !stepsView.firstChild) return;
+            var scroller = _stepsScroller();
+            _hbFromSteps = { list: stepsView.firstChild, scroll: scroller ? scroller.scrollTop : 0, expr: calcExpr ? calcExpr.value : '',
+                title: commandHelpTitle ? commandHelpTitle.textContent : '' };
+            closeCommandHelp();
+            if (hbSearch) hbSearch.value = '';
+            _hbStack = [{ view: 'home' }, { view: 'chapter', id: g.entry.dzial }, { view: 'entry', id: id, fromSteps: true }];
+            switchTab('podrecznik');
+            _syncBottomNav();
+            _hbRender('fwd');
+        }
+        function hbReturnToSteps() {
+            var b = _hbFromSteps;
+            _hbFromSteps = null;
+            _hbStack.forEach(function (x) { delete x.fromSteps; });
+            if (!b || !stepsView || !commandHelpDrawer) return;
+            switchTab('calculator');
+            _syncBottomNav();
+            stepsView.textContent = '';
+            stepsView.appendChild(b.list);
+            _showStepsDrawer(b.title);
+            var scroller = _stepsScroller();
+            if (scroller) scroller.scrollTop = b.scroll; // [EN] to samo miejsce w krokach, dymek dalej otwarty
+            var sr = b.list.querySelector('.steps-math.is-open .steps-formula-sr');
+            if (sr) sr.focus({ preventScroll: true });
         }
         function hbTry(id) {
             var g = window.MATM0_HANDBOOK.get(id);
@@ -6195,16 +6203,15 @@
 
         if (stepsView) stepsView.addEventListener('click', function (e) {
             var t = e.target;
-            if (t.closest('.steps-back')) { _closeStepsMore(); return; }
             var more = t.closest('[data-formula-more]');
-            if (more) { _openStepsMore(more.dataset.formulaMore); return; }
+            if (more) { hbOpenFromSteps(more.dataset.formulaMore); return; }
             if (t.closest('.steps-pop')) return;
             var hit = t.closest('[data-formula]');
             if (hit) { _openStepsPop(hit.closest('.steps-item'), hit.dataset.formula); return; }
             _closeStepsPop();
         });
         function renderStepsView(explain) {
-            _stepsBack = null;
+            _hbFromSteps = null; // [EN] nowe kroki: stara lista do „Wróć do kroków” już nieaktualna
             var gen = ++_stepsGen;
             var list = document.createElement('ol');
             list.className = 'steps-list';
@@ -6287,9 +6294,12 @@
         function openStepsView(explain) { // [EN] ta sama szuflada co ściąga: Esc, tło, × i przeciąganie już działają
             if (!stepsView || !commandHelpDrawer) return;
             renderStepsView(explain);
+            _showStepsDrawer(explain.title + ' krok po kroku');
+        }
+        function _showStepsDrawer(title) {
             stepsView.hidden = false;
             commandHelpDrawer.classList.add('is-steps');
-            if (commandHelpTitle) commandHelpTitle.textContent = explain.title + ' krok po kroku';
+            if (commandHelpTitle) commandHelpTitle.textContent = title;
             if (commandHelpClose) commandHelpClose.setAttribute('aria-label', 'Zamknij kroki');
             document.body.classList.add('help-open');
             dialogOpened(commandHelpDrawer, commandHelpClose);

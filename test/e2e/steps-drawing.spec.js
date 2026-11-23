@@ -36,12 +36,15 @@ test('lim n→∞ (1 − 1/n)^n: kroki narysowane, wzór na e w dymku i w „Wi�
   await expect(pop).toContainText('Wzór na liczbę e');
   await expect(page.locator('#stepsView .steps-formula-sr[data-formula="e"]')).toHaveAttribute('aria-expanded', 'true');
 
-  await pop.getByRole('button', { name: 'Więcej' }).click();
-  await expect(page.locator('#stepsView .steps-more')).toBeVisible();
-  await expect(page.locator('.steps-back')).toBeFocused();
-  await page.locator('.steps-back').click();
+  await pop.getByRole('button', { name: 'Więcej' }).click(); // „Więcej” = to samo hasło w podręczniku
+  await expect(page.locator('#panel-podrecznik')).toBeVisible();
+  await expect(page.locator('#hbView h2')).toHaveText('Wzór na liczbę e');
+  await expect(page.locator('#hbView .hb-back')).toBeFocused();
+  await expect(page.locator('#hbView .hb-back')).toContainText('Wróć do kroków');
+  await page.locator('#hbView .hb-back').click();
   await expect(steps).toHaveCount(4);
   await expect(pop).toBeVisible(); // wracamy do tego samego miejsca, dymek dalej otwarty
+  await expect(page.locator('#stepsView .steps-formula-sr[data-formula="e"]')).toBeFocused();
 
   await hit.click(); // drugie stuknięcie zamyka
   await expect(pop).toHaveCount(0);

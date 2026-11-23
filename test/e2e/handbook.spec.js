@@ -89,3 +89,43 @@ test('bez MathLive hasło pokazuje wzór jako tekst', async ({ page }) => {
   await page.locator('#hbView').getByRole('button', { name: /Delta \(wyróżnik\)/ }).click();
   await expect(page.locator('#hbView .hb-tex')).toContainText('b^{2}');
 });
+
+async function stepsMore(page, expr, fid) {
+  await page.locator('#calcExpr').fill(expr);
+  await page.locator('#calcExplainTip').click();
+  await page.locator('#stepsView .steps-ink [data-formula="' + fid + '"]').first().click();
+  await page.locator('#stepsView .steps-pop').getByRole('button', { name: 'Więcej' }).click();
+}
+
+test('z kroków: Powiązane tam i z powrotem, Wróć ×3 kończy na krokach z dymkiem', async ({ page }) => {
+  await boot(page);
+  await page.waitForFunction(() => !!window.MATM0_TEX);
+  await stepsMore(page, 'rozwiąż x^2 - 5x + 6 = 0', 'delta');
+  const h2 = page.locator('#hbView h2');
+  await expect(h2).toHaveText('Delta (wyróżnik)');
+  await page.locator('#hbView .hb-related').getByRole('button', { name: 'Wzory na rozwiązania równania kwadratowego' }).click();
+  await expect(h2).toHaveText('Wzory na rozwiązania równania kwadratowego');
+  await page.locator('#hbView .hb-related').getByRole('button', { name: 'Delta (wyróżnik)' }).click();
+  await expect(h2).toHaveText('Delta (wyróżnik)');
+  await page.locator('#hbView .hb-back').click();
+  await expect(h2).toHaveText('Wzory na rozwiązania równania kwadratowego');
+  await page.locator('#hbView .hb-back').click();
+  await expect(h2).toHaveText('Delta (wyróżnik)');
+  await expect(page.locator('#hbView .hb-back')).toContainText('Wróć do kroków');
+  await page.locator('#hbView .hb-back').click();
+  await expect(page.locator('#stepsView .steps-pop')).toBeVisible();
+  await expect(page.locator('#stepsView .steps-pop')).toContainText('Delta');
+});
+
+test('z kroków: po zmianie wyrażenia nie ma „Wróć do kroków”', async ({ page }) => {
+  await boot(page);
+  await page.waitForFunction(() => !!window.MATM0_TEX);
+  await stepsMore(page, 'rozwiąż x^2 - 5x + 6 = 0', 'delta');
+  await expect(page.locator('#hbView .hb-back')).toContainText('Wróć do kroków');
+  const calc = page.locator('.tab-btn[data-tab="calculator"]:visible, #bottomNav [data-nav="calc"]:visible').first();
+  await calc.click();
+  await page.locator('#calcExpr').fill('2+2');
+  await openHandbook(page);
+  await expect(page.locator('#hbView h2')).toHaveText('Delta (wyróżnik)');
+  await expect(page.locator('#hbView')).not.toContainText('Wróć do kroków');
+});
