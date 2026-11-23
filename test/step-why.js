@@ -79,6 +79,11 @@ ok('tg x = 1: okres π', /\$\\pi\$/.test(whyOf('rozwiąż tg(x) = 1', 'Zapisuję
 ok('sin x = 0: okres π', !/2\\pi/.test(whyOf('rozwiąż sin(x) = 0', 'Zapisuję wszystkie rozwiązania') || '2\\pi'), whyOf('rozwiąż sin(x) = 0', 'Zapisuję wszystkie rozwiązania'));
 // zdanie nie zakłada litery x
 ok('3 − y < 5: bez „x” w zdaniu', !/\bx\b/.test(whyOf('rozwiąż 3 - y < 5', 'Dzielę przez') || 'x'), whyOf('rozwiąż 3 - y < 5', 'Dzielę przez'));
+{ // wykładnik może dążyć do −∞: zdanie nie mówi „rośnie”
+    const r = S.run('lim n→∞ (1+1/n)^(-n^2)'), m = r.explain.methods, st = m && m[1].steps, i = st ? st.findIndex(x => /wzoru skróconego/.test(x.label)) : -1;
+    const w = i >= 0 ? whyFor(st[i], r.explain.title, { steps: st }, i) : 'rośnie';
+    ok('wzór skrócony przy −∞: bez „rośnie”', !/rośnie/.test(w), w);
+}
 // „Sprawdzenie” zależy od zadania
 ok('Sprawdzenie w całce ≠ w równaniu', whyFor({ label: 'Sprawdzenie', math: '' }, 'Całka') !== whyFor({ label: 'Sprawdzenie', math: '' }, 'Równanie'));
 

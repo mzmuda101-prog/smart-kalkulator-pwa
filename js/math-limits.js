@@ -850,7 +850,7 @@
         test: eLimit.test,
         apply: function (e, v, t, log, depth) {
             var p = expOf(e), h = minusOne(p.f), gh = fold(C.cMul(p.g, h));
-            var grp = function (x) { var s = C.show(x); return x.length > 1 || /[+−]/.test(s) ? '(' + s + ')' : s; }; // [EN] n · (−1/n), nie n · −1/n
+            var grp = function (x) { var s = C.show(x); return x.length > 1 || /[+−/]/.test(s) ? '(' + s + ')' : s; }; // [EN] n · (−1/n), (1/x²) · (…) — bez dwuznaczności
             var put = grp(p.g) + ' · ' + grp(h), sgh = C.show(gh), still = !C.hasVar(gh, v);
             line(log, 'Liczę wykładnik ze wzoru skróconego', '⟦' + grp(p.g) + ' · (' + C.show(p.f) + ' − 1)⟧ = ' + put + (put === sgh ? '' : ' = ' + sgh), 'e-skrocony');
             var mark = log ? log.length : 0;
@@ -1209,7 +1209,7 @@
             finally { _prefer = null; _budget = Infinity; }
         }
         // [EN] etap 1 sposobów: 1^∞ — wzór skrócony obok dorabiania jedynki; ∞/∞ — de l'Hospital obok najwyższej potęgi
-        var other = !res.explain.methods && (ind === '1^∞' && first === 'eLimit' ? eShortcut : ind === '∞/∞' && first === 'dominantPower' ? lHospital : null);
+        var other = !res.explain.methods && (ind === '1^∞' && first === 'eLimit' ? eShortcut : ind === '∞/∞' && first === 'dominantPower' && d.v !== 'n' ? lHospital : null);
         if (other) {
             var alt2 = steps.slice(0, steps.length - 1).filter(function (s, i) { return i === 0 || s.label === 'Zapisujemy inaczej'; });
             _prefer = other; _work = 0; _budget = WORK_BUDGET;

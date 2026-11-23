@@ -415,9 +415,14 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     ok('sposoby: 1^∞ — ten sam wynik e⁸, wzór skrócony krótszy i z dymkiem', !!me && end(me[1].steps).math === end(me[0].steps).math && /e⁸$/.test(end(me[1].steps).math)
         && me[1].steps.length < me[0].steps.length && me[1].steps.some(x => x.formula && x.formula.id === 'e-skrocony' && /⟦/.test(x.math)), me && me[1].steps);
     ok('sposoby: 1^∞ przy (1 − 1/n)^n też ma wzór skrócony', names('lim n→∞ (1-1/n)^n').includes('Wzór skrócony'), names('lim n→∞ (1-1/n)^n'));
-    const D = 'lim n→∞ (2n+1)/(6n+5)';
+    // ciąg (n): bez de l'Hospitala — po n się nie różniczkuje (trzeba by Heinego); dla funkcji (x) tak
+    ok('sposoby: ∞/∞ dla ciągu — jeden sposób', names('lim n→∞ (2n+1)/(6n+5)').length === 0 && names('lim n→∞ (2n^2+3)/(n^2-1)').length === 0, names('lim n→∞ (2n^2+3)/(n^2-1)'));
+    const D = 'lim x→∞ (2x+1)/(6x+5)';
     ok('sposoby: ∞/∞ — najwyższa potęga i de l\'Hospital', JSON.stringify(names(D)) === JSON.stringify(['Najwyższa potęga', "de l'Hospital"]), names(D));
     const md = run(D).explain.methods;
+    const cosx = run('lim x→0+ (cos(x))^(1/x^2)').explain.methods;
+    const sk = cosx && cosx[1].steps.find(x => x.formula && x.formula.id === 'e-skrocony');
+    ok('sposoby: ułamek przy mnożeniu w nawiasie (1/x²) · (…)', !!sk && /^⟦\(1\/x²\) · /.test(sk.math), sk && sk.math);
     ok('sposoby: ∞/∞ — ten sam wynik', !!md && end(md[1].steps).math === end(md[0].steps).math, md && md.map(m => end(m.steps).math));
     ok('sposoby: znana granica sin(3x)/x też ma de l\'Hospitala', names('lim x→0 sin(3x)/x').length === 2, names('lim x→0 sin(3x)/x'));
 }

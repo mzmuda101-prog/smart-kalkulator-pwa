@@ -202,7 +202,7 @@
             : / > 0/.test(s.math) ? 'Logarytm istnieje tylko dla liczb dodatnich, więc argument musi być większy od zera.'
             : 'Przez zero dzielić nie wolno, więc wykluczam liczby, które zerują mianownik.'],
         [/^Zapisuję obie strony jako potęgi /, 'Gdy obie strony mają tę samą podstawę, wystarczy porównać wykładniki.'],
-        [/^Liczę wykładnik ze wzoru skróconego$/, 'Podstawa jest prawie jedynką, a potęga rośnie bez końca, więc wszystko zależy od tego iloczynu.'],
+        [/^Liczę wykładnik ze wzoru skróconego$/, 'Podstawa jest prawie jedynką, a wykładnik dąży do nieskończoności, więc wszystko zależy od tego iloczynu.'],
         [/^Porównuję wykładniki$/, 'Na dole po obu stronach stoi teraz ta sama liczba, więc wystarczy przyrównać to, co na górze.'],
         [/^Zapisuję wykładnik jako logarytm$/, 'Prawej strony nie zamienię na potęgę z prostym wykładnikiem, więc wynik zostaje w postaci logarytmu.'],
         [/^Porównuję argumenty logarytmów$/, 'Logarytmy o tej samej podstawie są równe tylko wtedy, gdy równe są liczby pod nimi.'],

@@ -445,9 +445,9 @@
             why: 'Zamiast dorabiać jedynkę, od razu liczymy granicę wykładnika $g\\cdot(f-1)$. Wynik to $e$ podniesione do tej granicy.',
             level: 'Studia: analiza matematyczna, granice ciągów i funkcji',
             more: [
-                'Skąd wzór: zapisujemy podstawę jako $f=1+(f-1)$ i oznaczamy $a=\\frac{1}{f-1}$, czyli $f=1+\\frac{1}{a}$. Wtedy $f^{g}=\\left[\\left(1+\\frac{1}{a}\\right)^{a}\\right]^{\\frac{g}{a}}$. Nawias kwadratowy dąży do $e$ (wzór na liczbę e), a wykładnik $\\frac{g}{a}$ to właśnie $g\\cdot(f-1)$.',
+                'Skąd wzór: zapisujemy podstawę jako $f=1+(f-1)$ i, gdy $f\\ne 1$, oznaczamy $a=\\frac{1}{f-1}$, czyli $f=1+\\frac{1}{a}$. Wtedy $f^{g}=\\left[\\left(1+\\frac{1}{a}\\right)^{a}\\right]^{\\frac{g}{a}}$. Nawias kwadratowy dąży do $e$ (wzór na liczbę e), a wykładnik $\\frac{g}{a}$ to właśnie $g\\cdot(f-1)$.',
                 'Przykład: $\\left(1+\\frac{2}{n}\\right)^{n}$. Tu $f-1=\\frac{2}{n}$, więc $g\\cdot(f-1)=n\\cdot\\frac{2}{n}=2$ i granica to $e^{2}$.',
-                'To ten sam wynik co przy dorabianiu jedynki, tylko bez szukania $a_{n}$. Wzór działa wyłącznie dla symbolu $1^{\\infty}$: podstawa musi dążyć do 1, a wykładnik do nieskończoności.',
+                'To ten sam wynik co przy dorabianiu jedynki, tylko bez szukania $a_{n}$. Wzór przydaje się właśnie przy symbolu $1^{\\infty}$: podstawa dąży do 1, a wykładnik do nieskończoności. Przy innych granicach zwykle wystarczy podstawić liczby.',
             ],
         },
         'odwracanie-znaku': {
