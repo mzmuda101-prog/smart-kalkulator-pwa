@@ -129,7 +129,7 @@ ok('3e: Liczę dwa rozwiązania, 2 · 1 w mianowniku', has(q2, 'Liczę dwa rozwi
 ok('3e: jedno rozwiązanie', has('rozwiąż x^2 - 4x + 4 = 0', 'Liczę jedno rozwiązanie') && fm('rozwiąż x^2 - 4x + 4 = 0', 'wzor-x0'), st('rozwiąż x^2 - 4x + 4 = 0'));
 ok('3e: sprawdzenie 6x² → 6 · 1²', st('rozwiąż x^3 - 6x^2 + 11x - 6 = 0').some(x => x.math.includes('L = 1³ − 6 · 1² + 11 · 1 − 6 = 0')), st('rozwiąż x^3 - 6x^2 + 11x - 6 = 0').slice(-2));
 // rozkład: miejsca zerowe, potem postać iloczynowa
-ok('3e: rozkład przez miejsca zerowe', has('rozłóż x^2 - 5x + 6', 'Szukam miejsc zerowych') && fm('rozłóż x^2 - 5x + 6', 'postac-iloczynowa'), st('rozłóż x^2 - 5x + 6'));
+ok('3e: rozkład przez miejsca zerowe (z delty, R5)', has('rozłóż x^2 - 5x + 6', 'Liczę deltę') && fm('rozłóż x^2 - 5x + 6', 'postac-iloczynowa'), st('rozłóż x^2 - 5x + 6'));
 // kwadrat sumy
 ok('3e: kwadrat sumy', has('uprość (x + 1)^2 + 2x', 'Rozpisuję kwadrat sumy') && fm('uprość (x + 1)^2 + 2x', 'kwadrat-sumy'), st('uprość (x + 1)^2 + 2x'));
 // ułamki: rozszerzanie widać, czasowniki
@@ -143,7 +143,7 @@ ok('3e: bez (5 · 1)/(6 · 1)', !st('kroki 2/3 + 5/6').some(x => x.math.includes
 ok('3e: rozwiązania z pierwiastkiem — podstawienie podkreślone', st('rozwiąż x^2 - 2x - 1 = 0').some(x => x.math.includes('x₁ = ⟦(2 − 2√2) / (2 · 1)⟧ = 1 − √2')), st('rozwiąż x^2 - 2x - 1 = 0'));
 ok('3e: kwadrat sumy podkreślony bez + 2x', has('uprość (x + 1)^2 + 2x', 'Rozpisuję kwadrat sumy', '⟦x² + x + x + 1⟧ + 2x'), st('uprość (x + 1)^2 + 2x'));
 ok('3e: x² + 1 = 0 — przeniesienie nazwane', has('rozwiąż x^2 + 1 = 0', 'Przenoszę liczbę na prawo', 'x² = −1'), st('rozwiąż x^2 + 1 = 0'));
-ok('3e: W(x) zdefiniowane i W(1) policzone', st('rozwiąż x^3 - 6x^2 + 11x - 6 = 0').some(x => x.math.startsWith('W(x) = x³ − 6x² + 11x − 6,  W(1) = 1 − 6 + 11 − 6 = 0')), st('rozwiąż x^3 - 6x^2 + 11x - 6 = 0'));
+ok('3e: W(x) zdefiniowane i W(1) policzone', st('rozwiąż x^3 - 6x^2 + 11x - 6 = 0').some(x => x.math.startsWith('W(x) = x³ − 6x² + 11x − 6\ndzielniki −6: ±1, ±2, ±3, ±6\nW(1) = 1 − 6 + 11 − 6 = 0')), st('rozwiąż x^3 - 6x^2 + 11x - 6 = 0'));
 // żadna etykieta równań/ułamków nie zawiera wzoru
 const eqLabels = ['rozwiąż 3(x - 2) = x + 4', q2, 'rozwiąż x^2 - 4x + 4 = 0', 'rozwiąż x^2 - 2x - 1 = 0', 'rozwiąż x^3 - 6x^2 + 11x - 6 = 0', 'rozłóż x^2 - 9', 'rozłóż x^2 - 5x + 6']
     .flatMap(q => st(q).map(x => x.label)).filter(l => /[=∓]|\(x − /.test(l));
@@ -176,6 +176,26 @@ fc.assert(fc.property(int, int, int, (a, b, c) => {
     return res.explain !== null && res.text.startsWith('x');
 }), { numRuns: 400 });
 pass += 3;
+
+// ── 3g: równania bez okrężnych dróg (raport E: R1–R4, zrzut Mateusza x=52+65) ──
+{
+    const X = 'rozwiąż x=52+65';
+    ok('3g: x = 52 + 65 — liczę prawą stronę, bez sprawdzenia', has(X, 'Liczę prawą stronę', 'x = 117') && !has(X, 'Sprawdzenie') && st(X).length === 3, st(X));
+    const Y = 'rozwiąż 5 = 2x - 7';
+    ok('3g: x tylko po prawej — zamieniam strony', has(Y, 'Zamieniam strony', '2x − 7 = 5') && has(Y, 'Przenoszę liczby na prawo', '2x = 5 + 7') && !st(Y).some(x => /−2x/.test(x.math)), st(Y));
+    const Z = 'rozwiąż x/2 + 1 = 3';
+    ok('3g: x/2 — bez pustego kroku, mnożę przez 2', !has(Z, 'Porządkuję i redukuję wyrazy podobne') && has(Z, 'Mnożę obie strony przez 2', 'x = 2 · 2 = 4'), st(Z));
+    ok('3g: (2/3)x = 4 — mnożę przez 3/2', has('rozwiąż 2x/3 = 4', 'Mnożę obie strony przez 3/2', 'x = 4 · 3/2 = 6'), st('rozwiąż 2x/3 = 4'));
+    ok('3g: −x = 4 — zmieniam znak, nie dzielę przez −1', has('rozwiąż 7 = 3 - x', 'Zmieniam znak obu stron', 'x = −4'), st('rozwiąż 7 = 3 - x'));
+    ok('3g: Bezout — przejście do drugiego czynnika', has('rozwiąż x^3 - 6x^2 + 11x - 6 = 0', 'Przyrównuję każdy czynnik do zera', 'x − 1 = 0 lub x² − 5x + 6 = 0\nx = 1 lub x² − 5x + 6 = 0'));
+    const W = 'rozwiąż x^2 - 3x = 0';
+    ok('3g: x² − 3x = 0 — bez współczynników, z x − 3 = 0', !has(W, 'Odczytuję współczynniki') && has(W, 'Wyłączam x przed nawias', 'x(x − 3) = 0')
+        && has(W, 'Przyrównuję każdy czynnik do zera', 'x = 0 lub x − 3 = 0\nx = 0 lub x = 3'), st(W));
+    ok('3g: delta z rachunkiem 25 − 24', has(q2, 'Liczę deltę', 'Δ = ⟦(−5)² − 4 · 1 · 6⟧ = 25 − 24 = 1'), st(q2));
+    ok('3g: √Δ = √1 = 1', has(q2, 'Liczę pierwiastek z delty', '√Δ = √1 = 1'), st(q2));
+    ok('3g: rozwiązania z ułamkiem przed wynikiem', has(q2, 'Liczę dwa rozwiązania', 'x₁ = ⟦(5 − 1) / (2 · 1)⟧ = 4/2 = 2\nx₂ = ⟦(5 + 1) / (2 · 1)⟧ = 6/2 = 3'), st(q2));
+    ok('3g: delta z ujemnym c: 4 + 4', has('rozwiąż x^2 - 2x - 1 = 0', 'Liczę deltę', 'Δ = ⟦(−2)² − 4 · 1 · (−1)⟧ = 4 + 4 = 8'), st('rozwiąż x^2 - 2x - 1 = 0'));
+}
 
 console.log(`math-steps: ${pass} OK, ${fail} błędów`);
 process.exit(fail ? 1 : 0);

@@ -428,6 +428,12 @@
         };
     }
 
+    function divisorsText(k) { // [EN] dzielniki liczby całkowitej: ±1, ±2, ±3, ±6
+        var n = k.n < 0n ? -k.n : k.n, out = [];
+        if (n > 1000n) return '';
+        for (var i = 1n; i <= n; i++) if (n % i === 0n) out.push('±' + i);
+        return out.join(', ');
+    }
     function rationalRoot(c) { // [EN] pierwiastek wymierny wielomianu (twierdzenie o p/q) albo null
         var den = c.reduce(function (l, x) { return (l * x.d) / gcd(l, x.d); }, 1n);
         var ints = c.map(function (x) { return (x.n * den) / x.d; });
@@ -462,9 +468,13 @@
     }
 
     // ── Równania ─────────────────────────────────────────────
+    function overThen(n, d, ctx) { // [EN] 4/2 = 2: licznik i mianownik policzone, potem wynik (raport E, R1)
+        var res = fmt(div(n, d), ctx), raw = fmt(n, ctx) + '/' + fmtDen(d, ctx);
+        return eq(d, ONE) || raw === res ? res : raw + ' = ' + res;
+    }
     function solveQuadratic(c, v, steps, ctx, sol) {
         var a = c[2], b = c[1], k = c[0];
-        if (!isZero(b)) {
+        if (!isZero(b) && !isZero(k)) { // [EN] przy c = 0 delty nie ma — współczynniki nic nie dają
             steps.push({ label: 'Odczytuję współczynniki', math: 'a = ' + fmt(a, ctx) + ', b = ' + fmt(b, ctx) + ', c = ' + fmt(k, ctx) });
         }
         if (isZero(b)) {
@@ -492,15 +502,17 @@
         }
         if (isZero(k)) {
             var other = neg(div(b, a));
-            steps.push({ label: 'Nie ma wyrazu wolnego, więc wyłączam ' + v + ' przed nawias', math: v + '(' + polyText([b, a], v, ctx) + ') = 0' });
-            steps.push({ label: 'Iloczyn jest zerem, gdy zeruje się któryś czynnik', math: v + ' = 0 lub ' + v + ' = ' + fmt(other, ctx) });
+            steps.push({ label: 'Wyłączam ' + v + ' przed nawias', math: (eq(a, ONE) ? v : fmt(a, ctx) + v) + '(' + polyText([div(b, a), ONE], v, ctx) + ') = 0' });
+            steps.push({ label: 'Przyrównuję każdy czynnik do zera', math: v + ' = 0 lub ' + polyText([div(b, a), ONE], v, ctx) + ' = 0\n' + v + ' = 0 lub ' + v + ' = ' + fmt(other, ctx) });
             sol.push({ r: ZERO }, { r: other });
             return;
         }
         var delta = sub(mul(b, b), mul(R(4), mul(a, k)));
         steps.push({ // [EN] wzór w dymku (słownik: delta), nie w etykiecie
             label: 'Liczę deltę',
-            math: 'Δ = ⟦' + fmtParen(b, ctx) + '² − 4 · ' + fmtParen(a, ctx) + ' · ' + fmtParen(k, ctx) + '⟧ = ' + fmt(delta, ctx),
+            // [EN] 25 − 24 przed wynikiem; przy c < 0 widać 4 + 4 (minus razy minus)
+            math: 'Δ = ⟦' + fmtParen(b, ctx) + '² − 4 · ' + fmtParen(a, ctx) + ' · ' + fmtParen(k, ctx) + '⟧ = ' + fmt(mul(b, b), ctx)
+                + (mul(a, k).n < 0n ? ' + ' + fmt(neg(mul(R(4), mul(a, k))), ctx) : ' − ' + fmt(mul(R(4), mul(a, k)), ctx)) + ' = ' + fmt(delta, ctx),
             formula: { id: 'delta' }
         });
         var twoA = mul(R(2), a);
@@ -511,19 +523,19 @@
         }
         if (isZero(delta)) {
             var x0 = div(minusB, twoA);
-            steps.push({ label: 'Liczę jedno rozwiązanie', math: v + '₀ = ⟦' + fmt(minusB, ctx) + ' / (2 · ' + fmtParen(a, ctx) + ')⟧ = ' + fmt(x0, ctx), formula: { id: 'wzor-x0' } });
+            steps.push({ label: 'Liczę jedno rozwiązanie', math: v + '₀ = ⟦' + fmt(minusB, ctx) + ' / (2 · ' + fmtParen(a, ctx) + ')⟧ = ' + overThen(minusB, twoA, ctx), formula: { id: 'wzor-x0' } });
             sol.push({ r: x0 });
             return;
         }
         var root = sqrtExact(delta);
         if (root) {
             var x1 = div(sub(minusB, root), twoA), x2 = div(add(minusB, root), twoA);
-            steps.push({ label: 'Liczę pierwiastek z delty', math: '√Δ = ' + fmt(root, ctx) });
+            steps.push({ label: 'Liczę pierwiastek z delty', math: '√Δ = √' + fmt(delta, ctx) + ' = ' + fmt(root, ctx) });
             var den2 = ' / (2 · ' + fmtParen(a, ctx) + ')'; // [EN] 2a widać jako 2 · a, nie gotowe 2
             steps.push({
                 label: 'Liczę dwa rozwiązania',
-                math: v + '₁ = ⟦(' + fmt(minusB, ctx) + ' − ' + fmt(root, ctx) + ')' + den2 + '⟧ = ' + fmt(x1, ctx) +
-                    '\n' + v + '₂ = ⟦(' + fmt(minusB, ctx) + ' + ' + fmt(root, ctx) + ')' + den2 + '⟧ = ' + fmt(x2, ctx),
+                math: v + '₁ = ⟦(' + fmt(minusB, ctx) + ' − ' + fmt(root, ctx) + ')' + den2 + '⟧ = ' + overThen(sub(minusB, root), twoA, ctx) +
+                    '\n' + v + '₂ = ⟦(' + fmt(minusB, ctx) + ' + ' + fmt(root, ctx) + ')' + den2 + '⟧ = ' + overThen(add(minusB, root), twoA, ctx),
                 formula: { id: 'wzory-x12' }
             });
             sol.push({ r: x1 }, { r: x2 });
@@ -532,7 +544,7 @@
         var s = simplifiedRoot(delta);
         var p = div(minusB, twoA), q = div(s.q, twoA);
         var r1 = surdRoot(p, q, s.t, -1), r2 = surdRoot(p, q, s.t, 1);
-        steps.push({ label: 'Upraszczam pierwiastek z delty', math: '√Δ = ' + surdText(s.q, s.t) });
+        steps.push({ label: 'Upraszczam pierwiastek z delty', math: '√Δ = √' + fmt(delta, ctx) + ' = ' + surdText(s.q, s.t) });
         steps.push({
             label: 'Liczę dwa rozwiązania', formula: { id: 'wzory-x12' },
             // [EN] podkreślone podstawienie do wzoru, potem wynik (nie sam gotowy wynik)
@@ -565,17 +577,25 @@
         var low = deflate(c, r);
         sol.push({ r: r });
         var lin = '(' + v + (r.n < 0n ? ' + ' + fmt(neg(r), ctx) : ' − ' + fmt(r, ctx)) + ')';
+        // [EN] skąd kandydaci: dzielniki wyrazu wolnego (gdy przy najwyższej potędze stoi 1), raport E, R6
+        var divs = isInt(c[0]) && eq(c[c.length - 1], ONE) && !isZero(c[0]) ? divisorsText(c[0]) : '';
         steps.push({ // [EN] W(r) = 0 → W dzieli się przez (x − r) (słownik: bezout)
             label: 'Szukam pierwiastka wśród dzielników',
-            math: 'W(' + v + ') = ' + polyText(c, v, ctx) + ',  W(' + fmt(r, ctx) + ') = ' + plugPoly(c, r, ctx) + ' = 0, więc W(' + v + ') = ⟦' + lin + '(' + polyText(low, v, ctx) + ')⟧',
+            math: 'W(' + v + ') = ' + polyText(c, v, ctx) + (divs ? '\ndzielniki ' + fmt(c[0], ctx) + ': ' + divs : '') + '\nW(' + fmt(r, ctx) + ') = ' + plugPoly(c, r, ctx) + ' = 0, więc W(' + v + ') = ⟦' + lin + '(' + polyText(low, v, ctx) + ')⟧',
             formula: { id: 'bezout' }
         });
+        steps.push({ label: 'Przyrównuję każdy czynnik do zera', math: lin.slice(1, -1) + ' = 0 lub ' + polyText(low, v, ctx) + ' = 0\n' + v + ' = ' + fmt(r, ctx) + ' lub ' + polyText(low, v, ctx) + ' = 0' });
         solveDegree(low, v, steps, ctx, sol);
     }
 
     function solveEquation(lhs, rhs) {
         var ctx = { dec: hasDecimal(lhs) || hasDecimal(rhs) };
         var steps = [{ label: 'Równanie', math: show(lhs, ctx) + ' = ' + show(rhs, ctx) }];
+        // [EN] 5 = 2x − 7 → 2x − 7 = 5: niewiadoma po lewej, bez dwóch minusów (raport E, R2)
+        if (!varsOf(collect(termsOf(lhs))).length && varsOf(collect(termsOf(rhs))).length) {
+            var swap = lhs; lhs = rhs; rhs = swap;
+            steps.push({ label: 'Zamieniam strony', math: show(lhs, ctx) + ' = ' + show(rhs, ctx) });
+        }
         var rawL = termsOf(lhs), rawR = termsOf(rhs);
         var L = collect(rawL), Rr = collect(rawR);
         var opened = showTerms(rawL, ctx, true) + ' = ' + showTerms(rawR, ctx, true);
@@ -584,8 +604,12 @@
         if (parens && opened !== steps[0].math && opened !== reduced) {
             steps.push({ label: 'Opuszczam nawiasy', math: opened });
         }
-        if (reduced !== steps[steps.length - 1].math) {
-            steps.push({ label: parens && opened === reduced ? 'Opuszczam nawiasy' : 'Porządkuję i redukuję wyrazy podobne', math: reduced });
+        // [EN] x = 52 + 65: po lewej już samo x — tylko liczę prawą stronę, sprawdzenie nic by nie dodało
+        var lone = L.length === 1 && eq(L[0].c, ONE) && Object.keys(L[0].e).length === 1 && L[0].e[Object.keys(L[0].e)[0]] === 1 && !varsOf(Rr).length;
+        if (lone) ctx.noCheck = true;
+        var merged = rawL.length !== L.length || rawR.length !== Rr.length; // [EN] sam inny zapis (x/2 → (1/2)x) to nie krok
+        if (reduced !== steps[steps.length - 1].math && (merged || parens)) {
+            steps.push({ label: lone ? 'Liczę prawą stronę' : parens && opened === reduced ? 'Opuszczam nawiasy' : 'Porządkuję i redukuję wyrazy podobne', math: reduced });
         }
         var diff = collect(rawL.concat(negTerms(rawR)));
         var vars = varsOf(diff);
@@ -620,7 +644,12 @@
             if (moved !== steps[steps.length - 1].math) {
                 steps.push({ label: 'Przenoszę ' + v + ' na lewo, liczby na prawo', math: moved });
             }
-            if (!eq(a, ONE)) {
+            if (!eq(a, ONE) && !isInt(a)) { // [EN] (1/2)x = 2 → mnożę przez 2, nie dzielę przez 1/2 (raport E, R3)
+                var inv = div(ONE, a);
+                steps.push({ label: 'Mnożę obie strony przez ' + fmt(inv, ctx), math: v + ' = ' + fmt(b, ctx) + ' · ' + fmtParen(inv, ctx) + ' = ' + fmt(div(b, a), ctx) });
+            } else if (eq(a, neg(ONE))) { // [EN] −x = 4 → x = −4, bez dzielenia przez −1
+                steps.push({ label: 'Zmieniam znak obu stron', math: v + ' = ' + fmt(neg(b), ctx) });
+            } else if (!eq(a, ONE)) {
                 steps.push({ label: 'Dzielę obie strony przez ' + fmt(a, ctx), math: v + ' = ' + fmt(b, ctx) + ' / ' + fmtDen(a, ctx) + ' = ' + fmt(div(b, a), ctx) });
             }
             sol.push({ r: div(b, a) });
@@ -690,7 +719,7 @@
             var side = function (n, val) { var t = show(plugIn(n, v, s.r), ctx); return t === fmt(val, ctx) ? t : t + ' = ' + fmt(val, ctx); };
             return v + ' = ' + s.text + ':  L = ' + side(lhs, a) + ',  P = ' + side(rhs, b) + ' ✓';
         });
-        if (check.length) steps.push({ label: 'Sprawdzenie', math: check.join('\n') });
+        if (check.length && !ctx.noCheck) steps.push({ label: 'Sprawdzenie', math: check.join('\n') });
         var text = list.length === 1
             ? v + ' = ' + list[0].text
             : list.map(function (s, i) { return v + sub_(i + 1) + ' = ' + s.text; }).join(', ');
@@ -807,7 +836,12 @@
                 } else if (last.math !== result) {
                     // [EN] najpierw miejsca zerowe, potem postać iloczynowa (słownik: postac-iloczynowa)
                     var uniq = groups.map(function (f) { return f.r; });
-                    steps.push({ label: 'Szukam miejsc zerowych', math: uniq.map(function (r, i) { return v + (uniq.length > 1 ? sub_(i + 1) : '₀') + ' = ' + fmt(r, ctx); }).join(',  ') });
+                    // [EN] trójmian: miejsca zerowe z delty, z rachunkiem (raport E, R5), nie gotowe x₁, x₂
+                    if (c.length === 3 && !isZero(c[0]) && !isZero(c[1])) {
+                        var quad = [];
+                        solveQuadratic(c, v, quad, ctx, []);
+                        quad.forEach(function (q) { steps.push(q); });
+                    } else steps.push({ label: 'Szukam miejsc zerowych', math: uniq.map(function (r, i) { return v + (uniq.length > 1 ? sub_(i + 1) : '₀') + ' = ' + fmt(r, ctx); }).join(',  ') });
                     steps.push({ label: 'Zapisuję postać iloczynową', math: prefix + leadText + '⟦' + body + '⟧', formula: { id: 'postac-iloczynowa' } });
                 }
             } else {
