@@ -1983,8 +1983,9 @@
     // [EN] „W tym zadaniu:” dla Hornera: r i rachunek każdej kolumny (górny + r · poprzednia suma = suma), na końcu reszta; wiele tabelek po kolei
     function hornerHere(tables) {
         var par = function (x) { return x.charAt(0) === '−' || x.indexOf('/') >= 0 ? '(' + x + ')' : x; };
-        return [].concat(tables).map(function (t) {
-            var out = ['r = ' + t.r];
+        var all = [].concat(tables);
+        return all.map(function (t) {
+            var out = [(all.length > 1 && t.name ? t.name + ': ' : '') + 'r = ' + t.r]; // [EN] nazwa tabelki, gdy jest ich kilka
             for (var i = 1; i < t.top.length; i++) out.push(t.top[i] + ' + ' + par(t.r) + ' · ' + par(t.bot[i - 1]) + ' = ' + t.bot[i]);
             out.push('reszta ' + t.bot[t.bot.length - 1]);
             return out.join(', ');
