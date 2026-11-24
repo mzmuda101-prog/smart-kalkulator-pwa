@@ -267,6 +267,13 @@ SELF_TEST = [
         {"label": "Przenoszę liczbę na prawo", "math": "x² = −3", "lines": [["x^{2}", "=-3"]]},
         {"label": "Kwadrat nie może być ujemny", "math": "brak rozwiązań rzeczywistych", "lines": [["\\text{brak rozwiązań rzeczywistych}"]]},
         {"label": "Odpowiedź", "math": "x = 2", "lines": [["x_{1}", "=-\\sqrt{2}"], ["x_{2}", "=\\sqrt{2}"]]}]},
+    {"q": "ZŁE równanie z lub: druga gałąź ma pierwiastki", "title": "Równanie", "steps": [
+        {"label": "Przyrównuję każdy czynnik do zera", "math": "x − 1 = 0 lub x² − 5 = 0", "lines": [["x-1", "=0", "\\quad\\text{lub}\\quad x^{2}-5", "=0"]]},
+        {"label": "Odpowiedź", "math": "x = 1", "lines": [["x", "=1"]]}]},
+    {"q": "ZŁE równanie obok kroku brak rozwiązań", "title": "Równanie", "steps": [
+        {"label": "Przenoszę", "math": "x + 1 = x + 2", "lines": [["x+1", "=x+2"]]},
+        {"label": "Kwadrat nie może być ujemny", "math": "brak rozwiązań rzeczywistych", "lines": [["\\text{brak rozwiązań rzeczywistych}"]]},
+        {"label": "Odpowiedź", "math": "x = 1", "lines": [["x", "=1"]]}]},
     {"q": "ZŁE równanie bez „brak rozwiązań”", "title": "Równanie", "steps": [
         {"label": "Przenoszę liczbę na prawo", "math": "x² = −3", "lines": [["x^{2}", "=-3"]]},
         {"label": "Odpowiedź", "math": "x = 2", "lines": [["x", "=2"]]}]},
@@ -278,7 +285,7 @@ SELF_TEST = [
 def main() -> int:
     if "--self-test" in sys.argv:
         global_bad = run(SELF_TEST)
-        want = sorted(["ZŁA kontynuacja", "ZŁE pochodna", "ZŁE granica", "ZŁE równanie", "ZŁE równanie bez „brak rozwiązań”", "ZŁY krok układu"])
+        want = sorted(["ZŁA kontynuacja", "ZŁE pochodna", "ZŁE granica", "ZŁE równanie", "ZŁE równanie bez „brak rozwiązań”", "ZŁE równanie obok kroku brak rozwiązań", "ZŁE równanie z lub: druga gałąź ma pierwiastki", "ZŁY krok układu"])
         got = sorted({b.split(" | ")[0] for b in global_bad})
         print("auto-test:", "✅ łapie fałsz, przepuszcza prawdę" if got == want else f"❌ {got}")
         return 0 if got == want else 1
@@ -349,10 +356,10 @@ def run(data) -> list:
             UNKNOWNS[0] = {str(k) for sol in sols for k in sol}
         # gałąź bez rozwiązań rzeczywistych wolno pominąć tylko w zadaniu, które samo mówi „brak rozwiązań”
         dead_ok = any("brak rozwiązań" in st["label"] + st["math"] for st in prob["steps"])
+        dead = set()  # wielomiany gałęzi „lub” bez pierwiastków rzeczywistych (ich późniejsze rozwiązywanie też pomijamy)
         for si, st in enumerate(prob["steps"]):
             prev = None
             for line in st["lines"]:
-                line_bad, line_ok = [], 0
                 if not (line and line[0].startswith("=")):
                     prev = None  # linia zaczynająca się od „=” ciągnie łańcuch z poprzedniej (de l'Hospital: postać pod postacią)
                 if any(p.startswith(r"\notin") for p in line) or (st["label"].startswith("Odrzucam") and any(p.startswith("<") for p in line)):
@@ -373,12 +380,16 @@ def run(data) -> list:
                         continue
                     if rel == "=" and prev is not None and sols and (prev.free_symbols or cur.free_symbols):
                         checked += 1  # równanie w krokach: odpowiedź musi je spełniać (przekształcenia równoważne)
+                        diff_ = prev - cur
                         if satisfied(prev, cur, sols):
-                            line_ok += 1
-                        elif dead_ok and no_real_solution(prev - cur, var):
+                            pass
+                        elif dead_ok and (diff_.expand() in dead or (-diff_).expand() in dead):
+                            skipped += 1
+                        elif dead_ok and any("lub" in q for q in line) and no_real_solution(diff_, var):
+                            dead.add(diff_.expand())
                             skipped += 1
                         else:
-                            line_bad.append(f'{prob["q"]} | krok {si + 1} „{st["label"]}” | {st["math"]}  (odpowiedź nie spełnia)')
+                            bad.append(f'{prob["q"]} | krok {si + 1} „{st["label"]}” | {st["math"]}  (odpowiedź nie spełnia)')
                         prev = None if body.rstrip().endswith((",", "{:}")) else cur
                         continue
                     if rel == "=" and prev == var and not ctx.get("at"):
@@ -405,8 +416,6 @@ def run(data) -> list:
                     if body.rstrip().endswith((",", "{:}")):
                         cur = None  # przecinek kończy łańcuch: dalej nowa równość
                     prev = cur
-                if not (line_ok and any("lub" in q for q in line)):  # „A lub B”: wystarczy, że jedno jest spełnione
-                    bad.extend(line_bad)
     print(f"sprawdzone równości: {checked}, pominięte kawałki: {skipped}")
     for k, v in sorted(reasons.items(), key=lambda x: -x[1])[:12]:
         print(f"   pominięte: {v:4d} × {k}")
