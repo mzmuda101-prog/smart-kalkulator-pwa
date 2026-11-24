@@ -1,4 +1,4 @@
-# Zacznij tutaj — przekazanie do nowej rozmowy (2026-11-24, v1.05.50)
+# Zacznij tutaj — przekazanie do nowej rozmowy (2026-11-24, v1.05.55)
 
 Na start przywitaj się krótko, powiedz, co przeczytałeś, i zaproponuj następny krok (lista niżej). Kod zaczynaj dopiero po decyzji Mateusza.
 
@@ -13,9 +13,12 @@ Na start przywitaj się krótko, powiedz, co przeczytałeś, i zaproponuj nastę
 - Granice: podstawienie pokazuje rachunek poziomami (bramka w testach: każde „Podstawiamy” z rachunkiem, bez gołych liczb ujemnych); krok „Dzielimy schematem Hornera” z tabelkami przed rozkładem (bramka: każdy rozkład ma Hornera).
 - Przegląd całego silnika: 224 zadania, 4 działy + stare raporty C, D, E → 91 uwag (10 krytycznych), 14 wzorców lekkiej interaktywności.
 
-## Następny krok (propozycja do Mateusza)
-- **Partia 2 z tabeli** (sekcja „Partie”): 2a granice (krytyczne S1, S3, S6–S10), 2b analiza (S4, S5…), 2c równania i reszta (S2 — ułamki…).
-- Potem: etap 4 (długie wzory; test z `shortcut` w `test/e2e/steps-drawing.spec.js`), etap „interaktywność” z sekcji tabeli (zasada w pamięci: gdzie się prosi o lekką interaktywność, można dodać przy okazji).
+## Następny krok (ustalone z Mateuszem)
+- Partia 2a-1 zrobiona (v1.05.55). **Teraz: etap „sposoby szkolne i studenckie”** (pamięć: more-methods) — najpierw katalog
+  brakujących sposobów per typ zadania (granice, równania, nierówności, układy, pochodne, całki), potem wybór z Mateuszem.
+  Pierwszy kandydat: rozkład jak w szkole w granicach 0/0 (wpis w sekcji „Partie” tabeli).
+- Potem partie 2a-2, 2b, 2c z `docs/superpowers/research/skoki-tabela.md` (sekcja „Partie”).
+- Później: etap 4 (długie wzory), etap „interaktywność”.
 
 ## Jak pracowaliśmy (sprawdziło się)
 - brainstorming → krótki projekt w `docs/superpowers/specs/` → akceptacja → plan w `docs/superpowers/plans/` → wykonanie po kolei agentami z recenzentem po każdym zadaniu (kopia robocza `.worktrees/<nazwa>`, symlinki `node_modules` i `scripts/steps-check/.venv`), na końcu przegląd całości mocnym modelem.
