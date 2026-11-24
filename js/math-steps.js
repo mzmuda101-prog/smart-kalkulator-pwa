@@ -1804,7 +1804,7 @@
         if (poly.length === 1 && !hasVars(ast) && isInt(poly[0].c) && poly[0].c.n >= 2n && poly[0].c.n <= 1000000000n) return primeSteps(poly[0].c.n);
         if (poly.length < 2) return done('Rozkład', showTerms(poly, ctx), null, steps);
         var vars = varsOf(poly);
-        var school = vars.length === 1 ? schoolFactor(coefs(poly, vars[0]), vars[0], ctx) : null;
+        var v0 = vars[0], school = vars.length === 1 ? schoolFactor(coefs(poly, v0), v0, ctx) : null;
         var den = poly.reduce(function (l, t) { return (l * t.c.d) / gcd(l, t.c.d); }, 1n);
         var g = poly.reduce(function (acc, t) { return gcd(acc, mul(t.c, R(den)).n); }, 0n);
         var head = R(g, den);
@@ -1894,7 +1894,16 @@
         if (school && school.factors.some(function (f) { return f.c.length > 2 && rationalRoot(f.c); })) school = null;
         if (school) { // [EN] kroki szkolne; wynik szkolny, chyba że różni się tylko kolejnością nawiasów
             var parts = function (t) { return (t.match(/\([^()]*\)[⁰¹²³⁴⁵⁶⁷⁸⁹]*|[a-z][⁰¹²³⁴⁵⁶⁷⁸⁹]*/g) || []).sort().join('') + '|' + /^[^(a-z]*/.exec(t)[0]; };
-            if (parts(result) !== parts(school.text)) result = school.text; // [EN] postać szkolna wygrywa; samo przestawienie zostawia dawną kolejność
+            if (parts(result) !== parts(school.text)) { // [EN] postać szkolna wygrywa; samo przestawienie zostawia dawną kolejność
+                // [EN] porządek: liniowe w kolejności rozkładu ((2x − 3)(x − 1)(x + 1) zostaje), potem wyższe stopnie wg współczynników
+                var order = school.leaves.slice().sort(function (p, q) {
+                    if (p.c.length !== q.c.length) return p.c.length - q.c.length;
+                    if (p.c.length === 2) return 0; // [EN] sort stabilny
+                    for (var j = p.c.length - 2; j >= 0; j--) { var o = cmp(div(p.c[j], p.c[p.c.length - 1]), div(q.c[j], q.c[q.c.length - 1])); if (o) return o; }
+                    return 0;
+                });
+                result = sfText(school.k, order, v0, ctx);
+            }
             steps = [steps[0]].concat(school.steps);
             var tail = steps[steps.length - 1];
             if (result === school.text) { /* [EN] gotowe */ } else if (tail.label === 'Składam całość' && parts(result) === parts(school.text)) {

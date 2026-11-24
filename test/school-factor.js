@@ -128,5 +128,10 @@ ok('rozłóż x^2y/2-y/8 → (1/2)y(x − 1/2)(x + 1/2)', txt('rozłóż x^2y/2-
 ok('rozłóż 0.5x^2-2 → 0,5(x − 2)(x + 2)', txt('rozłóż 0.5x^2-2') === '0,5(x − 2)(x + 2)', txt('rozłóż 0.5x^2-2'));
 ok('rozłóż 1.5x^2-6x → 1,5x(x − 4)', txt('rozłóż 1.5x^2-6x') === '1,5x(x − 4)', txt('rozłóż 1.5x^2-6x'));
 
+// kolejność czynników, gdy wygrywa postać szkolna: liniowe wg pierwiastka, potem wyższe stopnie
+ok('rozłóż x^6-64: posortowane', txt('rozłóż x^6-64') === '(x − 2)(x + 2)(x² − 2x + 4)(x² + 2x + 4)', txt('rozłóż x^6-64'));
+ok('rozłóż x^6-64: ostatni krok to wynik', st('rozłóż x^6-64').slice(-1)[0].math.replace(/[⟦⟧]/g, '').endsWith(txt('rozłóż x^6-64')), st('rozłóż x^6-64').slice(-1)[0]);
+ok('rozłóż x^6-1: posortowane', txt('rozłóż x^6-1') === '(x − 1)(x + 1)(x² − x + 1)(x² + x + 1)', txt('rozłóż x^6-1'));
+
 console.log(`school-factor: ${pass} ok, ${fail} błędów`);
 process.exit(fail ? 1 : 0);
