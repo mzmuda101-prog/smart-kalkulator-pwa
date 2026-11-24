@@ -423,6 +423,12 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     ok('sposoby: de l\'Hospital zaczyna od reguły i ma ten sam wynik', m && m[1].steps[1].label === "Reguła de l'Hospitala"
         && m[1].steps[m[1].steps.length - 1].math === m[0].steps[m[0].steps.length - 1].math && m[1].steps[m[1].steps.length - 1].final, m && m[1].steps);
     ok('sposoby: 9a — sprzężenie i de l\'Hospital', JSON.stringify(names('lim x→5 (x-5)/(3-sqrt(x+4))')) === JSON.stringify(['Sprzężenie', "de l'Hospital"]), names('lim x→5 (x-5)/(3-sqrt(x+4))'));
+    // S25: pochodna pierwiastka z wielomianu — regułą łańcuchową, liczba kroków bez zmian
+    const hosp = q => { const mm = run(q).explain.methods; const st = (mm.find(x => x.label === "de l'Hospital") || mm[0]).steps.find(x => x.label === "Reguła de l'Hospitala"); return st && st.math; };
+    const h9 = hosp('lim x→5 (x-5)/(3-sqrt(x+4))'), hg79 = hosp('lim x→1 (∜(x+15)-2)/(x^2-5x+4)');
+    ok('S25: √(x+4) — łańcuchowo', h9 && /1\/\(2√\(x \+ 4\)\) · \(x \+ 4\)′/.test(h9), h9);
+    ok('S25: ∜(x+15) — łańcuchowo', hg79 && /\(x \+ 15\)′/.test(hg79), hg79);
+    ok('S25: bez pierwiastka — krok bez zmian', hosp(A) === 'lim(x→4) ⟦(x² − 6x + 8)′/(3x² − 10x − 8)′⟧ = lim(x→4) (2x − 6)/(6x − 10) = lim(x→4) (x − 3)/(3x − 5)', hosp(A));
     ok('sposoby: ∛ — różnica sześcianów, nie sprzężenie', names('lim x→3 (x^2-8x+15)/(∛(3x-1)-2)')[0] === 'Różnica sześcianów', names('lim x→3 (x^2-8x+15)/(∛(3x-1)-2)'));
     ok('sposoby: bez symbolu nieoznaczonego — jeden sposób, bez przełącznika', names('lim x→2 (x+1)/(x+3)').length === 0);
     // etap 1 sposobów (spec 2026-11-23-sposoby-design.md): 1^∞ — wzór skrócony, ∞/∞ — de l'Hospital

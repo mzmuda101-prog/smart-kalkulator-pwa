@@ -1164,6 +1164,22 @@
 
     // ── Reguła de l'Hospitala dla [0/0] i [∞/∞] (najwyżej 3 razy) ──────
     var _lhCount = 0;
+    // [EN] pochodna członu z pierwiastkiem z wyrażenia (nie samej zmiennej) rozpisana łańcuchowo: 1/(2√(x + 4)) · (x + 4)′
+    function chainMember(P, v) {
+        var any = false, parts = [];
+        C.expandExpr(P).forEach(function (t) {
+            var f = t.fs.length === 1 ? t.fs[0] : null, txt = null;
+            if (f && f.b.k === 'sum' && f.e.d !== 1n && t.c.n === 1n && t.c.d === 1n) {
+                var mine = [];
+                C.dExpr([t], v, mine);
+                var st = mine[0] && mine[0].label === 'Liczę pochodną złożoną' && mine[0].math.match(/⟦(.*)⟧/);
+                if (st) { txt = st[1]; any = true; }
+            }
+            if (txt === null) { var d = fold(C.dExpr([t], v, null)); if (!d.length) return; txt = C.show(d); }
+            parts.push(txt);
+        });
+        return any && parts.length ? parts.map(function (x, i) { return !i ? x : x[0] === '−' ? ' − ' + x.slice(1) : ' + ' + x; }).join('') : null;
+    }
     var lHospital = {
         name: 'lHospital',
         test: function (e, v, t) {
@@ -1181,7 +1197,10 @@
             try {
                 // [EN] najpierw same pochodne (2x − 6)/(6x − 10), potem uproszczenie — bez skoku
                 var raw = '(' + C.show(dN) + ')/(' + C.show(dD) + ')', simple = limOf(v, t, out).slice(limHead(v, t).length);
-                line(log, "Reguła de l'Hospitala", limHead(v, t) + '⟦(' + C.showInner(fr.N) + ')′/(' + C.showInner(fr.D) + ')′⟧ = ' + limHead(v, t) + raw
+                var cN = chainMember(fr.N, v), cD = chainMember(fr.D, v);
+                var chainRaw = (cN || cD) ? '(' + (cN || C.show(dN)) + ')/(' + (cD || C.show(dD)) + ')' : '';
+                line(log, "Reguła de l'Hospitala", limHead(v, t) + '⟦(' + C.showInner(fr.N) + ')′/(' + C.showInner(fr.D) + ')′⟧ = '
+                    + (chainRaw ? limHead(v, t) + chainRaw + ' = ' : '') + limHead(v, t) + raw
                     + (raw.replace(/[()\s]/g, '') === simple.replace(/[()\s]/g, '') ? '' : ' = ' + limOf(v, t, out)), 'lhospital');
                 return limitOf(out, v, t, log, depth);
             } finally { _lhCount--; }
