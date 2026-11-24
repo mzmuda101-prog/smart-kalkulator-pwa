@@ -168,7 +168,6 @@ test('schemat Hornera stopnia 5 na wąskim ekranie: tabelka przewija się w swoi
   expect(r.scrolls).toBe(true); // shortcut: długi zapis dzielenia nad tabelką wciąż rozpycha kartę — etap 4 (długie wzory)
   const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(over).toBeLessThanOrEqual(0);
-  await expect(page.locator('#stepsView .steps-horner-name').first()).toHaveAttribute('aria-hidden', 'true');
   await expect(page.locator('#stepsView .steps-horner').first()).toHaveAttribute('aria-label', /iloraz .*; reszta 0/);
 });
 
@@ -181,6 +180,7 @@ test('granica 0/0: dwie tabelki Hornera z podpisami, mieszczą się na 360 px', 
   await page.locator('#stepsView .steps-methods .settings-seg-btn', { hasText: 'Rozkład na czynniki' }).click(); // domyślnie najkrótszy sposób
   await expect(page.locator('#stepsView .steps-horner')).toHaveCount(2);
   await expect(page.locator('#stepsView .steps-horner-name')).toHaveText(['Licznik', 'Mianownik']);
+  await expect(page.locator('#stepsView .steps-horner-name').first()).toHaveAttribute('aria-hidden', 'true');
   await expect(page.locator('#stepsView .steps-horner').first()).toHaveAttribute('aria-label', /^Licznik: Schemat Hornera dla r = 2/);
   const fits = await page.locator('#stepsView .steps-horner-wrap').evaluateAll((els) => els.map((el) => el.getBoundingClientRect().right <= el.closest('.steps-item').getBoundingClientRect().right + 0.5));
   expect(fits).toEqual([true, true]);
