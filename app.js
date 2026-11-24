@@ -6322,7 +6322,10 @@
                 var bar = _stepsEl('div', 'settings-seg steps-methods');
                 bar.setAttribute('role', 'group');
                 bar.setAttribute('aria-label', 'Sposób rozwiązania');
-                ways.forEach(function(m) {
+                var shortest = ways.reduce(function (best, m) { return m.steps.length < best.steps.length ? m : best; });
+                var school = ways.filter(function (m) { return m !== shortest && m.label === 'Rozkład na czynniki'; });
+                var order = [shortest].concat(school, ways.filter(function (m) { return m !== shortest && school.indexOf(m) < 0; })); // [EN] najkrótszy, szkolny, reszta wg silnika
+                order.forEach(function(m) {
                     var b = _stepsEl('button', 'settings-seg-btn' + (m.steps === explain.steps ? ' active' : ''), m.label);
                     b.type = 'button';
                     b.setAttribute('aria-pressed', m.steps === explain.steps ? 'true' : 'false');

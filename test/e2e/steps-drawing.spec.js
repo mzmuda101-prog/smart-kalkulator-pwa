@@ -78,9 +78,9 @@ test('sposoby: 0/0 — rozkład albo de l\'Hospital, przełącznik nad krokami',
   await page.locator('#calcExpr').fill('lim x→4 (x^2-6x+8)/(3x^2-10x-8)');
   await page.locator('#calcExplainTip').click();
   const ways = page.locator('#stepsView .steps-methods .settings-seg-btn');
-  await expect(ways).toHaveText(['Rozkład na czynniki', "de l'Hospital", 'Schemat Hornera']);
+  await expect(ways).toHaveText(["de l'Hospital", 'Rozkład na czynniki', 'Schemat Hornera']); // najkrótszy, szkolny, reszta
   // domyślnie najkrótszy sposób (spec 2026-11-23-sposoby-design.md): tu de l'Hospital
-  await expect(ways.nth(1)).toHaveAttribute('aria-pressed', 'true');
+  await expect(ways.nth(0)).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#stepsView .steps-label').nth(1)).toContainText("Reguła de l'Hospitala");
   const horner = ways.filter({ hasText: 'Schemat Hornera' });
   await horner.click();
@@ -187,4 +187,18 @@ test('granica 0/0: dwie tabelki Hornera z podpisami, mieszczą się na 360 px', 
   expect(fits).toEqual([true, true]);
   const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(over).toBeLessThanOrEqual(0);
+});
+
+test('przełącznik: najkrótszy pierwszy i wciśnięty, „Rozkład na czynniki” drugi', async ({ page }) => {
+  await page.goto('index.html', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => !!window.MATM0_TEX && !!window.MATM0_FORMULAS);
+  for (const expr of ['lim x→2 (x^2-4)/(x^2-5x+6)', 'lim x→4 (x^2-6x+8)/(3x^2-10x-8)']) {
+    await page.locator('#calcExpr').fill(expr);
+    await page.locator('#calcExplainTip').click();
+    const ways = page.locator('#stepsView .steps-methods .settings-seg-btn');
+    await expect(ways.nth(0)).toHaveAttribute('aria-pressed', 'true');
+    const labels = await ways.allTextContents();
+    if (labels[0] !== 'Rozkład na czynniki') expect(labels[1]).toBe('Rozkład na czynniki');
+    await page.keyboard.press('Escape');
+  }
 });
