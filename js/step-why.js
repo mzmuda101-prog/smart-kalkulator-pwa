@@ -57,7 +57,7 @@
         [/^Granica$/, (s, _t, c) => {
             const m = /\s\s\[⟦?([^\]⟧]+)⟧?\]$/.exec(s.math);
             if (m && TAG[m[1]]) return (s.formula ? TAG_SHORT : TAG)[m[1]];
-            if (c.next && /^Dorabiamy jedynkę/.test(c.next.label)) return TAG['1^∞']; // [EN] silnik nie zawsze nazywa 1^∞ (próg)
+            if (c.next && /^Zapisujemy podstawę jako 1 \+ 1\/aₙ/.test(c.next.label)) return TAG['1^∞']; // [EN] silnik nie zawsze nazywa 1^∞ (próg)
             // [EN] bez symbolu nie obiecujemy „nic nie przeszkadza” — silnik nie każdy kłopot nazywa (np. 0 · ∞)
             return 'Sprawdzamy, do czego zbliża się wyrażenie, gdy zmienna zbliża się do celu.';
         }],
@@ -93,7 +93,7 @@
             const sgn = r.startsWith('−') ? '+' + r.slice(1) : '-' + r;
             return 'Liczba $' + r.replace('−', '-') + '$ zeruje licznik i mianownik, więc oba dzielą się przez $' + (r === '0' ? 'x' : '(x' + sgn + ')') + '$.';
         }],
-        [/^Dorabiamy jedynkę$/, 'Wzór na $e$ wymaga postaci $1+\\frac{1}{\\text{coś}}$, a w potędze tego samego „coś”. Przerabiamy podstawę na ten kształt.'],
+        [/^Zapisujemy podstawę jako 1 \+ 1\/aₙ$/, 'Wzór na $e$ wymaga postaci $1+\\frac{1}{\\text{coś}}$, a w potędze tego samego „coś”. Przerabiamy podstawę na ten kształt.'],
         [/^Kolorowa potęga dąży do e$/, 'W nawiasie jest $1+\\frac{1}{a_{n}}$, a nad nim to samo $a_{n}$. Resztę wykładnika liczymy osobno.'],
         [/^Granica wykładnika$/, (_s, _t, c) => isShortcut(c)
             ? 'Wzór skrócony daje $e$ do potęgi $\\lim g\\cdot(f-1)$, więc liczymy właśnie tę granicę.'

@@ -915,9 +915,20 @@
             var sh = C.show(h), neg = /^−/.test(sh);
             var onePlus = neg && /^1\//.test(C.show(C.cNeg(h))) ? '1 + 1/' + pa : neg ? '1 + (' + sh + ')' : '1 + ' + sh;
             if (onePlus === C.show(p.f)) onePlus = '1 + 1/' + pa;
-            line(log, 'Dorabiamy jedynkę', (onePlus === C.show(p.f) ? onePlus : C.show(p.f) + ' = ' + onePlus) + ',  aₙ = ' + sa);
             var gh = fold(C.cMul(p.g, h));
             var sgh = C.show(gh), still = !C.hasVar(gh, v);
+            // [EN] pokazujemy, skąd 1/aₙ (4/n = 1/(n/4)), skąd licznik (N − D) i jak wykładnik rozpada się na aₙ · reszta
+            var tail = onePlus === '1 + 1/' + pa ? '' : ' = 1 + 1/' + pa;
+            var fr = splitFraction(p.f), par = function (x) { return x.length > 1 ? '(' + C.show(x) + ')' : C.show(x); };
+            // [EN] różnica jak na kartce: wyrazy z n najpierw (−3n + 6, nie 6 − 3n), potem postać z h (−3(n − 2))
+            var dsum = fold(C.expandExpr(C.cSub(fr.N, fr.D)));
+            var dsh = dsum.slice().sort(function (x, y) { return (y.fs.length > 0) - (x.fs.length > 0); })
+                .map(function (x, i) { var t = C.show([x]); return i === 0 ? t : /^−/.test(t) ? ' − ' + t.slice(1) : ' + ' + t; }).join('');
+            var hn = C.show(splitFraction(h).N);
+            var diff = isOne(fr.D) ? '' : '\n' + par(fr.N) + ' − ' + par(fr.D) + ' = ' + dsh + (hn !== dsh ? ' = ' + hn : '');
+            var gp = /^(\d+(\.\d+)?|[a-zA-Z])$/.test(sgh) ? sgh : '(' + sgh + ')';
+            var split = '\n' + C.show(p.g) + ' = ' + pa + ' · ' + gp;
+            line(log, 'Zapisujemy podstawę jako 1 + 1/aₙ', (onePlus === C.show(p.f) ? onePlus : C.show(p.f) + ' = ' + onePlus) + tail + ',  aₙ = ' + sa + diff + split);
             // [EN] bez osobnego kroku „Wzór na e” (spec 5.12): fragment ⟦…⟧ jest wyróżniony kolorem, stuknięcie → dymek ze wzorem
             var core = '⟦(' + onePlus + ')^' + pa + '⟧';
             var pw = function (x) { return x === '1' ? '' : /^\d+$/.test(x) ? K.sup(x) : '^(' + x + ')'; }; // [EN] e³, nie e^(3)

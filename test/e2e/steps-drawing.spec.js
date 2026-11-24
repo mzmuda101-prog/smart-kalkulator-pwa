@@ -126,7 +126,7 @@ test('sposoby: domyślnie najkrótszy (1^∞ → wzór skrócony, układ → prz
   await expect(page.locator('#stepsView .steps-methods .active')).toHaveText('Wzór skrócony');
   await expect(page.locator('#stepsView .steps-label', { hasText: 'Liczę wykładnik ze wzoru skróconego' })).toHaveCount(1);
   await page.locator('#stepsView .steps-methods').getByRole('button', { name: 'Dorabianie jedynki' }).click();
-  await expect(page.locator('#stepsView .steps-label', { hasText: 'Dorabiamy jedynkę' })).toHaveCount(1);
+  await expect(page.locator('#stepsView .steps-label', { hasText: 'Zapisujemy podstawę jako 1 + 1/aₙ' })).toHaveCount(1);
   await page.keyboard.press('Escape');
   await open('rozwiąż 2x + y = 7, x - y = 2');
   await expect(page.locator('#stepsView .steps-methods .active')).toHaveText('Przeciwne współczynniki');

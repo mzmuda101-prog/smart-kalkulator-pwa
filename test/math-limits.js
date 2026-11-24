@@ -185,12 +185,23 @@ const WANT_TEXT = { '1a': '1/3', '1d': '0', '1e': '+∞', '7a': '√3/3', '7b': 
     ok('6d: wykładnik → −6', st.some(x => /→ .* = −6$/.test(x.math)), st.map(x => x.math));
     // (1 − 1/n)^n: jedynka dorobiona naprawdę, długi krok bez ucięcia, wykładnik stały = jeden krok
     const e1 = (S.run('lim n→∞ (1-1/n)^n') || {}).explain, s1 = e1 ? e1.steps : [];
-    ok('(1−1/n)^n: 1 − 1/n = 1 + 1/(−n)', s1.some(x => x.label === 'Dorabiamy jedynkę' && x.math.startsWith('1 − 1/n = 1 + 1/(−n),')), s1.map(x => x.math));
+    ok('(1−1/n)^n: 1 − 1/n = 1 + 1/(−n)', s1.some(x => x.label === 'Zapisujemy podstawę jako 1 + 1/aₙ' && x.math.startsWith('1 − 1/n = 1 + 1/(−n),')), s1.map(x => x.math));
     ok('(1−1/n)^n: podstawa → e w jednym kroku z wykładnikiem', s1.some(x => x.label === 'Kolorowa potęga dąży do e' && x.math.endsWith('(⟦(1 + 1/(−n))^(−n)⟧)^(−1) = e^(−1) = 1/e')), s1.map(x => x.math));
     ok('(1−1/n)^n: stały wykładnik bez osobnego kroku', !s1.some(x => /^(Granica wykładnika|Wykładnik)$/.test(x.label)), s1.map(x => x.label));
-    ok('6d: 1 + (−3/(n + 3))', st.some(x => x.label === 'Dorabiamy jedynkę' && x.math.includes('= 1 + (−3/(n + 3))')), st.map(x => x.math));
+    ok('6d: 1 + (−3/(n + 3))', st.some(x => x.label === 'Zapisujemy podstawę jako 1 + 1/aₙ' && x.math.includes('= 1 + (−3/(n + 3))')), st.map(x => x.math));
+    // Task 2 (S16, S20, S22): jedynka w podstawie krok po kroku
+    const jed = (q) => (((S.run(q) || {}).explain || { steps: [] }).steps);
+    const jedAll = (q) => jed(q).map(x => x.math).join('\n');
+    ok('S16: (n+4)/n: 1 + 4/n = 1 + 1/(n/4)', jed('lim n→∞ ((n+4)/n)^(n+5)').some(x => x.label === 'Zapisujemy podstawę jako 1 + 1/aₙ' && x.math.includes('1 + 4/n = 1 + 1/(n/4)')), jedAll('lim n→∞ ((n+4)/n)^(n+5)'));
+    ok('S20: (1−1/n)^n: n = (−n) · (−1)', jedAll('lim n→∞ (1-1/n)^n').includes('n = (−n) · (−1)'), jedAll('lim n→∞ (1-1/n)^n'));
+    ok('S20: n + 5 = (n/4) · …', /n \+ 5 = \(n\/4\) · \(?4\(n \+ 5\)\/n\)?/.test(jedAll('lim n→∞ ((n+4)/n)^(n+5)')), jedAll('lim n→∞ ((n+4)/n)^(n+5)'));
+    ok('S22: (5n+7) − (5n−8) = 15', jedAll('lim n→∞ ((5n+7)/(5n-8))^n').includes('(5n + 7) − (5n − 8) = 15'), jedAll('lim n→∞ ((5n+7)/(5n-8))^n'));
+    ok('S22: wielomiany: = −3n + 6', jedAll('lim n→∞ ((n^2+2n+7)/(n^2+5n+1))^(2n-1)').includes('(n² + 2n + 7) − (n² + 5n + 1) = −3n + 6'), jedAll('lim n→∞ ((n^2+2n+7)/(n^2+5n+1))^(2n-1)'));
+    ok('żadna etykieta nie zawiera „Dorabiamy”', ['lim n→∞ ((n+4)/n)^(n+5)', 'lim n→∞ (1-1/n)^n', 'lim n→∞ ((5n+7)/(5n-8))^n', 'lim n→∞ ((n^2+2n+7)/(n^2+5n+1))^(2n-1)'].every(q => jed(q).every(x => !/Dorabiamy/.test(x.label))));
+    [['lim n→∞ ((n+4)/n)^(n+5)', 'e⁴'], ['lim n→∞ (1-1/n)^n', '1/e'], ['lim n→∞ ((5n+7)/(5n-8))^n', 'e³'], ['lim n→∞ ((n^2+2n+7)/(n^2+5n+1))^(2n-1)', '1/e⁶']]
+        .forEach(([q, want]) => ok('wynik bez zmian: ' + q, (S.run(q) || {}).text === want, (S.run(q) || {}).text));
     const s2 = ((S.run('lim n→∞ (1+1/(2n))^n') || {}).explain || { steps: [] }).steps;
-    ok('(1+1/(2n))^n: bez tautologii, aₙ w nawiasie', s2.some(x => x.math === '1 + 1/(2n),  aₙ = 2n') && s2.some(x => x.math.includes('^(2n)⟧)^(1/2)')), s2.map(x => x.math));
+    ok('(1+1/(2n))^n: bez tautologii, aₙ w nawiasie', s2.some(x => x.math.startsWith('1 + 1/(2n),  aₙ = 2n')) && s2.some(x => x.math.includes('^(2n)⟧)^(1/2)')), s2.map(x => x.math));
 }
 
 // ── Task 8: punkt skończony 0/0 ────────────────────────────
