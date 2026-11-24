@@ -414,6 +414,12 @@ pass += 3;
     });
 }
 
+// Sprawdzenie obejmuje każdy pierwiastek z odpowiedzi (x⁴ − 5x² + 4: także x = 2)
+for (const q of ['rozwiąż x^4-5x^2+4=0', 'rozwiąż x^3-6x^2+11x-6=0']) {
+    const s = st(q), chk = (s.find(x => x.label === 'Sprawdzenie') || { math: '' }).math, ans = s.find(x => x.label === 'Odpowiedź').math.split('\n').map(l => l.split(' = ')[1]);
+    ok(q + ': Sprawdzenie dla każdego pierwiastka', ans.every(r => chk.split('\n').some(l => l.startsWith('x = ' + r + ':'))), chk);
+}
+
 // uprość: nawiasy z liczbami całkowitymi (jak rozkład szkolny), łańcuch kroków bez przeskoków
 {
     const w3 = (q, want) => ok(q + ' → ' + want, text(q) === want, text(q));

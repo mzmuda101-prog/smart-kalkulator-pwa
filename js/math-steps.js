@@ -1450,7 +1450,7 @@
             if (!isFinite(l) || !isFinite(r) || Math.abs(l - r) > 1e-6 * (1 + Math.abs(l) + Math.abs(r))) throw new NotSupported();
         });
         if (!list.length) return done('Równanie', 'Brak rozwiązań rzeczywistych', null, steps);
-        var check = list.filter(function (s) { return s.r; }).slice(0, 3).map(function (s) {
+        var check = list.filter(function (s) { return s.r; }).map(function (s) {
             var env = {}; env[v] = s.r;
             var a = evalExact(lhs, env), b = evalExact(rhs, env);
             if (!eq(a, b)) throw new NotSupported();
