@@ -356,6 +356,9 @@ def run(data) -> list:
                         continue
                     if rel == "=" and prev == var and not ctx.get("at"):
                         prev = None  # „x = −1:” to wstawienie liczby, nie tożsamość
+                    at = ctx.get("at")
+                    if rel == "=" and prev == var and isinstance(at, tuple) and not cur.free_symbols and abs(float(cur.evalf()) - at[0]) < 1e-12:
+                        prev = None  # „x = 0” przy x → 0: mianownik po wstawieniu punktu, nie tożsamość
                     if rel and prev is not None and rel in ("=", r"\approx ", r"\to "):
                         if rel == r"\to ":
                             ok = tends(prev, cur, var, ctx)

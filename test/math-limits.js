@@ -568,5 +568,17 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     ok('S11: przy ∞ bez drugiej linii', !/\n/.test(st('lim n→∞ (2n+1)/(6n+5)')[0].math), st('lim n→∞ (2n+1)/(6n+5)')[0].math);
 }
 
+// ── Poprawki końcowe (final-fixes 1, 4) ──
+{
+    // [EN] 1: ułamek w liczniku/mianowniku — podstawienie „skąd 0/0” nie może wywrócić całego zadania (wyniki z main)
+    ok('FF1: ułamek w liczniku (x→1)', text('lim x→1 ((x^2-1)/(x-1))/(x-1)') === 'granica nie istnieje', text('lim x→1 ((x^2-1)/(x-1))/(x-1)'));
+    ok('FF1: sin(x)/x w liczniku', text('lim x→0 (sin(x)/x)/x') === 'granica nie istnieje', text('lim x→0 (sin(x)/x)/x'));
+    ok('FF1: sin(x)/x w mianowniku', text('lim x→0 x/(sin(x)/x)') === '0', text('lim x→0 x/(sin(x)/x)'));
+    // [EN] 4: sama zmienna podstawiona to nie gołe „0”, tylko „x = 0”
+    const m4 = S.run('lim x→0 sin(x)/x').explain;
+    const f4 = (m4.methods ? m4.methods[0].steps : m4.steps)[0].math.split('\n');
+    ok('FF4: mianownik x = 0', f4.includes('x = 0') && !f4.slice(1).includes('0'), f4);
+}
+
 console.log(`math-limits: ${pass} OK, ${fail} błędów`);
 process.exit(fail ? 1 : 0);

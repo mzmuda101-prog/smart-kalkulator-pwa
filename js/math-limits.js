@@ -1337,9 +1337,19 @@
             // [EN] symbol nieoznaczony do stuknięcia: dymek „co to znaczy” (słownik: nieoznaczone)
             steps = [ind ? { label: 'Granica', math: userLim(d, e) + '  [⟦' + ind + '⟧]', formula: { id: 'nieoznaczone' } } : { label: 'Granica', math: userLim(d, e) }];
             if (ind === '0/0' && ast.k === 'div' && isFiniteTarget(d.target)) { // [EN] skąd 0/0: licznik i mianownik osobno, każdy kończy się zerem
-                var sub = [ast.a, ast.b].map(function (x) { var ex = C.fromAst(x); return plugSteps(ex, d.v, d.target, fold(substitute(ex, d.v, pointExpr(d.target)))).join(' = '); });
-                steps[0].math += '\n' + sub.join('\n');
-                steps[0].formula.here = 'Licznik i mianownik po wstawieniu dają 0, stąd [0/0].';
+                // [EN] ułamek w ułamku (sin(x)/x w liczniku) nie daje się podstawić — wtedy bez dodatkowych linii
+                var sub = null;
+                try {
+                    sub = [ast.a, ast.b].map(function (x) {
+                        var ex = C.fromAst(x), ch = plugSteps(ex, d.v, d.target, fold(substitute(ex, d.v, pointExpr(d.target))));
+                        if (ch[ch.length - 1] !== '0') throw new NotSupported();
+                        return (C.show(ex) === d.v ? d.v + ' = ' : '') + ch.join(' = '); // [EN] sama zmienna: „x = 0”, nie gołe „0”
+                    });
+                } catch (x) { sub = null; }
+                if (sub) {
+                    steps[0].math += '\n' + sub.join('\n');
+                    steps[0].formula.here = 'Licznik i mianownik po wstawieniu dają 0, stąd [0/0].';
+                }
             }
             var quick = null;
             if (!ind && !isFiniteTarget(d.target)) {
