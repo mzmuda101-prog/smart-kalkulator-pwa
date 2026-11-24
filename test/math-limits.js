@@ -185,7 +185,7 @@ const WANT_TEXT = { '1a': '1/3', '1d': '0', '1e': '+∞', '7a': '√3/3', '7b': 
     ok('6d: wykładnik → −6', st.some(x => /→ .* = −6$/.test(x.math)), st.map(x => x.math));
     // (1 − 1/n)^n: jedynka dorobiona naprawdę, długi krok bez ucięcia, wykładnik stały = jeden krok
     const e1 = (S.run('lim n→∞ (1-1/n)^n') || {}).explain, s1 = e1 ? e1.steps : [];
-    ok('(1−1/n)^n: 1 − 1/n = 1 + 1/(−n)', s1.some(x => x.label === 'Zapisujemy podstawę jako 1 + 1/aₙ' && x.math.startsWith('1 − 1/n = 1 + 1/(−n),')), s1.map(x => x.math));
+    ok('(1−1/n)^n: 1 − 1/n = 1 + 1/(−n)', s1.some(x => x.label === 'Zapisujemy podstawę jako 1 + 1/aₙ' && x.math.includes('1 − 1/n = 1 + 1/(−n),  aₙ = −n')), s1.map(x => x.math));
     ok('(1−1/n)^n: podstawa → e w jednym kroku z wykładnikiem', s1.some(x => x.label === 'Kolorowa potęga dąży do e' && x.math.endsWith('(⟦(1 + 1/(−n))^(−n)⟧)^(−1) = e^(−1) = 1/e')), s1.map(x => x.math));
     ok('(1−1/n)^n: stały wykładnik bez osobnego kroku', !s1.some(x => /^(Granica wykładnika|Wykładnik)$/.test(x.label)), s1.map(x => x.label));
     ok('6d: 1 + (−3/(n + 3))', st.some(x => x.label === 'Zapisujemy podstawę jako 1 + 1/aₙ' && x.math.includes('= 1 + (−3/(n + 3))')), st.map(x => x.math));
@@ -200,6 +200,13 @@ const WANT_TEXT = { '1a': '1/3', '1d': '0', '1e': '+∞', '7a': '√3/3', '7b': 
     ok('żadna etykieta nie zawiera „Dorabiamy”', ['lim n→∞ ((n+4)/n)^(n+5)', 'lim n→∞ (1-1/n)^n', 'lim n→∞ ((5n+7)/(5n-8))^n', 'lim n→∞ ((n^2+2n+7)/(n^2+5n+1))^(2n-1)'].every(q => jed(q).every(x => !/Dorabiamy/.test(x.label))));
     [['lim n→∞ ((n+4)/n)^(n+5)', 'e⁴'], ['lim n→∞ (1-1/n)^n', '1/e'], ['lim n→∞ ((5n+7)/(5n-8))^n', 'e³'], ['lim n→∞ ((n^2+2n+7)/(n^2+5n+1))^(2n-1)', '1/e⁶']]
         .forEach(([q, want]) => ok('wynik bez zmian: ' + q, (S.run(q) || {}).text === want, (S.run(q) || {}).text));
+    ['lim n→∞ ((n+4)/n)^(n+5)', 'lim n→∞ ((5n+7)/(5n-8))^n'].forEach(q => {
+        const m = jed(q).find(x => x.label === 'Zapisujemy podstawę jako 1 + 1/aₙ').math;
+        ok('kolejność: różnica N − D przed 1 + 1/(: ' + q, m.indexOf(' − ') >= 0 && m.search(/^\(.*\) − \(?.*\)? = /) === 0 && m.indexOf('\n') > 0 && m.indexOf('1 + 1/(') > m.indexOf(' = ') && m.split('\n')[0].includes(' − '), m);
+    });
+    ok('jednomian bez nawiasu: n = 2n · (1/2)', ((S.run('lim n→∞ (1+1/(2n))^n') || {}).explain || { steps: [] }).steps.some(x => x.math.includes('n = 2n · (1/2)')), jedAll('lim n→∞ (1+1/(2n))^n'));
+    ok('r = g/aₙ = 4(n + 5)/n', jedAll('lim n→∞ ((n+4)/n)^(n+5)').includes('r = (n + 5)/(n/4) = 4(n + 5)/n'), jedAll('lim n→∞ ((n+4)/n)^(n+5)'));
+    ok('bez r = dla aₙ = −n', !jedAll('lim n→∞ (1-1/n)^n').includes('r ='), jedAll('lim n→∞ (1-1/n)^n'));
     const s2 = ((S.run('lim n→∞ (1+1/(2n))^n') || {}).explain || { steps: [] }).steps;
     ok('(1+1/(2n))^n: bez tautologii, aₙ w nawiasie', s2.some(x => x.math.startsWith('1 + 1/(2n),  aₙ = 2n')) && s2.some(x => x.math.includes('^(2n)⟧)^(1/2)')), s2.map(x => x.math));
 }

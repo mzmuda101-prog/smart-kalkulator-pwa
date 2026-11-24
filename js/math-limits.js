@@ -926,9 +926,10 @@
                 .map(function (x, i) { var t = C.show([x]); return i === 0 ? t : /^−/.test(t) ? ' − ' + t.slice(1) : ' + ' + t; }).join('');
             var hn = C.show(splitFraction(h).N);
             var diff = isOne(fr.D) ? '' : '\n' + par(fr.N) + ' − ' + par(fr.D) + ' = ' + dsh + (hn !== dsh ? ' = ' + hn : '');
-            var gp = /^(\d+(\.\d+)?|[a-zA-Z])$/.test(sgh) ? sgh : '(' + sgh + ')';
-            var split = '\n' + C.show(p.g) + ' = ' + pa + ' · ' + gp;
-            line(log, 'Zapisujemy podstawę jako 1 + 1/aₙ', (onePlus === C.show(p.f) ? onePlus : C.show(p.f) + ' = ' + onePlus) + tail + ',  aₙ = ' + sa + diff + split);
+            var mp = function (x) { return /[+−\/]/.test(x) ? '(' + x + ')' : x; }; // [EN] nawias tylko przy sumie, ułamku i minusie
+            var sg = C.show(p.g), rline = /^−?n$/.test(sa) || sgh === '1' || sgh === '−1' ? '' : '\nr = ' + mp(sg) + '/' + pa + ' = ' + sgh;
+            var split = rline + '\n' + sg + ' = ' + mp(sa) + ' · ' + mp(sgh);
+            line(log, 'Zapisujemy podstawę jako 1 + 1/aₙ', (diff ? diff.slice(1) + '\n' : '') + (onePlus === C.show(p.f) ? onePlus : C.show(p.f) + ' = ' + onePlus) + tail + ',  aₙ = ' + sa + split);
             // [EN] bez osobnego kroku „Wzór na e” (spec 5.12): fragment ⟦…⟧ jest wyróżniony kolorem, stuknięcie → dymek ze wzorem
             var core = '⟦(' + onePlus + ')^' + pa + '⟧';
             var pw = function (x) { return x === '1' ? '' : /^\d+$/.test(x) ? K.sup(x) : '^(' + x + ')'; }; // [EN] e³, nie e^(3)
