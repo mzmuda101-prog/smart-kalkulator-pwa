@@ -382,6 +382,10 @@
             return { k: n.k === 'add' ? 'sub' : 'add', a: n.a, b: astNum(K.neg(n.b.v)) };
         return n;
     }
+    function parenLead(n, pr) { // [EN] −(−4) · 11: ujemna liczba na początku iloczynu/ilorazu po minusie też w nawiasie
+        if ((n.k === 'mul' || n.k === 'div') && n.a) return Object.assign({}, n, { a: parenLead(n.a, pr) });
+        return pr(n);
+    }
     function astMap(n, f) { // [EN] kopia drzewa z f(dziecko) w miejscu a/b
         var out = Object.assign({}, n);
         if (n.a) out.a = f(n.a, 'a');
@@ -392,6 +396,7 @@
         else if (out.k === 'pow') out.a = pr(out.a, 2);
         else if (out.k === 'div') out.b = pr(out.b, 2);
         else if (out.k === 'sub') out.b = pr(out.b);
+        else if (out.k === 'neg') out.a = parenLead(out.a, pr);
         return out;
     }
     function plugVar(n, v, pt, ctx) { // [EN] zmienna → liczba punktu; nawias, gdy liczba ujemna/ułamkowa stoi pod potęgą, po minusie, w iloczynie

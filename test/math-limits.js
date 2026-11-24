@@ -458,7 +458,7 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
         const r = S.run(z.input); if (!r || !r.explain) continue;
         for (const m of r.explain.methods || [r.explain]) for (const st of m.steps) {
             if (!/^Podstawiamy (\w) = /.test(st.label)) continue;
-            if (st.math.split(' = ').slice(1).some(x => /[·\/^] ?−|− −/.test(x))) bare.push(z.input + ' :: ' + st.math);
+            if (st.math.split(' = ').slice(1).some(x => /[·\/^] ?−|− −|−−/.test(x))) bare.push(z.input + ' :: ' + st.math);
         }
     }
     ok('P1: bramka — bez gołych liczb ujemnych po · / ^', bare.length === 0, bare.slice(0, 5));
