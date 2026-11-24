@@ -411,6 +411,10 @@
         if (!astHasSum(n) && n.k !== 'num') { var r = astValue(n); if (r) return astNum(r); }
         return n.a ? astMap(n, plugValues) : n;
     }
+    function plugSumVals(n) { // [EN] każda suma → liczba, ale iloczyny i ilorazy jeszcze niepomnożone: 32 · (−3)
+        if ((n.k === 'add' || n.k === 'sub') && astHasSum(n)) { var r = astValue(n); if (r) return astNum(r); }
+        return n.a ? astMap(n, plugSumVals) : n;
+    }
     function plugSums(n) { // [EN] sumy policzone; ułamek zostaje nieskrócony (−20/5), licznik i mianownik osobno
         if (n.k === 'div') {
             var a = astValue(n.a), b = astValue(n.b);
@@ -423,7 +427,7 @@
         var out = [];
         try {
             var cur = plugVar(K.parse(C.show(e)), v, C.numberOf(pointExpr(t)), 'root');
-            [function (x) { return x; }, plugRadicands, plugValues, plugSums].forEach(function (f) {
+            [function (x) { return x; }, plugRadicands, plugValues, plugSumVals, plugSums].forEach(function (f) {
                 cur = f(cur);
                 var s = astText(cur);
                 if (out[out.length - 1] !== s) out.push(s);
@@ -1026,6 +1030,7 @@
                 while (c.length > 1 && K.isZero(hornerAt(c, a))) {
                     var low = deflateBy(c, a), top = c.slice().reverse(), mid = [''], bot = [top[0]]; // [EN] schemat Hornera jak w równaniach
                     for (var hi = 1; hi < top.length; hi++) { var pr = K.mul(a, bot[hi - 1]); mid.push(K.fmt(pr)); bot.push(K.add(top[hi], pr)); }
+                    if (c.length === 2 && K.eq(c[1], ONE)) { c = low; m++; continue; } // [EN] już dokładnie (x − a): dzielenie (x − a) : (x − a) = 1 to szum
                     tables.push({ name: f.e.n < 0n ? 'mianownik' : 'licznik', r: K.fmt(a), top: top.map(K.fmt), mid: mid, bot: bot.map(K.fmt) });
                     var dl = '(' + C.show(C.polyExpr(c, v)) + ') : (' + C.show(xa) + ') = ' + C.show(C.polyExpr(low, v));
                     divLines.push({ name: tables[tables.length - 1].name, dl: dl });

@@ -464,7 +464,9 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     ok('P1: bramka — bez gołych liczb ujemnych po · / ^', bare.length === 0, bare.slice(0, 5));
     const allSub = z => { const r = S.run(z); return [].concat(...(r.explain.methods || [r.explain]).map(m => m.steps)).filter(x => /^Podstawiamy/.test(x.label)).map(x => x.math); };
     ok('P1: nawias przy ujemnym czynniku i mianowniku', allSub('lim x→-2 (x^3-x+6)/(sqrt(x^4-12)+x)').some(m => m.includes('11/(−7)')), allSub('lim x→-2 (x^3-x+6)/(sqrt(x^4-12)+x)'));
-    ok('P1: pierwiastki policzone', allSub('lim x→3 (x+3)/(5(sqrt(x+1)+2))').some(m => m.includes('(3 + 3)/(5 · (√4 + 2)) = (3 + 3)/(5 · (2 + 2)) = 6/20 = 3/10')), allSub('lim x→3 (x+3)/(5(sqrt(x+1)+2))'));
+    ok('P1: pierwiastki policzone', allSub('lim x→3 (x+3)/(5(sqrt(x+1)+2))').some(m => m.includes('(3 + 3)/(5 · (√4 + 2)) = (3 + 3)/(5 · (2 + 2)) = 6/(5 · 4) = 6/20 = 3/10')), allSub('lim x→3 (x+3)/(5(sqrt(x+1)+2))'));
+    ok('P1: iloczyn sum jako liczb przed pomnożeniem', allSub('lim x→1 (∜(x+15)-2)/(x^2-5x+4)').some(m => m.includes('32 · (−3)')), allSub('lim x→1 (∜(x+15)-2)/(x^2-5x+4)'));
+    ok('P1: iloczyn sum — 12 · (−2)', allSub('lim x→3 (x^2-8x+15)/(∛(3x-1)-2)').some(m => m.includes('12 · (−2)')), allSub('lim x→3 (x^2-8x+15)/(∛(3x-1)-2)'));
     ok('P1: pierwiastek 4. stopnia i potęga ułamkowa policzone', allSub('lim x→1 (∜(x+15)-2)/(x^2-5x+4)').some(m => m.includes('(16^(3/4) + 2 · √16 + 4 · ∜16 + 8)') && m.includes('(8 + 8 + 8 + 8)')), allSub('lim x→1 (∜(x+15)-2)/(x^2-5x+4)'));
     ok('P1: bramka — każde „Podstawiamy” z rachunkiem', bad.length === 0, bad.slice(0, 5));
 }
@@ -481,7 +483,7 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     ok('P1H: zapis dzielenia', !!h && h.math.includes('(x⁴ − 13x² + 36) : (x − 2)⟧ = x³ + 2x² − 9x − 18') && h.math.includes('(x³ − 2x² + x − 2) : (x − 2)⟧ = x² + 1'), h && h.math);
     const d = steps('lim x→1 (x^3-3x+2)/(x^2-2x+1)');
     const hd = d[d.findIndex(x => x.label === 'Rozkładamy na czynniki') - 1];
-    ok('P1H: pierwiastek podwójny — po dwie tabelki', !!hd && hd.horner.length === 4 && hd.horner.map(x => x.name).join() === 'licznik,licznik,mianownik,mianownik', hd && hd.horner);
+    ok('P1H: pierwiastek podwójny — bez dzielenia (x − 1) : (x − 1)', !!hd && hd.horner.length === 3 && hd.horner.map(x => x.name).join() === 'licznik,licznik,mianownik', hd && hd.horner);
     ok('P1H: wynik bez zmian', /= 3$/.test(d[d.length - 1].math), d[d.length - 1].math);
     // bramka: każdy „Rozkładamy na czynniki” w zestawie ma tuż przed sobą krok z tabelkami, reszta 0
     const bad = [];
