@@ -78,16 +78,17 @@ test('sposoby: 0/0 — rozkład albo de l\'Hospital, przełącznik nad krokami',
   await page.locator('#calcExpr').fill('lim x→4 (x^2-6x+8)/(3x^2-10x-8)');
   await page.locator('#calcExplainTip').click();
   const ways = page.locator('#stepsView .steps-methods .settings-seg-btn');
-  await expect(ways).toHaveText(['Rozkład na czynniki', "de l'Hospital"]);
+  await expect(ways).toHaveText(['Rozkład na czynniki', "de l'Hospital", 'Schemat Hornera']);
   // domyślnie najkrótszy sposób (spec 2026-11-23-sposoby-design.md): tu de l'Hospital
   await expect(ways.nth(1)).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#stepsView .steps-label').nth(1)).toContainText("Reguła de l'Hospitala");
-  await ways.first().click();
+  const horner = ways.filter({ hasText: 'Schemat Hornera' });
+  await horner.click();
   await expect(page.locator('#stepsView .steps-label').nth(1)).toContainText('Dzielimy schematem Hornera');
   await expect(page.locator('#stepsView .steps-label').nth(2)).toContainText('Rozkładamy na czynniki');
   await expect(page.locator('#stepsView .steps-horner')).toHaveCount(2);
-  await expect(ways.first()).toHaveAttribute('aria-pressed', 'true');
-  await expect(ways.first()).toBeFocused();
+  await expect(horner).toHaveAttribute('aria-pressed', 'true');
+  await expect(horner).toBeFocused();
   await expect(page.locator('#stepsView .steps-item.is-final')).toContainText('1');
   // jedno rozwiązanie — bez przełącznika
   await page.keyboard.press('Escape');
@@ -177,7 +178,7 @@ test('granica 0/0: dwie tabelki Hornera z podpisami, mieszczą się na 360 px', 
   await page.waitForFunction(() => !!window.MATM0_TEX);
   await page.locator('#calcExpr').fill('lim x→2 (x^4-13x^2+36)/(x^3-2x^2+x-2)');
   await page.locator('#calcExplainTip').click();
-  await page.locator('#stepsView .steps-methods .settings-seg-btn', { hasText: 'Rozkład na czynniki' }).click(); // domyślnie najkrótszy sposób
+  await page.locator('#stepsView .steps-methods .settings-seg-btn', { hasText: 'Schemat Hornera' }).click(); // tabelki są w sposobie „Schemat Hornera”
   await expect(page.locator('#stepsView .steps-horner')).toHaveCount(2);
   await expect(page.locator('#stepsView .steps-horner-name')).toHaveText(['Licznik', 'Mianownik']);
   await expect(page.locator('#stepsView .steps-horner-name').first()).toHaveAttribute('aria-hidden', 'true');

@@ -339,8 +339,9 @@
         const head = /lim\(\w→([^)]*)\)/.exec(all[0] ? all[0].math : step.math);
         /** @type {Ctx} */
         const ctx = { atInf: !!head && /∞/.test(head[1]), prev: k > 0 ? all[k - 1] : null, next: k >= 0 && k + 1 < all.length ? all[k + 1] : null, steps: all };
+        const label = step.label.replace(/ w (liczniku|mianowniku)$/, ''); // [EN] rozkład szkolny w granicy: ten sam krok, tylko podpisana strona ułamka
         for (const [re, why] of RULES) {
-            if (!re.test(step.label)) continue;
+            if (!re.test(label)) continue;
             const out = typeof why === 'function' ? why(step, title || '', ctx) : why;
             return out || '';
         }

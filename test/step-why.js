@@ -68,6 +68,8 @@ ok('[1^∞] wyjaśnione', /1\^\{\\infty\}/.test(first('lim n→∞ (1-1/n)^n')))
 ok('krok 1 bez symbolu — neutralnie', !/nie przeszkadza/.test(first('lim x→-∞ sqrt(7-2x)(sqrt(15-8x)-sqrt(3-8x))')));
 // uwagi „słabego ucznia” (3c): zdanie pasuje do konkretnego kroku, nie tylko do nazwy
 const whyOf = (q, label) => { const r = S.run(q), st = r.explain.steps, i = st.findIndex(x => x.label.startsWith(label)); return i < 0 ? null : whyFor(st[i], r.explain.title, r.explain, i); };
+// [EN] sposób z przełącznika (zad. 4: Horner w granicy to osobny sposób „Schemat Hornera”)
+const whyOfM = (q, method, label) => { const r = S.run(q), m = (r.explain.methods || []).find(x => x.label === method), st = m ? m.steps : [], i = st.findIndex(x => x.label.startsWith(label)); return i < 0 ? null : whyFor(st[i], r.explain.title, { title: r.explain.title, steps: st }, i); };
 ok('sprzężenie przy x → liczba nie mówi o ∞ − ∞', !/infty/.test(whyOf('lim x→5 (x-5)/(3-sqrt(x+4))', 'Mnożymy przez sprzężenie') || 'infty'));
 ok('sprzężenie przy n → ∞ mówi o ∞ − ∞', /infty-\\infty/.test(whyOf('lim n→∞ (sqrt(n^2+n)-n)', 'Mnożymy przez sprzężenie') || ''));
 ok('„Skracamy (−x)” przy −∞ bez „nawias nie jest zerem”', !/nie jest zerem/.test(whyOf('lim x→-∞ x/sqrt(3x^2+5)', 'Skracamy (') || 'nie jest zerem'));
@@ -122,13 +124,13 @@ ok('Sprawdzenie w całce ≠ w równaniu', whyFor({ label: 'Sprawdzenie', math: 
 
 // Partia 1: Horner w granicy
 {
-    const w = whyOf('lim x→2 (x^4-13x^2+36)/(x^3-2x^2+x-2)', 'Rozkładamy na czynniki') || '', h = whyOf('lim x→2 (x^4-13x^2+36)/(x^3-2x^2+x-2)', 'Dzielimy schematem Hornera') || '';
+    const w = whyOf('lim x→2 (x^4-13x^2+36)/(x^3-2x^2+x-2)', 'Rozkładamy na czynniki') || '', h = whyOfM('lim x→2 (x^4-13x^2+36)/(x^3-2x^2+x-2)', 'Schemat Hornera', 'Dzielimy schematem Hornera') || '';
     ok('Rozkładamy: konkretny nawias (x-2)', w.includes('(x-2)') && !w.includes('(x-a)'), w);
     ok('Hornera w granicy: zdanie o liczbie 2', h.includes('$2$') && h.includes('(x-2)'), h);
 }
 
 {
-    const h0 = whyOf('lim x→0 (x^2+3x)/(x^2-2x)', 'Dzielimy schematem Hornera') || '';
+    const h0 = whyOfM('lim x→0 (x^2+3x)/(x^2-2x)', 'Schemat Hornera', 'Dzielimy schematem Hornera') || '';
     ok('Horner przy x → 0: (x), nie (x-0)', h0.includes('(x)') === false && !h0.includes('x-0') && /\$x\$/.test(h0), h0);
 }
 

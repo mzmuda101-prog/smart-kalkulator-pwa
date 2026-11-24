@@ -1041,16 +1041,18 @@
         apply: function (e, v, t, log, depth) {
             var a = C.numberOf(pointExpr(t)), xa = C.polyExpr([K.neg(a), ONE], v);
             var M = 0, rest = C.num(e[0].c), ups = [], downs = [], tables = [], divLines = [];
+            var school = _factorMode === 'school', sides = [], cUps = [], cDowns = []; // [EN] cUps/cDowns: to, co zostaje po skróceniu (zapis szkolny)
             e[0].fs.forEach(function (f) {
                 var c = K.isInt(f.e) ? C.polyCoefs(C.atomExpr(f.b), v) : null;
                 var pow = Number(f.e.n < 0n ? -f.e.n : f.e.n), list = f.e.n < 0n ? downs : ups;
                 if (!c || c.length < 2) {
                     rest = C.cMul(rest, C.cPow(C.atomExpr(f.b), f.e));
                     list.push(grpFactor(C.atomExpr(f.b), pow));
+                    (f.e.n < 0n ? cDowns : cUps).push(grpFactor(C.atomExpr(f.b), pow));
                     return;
                 }
                 c = trimPoly(c);
-                var m = 0;
+                var m = 0, c0 = c;
                 while (c.length > 1 && K.isZero(hornerAt(c, a))) {
                     var low = deflateBy(c, a), top = c.slice().reverse(), mid = [''], bot = [top[0]]; // [EN] schemat Hornera jak w równaniach
                     for (var hi = 1; hi < top.length; hi++) { var pr = K.mul(a, bot[hi - 1]); mid.push(K.fmt(pr)); bot.push(K.add(top[hi], pr)); }
@@ -1064,19 +1066,37 @@
                 var Q = C.polyExpr(c, v);
                 rest = C.cMul(rest, C.cPow(Q, f.e));
                 for (var i = 0; i < m * pow; i++) list.push('(' + C.show(xa) + ')');
-                if (!isOne(Q)) list.push(grpFactor(Q, pow));
+                var shown = grpFactor(Q, pow);
+                if (school && log && m) {
+                    sides.push({ name: f.e.n < 0n ? 'mianownik' : 'licznik', sf: K.schoolFactor(c0, v, {}) });
+                    // [EN] reszta po wyjęciu (x − a) też po szkolnemu: (x + 2)(x − 3)(x + 3), nie x³ + 2x² − 9x − 18
+                    var qs = c.length > 2 ? K.schoolFactor(c, v, {}) : null;
+                    if (qs) shown = pow > 1 ? '(' + qs.text + ')' + K.sup(String(pow)) : /^\d/.test(qs.text) ? '(' + qs.text + ')' : qs.text;
+                }
+                if (!isOne(Q)) { list.push(shown); (f.e.n < 0n ? cDowns : cUps).push(shown); }
             });
             if (!M && !ups.concat(downs).some(function (x) { return x === '(' + C.show(xa) + ')'; })) throw new NotSupported();
             var head = limHead(v, t), coef = K.fmt(e[0].c) === '1' ? '' : K.fmt(e[0].c);
-            if (tables.length) { // [EN] licznik przed mianownikiem (sort jest stabilny)
-                var byName = function (x, y) { return x.name < y.name ? -1 : x.name > y.name ? 1 : 0; };
+            var byName = function (x, y) { return x.name < y.name ? -1 : x.name > y.name ? 1 : 0; };
+            if (school) { // [EN] rozkład jak w szkole: kroki osobno dla licznika i mianownika, Horner tylko w swoim sposobie
+                sides.sort(byName).forEach(function (sd) {
+                    if (!sd.sf) return;
+                    var tail = sd.name === 'licznik' ? ' w liczniku' : ' w mianowniku';
+                    sd.sf.steps.forEach(function (st) { log.push(Object.assign({}, st, { label: st.label + tail })); });
+                });
+            } else if (tables.length) { // [EN] licznik przed mianownikiem (sort jest stabilny)
                 tables.sort(byName); divLines.sort(byName);
                 line(log, 'Dzielimy schematem Hornera', divLines.map(function (x) { return x.dl.replace(/^(.*?) = /, '⟦$1⟧ = '); }).join('\n'), 'schemat-hornera', { horner: tables });
                 log[log.length - 1].formula.here = K.hornerHere(tables);
             }
             line(log, 'Rozkładamy na czynniki', head + coef + (ups.join('') || '1') + '/' + (downs.length > 1 ? '(' + downs.join('') + ')' : downs.join('')));
-            var out = M ? C.cMul(rest, C.cPow(xa, K.R(M))) : rest;
-            line(log, 'Skracamy (' + C.show(xa) + ')', limOf(v, t, out));
+            var out = M ? C.cMul(rest, C.cPow(xa, K.R(M))) : rest, after = limOf(v, t, out);
+            if (school && log) { // [EN] po skróceniu najpierw postać szkolna, potem ta sama postać co w sposobie Hornera (dalsze kroki wspólne)
+                var den = function (x) { return /^[^\s()]+$/.test(x) || /^\([^()]*\)[⁰¹²³⁴⁵⁶⁷⁸⁹]*$/.test(x) ? x : '(' + x + ')'; };
+                var mid = head + coef + (cUps.join('') || '1') + (cDowns.length ? '/' + den(cDowns.join('')) : '');
+                if (mid !== after) after = mid + '\n= ' + after;
+            }
+            line(log, 'Skracamy (' + C.show(xa) + ')', after);
             return limitOf(out, v, t, log, depth);
         }
     };
@@ -1260,6 +1280,7 @@
     var WORK_BUDGET = 1500; // [EN] operacji w wysokiej precyzji na zadanie; zestaw 58 zużywa najwyżej ~670, (x − sin x)/x³ ~1100
     // [EN] sposoby: _prefer = reguła próbowana najpierw w pierwszym ruchu; _first = reguła, która zrobiła pierwszy ruch
     var _prefer = null, _first = null;
+    var _factorMode = 'school'; // [EN] factorCancel: 'school' (rozkład jak w szkole) albo 'horner' (sposób „Schemat Hornera”)
     function limitOf(e, v, t, log, depth) {
         if ((depth || 0) > MAX_DEPTH) throw new NotSupported();
         var top = !depth, order = top && _prefer ? [_prefer].concat(RULES.filter(function (r) { return r !== _prefer; })) : RULES;
@@ -1386,6 +1407,20 @@
                 }
             } catch (err) { if (!(err instanceof NotSupported) && !(err instanceof RangeError)) throw err; }
             finally { _prefer = null; _budget = Infinity; }
+        }
+        // [EN] rozkład szkolny jest domyślny; dzisiejsze kroki z tabelkami to osobny sposób „Schemat Hornera”, gdy się różnią
+        if (ind === '0/0' && isFiniteTarget(d.target) && first === 'factorCancel') {
+            var alt3 = steps.slice(0, steps.length - 1).filter(function (s, i) { return i === 0 || s.label === 'Zapisujemy inaczej'; });
+            _prefer = factorCancel; _factorMode = 'horner'; _work = 0; _budget = WORK_BUDGET;
+            try {
+                var ansH = limitOf(e, d.v, d.target, alt3, 0);
+                if (_first === 'factorCancel' && agrees(ansH, truth) && formatAnswer(ansH).text === out.text) {
+                    alt3.push({ label: 'Wynik', math: userLim(d, e) + ' = ' + out.text, final: true });
+                    var key = function (st) { return JSON.stringify(st.map(function (x) { return [x.label, x.math]; })); };
+                    if (key(alt3) !== key(steps)) res.explain.methods = (res.explain.methods || [{ label: METHOD[first], steps: steps }]).concat([{ label: 'Schemat Hornera', steps: alt3 }]);
+                }
+            } catch (err) { if (!(err instanceof NotSupported) && !(err instanceof RangeError)) throw err; }
+            finally { _prefer = null; _factorMode = 'school'; _budget = Infinity; }
         }
         // [EN] etap 1 sposobów: 1^∞ — wzór skrócony obok dorabiania jedynki; ∞/∞ — de l'Hospital obok najwyższej potęgi
         var other = !res.explain.methods && (ind === '1^∞' && first === 'eLimit' ? eShortcut : ind === '∞/∞' && first === 'dominantPower' && d.v !== 'n' ? lHospital : null);
