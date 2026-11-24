@@ -124,5 +124,9 @@ for (const q of ['rozłóż x^2y/2-y/8', 'rozłóż x^2/2-1/8', 'rozłóż 2x^2y
     ok(q + ': bez sklejonych liczb', !/[a-z)]\d|\/\d+\(/.test(txt(q)), txt(q));
 ok('rozłóż x^2y/2-y/8 → (1/2)y(x − 1/2)(x + 1/2)', txt('rozłóż x^2y/2-y/8') === '(1/2)y(x − 1/2)(x + 1/2)', txt('rozłóż x^2y/2-y/8'));
 
+// liczby dziesiętne przed nawiasem bez nawiasu (jak przed gałęzią): 0,5(x − 2)(x + 2)
+ok('rozłóż 0.5x^2-2 → 0,5(x − 2)(x + 2)', txt('rozłóż 0.5x^2-2') === '0,5(x − 2)(x + 2)', txt('rozłóż 0.5x^2-2'));
+ok('rozłóż 1.5x^2-6x → 1,5x(x − 4)', txt('rozłóż 1.5x^2-6x') === '1,5x(x − 4)', txt('rozłóż 1.5x^2-6x'));
+
 console.log(`school-factor: ${pass} ok, ${fail} błędów`);
 process.exit(fail ? 1 : 0);

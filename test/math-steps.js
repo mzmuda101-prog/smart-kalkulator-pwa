@@ -414,5 +414,24 @@ pass += 3;
     });
 }
 
+// uprość: nawiasy z liczbami całkowitymi (jak rozkład szkolny), łańcuch kroków bez przeskoków
+{
+    const w3 = (q, want) => ok(q + ' → ' + want, text(q) === want, text(q));
+    const chain = q => { // każdy krok skracania zaczyna się od tego, na czym skończył się poprzedni krok
+        const s = st(q), i = s.findIndex(x => /^Skracam/.test(x.label)), prev = s.slice(1, i).filter(x => !/^Zastrzegam/.test(x.label)).map(x => x.math.split(' = ').pop().replace(/[⟦⟧]/g, ''));
+        return { s, cancel: s[i], prev };
+    };
+    w3('uprość (4x^2-1)/(2x-1)', '2x + 1 (dla x ≠ 1/2)');
+    ok('(4x^2-1)/(2x-1): Skracam (2x − 1)', st('uprość (4x^2-1)/(2x-1)').some(x => x.label === 'Skracam (2x − 1)'), labels('uprość (4x^2-1)/(2x-1)'));
+    w3('uprość (2x^2-x-1)/(x-1)', '2x + 1 (dla x ≠ 1)');
+    const c2 = chain('uprość (2x^2-x-1)/(x-1)');
+    ok('(2x^2-x-1)/(x-1): skracanie od (2x + 1)(x − 1)/(x − 1)', c2.cancel && c2.cancel.math.startsWith('(2x + 1)(x − 1)/(x − 1) = '), c2.cancel);
+    w3('uprość (x-1)/(2x^2-x-1)', '1/(2x + 1) (dla x ≠ −1/2, x ≠ 1)');
+    const c4 = chain('uprość (x^2-0.25)/(x-0.5)');
+    ok('(x^2-0.25)/(x-0.5): bez (0,25)', !c4.s.some(x => x.math.includes('(0,25)')), c4.s);
+    ok('(x^2-0.25)/(x-0.5): skracam (2x − 1)', c4.cancel && c4.cancel.label === 'Skracam (2x − 1)' && c4.cancel.math.startsWith('0,25(2x − 1)(2x + 1)/(0,5(2x − 1)) = '), c4.cancel);
+    w3('uprość (x^2-0.25)/(x-0.5)', 'x + 0,5 (dla x ≠ 0,5)');
+}
+
 console.log(`math-steps: ${pass} OK, ${fail} błędów`);
 process.exit(fail ? 1 : 0);

@@ -1503,7 +1503,19 @@
             var den0Text = show(ast.b, ctx).replace(/^\((.*)\)$/, '$1');
             var side = function (c, name) {
                 var sf = schoolFactor(c, v, ctx);
-                if (sf) { sf.steps.forEach(function (st) { var o = {}; for (var key in st) o[key] = st[key]; o.label += name; steps.push(o); }); return { k: sf.lead, f: sf.factors }; }
+                if (sf) {
+                    sf.steps.forEach(function (st) { var o = {}; for (var key in st) o[key] = st[key]; o.label += name; steps.push(o); });
+                    // [EN] nawiasy o całkowitych, względnie pierwszych współczynnikach i dodatnim początku (2x − 1, nie x − 1/2); liczba idzie do k
+                    var kp = sf.k, lv = sf.leaves.map(function (l) {
+                        var L = l.c.reduce(function (a, x) { return (a * x.d) / gcd(a, x.d); }, 1n);
+                        var gg = l.c.reduce(function (a, x) { return gcd(a, mul(x, R(L)).n); }, 0n), u = R(l.c[l.c.length - 1].n < 0n ? -gg : gg, L);
+                        kp = mul(kp, powR(u, l.n));
+                        return { c: l.c.map(function (x) { return div(x, u); }), n: l.n };
+                    });
+                    var was = sfText(sf.k, sf.leaves, v, ctx), now = sfText(kp, lv, v, ctx);
+                    if (now !== was) steps.push({ label: 'Porządkuję czynniki' + name, math: was + ' = ' + now });
+                    return { k: kp, f: lv };
+                }
                 var top = c[c.length - 1];
                 if (c.length === 2) { // [EN] liniowy: liczba (lub minus) przed nawias jawnie, nie po cichu
                     var den0 = c.reduce(function (l, x) { return (l * x.d) / gcd(l, x.d); }, 1n);
@@ -1514,6 +1526,7 @@
                             math: (name === ' w mianowniku' ? den0Text : polyText(c, v, ctx)) + ' = ⟦' + sfK(head, ctx) + '(' + polyText(restC, v, ctx) + ')⟧',
                             formula: { id: 'wylaczanie-przed-nawias', here: 'a = ' + fmt(head, ctx) } });
                     }
+                    return { k: head, f: [{ c: c.map(function (x) { return div(x, head); }), n: 1 }] };
                 }
                 return { k: top, f: c.length > 1 ? [{ c: c.map(function (x) { return div(x, top); }), n: 1 }] : [] };
             };
@@ -1521,8 +1534,8 @@
             var zeros = [];
             for (var i = 0; i < D.f.length; i++) {
                 var f = D.f[i].c;
-                if (f.length === 2) zeros.push(neg(f[0]));
-                else if (f.length > 3 || sub(mul(f[1], f[1]), mul(R(4), f[0])).n >= 0n) return null; // [EN] niewymierne (lub nieznane) zera mianownika
+                if (f.length === 2) zeros.push(neg(div(f[0], f[1])));
+                else if (f.length > 3 || sub(mul(f[1], f[1]), mul(R(4), mul(f[0], f[2]))).n >= 0n) return null; // [EN] niewymierne (lub nieznane) zera mianownika
             }
             zeros.sort(cmp);
             var k = div(N.k, D.k), nl = N.f.map(function (x) { return { c: x.c, n: x.n }; }), dl = D.f.map(function (x) { return { c: x.c, n: x.n }; });
@@ -1542,7 +1555,9 @@
                 return nt + '/' + (!b.length || (eq(R(k.d), ONE) && b.length === 1) ? dt : '(' + dt + ')');
             };
             var ne = N.f.map(function (x) { return { c: x.c, n: x.n }; }), de = D.f.map(function (x) { return { c: x.c, n: x.n }; });
-            var lhs = fr(ne, de);
+            var unit = function (q) { return eq(q, ONE) || eq(q, neg(ONE)); };
+            // [EN] obie strony z własną liczbą (0,25(…)/(0,5(…))): zapis taki, jak w krokach rozkładu, nie od razu podzielony
+            var lhs = !unit(N.k) && !unit(D.k) ? sfText(N.k, ne, v, ctx) + '/(' + sfText(D.k, de, v, ctx) + ')' : fr(ne, de);
             if (zeros.length) steps.push({ label: 'Zastrzegam dziedzinę', math: den0Text + ' ≠ 0\n' + zeros.map(function (z) { return v + ' ≠ ' + fmt(z, ctx); }).join(', ') });
             var tag = zeros.length ? ' (dla ' + zeros.map(function (z) { return v + ' ≠ ' + fmt(z, ctx); }).join(', ') + ')' : '';
             var cur = lhs;
@@ -1550,7 +1565,15 @@
                 var ni = ne.filter(function (x) { return same(x.c, cc.c); })[0], di = de.filter(function (x) { return same(x.c, cc.c); })[0];
                 ni.n -= cc.n; di.n -= cc.n;
                 var nxt = fr(live(ne), live(de));
-                steps.push({ label: 'Skracam ' + sfPiece(cc.c, cc.n, v, ctx), math: cur + ' = ⟦' + nxt + (j === cancel.length - 1 ? tag : '') + '⟧' });
+                var ln = live(ne), lastC = j === cancel.length - 1;
+                if (lastC && ctx.dec && !live(de).length && ln.length === 1 && ln[0].n === 1 && ln[0].c.length === 2 && !isInt(k)) { // [EN] 0,5(2x + 1) → x + 0,5
+                    var ex = polyText(ln[0].c.map(function (x) { return mul(x, k); }), v, ctx);
+                    nxt = nxt + ' = ' + ex;
+                    steps.push({ label: 'Skracam ' + sfPiece(cc.c, cc.n, v, ctx), math: cur + ' = ⟦' + nxt + tag + '⟧' });
+                    cur = ex;
+                    return;
+                }
+                steps.push({ label: 'Skracam ' + sfPiece(cc.c, cc.n, v, ctx), math: cur + ' = ⟦' + nxt + (lastC ? tag : '') + '⟧' });
                 cur = nxt;
             });
             return done('Upraszczanie', cur + tag, null, steps);
@@ -1581,11 +1604,11 @@
     function monoC(a, k) { var out = []; for (var i = 0; i < k; i++) out.push(ZERO); out.push(a); return out; } // [EN] a·x^k jako współczynniki
     function sfNum(q, ctx) { var t = fmt(q, ctx); return /[/−]/.test(t) ? '(' + t + ')' : t; } // [EN] liczba pod potęgą/w iloczynie
     function sfBase(p, k, v, ctx) { var t = polyText(monoC(p, k), v, ctx); return t === v ? v : '(' + t + ')'; } // [EN] x, (2x), (x²)
-    function sfK(k, ctx) { // [EN] liczba przed iloczynem: 2, −, (1/2), −(1/2) — ułamek w nawiasie, żeby nie skleił się z nawiasem
+    function sfK(k, ctx) { // [EN] liczba przed iloczynem: 2, −, (1/2), −(1/2) — ułamek w nawiasie, żeby nie skleił się z nawiasem; dziesiętny bez (0,5(x − 2))
         if (eq(k, ONE)) return '';
         if (eq(k, neg(ONE))) return '−';
         var t = fmtAbs(k, ctx);
-        return (k.n < 0n ? '−' : '') + (/[/,]/.test(t) ? '(' + t + ')' : t);
+        return (k.n < 0n ? '−' : '') + (/\//.test(t) ? '(' + t + ')' : t);
     }
     function sfPiece(c, n, v, ctx) { // [EN] czynnik w iloczynie: x, x², (x − 2), (x − 3)²
         var t = c.length === 2 && isZero(c[0]) && eq(c[1], ONE) ? v : '(' + polyText(c, v, ctx) + ')';
