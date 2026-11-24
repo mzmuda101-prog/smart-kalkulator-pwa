@@ -16226,6 +16226,16 @@
             results.push({ expr: 'za 3 tygodnie (data)', pass: !!evalCalcExpression('za 3 tygodnie').text, got: evalCalcExpression('za 3 tygodnie').text });
             results.push({ expr: 'jutro (data)', pass: !!evalCalcExpression('jutro').text, got: evalCalcExpression('jutro').text });
             results.push({ expr: 'ile dni do 1.09 (liczba)', pass: typeof evalCalcExpression('ile dni do 1.09').value === 'number', got: evalCalcExpression('ile dni do 1.09').text });
+            // „ile godzin do <data>” liczy od TERAZ do północy tej daty (było: dni × 24 → o 19:15 dzień wcześniej wychodziło 24 h)
+            (function () {
+                var nowT = new Date(), jutroT = new Date(nowT.getFullYear(), nowT.getMonth(), nowT.getDate() + 1);
+                var hJ = (jutroT - nowT) / 3600000, dJ = jutroT.getDate() + '.' + (jutroT.getMonth() + 1);
+                [['ile godzin do ' + dJ, hJ], ['ile godzin do jutra', hJ], ['ile minut do ' + dJ, hJ * 60], ['how many hours until tomorrow', hJ],
+                 ['ile godzin do ' + dJ + ' 12:00', hJ + 12]].forEach(function (c) {
+                    var r = evalCalcExpression(c[0]), v = r && r.value;
+                    results.push({ expr: c[0] + ' (od teraz)', pass: typeof v === 'number' && Math.abs(v - c[1]) < (c[1] > 100 ? 2 : 0.05), got: r && r.text });
+                });
+            })();
             // regresja: kompaktowe zapisy i godziny na „dziś" (wcześniej zwracały null)
             function rdKind(ex) { try { var r = evalCalcExpression(ex); return r && r.kind || ''; } catch (e) { return 'ERR'; } }
             // „dziś za 3 tygodnie” — chip pod „dziś” dokleja „za 3 tygodnie”; każdy chip po „dziś” ma dawać datę

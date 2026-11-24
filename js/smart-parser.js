@@ -724,8 +724,8 @@
         var s = _plFold(str);
         if (s === 'teraz' || s === 'now' || s === 'czas' || s === 'time') return { d: _now(), hasYear: true, moment: true };
         if (/^dzis$|^dzisiaj$|^today$/.test(s)) return { d: _today(), hasYear: true, relDay: true };
-        if (s === 'jutro' || s === 'tomorrow')    { var j = _today(); j.setDate(j.getDate() + 1); return { d: j, hasYear: true, relDay: true }; }
-        if (s === 'pojutrze') { var p = _today(); p.setDate(p.getDate() + 2); return { d: p, hasYear: true, relDay: true }; }
+        if (s === 'jutro' || s === 'jutra' || s === 'tomorrow')    { var j = _today(); j.setDate(j.getDate() + 1); return { d: j, hasYear: true, relDay: true }; }
+        if (s === 'pojutrze' || s === 'pojutrza') { var p = _today(); p.setDate(p.getDate() + 2); return { d: p, hasYear: true, relDay: true }; }
         if (s === 'wczoraj' || s === 'yesterday')  { var w = _today(); w.setDate(w.getDate() - 1); return { d: w, hasYear: true, relDay: true }; }
         var m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/); // ISO date
         if (m) { var y = +m[1], mo = +m[2], da = +m[3]; if (_validDMY(da, mo, y)) return { d: new Date(y, mo - 1, da), hasYear: true }; return null; }
@@ -998,6 +998,7 @@
         if (/^(?:godzin[a-z]*|godz|h|hours?)$/.test(w)) return 'hours';
         if (/^(?:minut[a-z]*|min|minutes?)$/.test(w)) return 'minutes';
         if (/^(?:tygodni[a-z]*|tydzien|weeks?)$/.test(w)) return 'weeks';
+        if (/^(?:sekund[a-z]*|sek|s|seconds?)$/.test(w)) return 'seconds';
         return null;
     }
     function _remainingResult(unit, period) {
@@ -1011,14 +1012,18 @@
             return { value: parseFloat(wk.toFixed(2)), unit: null, kind: 'number',
                      text: _formatLocaleNumber(wk, 1) + ' tyg.' };
         }
-        var sec = Math.max(0, Math.round((end - now) / 1000));
+        return _untilResult(unit, Math.max(0, Math.round((end - now) / 1000)));
+    }
+    // Wynik „ile minut/godzin/sekund do …” z liczby sekund od teraz.
+    function _untilResult(unit, sec) {
+        if (unit === 'seconds') return { value: sec, unit: 's', kind: 'duration', text: _formatLocaleNumber(sec, 0) + ' s' };
         if (unit === 'minutes') {
             var mn = Math.floor(sec / 60);
             return { value: mn, unit: 'min', kind: 'duration', text: _formatLocaleNumber(mn, 0) + ' min' };
         }
         // [EN] pytanie o GODZINY → wynik w godzinach („1 158 h 38 min”), nie w tygodniach
         var hh = Math.floor(sec / 3600), mm = Math.floor((sec % 3600) / 60);
-        var hTxt = sec < 3600 ? formatDurationSeconds(sec)
+        var hTxt = sec === 0 ? '0 h' : sec < 3600 ? formatDurationSeconds(sec)
             : _formatLocaleNumber(hh, 0) + ' h' + (mm ? ' ' + mm + ' min' : '');
         return { value: sec / 3600, unit: null, kind: 'duration', text: hTxt };
     }
@@ -1032,13 +1037,28 @@
         // „days left in this month”, „hours left in today”, „days remaining in 2026”
         if ((m = s.match(/^(?:how many )?([a-z]+) (?:left|remaining) (?:in|of|until the end of) (?:this |the )?([a-z]+)$/)) &&
             (u = _unitKind(m[1])) && (k = _periodKind(m[2]))) return _remainingResult(u, k);
+        // „ile godzin do 25 listopada”, „ile minut do 26.11 12:00”, „hours until tomorrow”.
+        // Liczone OD TERAZ do początku dnia (albo do podanej godziny) — nie „dni × 24”,
+        // bo wtedy o 19:15 dzień przed datą wychodziło równe 24 h.
+        if ((m = s.match(/^(?:ile |how many )?([a-z]+) (?:(?:zostalo|pozostalo|zostaje|jeszcze|left) )?(?:do|until|till|to) (.+)$/)) &&
+            (u = _unitKind(m[1])) && (u === 'hours' || u === 'minutes' || u === 'seconds') && !/^konca /.test(m[2])) {
+            var tok = _parseDateToken(m[2].trim());
+            if (tok) {
+                var nowU = _now(), endU = tok.d;
+                // bez roku i już po dacie → najbliższa przyszła (jak w „ile dni do 1.09”)
+                if (!tok.hasYear && endU < _today()) endU.setFullYear(endU.getFullYear() + 1);
+                return _untilResult(u, Math.max(0, Math.round((endU - nowU) / 1000)));
+            }
+        }
         // „ile do 15:00”, „until 3pm”, „time until 17:30” → ile czasu od teraz (przez północ = jutro)
-        if ((m = s.match(/^(?:ile (?:czasu |godzin |minut )?(?:zostalo |jeszcze )?do|(?:time |how long )?(?:left )?until|do) (\d{1,2}(?::\d{2})?(?: ?(?:am|pm))?)$/))) {
+        if ((m = s.match(/^(?:ile (?:czasu |godzin |(minut) )?(?:zostalo |jeszcze )?do|(?:time |how long )?(?:left )?until|do) (\d{1,2}(?::\d{2})?(?: ?(?:am|pm))?)$/))) {
+            var askMin = !!m[1]; m = [m[0], m[2]];
             var tgt = _parseClockToken(m[1]);
             if (tgt != null && /:|am|pm/.test(m[1])) {
                 var nowD = _now(), diffMin = tgt - (nowD.getHours() * 60 + nowD.getMinutes() + nowD.getSeconds() / 60);
                 if (diffMin <= 0) diffMin += 1440;
-                return { value: diffMin, unit: null, kind: 'duration', text: formatDurationSeconds(Math.round(diffMin) * 60) };
+                return { value: diffMin, unit: null, kind: 'duration',
+                         text: askMin ? _formatLocaleNumber(Math.round(diffMin), 0) + ' min' : formatDurationSeconds(Math.round(diffMin) * 60) };
             }
         }
         // „ile dni do piątku”, „days until friday”, „do niedzieli” → najbliższy taki dzień (dziś → za tydzień)

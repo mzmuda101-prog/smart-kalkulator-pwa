@@ -57,7 +57,8 @@ const WORKS = [
     ['ile czasu od 8:00 do 16:30', 510],     // bez konwersji — forma kanoniczna
     // odliczanie do daty w innej jednostce
     ['ile tygodni do 25.12', DAYS_TO_XMAS / 7, 'tyg'],
-    ['ile godzin do 25.12', DAYS_TO_XMAS * 24],
+    // od TERAZ do północy 25.12 (nie dni × 24) — tolerancja na sekundy między liczeniem a testem
+    ['ile godzin do 25.12', (() => { const n = new Date(); let x = new Date(n.getFullYear(), 11, 25); if (x < new Date(n.getFullYear(), n.getMonth(), n.getDate())) x = new Date(n.getFullYear() + 1, 11, 25); return (x - n) / 3600000; })(), null, 0.01],
     // procent z WIELKOŚCI (jednostka musi przeżyć)
     ['20% z 5 km', 1, 'km'],
     ['60% z 2 godzin', 1.2, 'godziny'],  // jednostka echem słowa z wejścia, odmiana po wartości (1,2 godziny)
@@ -98,11 +99,11 @@ for (const [expr, want] of [['2e', 2 * Math.E], ['2e - 3', 2 * Math.E - 3]]) {
     else pass++;
 }
 
-for (const [expr, want, unit] of WORKS) {
+for (const [expr, want, unit, tol] of WORKS) {
     const r = val(expr);
     if (isEmpty(r)) {
         fail++; fails.push(`${expr} — dalej nic nie zwraca`);
-    } else if (!near(r.value, want)) {
+    } else if (!near(r.value, want, tol)) {
         fail++; fails.push(`${expr} — wartość ${r.value}, oczekiwano ${want}`);
     } else if (unit && r.unit !== unit) {
         fail++; fails.push(`${expr} — jednostka "${r.unit}", oczekiwano "${unit}"`);
