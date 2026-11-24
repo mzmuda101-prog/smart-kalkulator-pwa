@@ -83,7 +83,9 @@ test('sposoby: 0/0 — rozkład albo de l\'Hospital, przełącznik nad krokami',
   await expect(ways.nth(1)).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#stepsView .steps-label').nth(1)).toContainText("Reguła de l'Hospitala");
   await ways.first().click();
-  await expect(page.locator('#stepsView .steps-label').nth(1)).toContainText('Rozkładamy na czynniki');
+  await expect(page.locator('#stepsView .steps-label').nth(1)).toContainText('Dzielimy schematem Hornera');
+  await expect(page.locator('#stepsView .steps-label').nth(2)).toContainText('Rozkładamy na czynniki');
+  await expect(page.locator('#stepsView .steps-horner')).toHaveCount(2);
   await expect(ways.first()).toHaveAttribute('aria-pressed', 'true');
   await expect(ways.first()).toBeFocused();
   await expect(page.locator('#stepsView .steps-item.is-final')).toContainText('1');
