@@ -1164,21 +1164,28 @@
 
     // ── Reguła de l'Hospitala dla [0/0] i [∞/∞] (najwyżej 3 razy) ──────
     var _lhCount = 0;
-    // [EN] pochodna członu z pierwiastkiem z wyrażenia (nie samej zmiennej) rozpisana łańcuchowo: 1/(2√(x + 4)) · (x + 4)′
+    // [EN] pochodna członu z pierwiastkiem z wyrażenia (nie samej zmiennej) w trzech postaciach:
+    // łańcuchowa 1/(2√(x + 4)) · (x + 4)′, ze środkiem policzonym · 1, i (po stronie wywołującej) uproszczona. Bez takiego członu: null.
     function chainMember(P, v) {
-        var any = false, parts = [];
+        var any = false, chain = [], inner = [];
+        var join = function (parts) { return parts.map(function (x, i) { return !i ? x : x[0] === '−' ? ' − ' + x.slice(1) : ' + ' + x; }).join(''); };
         C.expandExpr(P).forEach(function (t) {
-            var f = t.fs.length === 1 ? t.fs[0] : null, txt = null;
-            if (f && f.b.k === 'sum' && f.e.d !== 1n && t.c.n === 1n && t.c.d === 1n) {
-                var mine = [];
-                C.dExpr([t], v, mine);
-                var st = mine[0] && mine[0].label === 'Liczę pochodną złożoną' && mine[0].math.match(/⟦(.*)⟧/);
-                if (st) { txt = st[1]; any = true; }
+            var f = t.fs.length === 1 ? t.fs[0] : null;
+            if (f && f.b.k === 'sum' && f.e.d !== 1n) {
+                var outer = C.show(C.cMul(C.num(K.mul(t.c, f.e)), C.cPow(C.atomExpr(f.b), K.sub(f.e, ONE))));
+                var d = fold(C.dExpr(f.b.s, v, null)), dt = C.show(d);
+                if (d.length) {
+                    chain.push(outer + ' · (' + C.showInner(f.b.s) + ')′');
+                    inner.push(outer + ' · ' + (d.length > 1 ? '(' + dt + ')' : dt));
+                    any = true;
+                    return;
+                }
             }
-            if (txt === null) { var d = fold(C.dExpr([t], v, null)); if (!d.length) return; txt = C.show(d); }
-            parts.push(txt);
+            var plain = fold(C.dExpr([t], v, null));
+            if (!plain.length) return;
+            chain.push(C.show(plain)); inner.push(C.show(plain));
         });
-        return any && parts.length ? parts.map(function (x, i) { return !i ? x : x[0] === '−' ? ' − ' + x.slice(1) : ' + ' + x; }).join('') : null;
+        return any && chain.length ? { chain: join(chain), inner: join(inner) } : null;
     }
     var lHospital = {
         name: 'lHospital',
@@ -1197,11 +1204,18 @@
             try {
                 // [EN] najpierw same pochodne (2x − 6)/(6x − 10), potem uproszczenie — bez skoku
                 var raw = '(' + C.show(dN) + ')/(' + C.show(dD) + ')', simple = limOf(v, t, out).slice(limHead(v, t).length);
-                var cN = chainMember(fr.N, v), cD = chainMember(fr.D, v);
-                var chainRaw = (cN || cD) ? '(' + (cN || C.show(dN)) + ')/(' + (cD || C.show(dD)) + ')' : '';
-                line(log, "Reguła de l'Hospitala", limHead(v, t) + '⟦(' + C.showInner(fr.N) + ')′/(' + C.showInner(fr.D) + ')′⟧ = '
-                    + (chainRaw ? limHead(v, t) + chainRaw + ' = ' : '') + limHead(v, t) + raw
-                    + (raw.replace(/[()\s]/g, '') === simple.replace(/[()\s]/g, '') ? '' : ' = ' + limOf(v, t, out)), 'lhospital');
+                var cN = chainMember(fr.N, v), cD = chainMember(fr.D, v), H = limHead(v, t);
+                var form = function (n, d) { return H + '(' + n + ')/(' + d + ')'; };
+                var forms = [];
+                if (cN || cD) {
+                    forms.push(form(cN ? cN.chain : C.show(dN), cD ? cD.chain : C.show(dD)));
+                    forms.push(form(cN ? cN.inner : C.show(dN), cD ? cD.inner : C.show(dD)));
+                }
+                forms.push(H + raw);
+                if (raw.replace(/[()\s]/g, '') !== simple.replace(/[()\s]/g, '')) forms.push(limOf(v, t, out));
+                var flat = function (x) { return x.replace(/[()\s]/g, ''); };
+                forms = forms.filter(function (x, i) { return !i || flat(x) !== flat(forms[i - 1]); });
+                line(log, "Reguła de l'Hospitala", H + '⟦(' + C.showInner(fr.N) + ')′/(' + C.showInner(fr.D) + ')′⟧\n= ' + forms.join('\n= '), 'lhospital');
                 return limitOf(out, v, t, log, depth);
             } finally { _lhCount--; }
         }

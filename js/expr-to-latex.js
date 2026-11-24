@@ -244,7 +244,8 @@
         // kolejna linia kroku (x₁ …, x₂ …) zaczyna się od '\n' — rysunek łamie tam wiersz
         return String(math).split('\n').flatMap((lineText, li) => {
             /** @type {string[]} */ const out = [];
-            for (const { sep, part } of splitTop(lineText)) {
+            const lead = li && lineText.startsWith('= '); // wiersz „= …” (jedna postać na wiersz): znak równości na początku wiersza
+            for (const { sep, part } of splitTop(lead ? lineText.slice(2) : lineText)) {
                 let t = null;
                 try { t = pieceTex(part, fid || ''); } catch { t = null; } // za dużo grup na litery zastępcze — kawałek tekstem
                 const body = t != null ? t : textTex(part.replace(/[⟦⟧]/g, ''));
@@ -254,6 +255,7 @@
                 if (sep === SEPS[SEPS.length - 1][1] && out.length) { out[out.length - 1] += sep + body; continue; } // ✓ przy wyniku
                 out.push((punct ? sep.slice(1).replace(/^\\quad |^\\ /, '') : sep) + body);
             }
+            if (lead && out.length) out[0] = '=' + out[0];
             return li ? ['\n'].concat(out) : out;
         });
     }
