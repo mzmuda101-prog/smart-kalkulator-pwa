@@ -194,7 +194,7 @@
             more: [
                 'Skąd wzór: znasz mnożenie nawiasu przez liczbę, np. $a(b+c)=ab+ac$ (każdy składnik w nawiasie mnożymy przez $a$). Tutaj czytamy ten sam zapis od prawej do lewej: skoro $ab$ i $ac$ mają wspólne $a$, to $ab+ac=a(b+c)$. Sprawdzasz, mnożąc z powrotem.',
                 'Przykład: $x^{3}-x=x\\cdot x^{2}-x\\cdot 1=x(x^{2}-1)$. W nawiasie stoi różnica kwadratów, więc rozkładamy dalej: $x(x^{2}-1)=x(x-1)(x+1)$.',
-                'Co wyłączać: największą wspólną liczbę i najniższą potęgę $x$, która występuje w każdym składniku. Zawsze sprawdź to jako pierwszy krok, bo zostawia prostszy nawias.',
+                'Co wyłączać: największą wspólną liczbę i najniższą potęgę $x$, która występuje w każdym składniku. Zacznij od tego kroku, bo zostaje prostszy nawias.',
                 'Skąd nazwa: czynnik „wyłączamy” ze składników sumy i stawiamy przed nawiasem.',
             ],
         },
@@ -216,10 +216,10 @@
             why: 'Gdy w równaniu są tylko $x^{4}$, $x^{2}$ i liczba, podstawiamy $t=x^{2}$. Wychodzi zwykłe równanie kwadratowe względem $t$.',
             level: 'Liceum, zakres rozszerzony: równania wielomianowe',
             more: [
-                'Skąd wzór: $x^{4}=(x^{2})^{2}$, czyli $x^{4}=t^{2}$, gdy $t=x^{2}$. Wtedy $x^{4}-5x^{2}+4$ zapisujemy jako $t^{2}-5t+4$. To trójmian, który rozwiązujesz deltą albo wzorami Viète\'a.',
+                'Skąd wzór: $x^{4}=(x^{2})^{2}$, czyli $x^{4}=t^{2}$, gdy $t=x^{2}$. Wtedy $x^{4}-5x^{2}+4$ zapisujemy jako $t^{2}-5t+4$. To równanie kwadratowe $t^{2}-5t+4=0$, które rozwiązujesz deltą albo sumą i iloczynem.',
                 'Przykład: $x^{4}-5x^{2}+4=0$. Podstawiamy $t=x^{2}$ i mamy $t^{2}-5t+4=0$, stąd $t=1$ albo $t=4$. Wracamy do $x$: $x^{2}=1$ daje $x=-1$ lub $x=1$, a $x^{2}=4$ daje $x=-2$ lub $x=2$.',
                 'Uwaga: $t=x^{2}$ nie może być ujemne. Jeśli któreś $t$ wyjdzie ujemne, z niego nie ma rozwiązań rzeczywistych. Pamiętaj o powrocie do $x$: rozwiązania $t$ to jeszcze nie rozwiązania równania.',
-                'Skąd nazwa: takie równanie nazywa się dwukwadratowe, bo po podstawieniu $t=x^{2}$ staje się zwykłym kwadratowym. Litera $t$ to tylko oznaczenie, może być dowolna.',
+                'Skąd nazwa: takie równanie nazywa się dwukwadratowe, bo $x^{4}$ to kwadrat kwadratu, $(x^{2})^{2}$, więc jest to równanie kwadratowe dwa razy. Litera $t$ to tylko oznaczenie, może być dowolna.',
             ],
         },
         'postac-iloczynowa': {

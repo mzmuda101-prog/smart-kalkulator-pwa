@@ -12,6 +12,9 @@ const queries = require(path.join(root, 'scripts', 'steps-check', 'queries.js'))
 const NOPE = 'Jeszcze tego nie rozwiążę';
 
 let diffs = 0;
+for (const q of Object.keys(base)) {
+    if (!queries.includes(q)) { diffs++; console.log('  ✗ zadanie z bazy zniknęło z queries.js:', q); }
+}
 for (const q of queries) {
     if (!(q in base)) continue; // nowe zadanie: nie ma czego porównać
     let got = null;
