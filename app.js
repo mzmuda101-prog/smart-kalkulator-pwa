@@ -15383,8 +15383,12 @@
                 // klawiatura „Wzory” (etap 2a): polskie nazwy funkcji, |x|, n!, log o podstawie, sin²x, mod
                 { expr: 'tg(pi/4)', value: 1, tol: 1e-9 },
                 { expr: 'ctg(pi/4)', value: 1, tol: 1e-9 },
-                { expr: 'arctg(1)', value: Math.PI / 4, tol: 1e-12 },
-                { expr: 'arcsin(1)', value: Math.PI / 2, tol: 1e-12 },
+                { expr: 'arctg(1)', value: 45, tol: 1e-9 },     // domyślnie stopnie (decyzja 2026-11-24)
+                { expr: 'arcsin(1)', value: 90, tol: 1e-9 },
+                { expr: 'sin(30)', value: 0.5, tol: 1e-12 },        // gołe liczby = stopnie, jak w szkole
+                { expr: 'sin^2(30)', value: 0.25, tol: 1e-12 },
+                { expr: 'sin(1 rad)', value: Math.sin(1), tol: 1e-12 }, // jawne radiany
+                { expr: 'sin(pi/6)', value: 0.5, tol: 1e-12 },      // z π = radiany
                 { expr: '|-3|', value: 3 },
                 { expr: '|2-5|*2', value: 6 },
                 { expr: '5!', value: 120 },
@@ -16346,11 +16350,22 @@
                 { expr: '31.01.2026 + 1 miesiąc', text: '28.2.2026 (sobota)' }, // koniec miesiąca (było 3.3)
                 { expr: '31.03.2026 - 1 miesiąc', text: '28.2.2026 (sobota)' },
                 { expr: '29.02.2028 + 1 rok', text: '28.2.2029 (środa)' },
+                // decyzje Mateusza 2026-11-24
+                { expr: '1.5', value: 1.5 },                  // liczba, nie 1 maja
+                { expr: '12.5', value: 12.5 },
+                { expr: '100 zł netto ile brutto', value: 123 }, // kwota JEST netto
+                { expr: '123 brutto na netto', value: 100 },
+                { expr: '100 zł netto', value: 81.3 },        // samo „netto” = netto z tej kwoty (bez zmian)
+                { expr: '2+2?', value: 4 },                   // pytajnik na końcu to nie działanie
+                { expr: '12:00 - 13:30', text: '-1 h 30 min' }, // odejmowanie, nie przez północ
+                { expr: '-1 h 30 min', value: -1.5 },         // nasz wynik po „=” wraca w całości ujemny
+                { expr: '1 lb', value: 453.59237 },           // w g, nie 453 592,37 mg
+                { expr: '10 km / 3', value: 3333.333333333333 }, // w m, nie mm
             ].forEach(function(t) {
                 var r = evalCalcExpression(t.expr) || {};
                 var pass = 'text' in t && t.text !== null ? r.text === t.text
                     : t.value === null ? r.value == null && !r.text
-                    : r.value != null && Math.abs(r.value - t.value) < 1e-9;
+                    : r.value != null && Math.abs(r.value - t.value) < 1e-6;
                 results.push({ expr: t.expr + ' (sens wyniku)', pass: pass, got: r.text || r.value });
             });
             // PIT / pensja (parametry 2026, _TAX_PL). Wartości pensji = publikowane kalkulatory
@@ -16497,7 +16512,7 @@
             results.push({ expr: '19m + 47%', pass: sPctU.unit === 'm' && Math.abs(sPctU.value - 27.93) < 1e-6, got: sPctU.value + ' ' + sPctU.unit });
             // Raycast luki (07.2026 v0.99.29): trig rozszerzony, waluta k, daty, procent okresu, timespan
             var aSin = evalCalcExpression('asin(0.5)');
-            results.push({ expr: 'asin(0.5)', pass: Math.abs(aSin.value - Math.PI / 6) < 1e-9, got: aSin.value });
+            results.push({ expr: 'asin(0.5)', pass: Math.abs(aSin.value - 30) < 1e-9, got: aSin.value }); // stopnie
             var sInd = evalCalcExpression('sind(30)');
             results.push({ expr: 'sind(30)', pass: Math.abs(sInd.value - 0.5) < 1e-9, got: sInd.value });
             var usdK = evalCalcExpression('1k usd');

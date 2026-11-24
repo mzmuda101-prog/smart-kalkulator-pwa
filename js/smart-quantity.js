@@ -130,14 +130,18 @@
         if (!ladder || !ladder.length) return null;
         var abs = Math.abs(baseValue);
         if (!(abs > 0)) return ladder[0];
-        var best = ladder[0];
+        var best = ladder[0], bestDisp = abs / ((unitInfo(best) || { factor: 1 }).factor);
         for (var i = 0; i < ladder.length; i++) {
             var info = unitInfo(ladder[i]);
             if (!info) continue;
             var disp = abs / info.factor;
             if (disp < 1) break;                 // drabinka rośnie → poniżej 1 nie awansujemy
-            if (i > 0 && !isCleanDisplay(disp)) break; // awans psułby czytelność → zostań niżej
-            best = ladder[i];
+            // awans psułby czytelność → zostań niżej (12345 m, 1008 g); ALE nie na olbrzymiej
+            // albo już i tak „brzydkiej” liczbie: 1 lb = 453,59 g, nie 453 592,37 mg;
+            // 10 km / 3 = 3333,33 m, nie 3 333 333,33 mm; 100 lb = 45,36 kg, nie 45 359,237 g
+            var stuck = bestDisp >= 100000 || (bestDisp >= 10000 && !isCleanDisplay(bestDisp));
+            if (i > 0 && !isCleanDisplay(disp) && !stuck) break;
+            best = ladder[i]; bestDisp = disp;
         }
         return best;
     }

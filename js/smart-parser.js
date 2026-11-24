@@ -557,8 +557,10 @@
         if ((m = low.match(/^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/))) {
             var a2 = _parseClockToken(m[1]), b2 = _parseClockToken(m[2]);
             if (a2 != null && b2 != null) {
-                var diff2 = a2 - b2; if (diff2 < 0) diff2 += 1440;
-                return { text: _fmtDuration(diff2), value: diff2, kind: 'duration', exact: true };
+                // odejmowanie to odejmowanie: 12:00 − 13:30 = −1 h 30 min (było 22 h 30 min);
+                // przez północ liczy „od 22:00 do 6:00”
+                var diff2 = a2 - b2;
+                return { text: (diff2 < 0 ? '-' : '') + _fmtDuration(Math.abs(diff2)), value: diff2, kind: 'duration', exact: true };
             }
             return null;
         }
@@ -898,6 +900,8 @@
         }
         // Samodzielny token daty/czasu (ISO Zulu, DD.MM.YYYY, …)
         var dAlone = _parseDateToken(s);
+        // samo „1.5” / „12.5” to liczba z kropką, nie 1 maja — data dopiero z rokiem, godziną lub nazwą miesiąca
+        if (dAlone && /^\d{1,2}\.\d{1,2}$/.test(s.trim())) dAlone = null;
         if (dAlone) return { text: _fmtDateResult(dAlone.d, !!dAlone.moment), value: null };
         return null;
     }
@@ -1933,15 +1937,25 @@
                 return core + '(' + inner.trim().replace(/,/g, '.') + '*pi/180)';
             });
         raw = raw.replace(
-            /\b(sin|cos|tan|asin|acos|atan)\s*\(\s*([^()]+?)\s*\)/gi,
-            function(match, fn, inner) {
+            /\b(arcsin|arccos|arctan|arctg|asin|acos|atan|sin|cos|tan|tg|ctg|cot)(\s*(?:\^\s*\d+|[²³]))?\s*\(\s*([^()]+?)\s*\)/gi,
+            function(match, fn, pw, inner) {
+                fn += pw || ''; // sin^2(30), cos²(60): potęga zostaje przy nazwie
+                var inv = /^a/i.test(fn);
                 var dm = inner.trim().match(/^([\d.,]+)\s*(?:deg|°|stopni(?:e|a|ach)?)\s*$/i);
-                if (!dm) return match;
-                var deg = parseFloat(dm[1].replace(',', '.'));
-                if (!isFinite(deg)) return match;
-                var rad = deg + '*pi/180';
-                if (/^a/.test(fn)) return '(' + fn + '(' + rad + ')*180/pi)';
-                return fn + '(' + rad + ')';
+                if (dm) {
+                    var deg = parseFloat(dm[1].replace(',', '.'));
+                    if (!isFinite(deg)) return match;
+                    var rad = deg + '*pi/180';
+                    return inv ? '(' + fn + '(' + rad + ')*180/pi)' : fn + '(' + rad + ')';
+                }
+                // „sin(1 rad)” — jawne radiany: zdejmujemy dopisek
+                var rm = inner.trim().match(/^(.+?)\s*(?:rad|radian[a-z]*)$/i);
+                if (rm) return fn + '(' + rm[1] + ')';
+                // Domyślnie STOPNIE, jak na szkolnym kalkulatorze: sin(30) = 0,5, asin(0,5) = 30.
+                // Radiany zostają, gdy w argumencie jest π/pi, x lub inna nazwa (sin(pi/2), wykres sin(x)).
+                if (/[a-zπ]/i.test(inner)) return match;
+                var num = inner.trim().replace(/(\d),(\d)/g, '$1.$2');
+                return inv ? '(' + fn + '(' + num + ')*180/pi)' : fn + '((' + num + ')*pi/180)';
             });
         return raw;
     }
@@ -2016,6 +2030,14 @@
         function _vatRate(r) { var v = r != null ? parseFloat(String(r).replace(',', '.')) : 23; return isFinite(v) && v >= 0 ? v : 23; }
         function _vatBrutto(x, r) { return '(' + x.replace(',', '.') + '*(1+' + _vatRate(r) + '/100))'; }
         function _vatNetto(x, r) { return '(' + x.replace(',', '.') + '/(1+' + _vatRate(r) + '/100))'; }
+        // „100 zł netto ile brutto” = 123 (kwota JEST netto); „123 brutto na netto” = 100.
+        // Samo „100 zł netto” zostaje „policz netto z tej kwoty brutto” (decyzja 2026-11-24).
+        raw = raw.replace(/([\d.,]+)\s+(netto|net|brutto|gross)\s+(?:(?:a\s+)?(?:to\s+)?ile\s+(?:to\s+)?(?:jest\s+|bedzie\s+|wynosi\s+)?|na\s+|w\s+|to\s+|in\s+)(brutto|gross|netto|net)\b(?:\s+(?:przy\s+|vat\s+)?([\d.,]+)\s*%)?/gi,
+            function(m, x, from, to, r) {
+                var fromNet = /^net/i.test(from), toNet = /^net/i.test(to);
+                if (fromNet === toNet) return m;
+                return fromNet ? _vatBrutto(x, r) : _vatNetto(x, r);
+            });
         raw = raw.replace(/\b(?:brutto|gross)\s+([\d.,]+)(?:\s+([\d.,]+)\s*%)?/gi,
             function(_, x, r) { return _vatBrutto(x, r); });
         raw = raw.replace(/([\d.,]+)\s+(?:brutto|gross)\b(?:\s+([\d.,]+)\s*%)?/gi,
@@ -2248,6 +2270,10 @@
         if (!out) return out;
         out = _readBackOwnOutput(out);
         out = out.replace(/\s*=\s*$/, '').trim();
+        out = out.replace(/\s*[?？]+\s*$/, '').trim(); // „ile to brutto?”, „2+2?” — pytajnik to nie działanie
+        // złożona wielkość ze znakiem: „-1 h 30 min” (nasz wynik po „=”), „-5 km 3 m” to −(całość), nie −1 h + 30 min
+        var negDur = out.match(/^[-−]\s*(\d[\d.,]*\s*[a-ząćęłńóśźż]+(?:\s+\d[\d.,]*\s*[a-ząćęłńóśźż]+)+)$/i);
+        if (negDur) out = '-(' + negDur[1] + ')';
         while (/[+\-*/×÷−^]\s*$/.test(out)) out = out.replace(/[+\-*/×÷−^]\s*$/, '').trim();
         var opens = (out.match(/\(/g) || []).length;
         var closes = (out.match(/\)/g) || []).length;
