@@ -87,5 +87,12 @@ ok('3 − y < 5: bez „x” w zdaniu', !/\bx\b/.test(whyOf('rozwiąż 3 - y < 5
 // „Sprawdzenie” zależy od zadania
 ok('Sprawdzenie w całce ≠ w równaniu', whyFor({ label: 'Sprawdzenie', math: '' }, 'Całka') !== whyFor({ label: 'Sprawdzenie', math: '' }, 'Równanie'));
 
+// Partia 1: Horner w granicy
+{
+    const w = whyOf('lim x→2 (x^4-13x^2+36)/(x^3-2x^2+x-2)', 'Rozkładamy na czynniki') || '', h = whyOf('lim x→2 (x^4-13x^2+36)/(x^3-2x^2+x-2)', 'Dzielimy schematem Hornera') || '';
+    ok('Rozkładamy: konkretny nawias (x-2)', w.includes('(x-2)') && !w.includes('(x-a)'), w);
+    ok('Hornera w granicy: zdanie o liczbie 2', h.includes('$2$') && h.includes('(x-2)'), h);
+}
+
 console.log(fail ? '❌ ' + fail + ' błędów, ' + pass + ' ok' : '✅ step-why: ' + pass + ' ok');
 process.exit(fail ? 1 : 0);

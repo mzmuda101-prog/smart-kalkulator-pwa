@@ -80,7 +80,17 @@
         [/^Upraszczamy( licznik)?$/, (_s, _t, c) => c.prev && /sprzężenie/.test(c.prev.label)
             ? 'Wymnażamy: tam, gdzie była różnica z pierwiastkiem, pierwiastki się skasowały.'
             : 'Wymnażamy i zbieramy podobne wyrazy, żeby wyrażenie było krótsze.'],
-        [/^Rozkładamy na czynniki$/, 'Wyszło $\\frac{0}{0}$, więc i licznik, i mianownik mają nawias $(x-a)$. Wyciągamy go, żeby potem skrócić.'],
+        [/^Rozkładamy na czynniki$/, (_s, _t, c) => {
+            const m = c.next && /^Skracamy \((.+)\)$/.exec(c.next.label);
+            const br = m && '(' + m[1].replace(/ − /g, '-').replace(/ \+ /g, '+') + ')';
+            return 'Wyszło $\\frac{0}{0}$, więc i licznik, i mianownik mają nawias $' + (br || '(x-a)') + '$. Wyciągamy go, żeby potem skrócić.';
+        }],
+        [/^Dzielimy schematem Hornera$/, (s) => {
+            const r = s.horner && s.horner[0] && s.horner[0].r;
+            if (r == null) return 'Dzielimy licznik i mianownik przez nawias, który się w nich powtarza.';
+            const sgn = r.startsWith('−') ? '+' + r.slice(1) : '-' + r;
+            return 'Liczba $' + r.replace('−', '-') + '$ zeruje licznik i mianownik, więc oba dzielą się przez $(x' + sgn + ')$.';
+        }],
         [/^Dorabiamy jedynkę$/, 'Wzór na $e$ wymaga postaci $1+\\frac{1}{\\text{coś}}$, a w potędze tego samego „coś”. Przerabiamy podstawę na ten kształt.'],
         [/^Kolorowa potęga dąży do e$/, 'W nawiasie jest $1+\\frac{1}{a_{n}}$, a nad nim to samo $a_{n}$. Resztę wykładnika liczymy osobno.'],
         [/^Granica wykładnika$/, 'Środek nawiasu daje $e$. Zostaje policzyć, do czego dąży potęga nad nawiasem.'],

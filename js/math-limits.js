@@ -333,8 +333,8 @@
 
     // ── Reguły ───────────────────────────────────────────────────────
     // [EN] formula = id wzoru ze słownika (js/step-formulas.js); fragment w ⟦…⟧ jest wtedy wyróżniony kolorem i do stuknięcia
-    function line(log, label, math, formula) {
-        if (log) log.push(formula ? { label: label, math: math, formula: { id: formula } } : { label: label, math: math });
+    function line(log, label, math, formula, extra) {
+        if (log) log.push(Object.assign(formula ? { label: label, math: math, formula: { id: formula } } : { label: label, math: math }, extra));
     }
     function isFiniteTarget(t) { return t.at !== 'inf' && t.at !== '-inf'; }
     function pointExpr(t) { // [EN] punkt docelowy jako dokładna liczba (ułamek dziesiętny → wymierny)
@@ -1012,7 +1012,7 @@
         },
         apply: function (e, v, t, log, depth) {
             var a = C.numberOf(pointExpr(t)), xa = C.polyExpr([K.neg(a), ONE], v);
-            var M = 0, rest = C.num(e[0].c), ups = [], downs = [];
+            var M = 0, rest = C.num(e[0].c), ups = [], downs = [], tables = [], divLines = [];
             e[0].fs.forEach(function (f) {
                 var c = K.isInt(f.e) ? C.polyCoefs(C.atomExpr(f.b), v) : null;
                 var pow = Number(f.e.n < 0n ? -f.e.n : f.e.n), list = f.e.n < 0n ? downs : ups;
@@ -1023,7 +1023,14 @@
                 }
                 c = trimPoly(c);
                 var m = 0;
-                while (c.length > 1 && K.isZero(hornerAt(c, a))) { c = deflateBy(c, a); m++; }
+                while (c.length > 1 && K.isZero(hornerAt(c, a))) {
+                    var low = deflateBy(c, a), top = c.slice().reverse(), mid = [''], bot = [top[0]]; // [EN] schemat Hornera jak w równaniach
+                    for (var hi = 1; hi < top.length; hi++) { var pr = K.mul(a, bot[hi - 1]); mid.push(K.fmt(pr)); bot.push(K.add(top[hi], pr)); }
+                    tables.push({ name: f.e.n < 0n ? 'mianownik' : 'licznik', r: K.fmt(a), top: top.map(K.fmt), mid: mid, bot: bot.map(K.fmt) });
+                    var dl = '(' + C.show(C.polyExpr(c, v)) + ') : (' + C.show(xa) + ') = ' + C.show(C.polyExpr(low, v));
+                    divLines.push({ name: tables[tables.length - 1].name, dl: dl });
+                    c = low; m++;
+                }
                 M += (f.e.n < 0n ? -1 : 1) * m * pow;
                 var Q = C.polyExpr(c, v);
                 rest = C.cMul(rest, C.cPow(Q, f.e));
@@ -1032,6 +1039,11 @@
             });
             if (!M && !ups.concat(downs).some(function (x) { return x === '(' + C.show(xa) + ')'; })) throw new NotSupported();
             var head = limHead(v, t), coef = K.fmt(e[0].c) === '1' ? '' : K.fmt(e[0].c);
+            if (tables.length) { // [EN] licznik przed mianownikiem (sort jest stabilny)
+                var byName = function (x, y) { return x.name < y.name ? -1 : x.name > y.name ? 1 : 0; };
+                tables.sort(byName); divLines.sort(byName);
+                line(log, 'Dzielimy schematem Hornera', divLines.map(function (x) { return x.dl.replace(/^(.*?) = /, '⟦$1⟧ = '); }).join('\n'), 'schemat-hornera', { horner: tables });
+            }
             line(log, 'Rozkładamy na czynniki', head + coef + (ups.join('') || '1') + '/' + (downs.length > 1 ? '(' + downs.join('') + ')' : downs.join('')));
             var out = M ? C.cMul(rest, C.cPow(xa, K.R(M))) : rest;
             line(log, 'Skracamy (' + C.show(xa) + ')', limOf(v, t, out));

@@ -469,5 +469,32 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     ok('P1: bramka — każde „Podstawiamy” z rachunkiem', bad.length === 0, bad.slice(0, 5));
 }
 
+// ── Partia 1: Horner w granicy ──
+{
+    const steps = q => S.run(q).explain.steps;
+    const st = steps('lim x→2 (x^4-13x^2+36)/(x^3-2x^2+x-2)');
+    const i = st.findIndex(x => x.label === 'Rozkładamy na czynniki');
+    const h = st[i - 1];
+    ok('P1H: krok Hornera tuż przed rozkładem', !!h && h.label === 'Dzielimy schematem Hornera' && h.formula && h.formula.id === 'schemat-hornera', st.map(x => x.label));
+    ok('P1H: dwie tabelki, licznik i mianownik', !!h && Array.isArray(h.horner) && h.horner.map(x => x.name).join() === 'licznik,mianownik', h && h.horner);
+    ok('P1H: licznik 1 0 −13 0 36 przez 2', !!h && JSON.stringify(h.horner[0].top) === JSON.stringify(['1', '0', '−13', '0', '36']) && JSON.stringify(h.horner[0].bot) === JSON.stringify(['1', '2', '−9', '−18', '0']) && h.horner[0].r === '2', h && h.horner[0]);
+    ok('P1H: zapis dzielenia', !!h && h.math.includes('(x⁴ − 13x² + 36) : (x − 2)⟧ = x³ + 2x² − 9x − 18') && h.math.includes('(x³ − 2x² + x − 2) : (x − 2)⟧ = x² + 1'), h && h.math);
+    const d = steps('lim x→1 (x^3-3x+2)/(x^2-2x+1)');
+    const hd = d[d.findIndex(x => x.label === 'Rozkładamy na czynniki') - 1];
+    ok('P1H: pierwiastek podwójny — po dwie tabelki', !!hd && hd.horner.length === 4 && hd.horner.map(x => x.name).join() === 'licznik,licznik,mianownik,mianownik', hd && hd.horner);
+    ok('P1H: wynik bez zmian', /= 3$/.test(d[d.length - 1].math), d[d.length - 1].math);
+    // bramka: każdy „Rozkładamy na czynniki” w zestawie ma tuż przed sobą krok z tabelkami, reszta 0
+    const bad = [];
+    for (const z of ZESTAW) {
+        const r = S.run(z.input); if (!r || !r.explain) continue;
+        for (const m of r.explain.methods || [r.explain]) m.steps.forEach((s, k) => {
+            if (s.label !== 'Rozkładamy na czynniki') return;
+            const p = m.steps[k - 1];
+            if (!p || !Array.isArray(p.horner) || !p.horner.length || p.horner.some(t => t.bot[t.bot.length - 1] !== '0')) bad.push(z.input);
+        });
+    }
+    ok('P1H: bramka — każdy rozkład ma Hornera', bad.length === 0, bad);
+}
+
 console.log(`math-limits: ${pass} OK, ${fail} błędów`);
 process.exit(fail ? 1 : 0);
