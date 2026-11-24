@@ -84,6 +84,21 @@ ok('3 − y < 5: bez „x” w zdaniu', !/\bx\b/.test(whyOf('rozwiąż 3 - y < 5
     const w = i >= 0 ? whyFor(st[i], r.explain.title, { steps: st }, i) : 'rośnie';
     ok('wzór skrócony przy −∞: bez „rośnie”', !/rośnie/.test(w), w);
 }
+{ // Partia 2a-1 (S1, S21, S26): „Wzór skrócony” nie mówi o podstawie dążącej do e ani o nawiasie
+    for (const [q, num] of [['lim n→∞ (1-1/n)^n', '-1'], ['lim n→∞ ((n+4)/n)^(n+5)', '4'], ['lim n→∞ (1+2/n)^n', '2']]) {
+        const r = S.run(q), m = r.explain.methods.find(x => x.label === 'Wzór skrócony'), st = m.steps;
+        const ws = st.map((x, i) => whyFor(x, r.explain.title, { steps: st }, i));
+        ok(q + ': wzór skrócony bez „Podstawa dąży do e” i „Środek nawiasu”', ws.every(w => !/Podstawa dąży do \$e\$|Środek nawiasu/.test(w)), ws);
+        const fin = st.findIndex(x => x.label === 'Składamy wynik'), wf = ws[fin];
+        ok(q + ': Składamy wynik ma e i liczbę z poprzedniego kroku', /\$e|e\^/.test(wf) && wf.includes('$' + num + '$'), wf);
+        const sk = st.findIndex(x => x.formula && x.formula.id === 'e-skrocony');
+        ok(q + ': krok ze wzorem — g i (f − 1)', /\bg\b/.test(ws[sk]) && /\(f-1\)|\(f − 1\)/.test(ws[sk]), ws[sk]);
+        ok(q + ': krok ze wzorem ma here „f = …, g = …”', /^f = .+, g = .+$/.test(st[sk].formula.here || ''), st[sk].formula);
+    }
+    const r5 = S.run('lim n→∞ 5(1+1/n)^n'), s5 = r5.explain.steps, i5 = s5.findIndex(x => x.label === 'Składamy wynik');
+    const w5 = whyFor(s5[i5], r5.explain.title, r5.explain, i5);
+    ok('5(1+1/n)^n: Składamy wynik mówi o czynniku 5', w5.includes('5') && !/Podstawa dąży do \$e\$/.test(w5), w5);
+}
 // „Sprawdzenie” zależy od zadania
 ok('Sprawdzenie w całce ≠ w równaniu', whyFor({ label: 'Sprawdzenie', math: '' }, 'Całka') !== whyFor({ label: 'Sprawdzenie', math: '' }, 'Równanie'));
 

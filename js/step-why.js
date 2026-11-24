@@ -13,6 +13,8 @@
     const SAME = 'Licznik i mianownik mnożymy przez to samo, więc wartość ułamka się nie zmienia.';
     const SPRZ_INF = 'Tu wychodzi $\\infty-\\infty$. ' + SAME;
     const SPRZ_NUM = 'Wstawienie liczby daje zero w mianowniku. ' + SAME;
+    /** czy rozwiązanie idzie sposobem „Wzór skrócony” (krok z wzorem e-skrocony) @param {Ctx} c */
+    const isShortcut = (c) => c.steps.some(x => !!x.formula && x.formula.id === 'e-skrocony');
     /** @type {Record<string, string>} */
     const TAG = {
         '0/0': 'Po wstawieniu wychodzi $\\frac{0}{0}$. Tego nie da się policzyć od razu, więc najpierw przekształcamy wyrażenie.',
@@ -46,7 +48,7 @@
     const texRat = (p, q) => q === 1 ? String(p) : (p < 0 ? '-' : '') + '\\frac{' + Math.abs(p) + '}{' + q + '}';
     const POW = /⟦\([a-z](\^\([^)]*\)|[⁰¹²³⁴⁵⁶⁷⁸⁹]*)\)′⟧/, INT_POW = /⟦∫ [a-z](\^\([^)]*\)|[⁰¹²³⁴⁵⁶⁷⁸⁹]*) d[a-z]⟧/;
 
-    /** @typedef {{atInf: boolean, prev: Step | null, next: Step | null}} Ctx kontekst: granica w ±∞? kroki obok */
+    /** @typedef {{atInf: boolean, prev: Step | null, next: Step | null, steps: Step[]}} Ctx kontekst: granica w ±∞? kroki obok */
     /** @type {[RegExp, string | ((s: Step, title: string, c: Ctx) => string | null)][]} */
     const RULES = [
         // ── stwierdzenia: bez zdania ──
@@ -93,8 +95,18 @@
         }],
         [/^Dorabiamy jedynkę$/, 'Wzór na $e$ wymaga postaci $1+\\frac{1}{\\text{coś}}$, a w potędze tego samego „coś”. Przerabiamy podstawę na ten kształt.'],
         [/^Kolorowa potęga dąży do e$/, 'W nawiasie jest $1+\\frac{1}{a_{n}}$, a nad nim to samo $a_{n}$. Resztę wykładnika liczymy osobno.'],
-        [/^Granica wykładnika$/, 'Środek nawiasu daje $e$. Zostaje policzyć, do czego dąży potęga nad nawiasem.'],
-        [/^Składamy wynik$/, 'Podstawa dąży do $e$, a wykładnik do liczby z poprzedniego kroku, więc całość dąży do $e$ do tej potęgi.'],
+        [/^Granica wykładnika$/, (_s, _t, c) => isShortcut(c)
+            ? 'Wzór skrócony daje $e$ do potęgi $\\lim g\\cdot(f-1)$, więc liczymy właśnie tę granicę.'
+            : 'Środek nawiasu daje $e$. Zostaje policzyć, do czego dąży potęga nad nawiasem.'],
+        [/^Składamy wynik$/, (s, _t, c) => {
+            const factor = /^(.+?) · e/.exec(s.math), k = factor && factor[1].replace(/−/g, '-');
+            if (!isShortcut(c)) return k ? 'Stały czynnik $' + k + '$ wychodzi przed granicę i zostaje, więc wynik to $' + k + '$ razy $e$.'
+                : 'Podstawa dąży do $e$, a wykładnik do liczby z poprzedniego kroku, więc całość dąży do $e$ do tej potęgi.';
+            const last = c.prev && c.prev.math.split(' = ').pop().replace(/^→\s*/, '').trim();
+            const n = last && /^−?\d+(\/\d+)?$/.test(last) ? last.replace('−', '-').replace(/^(-?\d+)\/(\d+)$/, '\\frac{$1}{$2}') : null;
+            const pw = n ? 'do potęgi $' + n + '$' : 'do granicy z poprzedniego kroku';
+            return (k ? 'Stały czynnik $' + k + '$ zostaje przed wynikiem. ' : '') + 'Wzór skrócony daje $e$ ' + pw + ', więc to jest wynik' + (k ? '' : ' potęgi') + '.';
+        }],
         [/^Potęga e$/, 'Liczba $e$ do coraz większej potęgi rośnie bez końca, a do coraz bardziej ujemnej spada do 0.'],
         [/^Dla \w → −∞$/, 'Tu zmienna jest ujemna, więc wyciągając ją spod pierwiastka, piszemy przed nim minus.'],
         [/^Korzystamy ze znanej granicy$/, 'Dopasowujemy wyrażenie do kształtu ze wzoru, nie zmieniając jego wartości.'],
@@ -212,7 +224,7 @@
             : / > 0/.test(s.math) ? 'Logarytm istnieje tylko dla liczb dodatnich, więc argument musi być większy od zera.'
             : 'Przez zero dzielić nie wolno, więc wykluczam liczby, które zerują mianownik.'],
         [/^Zapisuję obie strony jako potęgi /, 'Gdy obie strony mają tę samą podstawę, wystarczy porównać wykładniki.'],
-        [/^Liczę wykładnik ze wzoru skróconego$/, 'Podstawa jest prawie jedynką, a wykładnik dąży do nieskończoności, więc wszystko zależy od tego iloczynu.'],
+        [/^Liczę wykładnik ze wzoru skróconego$/, 'Podstawa $f$ jest prawie jedynką, więc o wyniku decyduje $g$ razy $(f-1)$, a nie sam wykładnik.'],
         [/^Porównuję wykładniki$/, 'Na dole po obu stronach stoi teraz ta sama liczba, więc wystarczy przyrównać to, co na górze.'],
         [/^Zapisuję wykładnik jako logarytm$/, 'Prawej strony nie zamienię na potęgę z prostym wykładnikiem, więc wynik zostaje w postaci logarytmu.'],
         [/^Porównuję argumenty logarytmów$/, 'Logarytmy o tej samej podstawie są równe tylko wtedy, gdy równe są liczby pod nimi.'],
@@ -303,7 +315,7 @@
         const all = explain && explain.steps || [], k = i == null ? all.indexOf(step) : i;
         const head = /lim\(\w→([^)]*)\)/.exec(all[0] ? all[0].math : step.math);
         /** @type {Ctx} */
-        const ctx = { atInf: !!head && /∞/.test(head[1]), prev: k > 0 ? all[k - 1] : null, next: k >= 0 && k + 1 < all.length ? all[k + 1] : null };
+        const ctx = { atInf: !!head && /∞/.test(head[1]), prev: k > 0 ? all[k - 1] : null, next: k >= 0 && k + 1 < all.length ? all[k + 1] : null, steps: all };
         for (const [re, why] of RULES) {
             if (!re.test(step.label)) continue;
             const out = typeof why === 'function' ? why(step, title || '', ctx) : why;

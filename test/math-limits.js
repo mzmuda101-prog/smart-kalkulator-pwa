@@ -415,6 +415,10 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     ok('sposoby: 1^∞ — ten sam wynik e⁸, wzór skrócony krótszy i z dymkiem', !!me && end(me[1].steps).math === end(me[0].steps).math && /e⁸$/.test(end(me[1].steps).math)
         && me[1].steps.length < me[0].steps.length && me[1].steps.some(x => x.formula && x.formula.id === 'e-skrocony' && /⟦/.test(x.math)), me && me[1].steps);
     ok('sposoby: 1^∞ przy (1 − 1/n)^n też ma wzór skrócony', names('lim n→∞ (1-1/n)^n').includes('Wzór skrócony'), names('lim n→∞ (1-1/n)^n'));
+    ok('sposoby: wzór skrócony ma here „f = …, g = …”', ['lim n→∞ (1-1/n)^n', 'lim n→∞ ((n+4)/n)^(n+5)', 'lim n→∞ (1+2/n)^n'].every(q => {
+        const st = run(q).explain.methods[1].steps.find(x => x.formula && x.formula.id === 'e-skrocony');
+        return st && /^f = .+, g = .+$/.test(st.formula.here || '');
+    }), run('lim n→∞ (1+2/n)^n').explain.methods[1].steps[1].formula);
     // ciąg (n): bez de l'Hospitala — po n się nie różniczkuje (trzeba by Heinego); dla funkcji (x) tak
     ok('sposoby: ∞/∞ dla ciągu — jeden sposób', names('lim n→∞ (2n+1)/(6n+5)').length === 0 && names('lim n→∞ (2n^2+3)/(n^2-1)').length === 0, names('lim n→∞ (2n^2+3)/(n^2-1)'));
     const D = 'lim x→∞ (2x+1)/(6x+5)';

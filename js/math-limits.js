@@ -957,6 +957,7 @@
             var grp = function (x) { var s = C.show(x); return x.length > 1 || /[+−/]/.test(s) ? '(' + s + ')' : s; }; // [EN] n · (−1/n), (1/x²) · (…) — bez dwuznaczności
             var put = grp(p.g) + ' · ' + grp(h), sgh = C.show(gh), still = !C.hasVar(gh, v);
             line(log, 'Liczę wykładnik ze wzoru skróconego', '⟦' + grp(p.g) + ' · (' + C.show(p.f) + ' − 1)⟧ = ' + put + (put === sgh ? '' : ' = ' + sgh), 'e-skrocony');
+            if (log) log[log.length - 1].formula.here = 'f = ' + C.show(p.f) + ', g = ' + C.show(p.g); // [EN] bez tego dymek nie mówi, co jest f, a co g
             var mark = log ? log.length : 0;
             if (!still) line(log, 'Granica wykładnika', limOf(v, t, gh));
             var L = limitOf(gh, v, t, still ? null : log, depth);
