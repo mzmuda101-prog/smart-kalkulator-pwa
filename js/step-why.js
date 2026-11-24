@@ -76,7 +76,8 @@
         [/^Skracamy /, 'To samo stoi w liczniku i w mianowniku, więc się skraca.'],
         [/^Wyłączam minus przed nawias$/, 'Wyłączamy minus, żeby nawias wyglądał tak samo jak w drugiej części ułamka. Wtedy da się go skrócić, a minus zostaje przed całością.'],
         [/^Zastrzegam dziedzinę$/, 'Przez zero nie wolno dzielić, więc pierwotny mianownik nie może być zerem. To zastrzeżenie zostaje także po skróceniu.'],
-        [/^Skracam /, 'Ten sam czynnik stoi w liczniku i w mianowniku, więc wolno go skrócić. Wynik dotyczy tylko x z zastrzeżenia.'],
+        [/^Skracam /, (_s, _t, c) => 'Ten sam czynnik stoi w liczniku i w mianowniku, więc wolno go skrócić.'
+            + (c.steps.some(x => x.label === 'Zastrzegam dziedzinę') ? ' Wynik dotyczy tylko x z zastrzeżenia.' : '')],
         [/^Mnożymy przez sprzężenie$/, (s, _t, c) => {
             const id = s.formula && s.formula.id;
             if (id === 'roznica-szescianow' || id === 'roznica-czwartych') return (id === 'roznica-szescianow' ? 'Tu stoją pierwiastki $\\sqrt[3]{\\ }$. ' : 'Tu stoją pierwiastki $\\sqrt[4]{\\ }$. ') + SAME;
@@ -252,7 +253,8 @@
         [/^Szukam dwóch liczb o sumie/, 'Sprawdzam pary dzielników wyrazu wolnego, aż zgodzi się też suma.'],
         [/^Szukam pierwiastka/, (s) => /dzielniki/.test(s.math) ? 'Całkowity pierwiastek takiego wielomianu musi dzielić liczbę bez $x$, więc sprawdzam jej dzielniki, aż któryś da 0.' : 'Szukam liczby, dla której wielomian daje 0. Wtedy nawias z tą liczbą dzieli wielomian.'],
         [/^Nie ma pierwiastków wymiernych/, 'Żaden dzielnik wyrazu wolnego nie zeruje wielomianu, więc prościej go nie rozłożymy.'],
-        [/^Wyłączam wspólny czynnik/, (s) => s.formula ? 'Zaczynam od tego, bo po wyjęciu wspólnej części w nawiasie zostaje prostsze wyrażenie.'
+        [/^Wyłączam wspólny czynnik/, (s, _t, c) => s.formula ? (c.steps.indexOf(s) <= 1 ? 'Zaczynam od tego, bo po wyjęciu wspólnej części w nawiasie zostaje prostsze wyrażenie.'
+            : 'Wszystkie wyrazy tego wielomianu mają wspólną część; po jej wyjęciu w nawiasie zostaje prostsze wyrażenie.')
             : 'Ten sam czynnik jest w każdym wyrazie, więc wyciągam go przed nawias.'],
         // ── rozkład jak w szkole ──
         [/^Zwijam kwadrat (sumy|różnicy)$/, 'Sprawdzam, czy pierwszy i ostatni wyraz to kwadraty i czy środkowy pasuje; jeśli tak, wystarczy jeden nawias.'],
