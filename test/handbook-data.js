@@ -41,5 +41,15 @@ for (const id of ['delta', 'wzory-x12', 'e', 'pochodna-iloczynu', 'przez-czesci'
 for (const id of ['delta', 'e', 'definicja-logarytmu', 'sprzezenie', 'suma-szescianow', 'kwadrat-roznicy'])
     ok(id + ': akapit „Skąd nazwa”', (FORMULAS[id].more || []).some(t => /^Skąd nazwa:/.test(t)), FORMULAS[id].more);
 
+// hasła z podstaw równań (dymki-podstawy, zadanie 3): każde ma „Skąd wzór” i „Skąd nazwa”
+for (const id of ['wyrazy-podobne', 'opuszczanie-nawiasow', 'przenoszenie', 'obie-strony', 'pierwiastkowanie-obu-stron', 'iloczyn-rowny-zero',
+    'sprawdzenie', 'wspolczynniki-trojmianu', 'dziedzina', 'rownosc-logarytmow', 'czynniki-pierwsze', 'skladanie-rozkladu']) {
+    const f = FORMULAS[id];
+    ok(id + ': hasło istnieje', !!f);
+    if (!f) continue;
+    ok(id + ': akapit „Skąd wzór”', (f.more || []).some(t => /^Skąd wzór:/.test(t)), f.more);
+    ok(id + ': akapit „Skąd nazwa”', (f.more || []).some(t => /^Skąd nazwa:/.test(t)), f.more);
+}
+
 console.log(`handbook-data: ${pass} ok, ${fail} błędów`);
 process.exit(fail ? 1 : 0);

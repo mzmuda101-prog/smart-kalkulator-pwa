@@ -138,7 +138,7 @@
         [/^Usuwamy niewymierność z mianownika$/, 'Wynik zapisujemy bez pierwiastka w mianowniku, tak jak w szkole.'],
         // ── równania ──
         [/^Opuszczam nawiasy$/, (s) => /\)\(/.test(s.math) || /\)²/.test(s.math) ? 'Każdy wyraz jednego nawiasu mnożę przez każdy wyraz drugiego.'
-            : 'Mnożę to, co stoi przed nawiasem, przez każdy wyraz w środku; minus przed nawiasem zmienia znaki.'],
+            : 'Bez nawiasów widać, które wyrazy są podobne, i można je potem zebrać.'],
         [/^Przenoszę (\w|liczby|liczbę) /, 'Chcę mieć niewiadomą po jednej stronie, a liczby po drugiej. Przeniesiony wyraz zmienia znak.'],
         [/^Przenoszę wszystko na lewą stronę$/, 'Po prawej zostaje 0, a z postaci „coś = 0” łatwo odczytać współczynniki.'],
         [/^Porządkuję i redukuję wyrazy podobne$/, 'Porządkuję wyrazy: te z niewiadomą razem, liczby razem.'],

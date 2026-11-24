@@ -626,6 +626,161 @@
                 'Do czego się przydają: NWD skraca ułamki: licznik i mianownik dzielimy przez 6, więc $\\frac{12}{18}=\\frac{2}{3}$, a NWW to najmniejszy wspólny mianownik przy dodawaniu ułamków.',
             ],
         },
+        // ── podstawy równań (spec 2026-11-24-dymki-podstawy): hasła dla kroków z tabeli STEP_RULES ──
+        'wyrazy-podobne': {
+            name: 'Redukcja wyrazów podobnych',
+            tex: 'ax+bx=(a+b)x',
+            why: 'Wyrazy podobne mają tę samą część z literą, np. $3x$ i $-x$, albo są samymi liczbami. Zostawiamy literę, a liczby stojące przed nią sumujemy.',
+            level: 'Szkoła podstawowa i liceum: wyrażenia algebraiczne',
+            more: [
+                'Przykład: $3x-x+4+6=2x+10$. Iksy dają $3x-x=2x$, a liczby $4+6=10$.',
+                'Skąd wzór: $3x$ to $x+x+x$, a $2x$ to $x+x$. Razem jest pięć iksów, czyli $3x+2x=5x$. W ogólnym zapisie to $ax+bx=(a+b)x$: wyłączamy $x$ przed nawias.',
+                'Uwaga: $x$ i $x^{2}$ nie są podobne. W $x^{2}+3x$ nic nie zredukujemy, bo to różne potęgi.',
+                'Skąd nazwa: wyrazy są „podobne”, bo różnią się tylko liczbą z przodu. „Redukować” znaczy tu zmniejszać: z kilku wyrazów zostaje jeden.',
+            ],
+        },
+        'opuszczanie-nawiasow': {
+            name: 'Opuszczanie nawiasów',
+            tex: 'a(b+c)=ab+ac,\\qquad -(b-c)=-b+c',
+            why: 'Czynnik sprzed nawiasu trafia do każdego wyrazu w środku. Sam minus przed nawiasem działa jak $-1$: odwraca znak każdego wyrazu.',
+            level: 'Szkoła podstawowa i liceum: wyrażenia algebraiczne',
+            more: [
+                'Przykład: $3(x-2)=3x-6$, bo $3\\cdot x=3x$ i $3\\cdot(-2)=-6$.',
+                'Minus przed nawiasem: $2x+2-(x-3)=2x+2-x+3$. Liczba $-3$ w nawiasie zmieniła się na $+3$.',
+                'Nawias razy nawias: każdy wyraz pierwszego mnożymy przez każdy wyraz drugiego, np. $(x+1)(x+3)=x^{2}+3x+x+3$.',
+                'Skąd wzór: $3(x-2)$ to trzy razy ten sam nawias, czyli $(x-2)+(x-2)+(x-2)$. Zbieramy trzy iksy i trzy razy $-2$: wychodzi $3x-6$. Tak samo $a(b+c)$ to $a$ razy cała suma, więc każdy składnik bierzemy $a$ razy.',
+                'Skąd nazwa: nawias „opuszczamy”, czyli przestajemy go pisać, bo po wymnożeniu nie jest już potrzebny.',
+            ],
+        },
+        przenoszenie: {
+            name: 'Przenoszenie wyrazu na drugą stronę',
+            tex: 'a+b=c\\iff a=c-b',
+            why: 'Wyraz, który przechodzi na drugą stronę równania albo nierówności, zmienia znak: plus na minus, minus na plus.',
+            level: 'Szkoła podstawowa i liceum: równania liniowe',
+            more: [
+                'Przykład: w $4x+1=x+7$ przenosimy $x$ na lewo, a $1$ na prawo: $4x-x=7-1$, czyli $3x=6$.',
+                'Skąd wzór: równanie jest jak waga w równowadze. Gdy od obu stron odejmiemy to samo, równowaga zostaje. Z $a+b=c$ po odjęciu $b$ od obu stron mamy $a+b-b=c-b$, czyli $a=c-b$. Wyraz $b$ zniknął z lewej i pojawił się po prawej z minusem. Przenoszenie to skrót tego odejmowania (albo dodawania).',
+                'W nierówności działa to tak samo, a znak nierówności się nie zmienia, np. $5-2x\\ge 11$ daje $-2x\\ge 11-5$.',
+                'Przenieść wszystko na lewą stronę to przenieść każdy wyraz z prawej. Po prawej zostaje $0$.',
+                'Skąd nazwa: wyraz „przenosimy” z jednej strony znaku równości na drugą. Naprawdę dodajemy albo odejmujemy go po obu stronach.',
+            ],
+        },
+        'obie-strony': {
+            name: 'To samo działanie po obu stronach',
+            tex: 'a=b\\iff a\\cdot c=b\\cdot c\\iff\\frac{a}{c}=\\frac{b}{c}\\quad(c\\neq 0)',
+            why: 'Gdy lewą i prawą stronę pomnożymy albo podzielimy przez tę samą liczbę różną od zera, równanie ma te same rozwiązania co wcześniej.',
+            level: 'Szkoła podstawowa i liceum: równania liniowe',
+            more: [
+                'Przykład: z $3x=6$ po podzieleniu obu stron przez 3 mamy $x=2$. Przy $\\frac{2}{3}x=4$ mnożymy obie strony przez odwrotność, czyli $\\frac{3}{2}$, i mamy $x=6$.',
+                'Zmiana znaku obu stron to mnożenie przez $-1$: z $-x=4$ dostajemy $x=-4$.',
+                'Zamiana stron: $a=b$ znaczy to samo co $b=a$, więc $5=2x-7$ to to samo równanie co $2x-7=5$.',
+                'W nierówności dzielenie przez liczbę dodatnią zostawia znak nierówności, a przez ujemną go odwraca (hasło o dzieleniu nierówności przez liczbę ujemną).',
+                'Skąd wzór: znów waga w równowadze. Gdy obie szalki podwoimy albo zmniejszymy o połowę, dalej się równoważą. Zera nie wolno użyć: przez zero się nie dzieli, a po mnożeniu przez zero mamy $0=0$ dla każdej liczby i tracimy całe równanie.',
+                'Skąd nazwa: działanie wykonujemy na „obu stronach” znaku równości, lewej i prawej.',
+            ],
+        },
+        'pierwiastkowanie-obu-stron': {
+            name: 'Pierwiastkowanie obu stron równania',
+            tex: 'x^{2}=a\\iff x=\\sqrt{a}\\ \\text{lub}\\ x=-\\sqrt{a}\\quad(a\\ge 0)',
+            why: 'Z $x^{2}=a$ wynika $x=\\sqrt{a}$ albo $x=-\\sqrt{a}$. Zapis $\\pm$ łączy oba rozwiązania w jeden.',
+            level: 'Liceum: równania kwadratowe',
+            more: [
+                'Przykład: z $x^{2}=9$ mamy $x=3$ albo $x=-3$, bo $3^{2}=9$ i $(-3)^{2}=9$.',
+                'Gdy $a<0$, rozwiązań nie ma, bo kwadrat nie bywa ujemny. Gdy $a=0$, jest jedno: $x=0$.',
+                'Skąd wzór: $x^{2}=9$ to $x^{2}-9=0$, czyli $(x-3)(x+3)=0$ z różnicy kwadratów. Iloczyn jest zerem, gdy któryś nawias jest zerem, więc $x=3$ albo $x=-3$. Sam pierwiastek $\\sqrt{9}=3$ daje tylko liczbę dodatnią, dlatego ujemną trzeba dopisać.',
+                'Skąd nazwa: z obu stron bierzemy pierwiastek kwadratowy. Łacińska nazwa pierwiastka, radix, znaczy „korzeń”.',
+            ],
+        },
+        'iloczyn-rowny-zero': {
+            name: 'Iloczyn równy zero',
+            tex: 'a\\cdot b=0\\iff a=0\\ \\text{lub}\\ b=0',
+            why: 'Gdy po lewej stoją pomnożone nawiasy, a po prawej zero, każdy nawias przyrównujemy do zera osobno. Z jednego trudnego równania robi się kilka prostych.',
+            level: 'Liceum: równania kwadratowe i wielomianowe',
+            more: [
+                'Przykład: $x(x-3)=0$. Albo $x=0$, albo $x-3=0$, czyli $x=3$.',
+                'Skąd wzór: jeśli $a$ nie jest zerem, dzielimy obie strony $a\\cdot b=0$ przez $a$ i zostaje $b=0$. Czyli gdy pierwszy czynnik nie jest zerem, zerem musi być drugi. Dwie liczby różne od zera zawsze dają iloczyn różny od zera.',
+                'Uwaga: działa tylko dla zera. Z $(x-1)(x-2)=6$ nie wynika, że któryś nawias to 6, bo 6 można dostać z wielu iloczynów.',
+                'Skąd nazwa: „przyrównać do zera” to napisać, że wyrażenie równa się zero.',
+            ],
+        },
+        sprawdzenie: {
+            name: 'Sprawdzenie rozwiązania',
+            tex: 'L(x_{0})=P(x_{0})',
+            why: 'Rachunek mógł mieć pomyłkę. Wynik podstawiamy do wyjściowego zapisu i porównujemy lewą stronę z prawą; mają wyjść równe.',
+            level: 'Szkoła podstawowa i liceum: równania',
+            more: [
+                'Przykład: $5=2x-7$ daje $x=6$. Lewa strona to $5$, a prawa $2\\cdot 6-7=5$. Wyszło to samo, więc $x=6$ jest dobre.',
+                'W układzie równań wstawiamy obie liczby do każdego równania, np. $x=3$ i $y=2$ do $x+y=5$: $3+2=5$.',
+                'Sprawdzenie wyłapuje fałszywe rozwiązania, które pojawiają się po podnoszeniu do kwadratu albo po mnożeniu przez wyrażenie z $x$.',
+                'Skąd wzór: rozwiązanie równania to z definicji liczba, dla której obie strony są równe. Sprawdzenie robi dokładnie to, co mówi definicja.',
+                'Skąd nazwa: L i P to skróty od „lewa strona” i „prawa strona”.',
+            ],
+        },
+        'wspolczynniki-trojmianu': {
+            name: 'Współczynniki trójmianu kwadratowego',
+            tex: 'ax^{2}+bx+c,\\quad a\\neq 0',
+            why: '$a$ to liczba przy $x^{2}$, $b$ przy $x$, a $c$ to wyraz wolny, czyli sama liczba. Każdą bierzemy razem z jej znakiem.',
+            level: 'Liceum: funkcja kwadratowa',
+            more: [
+                'Przykład: w $x^{2}-5x+6$ jest $a=1$, $b=-5$ i $c=6$. Przy $x^{2}$ nie widać liczby, bo $1\\cdot x^{2}$ piszemy krótko jako $x^{2}$.',
+                'Gdy wyrazu brak, jego współczynnik to 0: w $x^{2}-9$ jest $b=0$.',
+                'Najpierw porządkujemy: wszystko na jedną stronę, od najwyższej potęgi. W $-x^{2}+7x-6=0$ jest $a=-1$, $b=7$ i $c=-6$.',
+                'Skąd wzór: każdy trójmian kwadratowy składa się z $x^{2}$, z $x$ i z liczby, a przy każdym stoi jakaś liczba. Litery $a$, $b$, $c$ to tylko nazwy tych liczb, dzięki którym wzory na deltę i rozwiązania działają dla każdego równania.',
+                'Skąd nazwa: „trójmian”, bo składa się z trzech jednomianów, a „wyraz wolny”, bo stoi bez $x$.',
+            ],
+        },
+        dziedzina: {
+            name: 'Dziedzina równania',
+            tex: '\\frac{1}{w}:\\ w\\neq 0,\\qquad\\sqrt{w}:\\ w\\ge 0,\\qquad\\log_{a}w:\\ w>0',
+            why: 'Zanim zaczniemy przekształcać, ustalamy, jakie $x$ w ogóle można wstawić do zadania. Rozwiązanie spoza tego zbioru odrzucamy.',
+            level: 'Liceum: równania wymierne, z pierwiastkiem i logarytmiczne',
+            more: [
+                'Ułamek: mianownik nie może być zerem. W $\\frac{1}{x}=2$ wykluczamy $x=0$, więc $D=\\mathbb{R}\\setminus\\{0\\}$.',
+                'Pierwiastek kwadratowy: liczba pod nim nie może być ujemna. W $\\sqrt{x+3}$ żądamy $x+3\\ge 0$, czyli $x\\ge -3$.',
+                'Logarytm: liczba pod nim musi być dodatnia. W $\\log_{3}(2x-1)$ żądamy $2x-1>0$, czyli $x>\\frac{1}{2}$.',
+                'Na końcu sprawdzamy, czy rozwiązanie należy do dziedziny. Liczbę spoza niej odrzucamy, nawet jeśli wyszła z rachunku. Przy skracaniu ułamka zastrzeżenie zostaje: $\\frac{x^{2}-1}{x-1}$ to $x+1$ tylko dla $x\\neq 1$.',
+                'Skąd wzór: każdy warunek bierze się z definicji. Dzielenie przez zero nie ma wyniku, bo żadna liczba razy 0 nie daje na przykład 2. Pierwiastek kwadratowy z $w$ to liczba nieujemna, której kwadrat daje $w$, a kwadrat nie bywa ujemny. Logarytm $\\log_{3}w$ to wykładnik, do którego podnosimy 3, żeby dostać $w$, a potęga liczby 3 jest zawsze dodatnia.',
+                'Skąd nazwa: „dziedzina” to obszar, w którym coś obowiązuje. Tu to zbiór liczb, dla których zadanie ma sens. Oznaczamy ją literą $D$.',
+            ],
+        },
+        'rownosc-logarytmow': {
+            name: 'Równość logarytmów o tej samej podstawie',
+            tex: '\\log_{a}u=\\log_{a}w\\iff u=w\\quad(u>0,\\ w>0)',
+            why: 'Gdy po obu stronach stoi logarytm o jednej podstawie, przyrównujemy to, co jest pod logarytmami, i zostaje zwykłe równanie.',
+            level: 'Liceum: logarytmy',
+            more: [
+                'Przykład: $\\log_{2}(x+3)=\\log_{2}(2x)$, więc $x+3=2x$, czyli $x=3$. Dziedzina: $x+3>0$ i $2x>0$, więc $x=3$ pasuje.',
+                'Skąd wzór: z definicji logarytmu $a^{\\log_{a}u}=u$. Jeśli $\\log_{a}u$ i $\\log_{a}w$ to ta sama liczba, to podnosząc $a$ do tej liczby, dostajemy z jednej strony $u$, a z drugiej $w$. Czyli $u=w$.',
+                'Dlatego najpierw dziedzina: pod logarytmem mogą stać tylko liczby dodatnie, a po przyrównaniu argumentów ten warunek znika z zapisu.',
+                'Skąd nazwa: liczbę pod logarytmem nazywamy jego argumentem, stąd „porównuję argumenty logarytmów”.',
+            ],
+        },
+        'czynniki-pierwsze': {
+            name: 'Rozkład liczby na czynniki pierwsze',
+            tex: '84=2^{2}\\cdot 3\\cdot 7',
+            why: 'Liczba pierwsza jest większa od 1 i bez reszty da się ją podzielić tylko przez 1 i przez nią samą. Każdą liczbę naturalną większą od 1 zapisujemy jako iloczyn takich liczb na jeden sposób (nie licząc kolejności).',
+            level: 'Szkoła podstawowa: podzielność',
+            more: [
+                'Przykład: 84 dzielimy przez 2 i mamy 42, potem 42 przez 2 i mamy 21, 21 przez 3 i mamy 7, a 7 przez 7 i mamy 1. Dzielniki to 2, 2, 3 i 7, więc $84=2\\cdot 2\\cdot 3\\cdot 7=2^{2}\\cdot 3\\cdot 7$.',
+                'Liczbę ujemną rozkładamy bez minusa, a minus dopisujemy na początku: $-84=-2^{2}\\cdot 3\\cdot 7$.',
+                'Skąd wzór: dzielimy przez najmniejszą liczbę pierwszą, która dzieli to, co zostało, aż dojdziemy do 1. Każdy iloraz jest mniejszy od poprzedniego, więc rachunek się kończy, a wszystkie dzielniki pomnożone razem dają z powrotem wyjściową liczbę.',
+                'Do czego się przydaje: z rozkładu odczytujemy NWD i NWW, a ułamki skraca się łatwiej.',
+                'Skąd nazwa: „czynnik” to liczba, którą mnożymy w iloczynie. „Liczba pierwsza” to tłumaczenie łacińskiego numerus primus.',
+            ],
+        },
+        'skladanie-rozkladu': {
+            name: 'Rozkład wielomianu na czynniki',
+            tex: 'x^{4}-1=(x-1)(x+1)(x^{2}+1)',
+            why: 'Każdy rozłożony nawias zastępujemy jego rozkładem. Czynnik kwadratowy bez miejsc zerowych ($\\Delta<0$) nie rozkłada się dalej i zostaje.',
+            level: 'Liceum, zakres rozszerzony: wielomiany',
+            more: [
+                'Przykład: $x^{6}-64=(x^{3}-8)(x^{3}+8)$. Potem $x^{3}-8=(x-2)(x^{2}+2x+4)$ i $x^{3}+8=(x+2)(x^{2}-2x+4)$. Składamy: $x^{6}-64=(x-2)(x+2)(x^{2}-2x+4)(x^{2}+2x+4)$.',
+                'Nawias $x^{2}+2x+4$ ma deltę $4-16=-12$, czyli ujemną, więc nie ma miejsc zerowych i zostaje w iloczynie.',
+                'Nawias kwadratowy z deltą dodatnią też czasem zostaje, gdy w zadaniu (np. przy granicy) dalszy rozkład nie jest potrzebny.',
+                'Skąd wzór: każdy krok rozkładu zamienia jeden nawias na iloczyn, który jest mu równy. Wstawienie równego w miejsce równego nie zmienia wartości, więc na końcu cały iloczyn równa się wyjściowemu wielomianowi. Sprawdzasz, wymnażając.',
+                'Skąd nazwa: „czynniki” to wyrażenia, które mnożymy, a „rozkład na czynniki” to zapis wielomianu jako iloczynu.',
+            ],
+        },
     };
     // tg, arcsin, arctg: ten sam pomysł co sin u/u, inny wzór w dymku
     for (const [id, fn, name] of [['tgu', '\\operatorname{tg}', 'tg'], ['arcsinu', '\\arcsin', 'arcsin'], ['arctgu', '\\operatorname{arctg}', 'arctg']]) {
@@ -711,7 +866,19 @@
         'wspolny-mianownik': ['liczby', 'lp', ['wspólny mianownik', 'dodawanie ułamków', 'odejmowanie ułamków', 'rozszerzanie ułamka'], 'kroki 3/4 - 1/6', '7/12', ['mnozenie-ulamkow', 'dzielenie-ulamkow', 'nwd-nww']],
         'mnozenie-ulamkow': ['liczby', 'lp', ['mnożenie ułamków', 'ułamki zwykłe', 'skracanie'], 'kroki 2/3 * 9/4', '3/2', ['dzielenie-ulamkow', 'wspolny-mianownik']],
         'dzielenie-ulamkow': ['liczby', 'lp', ['dzielenie ułamków', 'odwrotność', 'ułamki zwykłe'], 'kroki 3/5 : 9/10', '2/3', ['mnozenie-ulamkow', 'wspolny-mianownik']],
-        'nwd-nww': ['liczby', 'lp', ['NWD', 'NWW', 'największy wspólny dzielnik', 'najmniejsza wspólna wielokrotność', 'czynniki pierwsze'], 'nwd(12, 18)', '6', ['wspolny-mianownik']],
+        'nwd-nww': ['liczby', 'lp', ['NWD', 'NWW', 'największy wspólny dzielnik', 'najmniejsza wspólna wielokrotność', 'czynniki pierwsze'], 'nwd(12, 18)', '6', ['wspolny-mianownik', 'czynniki-pierwsze']],
+        'wyrazy-podobne': ['wyrazenia', 'lp', ['wyrazy podobne', 'redukcja', 'upraszczanie', 'porządkowanie'], 'kroki 2(x+3) - (x-1)', 'x + 7', ['opuszczanie-nawiasow', 'przenoszenie']],
+        'opuszczanie-nawiasow': ['wyrazenia', 'lp', ['opuszczanie nawiasów', 'mnożenie nawiasu', 'minus przed nawiasem', 'wymnażanie'], 'rozwiąż 2(x+1) - (x-3) = 8', 'x = 3', ['wyrazy-podobne', 'wylaczanie-przed-nawias', 'kwadrat-sumy']],
+        przenoszenie: ['rownania', 'lp', ['przenoszenie', 'druga strona', 'zmiana znaku', 'równanie liniowe'], 'rozwiąż 4x + 1 = x + 7', 'x = 2', ['obie-strony', 'wyrazy-podobne']],
+        'obie-strony': ['rownania', 'lp', ['obie strony', 'dzielenie obu stron', 'mnożenie obu stron', 'zamiana stron', 'równanie liniowe'], 'rozwiąż 7 = 3 - x', 'x = −4', ['przenoszenie', 'odwracanie-znaku', 'pierwiastkowanie-obu-stron']],
+        'pierwiastkowanie-obu-stron': ['rownania', 'lp', ['pierwiastkowanie', 'plus minus', 'x kwadrat równa się', 'dwa rozwiązania'], 'rozwiąż x^2 = 9', 'x₁ = −3, x₂ = 3', ['iloczyn-rowny-zero', 'roznica-kwadratow', 'obie-strony']],
+        'iloczyn-rowny-zero': ['rownania', 'lp', ['iloczyn równy zero', 'przyrównanie do zera', 'czynniki', 'postać iloczynowa'], 'rozwiąż x^2 - 3x = 0', 'x₁ = 0, x₂ = 3', ['wylaczanie-przed-nawias', 'postac-iloczynowa', 'skladanie-rozkladu']],
+        sprawdzenie: ['rownania', 'lp', ['sprawdzenie', 'lewa i prawa strona', 'L P', 'fałszywe rozwiązanie'], 'rozwiąż 5 = 2x - 7', 'x = 6', ['dziedzina', 'rownanie-z-pierwiastkiem']],
+        'wspolczynniki-trojmianu': ['funkcje', 'lp', ['współczynniki', 'trójmian kwadratowy', 'a b c', 'wyraz wolny'], 'rozwiąż x^2 - 2x - 1 = 0', 'x₁ = 1 − √2, x₂ = 1 + √2', ['delta', 'wzory-x12', 'wierzcholek']],
+        dziedzina: ['rownania', 'lp', ['dziedzina', 'mianownik różny od zera', 'założenia', 'zastrzeżenie'], 'rozwiąż 1/x = 2', 'x = 1/2', ['rownanie-wymierne', 'rownosc-logarytmow', 'rownanie-z-pierwiastkiem', 'sprawdzenie']],
+        'rownosc-logarytmow': ['potegi-log', 'lp', ['równanie logarytmiczne', 'równość logarytmów', 'argument logarytmu', 'ta sama podstawa'], 'rozwiąż log_2(x+3) = log_2(2x)', 'x = 3', ['definicja-logarytmu', 'rownosc-poteg', 'dziedzina']],
+        'czynniki-pierwsze': ['liczby', 'lp', ['czynniki pierwsze', 'liczby pierwsze', 'rozkład liczby', 'dzielniki'], 'rozłóż 84', '2² · 3 · 7', ['nwd-nww']],
+        'skladanie-rozkladu': ['wyrazenia', 'lr', ['rozkład wielomianu', 'czynniki', 'wielomian', 'postać iloczynowa'], 'rozłóż x^6 - 64', '(x − 2)(x + 2)(x² − 2x + 4)(x² + 2x + 4)', ['postac-iloczynowa', 'roznica-kwadratow', 'suma-szescianow', 'roznica-szescianow']],
     };
     for (const [id, [dzial, poziom, keywords, tryExpr, expect, related]] of Object.entries(HANDBOOK)) {
         if (FORMULAS[id]) Object.assign(FORMULAS[id], { dzial: dzial, poziom: poziom, keywords: keywords, try: tryExpr, expect: expect, related: related });
@@ -733,7 +900,8 @@
     /** @type {Array<{re: RegExp, id: string, here?: (step: Step) => string, when?: (step: Step) => boolean}>} */
     const STEP_RULES = [
         { re: /^Liczę pierwiastek z delty$/, id: 'delta' },
-        { re: /^Składam całość$/, id: 'postac-iloczynowa', when: allLinear }, // [EN] z czynnikiem kwadratowym (x² + 1) hasło by kłamało
+        { re: /^Składam całość( w (liczniku|mianowniku))?$/, id: 'postac-iloczynowa', when: allLinear }, // [EN] z czynnikiem kwadratowym (x² + 1) hasło by kłamało
+        { re: /^Składam całość( w (liczniku|mianowniku))?$/, id: 'skladanie-rozkladu' }, // [EN] reszta: czynnik kwadratowy zostaje
         { re: /^Wyłączam [a-z] przed nawias$/, id: 'wylaczanie-przed-nawias' },
         { re: /^(Zapisuję część jako ułamek|Mnożę ułamek przez liczbę|Liczę procent z liczby)$/, id: 'procent-z-liczby' },
         { re: /^(Najpierw nawias: )?(dodaję|odejmuję|Dodaję|Odejmuję) liczniki$/, id: 'wspolny-mianownik' },
@@ -751,6 +919,22 @@
         // układ: sposób „Podstawianie” wstawia bez „do …”, sposób „Przeciwne współczynniki” — „do pierwszego/drugiego równania”
         { re: /^(Wyznaczam [a-z] z (pierwszego|drugiego) równania|Wstawiam [a-z] = \S+)$/, id: 'uklad-podstawianie' },
         { re: /^(Mnożę (pierwsze|drugie) przez .+|Wstawiam [a-z] = \S+ do (pierwszego|drugiego) równania)$/, id: 'uklad-przeciwne' },
+        // podstawy równań (zadanie 3)
+        { re: /^(Redukuję|Porządkuję i redukuję) wyrazy podobne$/, id: 'wyrazy-podobne' },
+        { re: /^Opuszczam nawiasy$/, id: 'opuszczanie-nawiasow' },
+        { re: /^Przenoszę ([a-z] na lewo(, liczby na prawo)?|liczby na prawo|liczbę na prawo|wszystko na lewą stronę)$/, id: 'przenoszenie' },
+        // [EN] tylko przez liczbę: mnożenie przez wyrażenie z x ma własne hasło (rownanie-wymierne) od silnika
+        { re: /^(Dzielę|Mnożę) obie strony przez [−-]?\d[\d,/]*$/, id: 'obie-strony', here: s => 'c = ' + s.label.replace(/^.* przez /, '') },
+        { re: /^(Zmieniam znak obu stron|Zamieniam strony)$/, id: 'obie-strony' },
+        { re: /^Pierwiastkuję obie strony/, id: 'pierwiastkowanie-obu-stron' },
+        { re: /^Przyrównuję każdy czynnik do zera$/, id: 'iloczyn-rowny-zero' },
+        // [EN] sprawdzenie całki to pochodna wyniku (znak ′), nie wstawianie liczby
+        { re: /^Sprawdzenie$/, id: 'sprawdzenie', when: s => !/′/.test(s.math) },
+        { re: /^Odczytuję współczynniki( w (liczniku|mianowniku))?$/, id: 'wspolczynniki-trojmianu' },
+        { re: /^(Wyznaczam|Sprawdzam|Zastrzegam) dziedzinę$|^Odrzucam rozwiązanie spoza dziedziny$/, id: 'dziedzina' },
+        { re: /^Rozwiązuję oba przypadki$/, id: 'wartosc-bezwzgledna' }, // [EN] tylko po „Rozbijam na dwa przypadki” przy |…|
+        { re: /^Porównuję argumenty logarytmów$/, id: 'rownosc-logarytmow' },
+        { re: /^(Odkładam minus|Dzielę przez kolejne liczby pierwsze|Zbieram czynniki pierwsze)$/, id: 'czynniki-pierwsze' },
     ];
     // Kroki-stwierdzenia: bez dymku z założenia (spec, cel 2). Lista ma być krótka; każde dopisanie z uzasadnieniem.
     // „Granica” bez symbolu nieoznaczonego: krok z symbolem ma już formula „nieoznaczone” od silnika.

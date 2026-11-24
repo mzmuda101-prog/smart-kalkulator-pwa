@@ -27,51 +27,34 @@ const kind = (/** @type {string} */ label) => label.replace(/[−+]?\d+([.,/]\d+
 // Rodzaje kroków-przekształceń, które jeszcze nie mają hasła. Lista ma tylko maleć:
 // bramka pada, gdy wpis nie jest już potrzebny (żaden krok bez dymku go nie używa).
 const PENDING = [
-    "Składam całość", // z czynnikiem kwadratowym, np. „x⁶ − 64 = (x − 2)(x + 2)(x² − 2x + 4)(x² + 2x + 4)” (liniowe → postac-iloczynowa)
-    "Sprawdzenie", // 68× „Sprawdzenie”
+    "Sprawdzenie", // tylko całki: „(x³/3)′ = x² ✓” (pochodna wyniku; równania i układy → sprawdzenie)
     "Podstawiamy v = #", // 65× „Podstawiamy x = 4”
     "Wyrazy z v w mianowniku dążą do #", // 53× „Wyrazy z n w mianowniku dążą do 0”
     "Skracamy (…)", // 40× „Skracamy (−x)”
     "Rozkładamy na czynniki", // 37× „Rozkładamy na czynniki”
     "Zapisujemy inaczej", // 27× „Zapisujemy inaczej”
     "Upraszczamy", // 26× „Upraszczamy”
-    "Redukuję wyrazy podobne", // 26× „Redukuję wyrazy podobne”
-    "Dzielę obie strony przez #", // 24× „Dzielę obie strony przez 2”
-    "Przenoszę liczby na prawo", // 20× „Przenoszę liczby na prawo”
     "Wyłączamy v przed nawias", // 19× „Wyłączamy n przed nawias”
     "Skracamy v", // 19× „Skracamy n”
     "Składamy wynik", // 18× „Składamy wynik”
-    "Przyrównuję każdy czynnik do zera", // 17× „Przyrównuję każdy czynnik do zera”
     "Granica wykładnika", // 14× „Granica wykładnika”
-    "Odczytuję współczynniki", // 14× „Odczytuję współczynniki”
-    "Wyznaczam dziedzinę", // 12× „Wyznaczam dziedzinę”
-    "Opuszczam nawiasy", // 11× „Opuszczam nawiasy”
     "Szukam pierwiastka wśród dzielników", // 11× „Szukam pierwiastka wśród dzielników”
     "Wyłączamy v² przed nawias", // 10× „Wyłączamy n² przed nawias”
     "Skracamy v²", // 10× „Skracamy n²”
-    "Porządkuję i redukuję wyrazy podobne", // 9× „Porządkuję i redukuję wyrazy podobne”
-    "Sprawdzam dziedzinę", // 8× „Sprawdzam dziedzinę”
     "Kolorowy ułamek dąży do #", // 8× „Kolorowy ułamek dąży do 1”
     "Stałą wyłączam przed całkę", // 8× „Stałą wyłączam przed całkę”
     "Mnożę przez wyłączoną stałą", // 8× „Mnożę przez wyłączoną stałą”
-    "Pierwiastkuję obie strony (…)", // 6× „Pierwiastkuję obie strony (są dwa znaki)”
-    "Przenoszę liczbę na prawo", // 6× „Przenoszę liczbę na prawo”
     "Wyłączamy najwyższe potęgi przed nawias", // 5× „Wyłączamy najwyższe potęgi przed nawias”
-    "Odczytuję współczynniki w liczniku", // 5× „Odczytuję współczynniki w liczniku”
     "Liczę pierwiastek z delty w liczniku", // 5× „Liczę pierwiastek z delty w liczniku”
     "Wciągam liczbę do nawiasu w liczniku", // 5× „Wciągam liczbę do nawiasu w liczniku”
-    "Przenoszę v na lewo, liczby na prawo", // 5× „Przenoszę x na lewo, liczby na prawo”
     "Stała zostaje przed pochodną", // 5× „Stała zostaje przed pochodną”
     "Wyłączamy v³ przed nawias", // 4× „Wyłączamy n³ przed nawias”
     "Wyłączamy √v przed nawias", // 4× „Wyłączamy √n przed nawias”
     "Skracamy √v", // 4× „Skracamy √n”
     "Wyłączamy (…) przed nawias", // 4× „Wyłączamy (−x) przed nawias”
-    "Odczytuję współczynniki w mianowniku", // 4× „Odczytuję współczynniki w mianowniku”
     "Liczę pierwiastek z delty w mianowniku", // 4× „Liczę pierwiastek z delty w mianowniku”
     "Wciągam liczbę do nawiasu w mianowniku", // 4× „Wciągam liczbę do nawiasu w mianowniku”
-    "Składam całość w liczniku", // 4× „Składam całość w liczniku”
     "Szukam miejsc zerowych", // 4× „Szukam miejsc zerowych”
-    "Zastrzegam dziedzinę", // 4× „Zastrzegam dziedzinę”
     "Skracam (…)", // 4× „Skracam (2x − 1)”
     "Rozkładam mianownik", // 4× „Rozkładam mianownik”
     "Zapisuję ułamki proste", // 4× „Zapisuję ułamki proste”
@@ -79,12 +62,7 @@ const PENDING = [
     "Rozkład na ułamki proste", // 4× „Rozkład na ułamki proste”
     "Każdy ułamek daje logarytm", // 4× „Każdy ułamek daje logarytm”
     "Skracamy v³", // 3× „Skracamy n³”
-    "Składam całość w mianowniku", // 3× „Składam całość w mianowniku”
-    "Przenoszę wszystko na lewą stronę", // 3× „Przenoszę wszystko na lewą stronę”
     "Mnożę przez stałą", // 3× „Mnożę przez stałą”
-    "Zamieniam strony", // 3× „Zamieniam strony”
-    "Mnożę obie strony przez #", // 3× „Mnożę obie strony przez 2”
-    "Zmieniam znak obu stron", // 3× „Zmieniam znak obu stron”
     "Całkuję każdą część", // 3× „Całkuję każdą część”
     "Wracam do zmiennej v", // 3× „Wracam do zmiennej x”
     "Wyłączamy v√v przed nawias", // 2× „Wyłączamy n√n przed nawias”
@@ -94,8 +72,6 @@ const PENDING = [
     "Mnożę", // 2× „Mnożę”
     "Upraszczam pierwiastek z delty", // 2× „Upraszczam pierwiastek z delty”
     "Kwadrat nie może być ujemny", // 2× „Kwadrat nie może być ujemny”
-    "Dzielę przez kolejne liczby pierwsze", // 2× „Dzielę przez kolejne liczby pierwsze”
-    "Zbieram czynniki pierwsze", // 2× „Zbieram czynniki pierwsze”
     "Liczę prawą stronę", // 2× „Liczę prawą stronę”
     "Porządkuję równania", // 2× „Porządkuję równania”
     "Podstawienie: v = v²", // 2× „Podstawienie: t = x²”
@@ -111,19 +87,14 @@ const PENDING = [
     "Szukam pierwiastka wśród dzielników w liczniku", // 1× „Szukam pierwiastka wśród dzielników w liczniku”
     "Szukam pierwiastka wśród dzielników w mianowniku", // 1× „Szukam pierwiastka wśród dzielników w mianowniku”
     "Skracamy (…)²", // 1× „Skracamy (x + 1)²”
-    "Przenoszę v na lewo", // 1× „Przenoszę x na lewo”
     "Najpierw nawias: dodaję", // 1× „Najpierw nawias: dodaję”
     "Potęguję", // 1× „Potęguję”
     "Granica jednostronna #⁺", // 1× „Granica jednostronna 0⁺”
     "Wyciągam kwadrat spod pierwiastka", // 1× „Wyciągam kwadrat spod pierwiastka”
     "Podstawiamy v → ∞", // 1× „Podstawiamy n → ∞”
     "Wciągam liczbę do nawiasu", // 1× „Wciągam liczbę do nawiasu”
-    "Odkładam minus", // 1× „Odkładam minus”
     "Brak miejsc zerowych", // 1× „Brak miejsc zerowych”
     "Odczytuję znak z paraboli", // 1× „Odczytuję znak z paraboli”
-    "Odrzucam rozwiązanie spoza dziedziny", // 1× „Odrzucam rozwiązanie spoza dziedziny”
-    "Porównuję argumenty logarytmów", // 1× „Porównuję argumenty logarytmów”
-    "Rozwiązuję oba przypadki", // 1× „Rozwiązuję oba przypadki”
     "Wyliczam v", // 1× „Wyliczam x”
     "Skracam ułamek", // 1× „Skracam ułamek”
     "Dzielę", // 1× „Dzielę”
@@ -165,6 +136,48 @@ ok('„Składam całość” → postac-iloczynowa', (attachRule({ label: 'Skła
         const st = step(q);
         ok(q + ': „Składam całość” → postac-iloczynowa', !!st && !!st.formula && st.formula.id === 'postac-iloczynowa', st);
     }
+}
+{ // podstawy równań (zadanie 3): etykieta → hasło, z liczbami z kroku tam, gdzie da się je odczytać
+    const rule = (/** @type {string} */ label, /** @type {string} */ math) => attachRule({ label: label, math: math }).formula || {};
+    /** @type {Array<[string, string, string, string?]>} */
+    const MAP = [
+        ['Redukuję wyrazy podobne', '2x = 10', 'wyrazy-podobne'],
+        ['Porządkuję i redukuję wyrazy podobne', '2x − 5 = 1', 'wyrazy-podobne'],
+        ['Opuszczam nawiasy', '3x − 6 = x + 4', 'opuszczanie-nawiasow'],
+        ['Przenoszę liczby na prawo', '2x = 11 − 3', 'przenoszenie'],
+        ['Przenoszę liczbę na prawo', 'x² = 4', 'przenoszenie'],
+        ['Przenoszę x na lewo, liczby na prawo', '3x − x = 4 + 6', 'przenoszenie'],
+        ['Przenoszę x na lewo', '2x − x = 3', 'przenoszenie'],
+        ['Przenoszę wszystko na lewą stronę', '−x² + 7x − 6 = 0', 'przenoszenie'],
+        ['Dzielę obie strony przez −2', 'x = −7 / (−2) = 7/2', 'obie-strony', 'c = −2'],
+        ['Mnożę obie strony przez 3/2', 'x = 4 · 3/2 = 6', 'obie-strony', 'c = 3/2'],
+        ['Zmieniam znak obu stron', 'x = −4', 'obie-strony'],
+        ['Zamieniam strony', '2x − 7 = 5', 'obie-strony'],
+        ['Pierwiastkuję obie strony (są dwa znaki)', 'x = ±3', 'pierwiastkowanie-obu-stron'],
+        ['Przyrównuję każdy czynnik do zera', 'x = 0 lub x − 3 = 0\nx = 0 lub x = 3', 'iloczyn-rowny-zero'],
+        ['Sprawdzenie', 'x = 5:  L = 3(5 − 2) = 9,  P = 5 + 4 = 9 ✓', 'sprawdzenie'],
+        ['Sprawdzenie', '3 + 2 = 5 ✓', 'sprawdzenie'],
+        ['Odczytuję współczynniki', 'a = 1, b = −5, c = 6', 'wspolczynniki-trojmianu'],
+        ['Odczytuję współczynniki w liczniku', 'a = 2, b = −5, c = −3', 'wspolczynniki-trojmianu'],
+        ['Wyznaczam dziedzinę', 'x ≠ 0\nD = ℝ \\ {0}', 'dziedzina'],
+        ['Sprawdzam dziedzinę', 'x = 7/2 ∈ D', 'dziedzina'],
+        ['Zastrzegam dziedzinę', 'x − 1 ≠ 0\nx ≠ 1', 'dziedzina'],
+        ['Odrzucam rozwiązanie spoza dziedziny', 'x = −1 ∈ D\nx = 1 ∉ D', 'dziedzina'],
+        ['Rozwiązuję oba przypadki', 'x = 5 lub x = −1', 'wartosc-bezwzgledna'],
+        ['Porównuję argumenty logarytmów', 'x + 3 = 2x', 'rownosc-logarytmow'],
+        ['Odkładam minus', '−84 = −1 · 84', 'czynniki-pierwsze'],
+        ['Dzielę przez kolejne liczby pierwsze', '84 : 2 = 42', 'czynniki-pierwsze'],
+        ['Zbieram czynniki pierwsze', '84 = 2 · 2 · 3 · 7 = 2² · 3 · 7', 'czynniki-pierwsze'],
+        ['Składam całość', 'x⁶ − 64 = (x − 2)(x + 2)(x² − 2x + 4)(x² + 2x + 4)', 'skladanie-rozkladu'],
+        ['Składam całość w mianowniku', 'x⁴ − x² − 12 = (x² + 3)(x − 2)(x + 2)', 'skladanie-rozkladu'],
+        ['Składam całość w liczniku', 'x³ + 3x² − 6x − 8 = (x + 1)(x − 2)(x + 4)', 'postac-iloczynowa'],
+    ];
+    for (const [label, math, id, here] of MAP) {
+        const f = rule(label, math);
+        ok('„' + label + '” → ' + id + (here ? ' (' + here + ')' : ''), f.id === id && f.here === here, f);
+    }
+    // sprawdzenie całki to pochodna wyniku, a nie wstawianie liczby — hasło „sprawdzenie” by kłamało
+    ok('„Sprawdzenie” całki bez hasła „sprawdzenie”', rule('Sprawdzenie', '(x³/3)′ = x² ✓').id !== 'sprawdzenie', rule('Sprawdzenie', '(x³/3)′ = x² ✓'));
 }
 { // dymek z tabeli jest oznaczony, dymek od silnika nie
     const r = S.run('rozwiąż x^2 - 5x + 6 = 0'), st = r.explain.steps;
