@@ -507,6 +507,11 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     const hd = d[d.findIndex(x => x.label === 'Rozkładamy na czynniki') - 1];
     ok('P1H: pierwiastek podwójny — bez dzielenia (x − 1) : (x − 1)', !!hd && hd.horner.length === 3 && hd.horner.map(x => x.name).join() === 'licznik,licznik,mianownik', hd && hd.horner);
     ok('P1H: wynik bez zmian', /= 3$/.test(d[d.length - 1].math), d[d.length - 1].math);
+    // S18: dymek Hornera niesie rachunek pierwszej tabelki
+    const hh = h && h.formula && h.formula.here || '';
+    ok('S18: Horner w granicy — r, rachunek i reszta', typeof hh === 'string' && hh.includes('r = 2') && hh.includes('0 + 2 · 1 = 2') && hh.includes('reszta 0'), hh);
+    const hm = S.run('lim x→-1 (x^3+1)/(x+1)').explain.steps.find(x => x.label === 'Dzielimy schematem Hornera');
+    ok('S18: Horner w granicy — ujemne r w nawiasie', !!hm && typeof hm.formula.here === 'string' && hm.formula.here.includes('(−1) · 1'), hm && hm.formula.here);
     // bramka: każdy „Rozkładamy na czynniki” w zestawie ma tuż przed sobą krok z tabelkami, reszta 0
     const bad = [];
     for (const z of ZESTAW) {

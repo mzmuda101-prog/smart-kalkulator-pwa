@@ -617,11 +617,12 @@
         // [EN] schemat Hornera (spec sposobów, etap 2+3): współczynniki, iloczyny po skosie, sumy pod kreską
         var top = c.slice().reverse(), mid = [''], bot = [top[0]];
         for (var hi = 1; hi < top.length; hi++) { var m = mul(r, bot[hi - 1]); mid.push(m); bot.push(add(top[hi], m)); }
+        var ht = { r: fmt(r, ctx), top: top.map(function (x) { return fmt(x, ctx); }), mid: mid.map(function (x) { return x === '' ? '' : fmt(x, ctx); }), bot: bot.map(function (x) { return fmt(x, ctx); }) };
         steps.push({
             label: 'Dzielę schematem Hornera',
             math: '⟦(' + polyText(c, v, ctx) + ') : ' + lin + '⟧ = ' + polyText(low, v, ctx),
-            formula: { id: 'schemat-hornera' },
-            horner: { r: fmt(r, ctx), top: top.map(function (x) { return fmt(x, ctx); }), mid: mid.map(function (x) { return x === '' ? '' : fmt(x, ctx); }), bot: bot.map(function (x) { return fmt(x, ctx); }) }
+            formula: { id: 'schemat-hornera', here: hornerHere(ht) },
+            horner: ht
         });
         steps.push({ // [EN] W(r) = 0 → W dzieli się przez (x − r) (słownik: bezout)
             label: 'Zapisuję iloczyn',
@@ -1979,6 +1980,17 @@
         return res && res.explain ? res : null; // [EN] bez komendy nie obiecujemy rozwiązania
     }
 
+    // [EN] „W tym zadaniu:” dla Hornera: r i rachunek każdej kolumny (górny + r · poprzednia suma = suma), na końcu reszta; wiele tabelek po kolei
+    function hornerHere(tables) {
+        var par = function (x) { return x.charAt(0) === '−' || x.indexOf('/') >= 0 ? '(' + x + ')' : x; };
+        return [].concat(tables).map(function (t) {
+            var out = ['r = ' + t.r];
+            for (var i = 1; i < t.top.length; i++) out.push(t.top[i] + ' + ' + par(t.r) + ' · ' + par(t.bot[i - 1]) + ' = ' + t.bot[i]);
+            out.push('reszta ' + t.bot[t.bot.length - 1]);
+            return out.join(', ');
+        }).join(', ');
+    }
+
     var API = {
         detect: detect, run: run, runBare: runBare,
         registerCalculus: function (mod) { _calculus = mod; },
@@ -1987,7 +1999,7 @@
             NotSupported: NotSupported, R: R, ZERO: ZERO, ONE: ONE, gcd: gcd, add: add, neg: neg, sub: sub,
             mul: mul, div: div, isZero: isZero, isInt: isInt, eq: eq, toNum: toNum, powR: powR,
             sqrtExact: sqrtExact, sup: sup, sub_: sub_, fmt: fmt, fmtApprox: fmtApprox, fold: fold, done: done,
-            MAX_INPUT: MAX_INPUT,
+            MAX_INPUT: MAX_INPUT, hornerHere: hornerHere,
             parse: function (src) { return parseTokens(tokenize(src, { calculus: true })); }
         }
     };

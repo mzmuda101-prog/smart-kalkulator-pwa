@@ -38,6 +38,8 @@ const COVER = [
     ['pochodna x^2*e^x', 'pochodna-iloczynu', 'u = x², v = e^x'],
     ['pochodna x/(x+1)', 'pochodna-ilorazu', 'u = x, v = x + 1'],
     ['całka x*sin(x)', 'przez-czesci', 'u = x, dv = sin(x) dx'],
+    // S18: Horner z rachunkiem
+    ['rozwiąż x^3-6x^2+11x-6=0', 'schemat-hornera', 'r = 1, −6 + 1 · 1 = −5, 11 + 1 · (−5) = 6, −6 + 1 · 6 = 0, reszta 0'],
     // Task 4: nierówności, wartość bezwzględna, trygonometria, wykładnicze
     ['rozwiąż x^2 - 4 < 0', 'nierownosc-kwadratowa', 'x₁ = −2, x₂ = 2, a = 1'],
     ['rozwiąż 5 - 2x ≥ 11', 'odwracanie-znaku', undefined],

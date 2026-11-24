@@ -1072,6 +1072,7 @@
                 var byName = function (x, y) { return x.name < y.name ? -1 : x.name > y.name ? 1 : 0; };
                 tables.sort(byName); divLines.sort(byName);
                 line(log, 'Dzielimy schematem Hornera', divLines.map(function (x) { return x.dl.replace(/^(.*?) = /, '⟦$1⟧ = '); }).join('\n'), 'schemat-hornera', { horner: tables });
+                log[log.length - 1].formula.here = K.hornerHere(tables);
             }
             line(log, 'Rozkładamy na czynniki', head + coef + (ups.join('') || '1') + '/' + (downs.length > 1 ? '(' + downs.join('') + ')' : downs.join('')));
             var out = M ? C.cMul(rest, C.cPow(xa, K.R(M))) : rest;
