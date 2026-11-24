@@ -365,6 +365,8 @@ pass += 3;
     ok('x^4-5x^2+4=0: podstawienie t', fid('rozwiąż x^4-5x^2+4=0', 'podstawienie-t'));
     ok('x^3-6x^2+11x-6=0: wynik bez zmian', text('rozwiąż x^3-6x^2+11x-6=0') === 'x₁ = 1, x₂ = 2, x₃ = 3');
     ok('x^4-3x^2+1=0: nadal nieobsługiwane', /Jeszcze tego nie/.test(text('rozwiąż x^4-3x^2+1=0')), text('rozwiąż x^4-3x^2+1=0'));
+    ok('x^4+x^2-6=0: ±√2', text('rozwiąż x^4+x^2-6=0') === 'x₁ = −√2, x₂ = √2', text('rozwiąż x^4+x^2-6=0'));
+    ok('x^4+x^2-6=0: brak rozwiązań rzeczywistych w kroku', S.run('rozwiąż x^4+x^2-6=0').explain.steps.some(x => /brak rozwiązań rzeczywistych/.test(x.math)));
     ['rozwiąż x^3-6x^2+11x-6=0', 'rozwiąż x^4-5x^2+4=0', 'rozwiąż 2x^3-3x^2-2x+3=0'].forEach(q => {
         const m = hs(q).methods;
         ok(q + ': sposoby', !!m && m.map(x => x.label).join('|') === 'Rozkład na czynniki|Schemat Hornera', m && m.map(x => x.label));
