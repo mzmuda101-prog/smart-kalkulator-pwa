@@ -452,6 +452,20 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
             if (!rhs.length || new RegExp('(^|[^a-z])' + mm[1] + '([^a-z]|$)').test(rhs[0]) || (rhs.length < 2 && body !== mm[1])) bad.push(z.input + ' :: ' + st.math); // sam wynik bez rachunku = skok
         }
     }
+    // poprawki z przeglądu: ujemne liczby w nawiasach, pierwiastki policzone w kroku wartości
+    const bare = [];
+    for (const z of ZESTAW) {
+        const r = S.run(z.input); if (!r || !r.explain) continue;
+        for (const m of r.explain.methods || [r.explain]) for (const st of m.steps) {
+            if (!/^Podstawiamy (\w) = /.test(st.label)) continue;
+            if (st.math.split(' = ').slice(1).some(x => /[·\/^] ?−|− −/.test(x))) bare.push(z.input + ' :: ' + st.math);
+        }
+    }
+    ok('P1: bramka — bez gołych liczb ujemnych po · / ^', bare.length === 0, bare.slice(0, 5));
+    const allSub = z => { const r = S.run(z); return [].concat(...(r.explain.methods || [r.explain]).map(m => m.steps)).filter(x => /^Podstawiamy/.test(x.label)).map(x => x.math); };
+    ok('P1: nawias przy ujemnym czynniku i mianowniku', allSub('lim x→-2 (x^3-x+6)/(sqrt(x^4-12)+x)').some(m => m.includes('11/(−7)')), allSub('lim x→-2 (x^3-x+6)/(sqrt(x^4-12)+x)'));
+    ok('P1: pierwiastki policzone', allSub('lim x→3 (x+3)/(5(sqrt(x+1)+2))').some(m => m.includes('(3 + 3)/(5 · (√4 + 2)) = (3 + 3)/(5 · (2 + 2)) = 6/20 = 3/10')), allSub('lim x→3 (x+3)/(5(sqrt(x+1)+2))'));
+    ok('P1: pierwiastek 4. stopnia i potęga ułamkowa policzone', allSub('lim x→1 (∜(x+15)-2)/(x^2-5x+4)').some(m => m.includes('(16^(3/4) + 2 · √16 + 4 · ∜16 + 8)') && m.includes('(8 + 8 + 8 + 8)')), allSub('lim x→1 (∜(x+15)-2)/(x^2-5x+4)'));
     ok('P1: bramka — każde „Podstawiamy” z rachunkiem', bad.length === 0, bad.slice(0, 5));
 }
 

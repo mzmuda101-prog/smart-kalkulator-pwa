@@ -346,6 +346,20 @@
 
     // ── Rachunek w kroku „Podstawiamy x = a”: wstawione liczby → wartości wyrazów → sumy policzone ──
     function astHasSum(n) { return n.k === 'add' || n.k === 'sub' || !!((n.a && astHasSum(n.a)) || (n.b && astHasSum(n.b))); }
+    function intRoot(x, q) { // [EN] całkowity pierwiastek q-tego stopnia z x ≥ 0 albo null
+        if (x > 1000000000000000n) return null;
+        var g = BigInt(Math.round(Math.pow(Number(x), 1 / q)));
+        for (var c = g - 1n; c <= g + 1n; c++) if (c >= 0n && c ** BigInt(q) === x) return c;
+        return null;
+    }
+    function exactPow(a, e) { // [EN] a^(p/q), gdy wynik jest wymierny (√9, 8^(2/3), 16^(3/4)); inaczej null
+        if (e.d === 1n || e.d > 8n || (e.n < 0n ? -e.n : e.n) > 64n) return null;
+        var q = Number(e.d), neg = a.n < 0n;
+        if (neg && q % 2 === 0) return null;
+        var rn = intRoot(neg ? -a.n : a.n, q), rd = intRoot(a.d, q);
+        if (rn === null || rd === null || rn === 0n && e.n < 0n) return null;
+        return K.powR(K.R(neg ? -rn : rn, rd), Number(e.n));
+    }
     function astValue(n) { // [EN] dokładna wartość wymierna albo null (pierwiastki, funkcje, zmienna, dzielenie przez 0)
         try {
             var a = n.a && astValue(n.a), b = n.b && astValue(n.b);
@@ -356,7 +370,8 @@
                 case 'sub': return a && b && K.sub(a, b);
                 case 'mul': return a && b && K.mul(a, b);
                 case 'div': return a && b && !K.isZero(b) ? K.div(a, b) : null;
-                case 'pow': return a && b && K.isInt(b) && b.n >= 0n && b.n <= 64n ? K.powR(a, Number(b.n)) : null;
+                case 'pow': return a && b && K.isInt(b) && b.n >= 0n && b.n <= 64n ? K.powR(a, Number(b.n)) : a && b ? exactPow(a, b) : null;
+                case 'sqrt': return a && exactPow(a, K.R(1, 2));
             }
         } catch (x) { /* [EN] 0^(−1) itp. — brak wartości */ }
         return null;
@@ -371,7 +386,13 @@
         var out = Object.assign({}, n);
         if (n.a) out.a = f(n.a, 'a');
         if (n.b) out.b = f(n.b, 'b');
-        return astSigns(out);
+        out = astSigns(out);
+        var pr = function (x, need) { return x && x.k === 'num' && !x.lp && (x.v.n < 0n || need === 2 && x.v.d !== 1n) ? Object.assign({}, x, { lp: true }) : x; };
+        if (out.k === 'mul') out.b = pr(out.b);
+        else if (out.k === 'pow') out.a = pr(out.a, 2);
+        else if (out.k === 'div') out.b = pr(out.b, 2);
+        else if (out.k === 'sub') out.b = pr(out.b);
+        return out;
     }
     function plugVar(n, v, pt, ctx) { // [EN] zmienna → liczba punktu; nawias, gdy liczba ujemna/ułamkowa stoi pod potęgą, po minusie, w iloczynie
         if (n.k === 'var') return n.v === v ? astNum(pt, ctx !== 'add' && ctx !== 'fn' && ctx !== 'root' && ctx !== 'subA' && (pt.n < 0n || ctx !== 'addB')) : n;
@@ -380,6 +401,11 @@
         var out = astMap(n, function (x, s) { return plugVar(x, v, pt, s === 'a' ? c[0] : c[1]); });
         if (out.k === 'mul') out.implicit = false;
         return out;
+    }
+    function plugRadicands(n) { // [EN] suma pod pierwiastkiem / w podstawie potęgi ułamkowej: √(3 + 1) → √4
+        var rad = n.k === 'sqrt' ? 'a' : n.k === 'pow' && astValue(n.b) && astValue(n.b).d !== 1n ? 'a' : null;
+        if (rad && astHasSum(n.a)) { var r = astValue(n.a); if (r) return Object.assign({}, n, { a: astNum(r) }); }
+        return n.a ? astMap(n, plugRadicands) : n;
     }
     function plugValues(n) { // [EN] każdy fragment bez dodawania → jedna liczba
         if (!astHasSum(n) && n.k !== 'num') { var r = astValue(n); if (r) return astNum(r); }
@@ -393,17 +419,18 @@
         if (astHasSum(n)) { var r = astValue(n); if (r) return astNum(r); }
         return n.a ? astMap(n, plugSums) : n;
     }
-    function plugSteps(e, v, t) { // [EN] kolejne zapisy po „=” (bez wyniku końcowego), bez sąsiednich powtórzeń
+    function plugSteps(e, v, t, at) { // [EN] kolejne zapisy po „=” (bez wyniku końcowego), bez sąsiednich powtórzeń
         var out = [];
         try {
             var cur = plugVar(K.parse(C.show(e)), v, C.numberOf(pointExpr(t)), 'root');
-            [function (x) { return x; }, plugValues, plugSums].forEach(function (f) {
+            [function (x) { return x; }, plugRadicands, plugValues, plugSums].forEach(function (f) {
                 cur = f(cur);
                 var s = astText(cur);
                 if (out[out.length - 1] !== s) out.push(s);
             });
         } catch (x) { /* [EN] nie umiemy wypisać — zostaje sam wynik */ }
-        return out;
+        out.push(C.show(at));
+        return out.filter(function (s, i) { return !i || s !== out[i - 1]; });
     }
     var RULES = [
         { // [EN] bez zmiennej: granica stałej to ta stała
@@ -433,7 +460,7 @@
                 var at = fold(substitute(e, v, pt));
                 var val = numVal(at);
                 if (C.hasVar(at, v) || !isFinite(val)) throw new NotSupported();
-                line(log, 'Podstawiamy ' + v + ' = ' + targetText({ at: t.at, src: t.src, side: 0 }), limOf(v, t, e) + ' = ' + plugSteps(e, v, t).concat(C.show(at)).filter(function (s, i, a) { return !i || s !== a[i - 1]; }).join(' = '));
+                line(log, 'Podstawiamy ' + v + ' = ' + targetText({ at: t.at, src: t.src, side: 0 }), limOf(v, t, e) + ' = ' + plugSteps(e, v, t, at).join(' = '));
                 return { kind: 'num', e: at };
             }
         }
