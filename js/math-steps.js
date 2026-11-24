@@ -612,6 +612,35 @@
         steps.push({ label: 'Przyrównuję każdy czynnik do zera', math: lin.slice(1, -1) + ' = 0 lub ' + polyText(low, v, ctx) + ' = 0\n' + v + ' = ' + fmt(r, ctx) + ' lub ' + polyText(low, v, ctx) + ' = 0' });
         solveDegree(low, v, steps, ctx, sol);
     }
+    // [EN] rozkład jak w szkole → każdy czynnik = 0; null, gdy został czynnik stopnia ≥ 3 (wtedy zostaje sam Horner)
+    function schoolSolve(c, v, steps, ctx) {
+        var sf = schoolFactor(c, v, ctx);
+        if (!sf || sf.factors.some(function (f) { return f.c.length > 3; })) return null;
+        var out = steps.concat(sf.steps), sol = [];
+        var zero = sf.factors.map(function (f) { return polyText(f.c, v, ctx) + ' = 0'; }).join(' lub ');
+        var parts = sf.factors.map(function (f) { return f.c.length === 2 ? v + ' = ' + fmt(neg(f.c[0]), ctx) : polyText(f.c, v, ctx) + ' = 0'; }).join(' lub ');
+        out.push({ label: 'Przyrównuję każdy czynnik do zera', math: zero + (parts === zero ? '' : '\n' + parts) });
+        sf.factors.forEach(function (f) {
+            if (f.c.length === 2) sol.push({ r: neg(f.c[0]) });
+            else solveQuadratic(f.c, v, out, ctx, sol);
+        });
+        return { steps: out, sol: sol };
+    }
+    // [EN] stopień ≥ 3: sposób szkolny (rozkład) i Horner jako dwa sposoby, gdy się różnią
+    function solveHigher(c, v, steps, ctx, lhs, rhs) {
+        var sch = schoolSolve(c, v, steps, ctx), hs = steps.slice(), hsol = [], hok = true;
+        try { solveDegree(c, v, hs, ctx, hsol); } catch (e) { if (!(e instanceof NotSupported)) throw e; hok = false; }
+        if (!sch && !hok) throw new NotSupported();
+        if (!sch) return finishSolutions(hsol, v, lhs, rhs, hs, ctx);
+        var res = finishSolutions(sch.sol, v, lhs, rhs, sch.steps, ctx);
+        if (hok) {
+            var resH = finishSolutions(hsol, v, lhs, rhs, hs, ctx);
+            if (JSON.stringify(resH.explain.steps) !== JSON.stringify(res.explain.steps)) {
+                res.explain.methods = [{ label: 'Rozkład na czynniki', steps: res.explain.steps }, { label: 'Schemat Hornera', steps: resH.explain.steps }];
+            }
+        }
+        return res;
+    }
     function hornerSteps(c, v, ctx, r) { // [EN] pierwiastek wśród dzielników, schemat Hornera, iloczyn (r już znany)
         var steps = [], low = deflate(c, r);
         var lin = '(' + v + (r.n < 0n ? ' + ' + fmt(neg(r), ctx) : ' − ' + fmt(r, ctx)) + ')';
@@ -1091,6 +1120,7 @@
             if (!pureSquare && zero !== steps[steps.length - 1].math) {
                 steps.push({ label: 'Przenoszę wszystko na lewą stronę', math: zero });
             }
+            if (c.length >= 4) return solveHigher(c, v, steps, ctx, lhs, rhs);
             solveDegree(c, v, steps, ctx, sol);
         }
         var res = finishSolutions(sol, v, lhs, rhs, steps, ctx);

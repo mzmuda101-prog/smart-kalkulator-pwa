@@ -189,7 +189,7 @@ pass += 3;
     ok('3g: x/2 — bez pustego kroku, mnożę przez 2', !has(Z, 'Porządkuję i redukuję wyrazy podobne') && has(Z, 'Mnożę obie strony przez 2', 'x = 2 · 2 = 4'), st(Z));
     ok('3g: (2/3)x = 4 — mnożę przez 3/2', has('rozwiąż 2x/3 = 4', 'Mnożę obie strony przez 3/2', 'x = 4 · 3/2 = 6'), st('rozwiąż 2x/3 = 4'));
     ok('3g: −x = 4 — zmieniam znak, nie dzielę przez −1', has('rozwiąż 7 = 3 - x', 'Zmieniam znak obu stron', 'x = −4'), st('rozwiąż 7 = 3 - x'));
-    ok('3g: Bezout — przejście do drugiego czynnika', has('rozwiąż x^3 - 6x^2 + 11x - 6 = 0', 'Przyrównuję każdy czynnik do zera', 'x − 1 = 0 lub x² − 5x + 6 = 0\nx = 1 lub x² − 5x + 6 = 0'));
+    ok('3g: Bezout — przejście do drugiego czynnika', S.run('rozwiąż x^3 - 6x^2 + 11x - 6 = 0').explain.methods[1].steps.some(x => x.label === 'Przyrównuję każdy czynnik do zera' && x.math === 'x − 1 = 0 lub x² − 5x + 6 = 0\nx = 1 lub x² − 5x + 6 = 0'));
     const W = 'rozwiąż x^2 - 3x = 0';
     ok('3g: x² − 3x = 0 — bez współczynników, z x − 3 = 0', !has(W, 'Odczytuję współczynniki') && has(W, 'Wyłączam x przed nawias', 'x(x − 3) = 0')
         && has(W, 'Przyrównuję każdy czynnik do zera', 'x = 0 lub x − 3 = 0\nx = 0 lub x = 3'), st(W));
@@ -353,6 +353,23 @@ pass += 3;
     ok('2+3: Horner — tekst dzielenia i tabelka', !!h && h.math.replace(/[⟦⟧]/g, '') === '(x³ − 6x² + 11x − 6) : (x − 1) = x² − 5x + 6'
         && JSON.stringify(h.horner) === JSON.stringify({ r: '1', top: ['1', '−6', '11', '−6'], mid: ['', '1', '−5', '6'], bot: ['1', '−5', '6', '0'] }), h);
     ok('2+3: dymek Bezouta przy iloczynie', !!C[hi + 1] && C[hi + 1].formula && C[hi + 1].formula.id === 'bezout' && /⟦\(x − 1\)\(x² − 5x \+ 6\)⟧/.test(C[hi + 1].math), C[hi + 1]);
+}
+
+// rozwiąż: wielomian stopnia >= 3 — rozkład jak w szkole obok Hornera (zad. 3)
+{
+    const hs = q => S.run(q).explain;
+    const fid = (q, id) => hs(q).steps.some(x => x.formula && x.formula.id === id);
+    ok('x^3-x=0: pierwiastki', text('rozwiąż x^3-x=0') === 'x₁ = −1, x₂ = 0, x₃ = 1', text('rozwiąż x^3-x=0'));
+    ok('x^3-x=0: wyłączanie przed nawias', fid('rozwiąż x^3-x=0', 'wylaczanie-przed-nawias'));
+    ok('x^4-5x^2+4=0: cztery pierwiastki', text('rozwiąż x^4-5x^2+4=0') === 'x₁ = −2, x₂ = −1, x₃ = 1, x₄ = 2', text('rozwiąż x^4-5x^2+4=0'));
+    ok('x^4-5x^2+4=0: podstawienie t', fid('rozwiąż x^4-5x^2+4=0', 'podstawienie-t'));
+    ok('x^3-6x^2+11x-6=0: wynik bez zmian', text('rozwiąż x^3-6x^2+11x-6=0') === 'x₁ = 1, x₂ = 2, x₃ = 3');
+    ok('x^4-3x^2+1=0: nadal nieobsługiwane', /Jeszcze tego nie/.test(text('rozwiąż x^4-3x^2+1=0')), text('rozwiąż x^4-3x^2+1=0'));
+    ['rozwiąż x^3-6x^2+11x-6=0', 'rozwiąż x^4-5x^2+4=0', 'rozwiąż 2x^3-3x^2-2x+3=0'].forEach(q => {
+        const m = hs(q).methods;
+        ok(q + ': sposoby', !!m && m.map(x => x.label).join('|') === 'Rozkład na czynniki|Schemat Hornera', m && m.map(x => x.label));
+        ok(q + ': ten sam ostatni krok', !!m && JSON.stringify(m[0].steps.slice(-1)) === JSON.stringify(m[1].steps.slice(-1)));
+    });
 }
 
 console.log(`math-steps: ${pass} OK, ${fail} błędów`);
