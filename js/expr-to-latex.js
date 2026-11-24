@@ -175,6 +175,16 @@
         }
         if (p[0] === '±' || p[0] === '+') { const r = pieceTex(p.slice(1), fid); return r == null ? null : (p[0] === '+' ? '+' : '\\pm ') + r; }
         if (WORD.test(p.replace(FNWORDS, ''))) return null;
+        // (n + 4) − n: nawias pierwszej sumy zostaje, choć zbędny — widać, co od czego odejmujemy (licznik − mianownik)
+        if (p[0] === '(') {
+            let d = 0, j = 0;
+            for (; j < p.length; j++) { if (p[j] === '(') d++; else if (p[j] === ')' && --d === 0) break; }
+            const inner = p.slice(1, j);
+            if (p.startsWith(') − ', j) && / [+−] /.test(inner)) {
+                const a = pieceTex(inner, fid), b = pieceTex(p.slice(j + 2), fid);
+                if (a != null && b != null) return '\\left(' + a + '\\right)' + b;
+            }
+        }
         // n¹⁰ → n^(10) (tokenizer zna tylko jedną cyfrę ²…⁹), log₄( → log_4(
         p = p.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]{2,}|[⁰¹]/g, m => '^(' + m.split('').map(ch => '⁰¹²³⁴⁵⁶⁷⁸⁹'.indexOf(ch)).join('') + ')')
             .replace(/log([₀-₉]+)\(/g, (m, b) => 'log_' + b.split('').map((/** @type {string} */ ch) => ch.charCodeAt(0) - 0x2080).join('') + '(');

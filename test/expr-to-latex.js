@@ -107,6 +107,9 @@ ok('zestaw: 58/58 rysunków wraca do tego samego zadania', bad.length === 0, bad
     ok('kroki: (sin(x))′ z nawiasem, nie sin′ x', stepToLatex('(sin(x))′ = cos(x)')[0] === '\\left(\\sin x\\right)^{\\prime}', stepToLatex('(sin(x))′ = cos(x)'));
     ok('kroki: całka z granicami', stepToLatex('∫(0→1) x² dx').join('') === '\\int_{0}^{1} x^{2}\\,dx', stepToLatex('∫(0→1) x² dx'));
     ok('kroki: W(1) to zapis funkcji, nie iloczyn', stepToLatex('W(1) = 0').join('') === 'W\\left(1\\right)=0', stepToLatex('W(1) = 0'));
+    // [EN] licznik minus mianownik: nawias pierwszej sumy zostaje (słaby uczeń widzi, co od czego odejmujemy)
+    ok('kroki: (n + 4) − n z nawiasem', stepToLatex('(n + 4) − n = 4')[0] === '\\left(n+4\\right)-n', stepToLatex('(n + 4) − n = 4'));
+    ok('kroki: (5n + 7) − (5n − 8) z nawiasami', stepToLatex('(5n + 7) − (5n − 8) = 15')[0] === '\\left(5n+7\\right)-\\left(5n-8\\right)', stepToLatex('(5n + 7) − (5n − 8) = 15'));
     ok('kroki: przecinek zostaje przy wzorze', stepToLatex('1 − 1/n = 1 + 1/(−n),  aₙ = −n').join('|') === '1-\\frac{1}{n}|=1+\\frac{1}{-n},|a_{n}|=-n');
 }
 

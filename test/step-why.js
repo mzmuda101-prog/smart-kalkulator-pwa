@@ -132,5 +132,19 @@ ok('Sprawdzenie w całce ≠ w równaniu', whyFor({ label: 'Sprawdzenie', math: 
     ok('Horner przy x → 0: (x), nie (x-0)', h0.includes('(x)') === false && !h0.includes('x-0') && /\$x\$/.test(h0), h0);
 }
 
+// ── poprawki końcowe: r nazwane (6b), de l'Hospital bez fałszu przy ponownym ∞/∞ (7) ──
+{
+    const wr = whyOf('lim n→∞ ((n+4)/n)^(n+5)', 'Zapisujemy podstawę');
+    ok('FF6: zdanie mówi, czym jest r', /\$r\$/.test(wr || '') && /reszt/.test(wr || ''), wr);
+    const w0 = whyOf('lim n→∞ (1+1/n)^n', 'Zapisujemy podstawę');
+    ok('FF6: bez r w zadaniu bez r — zdanie bez r', !/\$r\$/.test(w0 || ''), w0);
+    const lh = q => { const r = S.run(q), m = r.explain.methods.find(x => x.label === "de l'Hospital"), i = m.steps.findIndex(x => /^Reguła de l/.test(x.label));
+        return whyFor(m.steps[i], r.explain.title, Object.assign({}, r.explain, { steps: m.steps }), i); };
+    for (const q of ['lim x→∞ x/sqrt(3x^2+5)', 'lim x→-∞ x/sqrt(3x^2+5)', 'lim x→-1 (3x^3+8x^2+7x+2)/(2x^4+4x^3-3x^2-10x-5)'])
+        ok('FF7: nie obiecuje policzenia ' + q, !/da się już policzyć/.test(lh(q)), lh(q));
+    ok('FF7: ∞/∞ znowu', /infty/.test(lh('lim x→∞ x/sqrt(3x^2+5)')), lh('lim x→∞ x/sqrt(3x^2+5)'));
+    ok('FF7: przy podstawieniu zdanie bez zmian', /da się już policzyć/.test(lh('lim x→4 (x^2-6x+8)/(3x^2-10x-8)')), lh('lim x→4 (x^2-6x+8)/(3x^2-10x-8)'));
+}
+
 console.log(fail ? '❌ ' + fail + ' błędów, ' + pass + ' ok' : '✅ step-why: ' + pass + ' ok');
 process.exit(fail ? 1 : 0);

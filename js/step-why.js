@@ -93,7 +93,9 @@
             const sgn = r.startsWith('−') ? '+' + r.slice(1) : '-' + r;
             return 'Liczba $' + r.replace('−', '-') + '$ zeruje licznik i mianownik, więc oba dzielą się przez $' + (r === '0' ? 'x' : '(x' + sgn + ')') + '$.';
         }],
-        [/^Zapisujemy podstawę jako 1 \+ 1\/aₙ$/, 'Wzór na $e$ wymaga postaci $1+\\frac{1}{\\text{coś}}$, a w potędze tego samego „coś”. Przerabiamy podstawę na ten kształt.'],
+        [/^Zapisujemy podstawę jako 1 \+ 1\/aₙ$/, s => /^r = /m.test(s.math)
+            ? 'Wzór na $e$ wymaga postaci $1+\\frac{1}{a_{n}}$ i $a_{n}$ w potędze. Wykładnik dzielimy przez $a_{n}$: wynik $r$ to reszta wykładnika.'
+            : 'Wzór na $e$ wymaga postaci $1+\\frac{1}{\\text{coś}}$, a w potędze tego samego „coś”. Przerabiamy podstawę na ten kształt.'],
         [/^Kolorowa potęga dąży do e$/, 'W nawiasie jest $1+\\frac{1}{a_{n}}$, a nad nim to samo $a_{n}$. Resztę wykładnika liczymy osobno.'],
         [/^Granica wykładnika$/, (_s, _t, c) => isShortcut(c)
             ? 'Wzór skrócony daje $e$ do potęgi $\\lim g\\cdot(f-1)$, więc liczymy właśnie tę granicę.'
@@ -115,6 +117,9 @@
         [/^Kolorowy ułamek dąży do 1$/, 'Zastępujemy kolorowy ułamek jedynką i zostaje prostsze wyrażenie.'],
         [/^Reguła de l'Hospitala$/, (_s, _t, c) => c.prev && /^Reguła de l'Hospitala$/.test(c.prev.label)
             ? 'Po pierwszym razie znowu wychodzi symbol nieoznaczony, więc stosujemy regułę drugi raz.'
+            // [EN] zdanie „da się już policzyć” tylko wtedy, gdy następny krok to podstawienie
+            : c.next && /^(Wyłączamy|Dla \w → )/.test(c.next.label) ? 'Po regule znowu wychodzi $\\frac{\\infty}{\\infty}$, więc dalej liczymy jak przy granicy w nieskończoności: wyłączamy najwyższą potęgę.'
+            : c.next && !/^(Podstawiamy|Wynik)/.test(c.next.label) ? 'Po pochodnych ułamek nadal daje symbol nieoznaczony, więc przekształcamy go dalej.'
             : 'Pochodne licznika i mianownika są prostsze od nich samych i ich ułamek da się już policzyć.'],
         [/^Sprowadzamy do wspólnego mianownika$/, 'Ułamki można dodać albo odjąć dopiero wtedy, gdy mają ten sam mianownik.'],
         [/^Zapisujemy oba wykładniki tak samo$/, 'Przerabiamy potęgi tak, żeby góra i dół ułamka miały nad sobą to samo.'],

@@ -928,7 +928,7 @@
             var diff = isOne(fr.D) ? '' : '\n' + par(fr.N) + ' − ' + par(fr.D) + ' = ' + dsh + (hn !== dsh ? ' = ' + hn : '');
             var mp = function (x) { return /[+−\/]/.test(x) ? '(' + x + ')' : x; }; // [EN] nawias tylko przy sumie, ułamku i minusie
             var sg = C.show(p.g), rline = /^−?n$/.test(sa) || sgh === '1' || sgh === '−1' ? '' : '\nr = ' + mp(sg) + '/' + pa + ' = ' + sgh;
-            var split = rline + '\n' + sg + ' = ' + mp(sa) + ' · ' + mp(sgh);
+            var split = sgh === '1' ? '' : rline + '\n' + sg + ' = ' + mp(sa) + ' · ' + mp(sgh); // [EN] wykładnik = aₙ: bez „n = n · 1”
             line(log, 'Zapisujemy podstawę jako 1 + 1/aₙ', (diff ? diff.slice(1) + '\n' : '') + (onePlus === C.show(p.f) ? onePlus : C.show(p.f) + ' = ' + onePlus) + tail + ',  aₙ = ' + sa + split);
             // [EN] bez osobnego kroku „Wzór na e” (spec 5.12): fragment ⟦…⟧ jest wyróżniony kolorem, stuknięcie → dymek ze wzorem
             var core = '⟦(' + onePlus + ')^' + pa + '⟧';

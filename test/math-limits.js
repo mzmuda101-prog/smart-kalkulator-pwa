@@ -525,9 +525,11 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     const hh = h && h.formula && h.formula.here || '';
     ok('S18: Horner w granicy — r, rachunek i reszta', typeof hh === 'string' && hh.includes('r = 2') && hh.includes('0 + 2 · 1 = 2') && hh.includes('reszta 0'), hh);
     ok('S18: dwie tabelki — każdy ciąg z nazwą', hh.includes('licznik: r = 2') && hh.includes('mianownik: r = 2') && hh.indexOf('licznik: r = 2') < hh.indexOf('mianownik: r = 2'), hh);
+    // FF5: pierwszy współczynnik spisany w dół widać na początku ciągu
+    ok('FF5: pierwszy współczynnik po r', /^licznik: r = 2: 1, /.test(hh) && /mianownik: r = 2: \d+, /.test(hh), hh);
     const dd = S.run('lim x→1 (x^3-3x+2)/(x^2-2x+1)').explain.steps.find(x => x.label === 'Dzielimy schematem Hornera');
     const dh = dd && dd.formula.here || '';
-    ok('S18: pierwiastek podwójny — trzy ciągi z nazwami', (dh.match(/licznik: r = 1/g) || []).length === 2 && dh.includes('mianownik: r = 1'), dh);
+    ok('S18: pierwiastek podwójny — trzy ciągi z nazwami', (dh.match(/licznik: r = 1: /g) || []).length === 2 && dh.includes('mianownik: r = 1'), dh);
     const hm = S.run('lim x→-1 (x^3+1)/(x+1)').explain.steps.find(x => x.label === 'Dzielimy schematem Hornera');
     ok('S18: Horner w granicy — ujemne r w nawiasie', !!hm && typeof hm.formula.here === 'string' && hm.formula.here.includes('(−1) · 1'), hm && hm.formula.here);
     // bramka: każdy „Rozkładamy na czynniki” w zestawie ma tuż przed sobą krok z tabelkami, reszta 0
@@ -578,6 +580,9 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     const m4 = S.run('lim x→0 sin(x)/x').explain;
     const f4 = (m4.methods ? m4.methods[0].steps : m4.steps)[0].math.split('\n');
     ok('FF4: mianownik x = 0', f4.includes('x = 0') && !f4.slice(1).includes('0'), f4);
+    // [EN] 3: wykładnik równy aₙ — bez trywialnej linii n = n · 1
+    const e3 = S.run('lim n→∞ (1+1/n)^n').explain.steps.find(x => /^Zapisujemy podstawę/.test(x.label)).math;
+    ok('FF3: bez n = n · 1', !/· 1$/m.test(e3) && !e3.includes('n = n'), e3);
 }
 
 console.log(`math-limits: ${pass} OK, ${fail} błędów`);
