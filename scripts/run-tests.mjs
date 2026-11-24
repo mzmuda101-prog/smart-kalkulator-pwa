@@ -38,6 +38,7 @@ const SUITES = [
     'test/hint-rules.js',
     'test/synonyms.js',
     'test/math-steps.js',
+    'test/school-factor.js',
     'test/math-calculus.js',
     'test/math-limits.js',
     'test/latex-to-expr.js',

@@ -129,7 +129,9 @@ ok('3e: Liczę dwa rozwiązania, 2 · 1 w mianowniku', has(q2, 'Liczę dwa rozwi
 ok('3e: jedno rozwiązanie', has('rozwiąż x^2 - 4x + 4 = 0', 'Liczę jedno rozwiązanie') && fm('rozwiąż x^2 - 4x + 4 = 0', 'wzor-x0'), st('rozwiąż x^2 - 4x + 4 = 0'));
 ok('3e: sprawdzenie 6x² → 6 · 1²', st('rozwiąż x^3 - 6x^2 + 11x - 6 = 0').some(x => x.math.includes('L = 1³ − 6 · 1² + 11 · 1 − 6 = 0')), st('rozwiąż x^3 - 6x^2 + 11x - 6 = 0').slice(-2));
 // rozkład: miejsca zerowe, potem postać iloczynowa
-ok('3e: rozkład przez miejsca zerowe (z delty, R5)', has('rozłóż x^2 - 5x + 6', 'Liczę deltę') && fm('rozłóż x^2 - 5x + 6', 'postac-iloczynowa'), st('rozłóż x^2 - 5x + 6'));
+// rozkład jak w szkole: pierwiastki całkowite → suma i iloczyn; inaczej delta (R5)
+ok('3e: rozkład sumą i iloczynem', fm('rozłóż x^2 - 5x + 6', 'wzory-viete') && fm('rozłóż x^2 - 5x + 6', 'postac-iloczynowa') && !has('rozłóż x^2 - 5x + 6', 'Liczę deltę'), st('rozłóż x^2 - 5x + 6'));
+ok('3e: rozkład przez miejsca zerowe (z delty, R5)', has('rozłóż 2x^2 - 3x + 1', 'Liczę deltę') && fm('rozłóż 2x^2 - 3x + 1', 'postac-iloczynowa'), st('rozłóż 2x^2 - 3x + 1'));
 // kwadrat sumy
 ok('3e: kwadrat sumy', has('uprość (x + 1)^2 + 2x', 'Rozpisuję kwadrat sumy') && fm('uprość (x + 1)^2 + 2x', 'kwadrat-sumy'), st('uprość (x + 1)^2 + 2x'));
 // ułamki: rozszerzanie widać, czasowniki

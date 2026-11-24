@@ -52,7 +52,7 @@
     /** @type {[RegExp, string | ((s: Step, title: string, c: Ctx) => string | null)][]} */
     const RULES = [
         // ── stwierdzenia: bez zdania ──
-        [/^(Wynik|Odpowiedź|Liczby|Równanie|Równanie trygonometryczne|Układ równań|Nierówność|Funkcja|Całka|Działanie|Wyrażenie|Wynik w przybliżeniu)$/, ''],
+        [/^(Wynik|Odpowiedź|Liczby|Liczba|Równanie|Równanie trygonometryczne|Układ równań|Nierówność|Funkcja|Całka|Działanie|Wyrażenie|Wynik w przybliżeniu)$/, ''],
         // ── granice ──
         [/^Granica$/, (s, _t, c) => {
             const m = /\s\s\[⟦?([^\]⟧]+)⟧?\](?:\n.*)*$/.exec(s.math);
@@ -244,7 +244,18 @@
         [/^Szukam dwóch liczb o sumie/, 'Sprawdzam pary dzielników wyrazu wolnego, aż zgodzi się też suma.'],
         [/^Szukam pierwiastka/, (s) => /dzielniki/.test(s.math) ? 'Całkowity pierwiastek takiego wielomianu musi dzielić liczbę bez $x$, więc sprawdzam jej dzielniki, aż któryś da 0.' : 'Szukam liczby, dla której wielomian daje 0. Wtedy nawias z tą liczbą dzieli wielomian.'],
         [/^Nie ma pierwiastków wymiernych/, 'Żaden dzielnik wyrazu wolnego nie zeruje wielomianu, więc prościej go nie rozłożymy.'],
-        [/^Wyłączam wspólny czynnik/, 'Ten sam czynnik jest w każdym wyrazie, więc wyciągam go przed nawias.'],
+        [/^Wyłączam wspólny czynnik/, (s) => s.formula ? 'Zaczynam od tego, bo po wyjęciu wspólnej części w nawiasie zostaje prostsze wyrażenie.'
+            : 'Ten sam czynnik jest w każdym wyrazie, więc wyciągam go przed nawias.'],
+        // ── rozkład jak w szkole ──
+        [/^Zwijam kwadrat (sumy|różnicy)$/, 'Skrajne wyrazy są kwadratami, a środkowy to ich podwojony iloczyn, więc całość jest kwadratem jednego nawiasu.'],
+        [/^Rozkładam (różnicę|sumę) sześcianów$/, 'Oba wyrazy są sześcianami, więc nawiasy odczytuję prosto ze wzoru.'],
+        [/^Grupuję wyrazy w pary$/, 'Patrzę na pierwsze dwa i ostatnie dwa wyrazy osobno: po wyjęciu z nich czegoś zostaje ten sam nawias.'],
+        [/^Wyłączam wspólny nawias$/, 'Oba składniki mają ten sam nawias, więc wyciągam go przed nawias jak zwykłą liczbę.'],
+        [/^Podstawiam [tu] w miejsce /, 'Tu największa potęga to podwojona środkowa, więc po zamianie zostaje trójmian, który już umiem rozłożyć.'],
+        [/^Wracam do [a-z]$/, 'Zamiast litery pomocniczej wpisuję z powrotem potęgę, bo wynik ma być zapisany przez wyjściową zmienną.'],
+        [/^Porządkuję czynniki$/, 'Liczby z nawiasów wyjmuję przed iloczyn i ustawiam nawiasy w stałej kolejności.'],
+        [/^Dzielę przez kolejne liczby pierwsze$/, 'Dzielę przez najmniejszą liczbę pierwszą, przez którą się da, aż zostanie 1.'],
+        [/^Zbieram czynniki pierwsze$/, 'Liczby, przez które dzieliłem, dają razem wyjściową liczbę; powtórzone zapisuję jako potęgę.'],
         [/^Nie ma wspólnego czynnika/, 'Żaden czynnik nie powtarza się we wszystkich wyrazach.'],
         [/^Zmienna się skróciła/, 'Po uproszczeniu zostało zdanie fałszywe, więc żadna liczba nie spełnia równania.'],
         [/^Brak rozwiązań$/, 'Żadna liczba nie spełnia równania.'],
@@ -284,7 +295,7 @@
         [/^Korzystam z tablicy pochodnych$/, 'Pod funkcją stoi samo $x$, więc nic więcej nie trzeba liczyć.'],
         [/^Wstawiam policzoną całkę$/, 'Mała całka jest już policzona, więc wstawiam ją na jej miejsce we wzorze.'],
         [/^Całkuję każdą część$/, (s) => /cos\(2/.test(s.math) ? 'W $\\cos 2x$ jest w środku $2x$, więc całkując, dzielę jeszcze przez 2.' : 'Obie części są w tablicy całek, więc wyniki od razu przepisuję.'],
-        [/^Składam całość$/, 'Dopisuję czynnik, który wcześniej wyłączyłem przed nawias.'],
+        [/^Składam całość$/, 'Zbieram nawiasy z poprzednich kroków w jeden iloczyn: to rozkład całego wyrażenia.'],
         [/^Składam wynik$/, 'Wstawiam policzone części do wzoru i zapisuję całość.'],
         // ── całki ──
         [/^Całka sumy/, 'Całkę sumy liczymy jako sumę całek każdego składnika.'],
