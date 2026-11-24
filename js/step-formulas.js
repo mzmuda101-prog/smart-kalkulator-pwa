@@ -49,6 +49,18 @@
                 'W mianowniku zostaje suma $a^{2}+ab+b^{2}$, która rośnie i nie daje już $\\infty-\\infty$.',
             ],
         },
+        'suma-szescianow': {
+            name: 'Suma sześcianów',
+            tex: 'a^{3}+b^{3}=(a+b)\\left(a^{2}-ab+b^{2}\\right)',
+            why: 'Sumę dwóch sześcianów zapisujemy jako nawias z sumą razy nawias, w którym środkowy wyraz ma minus.',
+            level: 'Liceum, zakres rozszerzony: wzory skróconego mnożenia',
+            more: [
+                'Skąd wzór: wymnażamy prawą stronę, każdy wyraz pierwszego nawiasu przez każdy wyraz drugiego. Wychodzi $a^{3}-a^{2}b+ab^{2}+a^{2}b-ab^{2}+b^{3}$. Wyrazy $-a^{2}b$ i $+a^{2}b$ się znoszą, tak samo $+ab^{2}$ i $-ab^{2}$. Zostaje $a^{3}+b^{3}$, czyli lewa strona.',
+                'Przykład: $x^{3}+8=x^{3}+2^{3}=(x+2)(x^{2}-2x+4)$. Tu $a=x$, a $b=2$, bo $2^{3}=8$.',
+                'Znaki: w pierwszym nawiasie stoi ten sam znak co między sześcianami, a w drugim środkowy wyraz ma znak przeciwny. Drugi nawias nie ma miejsc zerowych (jego delta jest ujemna), więc dalej się nie rozkłada.',
+                'Skąd nazwa: sześcian liczby to jej trzecia potęga, bo tyle wynosi objętość sześcianu o krawędzi $a$: $a\\cdot a\\cdot a=a^{3}$.',
+            ],
+        },
         'roznica-czwartych': {
             name: 'Różnica czwartych potęg',
             tex: 'a^{4}-b^{4}=(a-b)\\left(a^{3}+a^{2}b+ab^{2}+b^{3}\\right)',
@@ -235,6 +247,19 @@
             why: 'Kwadrat nawiasu to nawias razy nawias: każdy wyraz pierwszego mnożymy przez każdy wyraz drugiego.',
             level: 'Szkoła podstawowa i liceum: wzory skróconego mnożenia',
             more: ['Najczęstszy błąd: $(x+1)^{2}$ to nie $x^{2}+1$. Brakuje środka $2\\cdot x\\cdot 1=2x$.'],
+        },
+        'kwadrat-roznicy': {
+            name: 'Kwadrat różnicy',
+            tex: '(a-b)^{2}=a^{2}-2ab+b^{2}',
+            why: 'Kwadrat nawiasu z minusem: oba kwadraty są z plusem, a minus dostaje tylko środkowy, podwojony iloczyn.',
+            level: 'Szkoła podstawowa i liceum: wzory skróconego mnożenia',
+            more: [
+                'Skąd wzór: kwadrat to nawias razy nawias, $(a-b)^{2}=(a-b)(a-b)$. Mnożymy każdy wyraz przez każdy: $a\\cdot a-a\\cdot b-b\\cdot a+b\\cdot b$. Dwa środkowe wyrazy są takie same i razem dają $-2ab$, więc wychodzi $a^{2}-2ab+b^{2}$.',
+                'Przykład: $x^{2}-6x+9=x^{2}-2\\cdot x\\cdot 3+3^{2}=(x-3)^{2}$. Tu $a=x$, a $b=3$.',
+                'Najczęstszy błąd: $(x-3)^{2}$ to nie $x^{2}-9$. Brakuje środka $-2\\cdot x\\cdot 3=-6x$, a $3^{2}$ dodajemy, nie odejmujemy.',
+                'Przy rozkładzie: gdy pierwszy i ostatni wyraz trójmianu są kwadratami, sprawdź środek. Jeśli to minus ich podwojony iloczyn, trójmian jest kwadratem różnicy i ma jedno miejsce zerowe.',
+                'Skąd nazwa: to kwadrat, czyli druga potęga, różnicy dwóch wyrażeń $a-b$.',
+            ],
         },
         'pochodna-potegi': {
             name: 'Pochodna potęgi',
@@ -628,7 +653,8 @@
     const HANDBOOK = {
         e: ['granice', 'st', ['liczba e', 'jeden do nieskończoności', 'granica ciągu'], 'lim n→∞ (1-1/n)^n', '1/e', ['nieoznaczone', 'ln1u', 'potega-ilorazu', 'e-skrocony']],
         sprzezenie: ['granice', 'lp', ['sprzężenie', 'mnożenie przez sprzężenie', 'nieskończoność minus nieskończoność', 'pierwiastki'], 'lim n→∞ (sqrt(2n+5)-sqrt(2n+1))', '0', ['roznica-kwadratow', 'roznica-szescianow', 'nieoznaczone']],
-        'roznica-szescianow': ['wyrazenia', 'lr', ['sześciany', 'pierwiastek trzeciego stopnia', 'wzory skróconego mnożenia'], 'lim n→∞ (∛(n^3+8n^2)-∛(n^3+2n^2))', '2', ['sprzezenie', 'roznica-czwartych']],
+        'roznica-szescianow': ['wyrazenia', 'lr', ['sześciany', 'pierwiastek trzeciego stopnia', 'wzory skróconego mnożenia'], 'lim n→∞ (∛(n^3+8n^2)-∛(n^3+2n^2))', '2', ['sprzezenie', 'roznica-czwartych', 'suma-szescianow']],
+        'suma-szescianow': ['wyrazenia', 'lr', ['suma sześcianów', 'sześciany', 'wzory skróconego mnożenia', 'rozkład na czynniki'], 'rozłóż x^3 + 8', '(x + 2)(x² − 2x + 4)', ['roznica-szescianow', 'wylaczanie-przed-nawias']],
         'roznica-czwartych': ['wyrazenia', 'st', ['czwarte potęgi', 'pierwiastek czwartego stopnia'], 'lim n→∞ (∜(n^4+7n^3)-∜(n^4-n^3))', '2', ['roznica-szescianow', 'sprzezenie']],
         'pierwiastek-z-kwadratu': ['wyrazenia', 'lp', ['wartość bezwzględna', 'moduł', 'pierwiastek z kwadratu'], 'lim x→-∞ x/sqrt(3x^2+5)', '−√3/3', ['sprzezenie', 'wartosc-bezwzgledna']],
         'log-iloraz': ['potegi-log', 'lp', ['logarytm ilorazu', 'różnica logarytmów', 'log'], 'lim n→∞ (log_2(8n+1)-log_2(n+6))', '3', ['definicja-logarytmu']],
@@ -647,7 +673,8 @@
         'grupowanie-wyrazow': ['wyrazenia', 'lp', ['grupowanie wyrazów', 'grupowanie', 'rozkład na czynniki', 'wielomian czterowyrazowy'], 'rozłóż x^3-2x^2+x-2', '(x − 2)(x² + 1)', ['wylaczanie-przed-nawias', 'roznica-kwadratow', 'bezout']],
         'podstawienie-t': ['rownania', 'lr', ['podstawienie t', 'równanie dwukwadratowe', 'x do czwartej', 'zamiana zmiennej'], 'rozwiąż x^4-5x^2+4=0', 'x₁ = −2, x₂ = −1, x₃ = 1, x₄ = 2', ['delta', 'wzory-viete', 'postac-iloczynowa']],
         'postac-iloczynowa': ['funkcje', 'lp', ['postać iloczynowa', 'rozkład trójmianu', 'funkcja kwadratowa', 'miejsca zerowe'], 'rozłóż x^2 - 5x + 6', '(x − 2)(x − 3)', ['delta', 'wzory-x12', 'wierzcholek']],
-        'kwadrat-sumy': ['wyrazenia', 'lp', ['kwadrat sumy', 'wzory skróconego mnożenia', 'nawias do kwadratu'], 'kroki (x+3)^2', 'x² + 6x + 9', ['roznica-kwadratow', 'wzor-x0']],
+        'kwadrat-sumy': ['wyrazenia', 'lp', ['kwadrat sumy', 'wzory skróconego mnożenia', 'nawias do kwadratu'], 'kroki (x+3)^2', 'x² + 6x + 9', ['roznica-kwadratow', 'wzor-x0', 'kwadrat-roznicy']],
+        'kwadrat-roznicy': ['wyrazenia', 'lp', ['kwadrat różnicy', 'wzory skróconego mnożenia', 'nawias do kwadratu', 'rozkład na czynniki'], 'rozłóż x^2 - 6x + 9', '(x − 3)²', ['kwadrat-sumy', 'roznica-kwadratow', 'wzor-x0']],
         'pochodna-potegi': ['pochodne', 'lr', ['pochodna potęgi', 'pochodna x do n', 'różniczkowanie'], 'pochodna 5x^3', 'f′(x) = 15x²', ['tablica-pochodnych', 'pochodna-iloczynu', 'calka-potegi']],
         'pochodna-iloczynu': ['pochodne', 'lr', ['pochodna iloczynu', 'iloczyn funkcji', 'różniczkowanie'], 'pochodna x^2*e^x', 'f′(x) = 2x · e^x + x² · e^x', ['pochodna-ilorazu', 'pochodna-potegi', 'przez-czesci']],
         'pochodna-ilorazu': ['pochodne', 'lr', ['pochodna ilorazu', 'pochodna ułamka', 'różniczkowanie'], 'pochodna x/(x+1)', 'f′(x) = 1/(x + 1)²', ['pochodna-iloczynu', 'pochodna-potegi']],

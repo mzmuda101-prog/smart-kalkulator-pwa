@@ -1489,8 +1489,13 @@
         var t = c.length === 2 && isZero(c[0]) && eq(c[1], ONE) ? v : '(' + polyText(c, v, ctx) + ')';
         return n > 1 ? t + sup(n) : t;
     }
-    function sfText(k, leaves, v, ctx) {
-        return sfK(k, ctx) + leaves.map(function (l) { return sfPiece(l.c, l.n, v, ctx); }).join('');
+    function sfText(k, leaves, v, ctx) { // [EN] te same nawiasy razem: (x − 1)(x − 1) → (x − 1)²
+        var merged = [];
+        leaves.forEach(function (l) {
+            var same = merged.filter(function (m) { return m.c.length === l.c.length && m.c.every(function (x, i) { return eq(x, l.c[i]); }); })[0];
+            if (same) same.n += l.n; else merged.push({ c: l.c, n: l.n });
+        });
+        return sfK(k, ctx) + merged.map(function (l) { return sfPiece(l.c, l.n, v, ctx); }).join('');
     }
     function sfStage(c, v, ctx) { // [EN] jedna próba z listy; {steps, k, pieces, used} albo null; c = k · Π pieces^n
         var P = polyText(c, v, ctx), deg = c.length - 1, nz = c.filter(function (x) { return !isZero(x); }).length;
@@ -1523,12 +1528,12 @@
             }
             var p3 = cbrtExact(lc), q3 = cbrtExact(c0.n < 0n ? neg(c0) : c0);
             if (deg === 3 && p3 && q3) {
-                var diff = c0.n < 0n, s = diff ? neg(q3) : q3; // [EN] a³ + b³ = a³ − (−b)³
+                var diff = c0.n < 0n, s = diff ? neg(q3) : q3;
                 var lin = [s, p3], quad = [mul(q3, q3), mul(neg(s), p3), mul(p3, p3)];
                 return {
                     steps: [{ label: diff ? 'Rozkładam różnicę sześcianów' : 'Rozkładam sumę sześcianów',
                         math: P + ' = ' + sfBase(p3, 1, v, ctx) + '³ ' + (diff ? '−' : '+') + ' ' + sfNum(q3, ctx) + '³ = ⟦(' + polyText(lin, v, ctx) + ')(' + polyText(quad, v, ctx) + ')⟧',
-                        formula: { id: 'roznica-szescianow', here: 'a = ' + polyText([ZERO, p3], v, ctx) + ', b = ' + fmt(neg(s), ctx) } }],
+                        formula: { id: diff ? 'roznica-szescianow' : 'suma-szescianow', here: 'a = ' + polyText([ZERO, p3], v, ctx) + ', b = ' + fmt(q3, ctx) } }],
                     k: ONE, pieces: [{ c: lin, n: 1 }, { c: quad, n: 1 }], used: [diff ? 'roznica-szescianow' : 'suma-szescianow']
                 };
             }
@@ -1542,7 +1547,7 @@
                 return {
                     steps: [{ label: plusSq ? 'Zwijam kwadrat sumy' : 'Zwijam kwadrat różnicy',
                         math: P + ' = ' + sfBase(ps, 1, v, ctx) + '² ' + (plusSq ? '+' : '−') + ' 2 · ' + Ab + ' · ' + sfNum(qs, ctx) + ' + ' + sfNum(qs, ctx) + '² = ⟦(' + polyText([sq, ps], v, ctx) + ')²⟧',
-                        formula: { id: 'kwadrat-sumy', here: 'a = ' + Ab + ', b = ' + fmt(sq, ctx) } }],
+                        formula: { id: plusSq ? 'kwadrat-sumy' : 'kwadrat-roznicy', here: 'a = ' + Ab + ', b = ' + fmt(qs, ctx) } }],
                     k: ONE, pieces: [{ c: [sq, ps], n: 2 }], used: [plusSq ? 'kwadrat-sumy' : 'kwadrat-roznicy']
                 };
             }
@@ -1587,7 +1592,7 @@
                 var g1 = polyText(monoC(mA, ex[1]), v, ctx) + br, other = monoC(mA, ex[1]); other[0] = kk;
                 return {
                     steps: [
-                        { label: 'Grupuję wyrazy w pary', math: P + ' = (' + polyText(top, v, ctx) + ') + (' + polyText(bot, v, ctx) + ') = ⟦' + g1 + g2 + '⟧', formula: { id: 'grupowanie-wyrazow' } },
+                        { label: 'Grupuję wyrazy w pary', math: P + ' = (' + polyText(top, v, ctx) + ')' + (bot[d].n < 0n ? ' − (' + polyText(bot.map(neg), v, ctx) : ' + (' + polyText(bot, v, ctx)) + ') = ⟦' + g1 + g2 + '⟧', formula: { id: 'grupowanie-wyrazow' } },
                         { label: 'Wyłączam wspólny nawias', math: g1 + g2 + ' = ⟦' + br + '(' + polyText(other, v, ctx) + ')⟧', formula: { id: 'wylaczanie-przed-nawias', here: 'a = ' + br } }
                     ],
                     k: ONE, pieces: [{ c: Ap, n: 1 }, { c: other, n: 1 }], used: ['grupowanie']
@@ -1687,7 +1692,7 @@
         if (prefix === '−1') prefix = '−';
         if (prefix) steps.push({ label: 'Wyłączam wspólny czynnik przed nawias', math: prefix + '(' + showTerms(rest, ctx) + ')' });
 
-        var result = prefix ? prefix + '(' + showTerms(rest, ctx) + ')' : showTerms(rest, ctx);
+        var result = prefix ? prefix + '(' + showTerms(rest, ctx) + ')' : showTerms(rest, ctx), pushedIn = false;
         var restVars = varsOf(rest);
         if (restVars.length === 1) {
             var v = restVars[0], c = coefs(rest, v), factors = [], lead = c[c.length - 1];
@@ -1726,6 +1731,7 @@
                     return f.n > 1 ? (isZero(f.r) ? inner + sup(f.n) : wrapped + sup(f.n)) : wrapped;
                 }).join('');
                 if (leftover) body += '(' + polyText(leftover, v, ctx) + ')';
+                pushedIn = !!leftover && !eq(leftover[leftover.length - 1], ONE); // [EN] stary zapis wpychał liczbę do nawiasu: (x + 1/2)(2x² + 2)
                 var leadText = eq(lead, ONE) ? '' : fmtParen(lead, ctx);
                 result = prefix + leadText + body;
                 var last = steps[steps.length - 1];
@@ -1751,9 +1757,13 @@
         }
         if (school) { // [EN] kroki szkolne; wynik jak dotąd, chyba że szkoła rozłożyła dalej (dwa czynniki bez pierwiastków wymiernych)
             var curved = school.factors.reduce(function (s, f) { return s + (f.c.length > 2 ? f.n : 0); }, 0);
-            if (curved > 1) result = school.text;
+            if (curved > 1 || pushedIn) result = school.text;
             steps = [steps[0]].concat(school.steps);
-            if (result !== school.text) steps.push({ label: 'Porządkuję czynniki', math: school.text + ' = ' + result });
+            var parts = function (t) { return (t.match(/\([^()]*\)[⁰¹²³⁴⁵⁶⁷⁸⁹]*|[a-z][⁰¹²³⁴⁵⁶⁷⁸⁹]*/g) || []).sort().join('') + '|' + /^[^(a-z]*/.exec(t)[0]; };
+            var tail = steps[steps.length - 1];
+            if (result === school.text) { /* [EN] gotowe */ } else if (tail.label === 'Składam całość' && parts(result) === parts(school.text)) {
+                tail.math = tail.math.slice(0, tail.math.lastIndexOf(' = ')) + ' = ' + result; // [EN] samo przestawienie nawiasów: bez osobnego kroku
+            } else steps.push({ label: 'Porządkuję czynniki', math: school.text + ' = ' + result });
         }
         return done('Rozkład na czynniki', result, null, steps);
     }

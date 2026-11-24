@@ -36,9 +36,9 @@ for (const [id, f] of Object.entries(FORMULAS)) {
 }
 
 // „skąd wzór” (bottom-up) i „skąd nazwa” (term-origins) przy hasłach, gdzie „zapamiętaj” było najsłabsze
-for (const id of ['delta', 'wzory-x12', 'e', 'pochodna-iloczynu', 'przez-czesci'])
+for (const id of ['delta', 'wzory-x12', 'e', 'pochodna-iloczynu', 'przez-czesci', 'suma-szescianow', 'kwadrat-roznicy'])
     ok(id + ': akapit „Skąd wzór”', (FORMULAS[id].more || []).some(t => /^Skąd (wzór|ta liczba):/.test(t)), FORMULAS[id].more);
-for (const id of ['delta', 'e', 'definicja-logarytmu', 'sprzezenie'])
+for (const id of ['delta', 'e', 'definicja-logarytmu', 'sprzezenie', 'suma-szescianow', 'kwadrat-roznicy'])
     ok(id + ': akapit „Skąd nazwa”', (FORMULAS[id].more || []).some(t => /^Skąd nazwa:/.test(t)), FORMULAS[id].more);
 
 console.log(`handbook-data: ${pass} ok, ${fail} błędów`);

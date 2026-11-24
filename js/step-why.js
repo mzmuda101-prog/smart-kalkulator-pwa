@@ -247,13 +247,17 @@
         [/^Wyłączam wspólny czynnik/, (s) => s.formula ? 'Zaczynam od tego, bo po wyjęciu wspólnej części w nawiasie zostaje prostsze wyrażenie.'
             : 'Ten sam czynnik jest w każdym wyrazie, więc wyciągam go przed nawias.'],
         // ── rozkład jak w szkole ──
-        [/^Zwijam kwadrat (sumy|różnicy)$/, 'Skrajne wyrazy są kwadratami, a środkowy to ich podwojony iloczyn, więc całość jest kwadratem jednego nawiasu.'],
-        [/^Rozkładam (różnicę|sumę) sześcianów$/, 'Oba wyrazy są sześcianami, więc nawiasy odczytuję prosto ze wzoru.'],
+        [/^Zwijam kwadrat (sumy|różnicy)$/, 'Sprawdzam, czy pierwszy i ostatni wyraz to kwadraty i czy środkowy pasuje; jeśli tak, wystarczy jeden nawias.'],
+        [/^Rozkładam (różnicę|sumę) sześcianów$/, 'Liczbę zapisuję jako trzecią potęgę, więc od razu widzę, co wstawić za $a$ i $b$.'],
         [/^Grupuję wyrazy w pary$/, 'Patrzę na pierwsze dwa i ostatnie dwa wyrazy osobno: po wyjęciu z nich czegoś zostaje ten sam nawias.'],
         [/^Wyłączam wspólny nawias$/, 'Oba składniki mają ten sam nawias, więc wyciągam go przed nawias jak zwykłą liczbę.'],
         [/^Podstawiam [tu] w miejsce /, 'Tu największa potęga to podwojona środkowa, więc po zamianie zostaje trójmian, który już umiem rozłożyć.'],
         [/^Wracam do [a-z]$/, 'Zamiast litery pomocniczej wpisuję z powrotem potęgę, bo wynik ma być zapisany przez wyjściową zmienną.'],
-        [/^Porządkuję czynniki$/, 'Liczby z nawiasów wyjmuję przed iloczyn i ustawiam nawiasy w stałej kolejności.'],
+        [/^Porządkuję czynniki$/, (s) => {
+            const [l, r] = s.math.split(' = '), lead = (/** @type {string} */ t) => (/^[^(a-z]*/.exec(t) || [''])[0];
+            return r !== undefined && lead(l) !== lead(r) ? 'Liczby z nawiasów wyjmuję przed iloczyn i ustawiam nawiasy w stałej kolejności.'
+                : 'To ten sam iloczyn, tylko nawiasy ustawiam w stałej kolejności, jak w wyniku.';
+        }],
         [/^Dzielę przez kolejne liczby pierwsze$/, 'Dzielę przez najmniejszą liczbę pierwszą, przez którą się da, aż zostanie 1.'],
         [/^Zbieram czynniki pierwsze$/, 'Liczby, przez które dzieliłem, dają razem wyjściową liczbę; powtórzone zapisuję jako potęgę.'],
         [/^Nie ma wspólnego czynnika/, 'Żaden czynnik nie powtarza się we wszystkich wyrazach.'],

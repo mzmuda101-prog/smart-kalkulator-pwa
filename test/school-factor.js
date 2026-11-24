@@ -77,5 +77,26 @@ ok('rozłóż: ostatni krok to wynik', ['rozłóż x^3-x', 'rozłóż 4x^2-9', '
 ok('rozłóż 84', txt('rozłóż 84') === '2² · 3 · 7', txt('rozłóż 84'));
 ok('rozłóż 84: dzielenie', st('rozłóż 84').some((/** @type {any} */ s) => s.math.includes('84 : 2 = 42')), st('rozłóż 84'));
 
+// poprawki po przeglądzie
+check('x^3-3x+2', ['horner'], r => ok('x³−3x+2: text scala powtórzone czynniki', r.text === '(x − 1)²(x + 2)', r.text));
+{
+    const q = 'rozłóż x^3+x^2-x-1', s2 = st(q);
+    ok(q + ': bez kroku tylko dla przestawienia', !s2.some((/** @type {any} */ s) => s.label === 'Porządkuję czynniki'), s2);
+    ok(q + ': ostatni krok to wynik', s2.slice(-1)[0].math.replace(/[⟦⟧]/g, '').endsWith(txt(q)), s2.slice(-1)[0]);
+}
+ok('rozłóż 2x^3+x^2+2x+1: wynik szkolny', txt('rozłóż 2x^3+x^2+2x+1') === '(2x + 1)(x² + 1)', txt('rozłóż 2x^3+x^2+2x+1'));
+ok('rozłóż 2x^3+x^2+2x+1: bez „Porządkuję”', !st('rozłóż 2x^3+x^2+2x+1').some((/** @type {any} */ s) => s.label === 'Porządkuję czynniki'), st('rozłóż 2x^3+x^2+2x+1'));
+const fid = (/** @type {string} */ q, /** @type {string} */ id) => st(q).find((/** @type {any} */ s) => s.formula && s.formula.id === id);
+ok('x³ + 8: hasło suma-szescianow, b = 2', (fid('rozłóż x^3+8', 'suma-szescianow') || {}).formula?.here === 'a = x, b = 2', st('rozłóż x^3+8'));
+ok('x² − 6x + 9: hasło kwadrat-roznicy, b = 3', (fid('rozłóż x^2-6x+9', 'kwadrat-roznicy') || {}).formula?.here === 'a = x, b = 3', st('rozłóż x^2-6x+9'));
+ok('grupowanie z minusem: (x³ − 3x²) − (x − 3)', st('rozłóż x^3-3x^2-x+3').some((/** @type {any} */ s) => s.math.includes('(x³ − 3x²) − (x − 3) = ⟦x²(x − 3) − (x − 3)⟧')), st('rozłóż x^3-3x^2-x+3'));
+{
+    const { whyFor } = require(path.join(__dirname, '..', 'js', 'step-why.js'));
+    const w1 = whyFor({ label: 'Porządkuję czynniki', math: '(2x − 3)(2x + 3) = 4(x − 3/2)(x + 3/2)' }, 'Rozkład na czynniki');
+    const w2 = whyFor({ label: 'Porządkuję czynniki', math: '(x + 2)(x − 1) = (x − 1)(x + 2)' }, 'Rozkład na czynniki');
+    ok('Porządkuję: wyjmowanie liczby', /wyjmuję/.test(w1), w1);
+    ok('Porządkuję: samo przestawienie', !/wyjmuję/.test(w2) && /kolejno/.test(w2), w2);
+}
+
 console.log(`school-factor: ${pass} ok, ${fail} błędów`);
 process.exit(fail ? 1 : 0);
