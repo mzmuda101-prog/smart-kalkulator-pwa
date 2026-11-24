@@ -108,5 +108,21 @@ for (const [q, want] of [['rozłóż 2x^3-3x^2-2x+3', '(2x − 3)(x − 1)(x + 1
     ok('schoolFactor(2x²−3x+1).text', r.text === '(2x − 1)(x − 1)', r.text);
 }
 
+// współczynniki ułamkowe: najpierw wyłączam ułamek, potem rozkład do końca; bez sklejania liczb
+for (const [q, want] of [['rozłóż x^3/2-x/2', '(1/2)x(x − 1)(x + 1)'], ['rozłóż x^2/4-1', '(1/4)(x − 2)(x + 2)'], ['rozłóż x^3/3-x', '(1/3)x(x² − 3)'],
+    ['rozłóż x^3/2-x^2/2-x/2+1/2', '(1/2)(x − 1)²(x + 1)'], ['rozłóż x^2/2-1/8', '(1/8)(2x − 1)(2x + 1)']]) {
+    ok(q + ' → ' + want, txt(q) === want, txt(q));
+    ok(q + ': ostatni krok to wynik', st(q).slice(-1)[0].math.replace(/[⟦⟧]/g, '').endsWith(want), st(q));
+}
+ok('rozłóż x^2/4-1: wyłączam 1/4', st('rozłóż x^2/4-1').some((/** @type {any} */ s) => s.label === 'Wyłączam wspólny czynnik przed nawias' && s.math.includes('(1/4)(x² − 4)')), st('rozłóż x^2/4-1'));
+{
+    const p = C.polyCoefs('x^3/2-x^2/2-x/2+1/2'), r = C.schoolFactor(p.c, p.v, { dec: false });
+    ok('ułamki: czynniki stopnia ≥ 2 bez pierwiastków wymiernych', r.factors.every((/** @type {any} */ f) => f.c.length === 2), r.factors);
+}
+// bez sklejania liczby z liczbą (1/8 i 4 → „1/84”) także w starej ścieżce (kilka zmiennych)
+for (const q of ['rozłóż x^2y/2-y/8', 'rozłóż x^2/2-1/8', 'rozłóż 2x^2y-3xy+y', 'rozłóż -x^2y/2+y/8'])
+    ok(q + ': bez sklejonych liczb', !/[a-z)]\d|\/\d+\(/.test(txt(q)), txt(q));
+ok('rozłóż x^2y/2-y/8 → (1/2)y(x − 1/2)(x + 1/2)', txt('rozłóż x^2y/2-y/8') === '(1/2)y(x − 1/2)(x + 1/2)', txt('rozłóż x^2y/2-y/8'));
+
 console.log(`school-factor: ${pass} ok, ${fail} błędów`);
 process.exit(fail ? 1 : 0);

@@ -1484,7 +1484,12 @@
     function monoC(a, k) { var out = []; for (var i = 0; i < k; i++) out.push(ZERO); out.push(a); return out; } // [EN] a·x^k jako współczynniki
     function sfNum(q, ctx) { var t = fmt(q, ctx); return /[/−]/.test(t) ? '(' + t + ')' : t; } // [EN] liczba pod potęgą/w iloczynie
     function sfBase(p, k, v, ctx) { var t = polyText(monoC(p, k), v, ctx); return t === v ? v : '(' + t + ')'; } // [EN] x, (2x), (x²)
-    function sfK(k, ctx) { var t = showTerms([{ c: k, e: {} }], ctx); return t === '1' ? '' : t === '−1' ? '−' : t; }
+    function sfK(k, ctx) { // [EN] liczba przed iloczynem: 2, −, (1/2), −(1/2) — ułamek w nawiasie, żeby nie skleił się z nawiasem
+        if (eq(k, ONE)) return '';
+        if (eq(k, neg(ONE))) return '−';
+        var t = fmtAbs(k, ctx);
+        return (k.n < 0n ? '−' : '') + (/[/,]/.test(t) ? '(' + t + ')' : t);
+    }
     function sfPiece(c, n, v, ctx) { // [EN] czynnik w iloczynie: x, x², (x − 2), (x − 3)²
         var t = c.length === 2 && isZero(c[0]) && eq(c[1], ONE) ? v : '(' + polyText(c, v, ctx) + ')';
         return n > 1 ? t + sup(n) : t;
@@ -1500,14 +1505,14 @@
     function sfStage(c, v, ctx) { // [EN] jedna próba z listy; {steps, k, pieces, used} albo null; c = k · Π pieces^n
         var P = polyText(c, v, ctx), deg = c.length - 1, nz = c.filter(function (x) { return !isZero(x); }).length;
         if (nz < 2) return null;
-        // 1. wspólny czynnik: liczba (gdy współczynniki całkowite) i potęga zmiennej
-        var allInt = c.every(isInt), g = allInt ? c.reduce(function (acc, x) { return gcd(acc, x.n); }, 0n) : 1n;
-        var head = R(c[deg].n < 0n ? -g : g), m = c.findIndex(function (x) { return !isZero(x); });
+        // 1. wspólny czynnik: liczba (także ułamek, żeby w nawiasie zostały liczby całkowite) i potęga zmiennej
+        var den0 = c.reduce(function (l, x) { return (l * x.d) / gcd(l, x.d); }, 1n);
+        var g = c.reduce(function (acc, x) { return gcd(acc, mul(x, R(den0)).n); }, 0n);
+        var head = R(c[deg].n < 0n ? -g : g, den0), m = c.findIndex(function (x) { return !isZero(x); });
         if (!eq(head, ONE) || m > 0) {
             var rest = c.slice(m).map(function (x) { return div(x, head); });
             var e = {}; if (m) e[v] = m;
-            var pre = showTerms([{ c: head, e: e }], ctx);
-            var preT = pre === '1' ? '' : pre === '−1' ? '−' : pre;
+            var preT = sfK(head, ctx) + (m ? polyText(monoC(ONE, m), v, ctx) : ''), pre = preT === '' ? '1' : preT === '−' ? '−1' : preT;
             return {
                 steps: [{ label: 'Wyłączam wspólny czynnik przed nawias', math: P + ' = ⟦' + preT + '(' + polyText(rest, v, ctx) + ')⟧', formula: { id: 'wylaczanie-przed-nawias', here: 'a = ' + pre } }],
                 k: head, pieces: (m ? [{ c: [ZERO, ONE], n: m }] : []).concat([{ c: rest, n: 1 }]), used: ['wspolny']
@@ -1741,7 +1746,8 @@
                     return f.n > 1 ? (isZero(f.r) ? inner + sup(f.n) : wrapped + sup(f.n)) : wrapped;
                 }).join('');
                 if (leftover) body += '(' + polyText(leftover, v, ctx) + ')';
-                var leadText = eq(lead, ONE) ? '' : fmtParen(lead, ctx);
+                var leadText = '';
+                if (!eq(lead, ONE)) { prefix = sfK(mul(head, lead), ctx) + monoText(common); } // [EN] jedna liczba przed iloczynem: (1/8) · 4 → (1/2), nie „1/84”
                 result = prefix + leadText + body;
                 var last = steps[steps.length - 1];
                 if (last.label.indexOf('Rozkładam różnicę') === 0) {
@@ -1764,7 +1770,9 @@
             steps.push({ label: 'Nie ma wspólnego czynnika, więc zostaje bez zmian', math: showTerms(rest, ctx) });
             result = showTerms(rest, ctx);
         }
-        if (school) { // [EN] kroki szkolne; wynik jak dotąd, chyba że szkoła rozłożyła dalej (dwa czynniki bez pierwiastków wymiernych)
+        // [EN] bezpiecznik: czynnik stopnia ≥ 2 z pierwiastkiem wymiernym = rozkład niedokończony, zostaje stara ścieżka
+        if (school && school.factors.some(function (f) { return f.c.length > 2 && rationalRoot(f.c); })) school = null;
+        if (school) { // [EN] kroki szkolne; wynik szkolny, chyba że różni się tylko kolejnością nawiasów
             var parts = function (t) { return (t.match(/\([^()]*\)[⁰¹²³⁴⁵⁶⁷⁸⁹]*|[a-z][⁰¹²³⁴⁵⁶⁷⁸⁹]*/g) || []).sort().join('') + '|' + /^[^(a-z]*/.exec(t)[0]; };
             if (parts(result) !== parts(school.text)) result = school.text; // [EN] postać szkolna wygrywa; samo przestawienie zostawia dawną kolejność
             steps = [steps[0]].concat(school.steps);
