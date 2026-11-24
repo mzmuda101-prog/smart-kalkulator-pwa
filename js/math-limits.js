@@ -394,7 +394,10 @@
         var pr = function (x, need) { return x && x.k === 'num' && !x.lp && (x.v.n < 0n || need === 2 && x.v.d !== 1n) ? Object.assign({}, x, { lp: true }) : x; };
         if (out.k === 'mul') out.b = pr(out.b);
         else if (out.k === 'pow') out.a = pr(out.a, 2);
-        else if (out.k === 'div') out.b = pr(out.b, 2);
+        else if (out.k === 'div') { // [EN] (3/2)/2, nie 3/2/2
+            out.b = pr(out.b, 2);
+            if (out.a.k === 'num' && !out.a.lp && out.a.v.d !== 1n) out.a = Object.assign({}, out.a, { lp: true });
+        }
         else if (out.k === 'sub') out.b = parenLead(out.b, pr);
         else if (out.k === 'add' && (out.b.k === 'mul' || out.b.k === 'div')) out.b = parenLead(out.b, pr);
         else if (out.k === 'neg') out.a = parenLead(out.a, pr);
@@ -1040,7 +1043,7 @@
         },
         apply: function (e, v, t, log, depth) {
             var a = C.numberOf(pointExpr(t)), xa = C.polyExpr([K.neg(a), ONE], v);
-            var M = 0, rest = C.num(e[0].c), ups = [], downs = [], tables = [], divLines = [];
+            var M = 0, rest = C.num(e[0].c), ups = [], downs = [], tables = [], divLines = [], upK = { k: ONE, e: 0 }, dnK = { k: ONE, e: 0 };
             var school = _factorMode === 'school' && !!log, parts = []; // [EN] parts: czynniki po kolei, dla zapisu szkolnego
             e[0].fs.forEach(function (f) {
                 var c = K.isInt(f.e) ? C.polyCoefs(C.atomExpr(f.b), v) : null;
@@ -1066,7 +1069,11 @@
                 var Q = C.polyExpr(c, v);
                 rest = C.cMul(rest, C.cPow(Q, f.e));
                 for (var i = 0; i < m * pow; i++) list.push('(' + C.show(xa) + ')');
-                if (!isOne(Q)) list.push(grpFactor(Q, pow));
+                var nzQ = c.filter(function (x) { return !K.isZero(x); }).length, at = c.findIndex(function (x) { return !K.isZero(x); });
+                if (m && nzQ === 1) { // [EN] jednomian po dzieleniu (4, 2x): liczba przed nawiasy, nie „(x − 1/2)4”
+                    var sd = down ? dnK : upK;
+                    sd.k = K.mul(sd.k, K.powR(c[at], pow)); sd.e += at * pow;
+                } else if (!isOne(Q)) list.push(grpFactor(Q, pow));
                 parts.push(m ? { down: down, pow: pow, c0: c0, m: m, cEnd: c, tables: tables.slice(t0), divLines: divLines.slice(t0) }
                     : { down: down, text: grpFactor(C.atomExpr(f.b), pow), expr: C.cPow(C.atomExpr(f.b), f.e) });
             });
@@ -1082,7 +1089,18 @@
                 line(log, 'Dzielimy schematem Hornera', divLines.map(function (x) { return x.dl.replace(/^(.*?) = /, '⟦$1⟧ = '); }).join('\n'), 'schemat-hornera', { horner: tables });
                 log[log.length - 1].formula.here = K.hornerHere(tables);
             }
-            line(log, 'Rozkładamy na czynniki', head + coef + upOr1(ups.join('')) + '/' + (downs.length > 1 ? '(' + downs.join('') + ')' : downs.join('')));
+            // [EN] strona: liczba (ułamek w nawiasie), potęga zmiennej, nawiasy zebrane w potęgę: 4(x − 1/2)², 2x(x − 1/2)
+            var sideText = function (sk, list, lead) {
+                var kt = K.fmt(sk.k), ng = kt[0] === '−', ka = ng ? kt.slice(1) : kt, n = 0, seen = [];
+                var kx = (ng ? '−' : '') + (ka === '1' ? '' : /\//.test(ka) ? '(' + ka + ')' : ka), vx = sk.e ? v + (sk.e > 1 ? K.sup(String(sk.e)) : '') : '';
+                list.forEach(function (x) { var hit = seen.filter(function (y) { return y.t === x; })[0]; if (hit) hit.n++; else seen.push({ t: x, n: 1 }); });
+                var br = seen.map(function (y) { return y.n > 1 ? y.t + K.sup(String(y.n)) : y.t; }).join('');
+                n = (ka !== '1' ? 1 : 0) + (vx ? 1 : 0) + seen.length;
+                var out = kx + vx + br;
+                return lead ? (out === '' || out === '−' ? out + '1' : out) : n > 1 ? '(' + out + ')' : out || '1';
+            };
+            var upText = sideText({ k: K.mul(e[0].c, upK.k), e: upK.e }, ups, true), dnText = sideText(dnK, downs, false);
+            line(log, 'Rozkładamy na czynniki', head + upText + '/' + dnText);
             var out = M ? C.cMul(rest, C.cPow(xa, K.R(M))) : rest;
             line(log, 'Skracamy (' + C.show(xa) + ')', limOf(v, t, out));
             return limitOf(out, v, t, log, depth);

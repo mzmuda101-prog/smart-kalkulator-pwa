@@ -640,5 +640,23 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     ok('FF3: bez n = n · 1', !/· 1$/m.test(e3) && !e3.includes('n = n'), e3);
 }
 
+// Horner w punktach połówkowych: liczba przed nawiasami, nawiasy zebrane w potęgę, bez sklejania liczb
+{
+    const meth2 = (q, m) => ((S.run(q).explain.methods || []).find(x => x.label === m) || { steps: [] }).steps;
+    const fac2 = q => (meth2(q, 'Schemat Hornera').find(x => x.label === 'Rozkładamy na czynniki') || {}).math || '';
+    ok('FX6: 4(x − 1/2)²/(2x(x − 1/2))', fac2('lim x→0.5 (4x^2-4x+1)/(2x^2-x)') === 'lim(x→0,5) 4(x − 1/2)²/(2x(x − 1/2))', fac2('lim x→0.5 (4x^2-4x+1)/(2x^2-x)'));
+    ok('FX6: (2/3)x(x + 1/2)/(2(x + 1/2))', fac2('lim x→-0.5 (2x^2+x)/(6x+3)') === 'lim(x→−0,5) (2/3)x(x + 1/2)/(2(x + 1/2))', fac2('lim x→-0.5 (2x^2+x)/(6x+3)'));
+    ok('FX6: 6(x + 1/2)/((x + 1/2)(4x − 2))', fac2('lim x→-0.5 (6x+3)/(4x^2-1)') === 'lim(x→−0,5) 6(x + 1/2)/((x + 1/2)(4x − 2))', fac2('lim x→-0.5 (6x+3)/(4x^2-1)'));
+    // podstawienie: ułamek dzielony przez liczbę w nawiasie, (3/2)/2, nie 3/2/2
+    const pod = (meth2('lim x→0.5 (2x^2+x-1)/(4x^2-1)', 'Rozkład na czynniki').find(x => /^Podstawiamy/.test(x.label)) || {}).math || '';
+    ok('FX7: (3/2)/2, nie 3/2/2', pod.includes('(3/2)/2') && !/[^(]3\/2\/2/.test(pod), pod);
+    const glue = [];
+    for (const q of require('../scripts/steps-check/queries.js').filter(q => /^lim /.test(q))) {
+        const r = S.run(q); if (!r || !r.explain) continue;
+        for (const m of r.explain.methods || [r.explain]) for (const st of m.steps) if (/\d\/\d+\/[\d(]/.test(st.math.replace(/\([^()]*\)/g, '()')) || /\)\d/.test(st.math)) glue.push(q + ' :: ' + st.math);
+    }
+    ok('FX6/7: w zadaniach granic bez a/b/c i bez „)4”', glue.length === 0, glue);
+}
+
 console.log(`math-limits: ${pass} OK, ${fail} błędów`);
 process.exit(fail ? 1 : 0);
