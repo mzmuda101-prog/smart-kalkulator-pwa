@@ -181,6 +181,12 @@ razem z testem. Partia 1 to już zrobione D-Z7 i D-Z8 (v1.05.50).
 - **2b, analiza:** krytyczne S4, S5; poważne S17 (sprawdzenia), S30, S40 (reguła łańcuchowa), S34 (wykładniki ułamkowe), S36-S37, S45-S47, S55.
 - **2c, równania i reszta:** krytyczne S2 (rachunki na ułamkach); poważne S19 (dymki z pustym „here” i dymki o innym przypadku), S33, S35, S41-S42, S48-S51, S56-S57.
 
+**Propozycja (Mateusz 2026-11-24, czeka na decyzję): rozkład jak w szkole.** W granicach 0/0 rozkład zawsze idzie
+schematem Hornera. Szkoła zaczyna od prostszych dróg: wzór skróconego mnożenia (x² − 4 = (x − 2)(x + 2)), suma i iloczyn
+albo delta dla trójmianu, grupowanie (x³ − 2x² + x − 2 = x²(x − 2) + (x − 2)), podstawienie t = x² (x⁴ − 13x² + 36).
+Propozycja: krok „Rozkładamy” sam wybiera najprostszą drogę, Horner zostaje dla stopnia 3 i więcej bez prostszej drogi.
+Miejsce w kolejce: po 2a-1, przed 2a-2.
+
 **Partia 3:** pozostałe poważne (S29, S38, S43-S44, S52-S54) i drobne S60-S90, po jednym obszarze na commit.
 
 **Partia 4:** etap „interaktywność” (sekcja wyżej), dopiero gdy krytyczne i poważne są zamknięte, bo stuknięcie nie powinno być
