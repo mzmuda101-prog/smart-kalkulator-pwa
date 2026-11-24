@@ -170,6 +170,8 @@ Przy wierszach opartych o cytat z kroku nazwa kroku jest w kolumnie „krok”; 
 | S113 | rozkład | rozkład szkolny 2026-11-24: rozłóż x³−x, 4x²−9, x³−8 i inne (t1-t4, t10, t11) | końcowy | skok | drobna | Brak sprawdzenia przez wymnożenie | `sprawdzenie: x(x − 1)(x + 1) = x(x² − 1) = x³ − x` | do zrobienia |
 | S114 | uprość | rozkład szkolny 2026-11-24: uprość x^2/x i inne ułamki z jednomianem (przegląd końcowy, Minor 4) | wynik | skok | drobna | uprość x²/x daje „Jeszcze tego nie rozwiążę”: jednomian w mianowniku nie przechodzi przez skracanie | `x²/x = x · x/x = x (dla x ≠ 0)` | do zrobienia |
 | S115 | rozkład, równania | rozkład szkolny 2026-11-24: rozwiąż x⁴−3x²+1=0, rozłóż x⁴−3x²+1, x⁴+4 (przegląd końcowy, Minor 7) | wynik | skok | drobna | Wielomian stopnia 4 bez pierwiastków wymiernych: rozwiąż nie umie (t = x² daje niewymierne t), rozłóż kończy na „nie ma pierwiastków wymiernych”, choć x⁴ + 4 = (x² − 2x + 2)(x² + 2x + 2) i x⁴ − 3x² + 1 = (x² − x − 1)(x² + x − 1) | t = x² z deltą i pierwiastkami niewymiernymi; uzupełnienie do kwadratu (x⁴ + 4 = (x² + 2)² − (2x)²) | do zrobienia |
+| S116 | reszta | uprość (0.5x^2-0.5)/(x-1), (x/2-1/2)/(x^2-1) | Skracam | skok | drobna | Liczba (ułamek/dziesiętna) tylko po jednej stronie: krok przed skracaniem kończy na 0,5(x − 1)(x + 1), a „Skracam” zaczyna od (x − 1)(x + 1)/(2(x − 1)) | Zaczynać skracanie od postaci obu stron, tak jak przy liczbach po obu stronach | do zrobienia |
+| S117 | granice | lim x→1/3 (9x^2-1)/(3x^2-x) | — | skok | drobna | Brak wyniku (null) przy punkcie ułamkowym zapisanym jako 1/3 | Sprawdzić obsługę x→1/3 w parserze granic | do zrobienia |
 
 ## Lekka interaktywność (pomysły)
 
@@ -212,7 +214,7 @@ razem z testem. Partia 1 to już zrobione D-Z7 i D-Z8 (v1.05.50).
 schematem Hornera. Szkoła zaczyna od prostszych dróg: wzór skróconego mnożenia (x² − 4 = (x − 2)(x + 2)), suma i iloczyn
 albo delta dla trójmianu, grupowanie (x³ − 2x² + x − 2 = x²(x − 2) + (x − 2)), podstawienie t = x² (x⁴ − 13x² + 36).
 Propozycja: krok „Rozkładamy” sam wybiera najprostszą drogę, Horner zostaje dla stopnia 3 i więcej bez prostszej drogi.
-Miejsce w kolejce: po 2a-1, przed 2a-2.
+Miejsce w kolejce: po 2a-1, przed 2a-2. **Zrobione v1.05.60.**
 
 **Partia 3:** pozostałe poważne (S29, S38, S43-S44, S52-S54) i drobne S60-S90, po jednym obszarze na commit.
 
