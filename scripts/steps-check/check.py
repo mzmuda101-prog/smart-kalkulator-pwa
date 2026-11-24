@@ -262,13 +262,15 @@ SELF_TEST = [
     {"q": "ZŁY krok układu", "title": "Układ równań", "steps": [{"label": "f", "math": "23 + 3y = 12", "lines": [["23+3y", "=12"]]},
         {"label": "g", "math": "x + y = 5", "lines": [["x+y", "=5"]]},
         {"label": "Odpowiedź", "math": "x = 3\ny = 2", "lines": [["x", "=3"], ["y", "=2"]]}]},
+    {"q": "ZŁA kontynuacja", "title": "Granica", "steps": [{"label": "h", "math": "lim sin x/x\n= 2",
+        "lines": [["\\lim_{x\\to 0}\\frac{\\sin x}{x}"], ["=2"]]}]},
 ]
 
 
 def main() -> int:
     if "--self-test" in sys.argv:
         global_bad = run(SELF_TEST)
-        want = sorted(["ZŁE pochodna", "ZŁE granica", "ZŁE równanie", "ZŁY krok układu"])
+        want = sorted(["ZŁA kontynuacja", "ZŁE pochodna", "ZŁE granica", "ZŁE równanie", "ZŁY krok układu"])
         got = sorted({b.split(" | ")[0] for b in global_bad})
         print("auto-test:", "✅ łapie fałsz, przepuszcza prawdę" if got == want else f"❌ {got}")
         return 0 if got == want else 1
@@ -330,8 +332,10 @@ def run(data) -> list:
         if sols:
             UNKNOWNS[0] = {str(k) for sol in sols for k in sol}
         for si, st in enumerate(prob["steps"]):
+            prev = None
             for line in st["lines"]:
-                prev = None
+                if not (line and line[0].startswith("=")):
+                    prev = None  # linia zaczynająca się od „=” ciągnie łańcuch z poprzedniej (de l'Hospital: postać pod postacią)
                 if any(p.startswith(r"\notin") for p in line) or (st["label"].startswith("Odrzucam") and any(p.startswith("<") for p in line)):
                     continue  # odrzucone rozwiązanie (∉ D albo „… < 0”) z definicji nie spełnia odpowiedzi
                 for piece in line:
