@@ -68,10 +68,11 @@ const COVER = [
 
 for (const [q, id, here] of COVER) {
     ok(id + ': wpis w słowniku', !!FORMULAS[id], id);
-    // [EN] tylko kroki z kolorem ⟦…⟧ od silnika; dymki z tabeli STEP_RULES nie mają koloru (stuknięcie przez ikonę)
-    const st = stepsWith(q, id).filter(s => /⟦/.test(s.math));
-    ok(q + ' → dymek z kolorem ' + id, st.length > 0, stepsWith(q, id).map(s => s.math));
+    // [EN] dymki od silnika (bez fromRule) zawsze z kolorem ⟦…⟧; dymki z tabeli STEP_RULES nie mają koloru (stuknięcie przez ikonę)
+    const st = stepsWith(q, id).filter(s => !s.formula.fromRule);
+    ok(q + ' → dymek ' + id, st.length > 0, st.length);
     if (!st.length) continue;
+    ok(q + ' → ' + id + ': kolor w kroku', st.every(s => /⟦/.test(s.math)), st.map(s => s.math));
     const got = st[0].formula.here;
     ok(q + ' → ' + id + ': liczby z zadania', got === here, got);
     if (got) ok(q + ' → ' + id + ': liczby narysowane bez zapisu z klawiatury', !leaks(got), stepToLatex(got));
@@ -86,10 +87,10 @@ for (const [q, id, here] of COVER) {
     ok('Δ < 0: bez dymku x₁ < x < x₂', stepsWith('rozwiąż x^2 + 1 > 0', 'nierownosc-kwadratowa').length === 0);
 }
 
-// pokrycie (spec, cel 1): każdy typ zadania z tabeli ma co najmniej jeden dymek w każdym sposobie
+// pokrycie (spec, cel 1): każdy typ zadania z tabeli ma co najmniej jeden dymek od silnika w każdym sposobie (dymki z tabeli się nie liczą)
 for (const q of [...new Set(COVER.map(c => c[0]))]) {
     const r = S.run(q);
-    for (const m of (r.explain.methods || [r.explain])) ok(q + (m.label ? ' [' + m.label + ']' : '') + ': co najmniej jeden dymek', m.steps.some(s => s.formula), m.steps.map(s => s.label));
+    for (const m of (r.explain.methods || [r.explain])) ok(q + (m.label ? ' [' + m.label + ']' : '') + ': co najmniej jeden dymek', m.steps.some(s => s.formula && !s.formula.fromRule), m.steps.map(s => s.label));
 }
 
 console.log(`step-popovers: ${pass} ok, ${fail} błędów`);

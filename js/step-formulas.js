@@ -717,14 +717,23 @@
         if (FORMULAS[id]) Object.assign(FORMULAS[id], { dzial: dzial, poziom: poziom, keywords: keywords, try: tryExpr, expect: expect, related: related });
     }
 
+    /** prawa strona ostatniego „=” to iloczyn samych czynników liniowych: liczba, x, (x − 2), (x + 1)²
+     * @param {Step} step */
+    function allLinear(step) {
+        const rhs = step.math.split(' = ').pop() || '';
+        const groups = rhs.match(/\([^()]*\)/g) || [];
+        return groups.every(g => !/[²³⁴⁵⁶⁷⁸⁹^]/.test(g)) && /^[−-]?[\d,]*x?$/.test(rhs.replace(/\([^()]*\)[²³⁴⁵⁶⁷⁸⁹]*/g, '').trim());
+    }
+
     // Reguły kroków jako dane (spec 2026-11-24-dymki-podstawy): etykieta kroku → hasło słownika.
     // Krok, który sam ustawił `formula` (z kolorem ⟦…⟧ w miejscu użycia), ma pierwszeństwo przed tabelą.
-    // Hasło musi być prawdziwe dla każdej etykiety, którą łapie wzorzec. `here` (opcjonalne) = funkcja od kroku.
-    /** @typedef {{label: string, math: string, formula?: {id: string, here?: string}}} Step */
-    /** @type {Array<{re: RegExp, id: string, here?: (step: Step) => string}>} */
+    // Hasło musi być prawdziwe dla każdej etykiety, którą łapie wzorzec. `here` (opcjonalne) = funkcja od kroku,
+    // `when` (opcjonalne) = warunek na krok, gdy sama etykieta nie wystarcza. Dymek z tabeli dostaje `fromRule: true`.
+    /** @typedef {{label: string, math: string, formula?: {id: string, here?: string, fromRule?: boolean}}} Step */
+    /** @type {Array<{re: RegExp, id: string, here?: (step: Step) => string, when?: (step: Step) => boolean}>} */
     const STEP_RULES = [
         { re: /^Liczę pierwiastek z delty$/, id: 'delta' },
-        { re: /^Składam całość$/, id: 'postac-iloczynowa' },
+        { re: /^Składam całość$/, id: 'postac-iloczynowa', when: allLinear }, // [EN] z czynnikiem kwadratowym (x² + 1) hasło by kłamało
         { re: /^Wyłączam [a-z] przed nawias$/, id: 'wylaczanie-przed-nawias' },
         { re: /^(Zapisuję część jako ułamek|Mnożę ułamek przez liczbę|Liczę procent z liczby)$/, id: 'procent-z-liczby' },
         { re: /^(Najpierw nawias: )?(dodaję|odejmuję|Dodaję|Odejmuję) liczniki$/, id: 'wspolny-mianownik' },
@@ -745,18 +754,19 @@
     ];
     // Kroki-stwierdzenia: bez dymku z założenia (spec, cel 2). Lista ma być krótka; każde dopisanie z uzasadnieniem.
     // „Granica” bez symbolu nieoznaczonego: krok z symbolem ma już formula „nieoznaczone” od silnika.
+    // Pierwsza pozycja = stwierdzenia bez zdania „dlaczego” w js/step-why.js (zgodność pilnuje test/step-coverage.js).
     /** @type {RegExp[]} */
     const STATEMENTS = [
-        /^(Wynik|Odpowiedź|Równanie|Wyrażenie|Funkcja|Całka|Układ równań|Nierówność|Działanie|Liczba|Liczby|Wynik w przybliżeniu)$/,
+        /^(Wynik|Odpowiedź|Równanie|Równanie trygonometryczne|Wyrażenie|Funkcja|Całka|Układ równań|Nierówność|Działanie|Liczba|Liczby|Wynik w przybliżeniu)$/,
         /^Granica$/,
     ];
     /** ustawia `step.formula = { id }` z tabeli, gdy krok go nie ma i nie jest stwierdzeniem; mutuje i zwraca krok
      * @param {Step} step */
     function attachRule(step) {
         if (!step || step.formula || STATEMENTS.some(re => re.test(step.label))) return step;
-        const rule = STEP_RULES.find(r => r.re.test(step.label));
+        const rule = STEP_RULES.find(r => r.re.test(step.label) && (!r.when || r.when(step)));
         if (!rule) return step;
-        step.formula = { id: rule.id };
+        step.formula = { id: rule.id, fromRule: true };
         if (rule.here) step.formula.here = rule.here(step);
         return step;
     }

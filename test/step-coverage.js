@@ -27,6 +27,7 @@ const kind = (/** @type {string} */ label) => label.replace(/[−+]?\d+([.,/]\d+
 // Rodzaje kroków-przekształceń, które jeszcze nie mają hasła. Lista ma tylko maleć:
 // bramka pada, gdy wpis nie jest już potrzebny (żaden krok bez dymku go nie używa).
 const PENDING = [
+    "Składam całość", // z czynnikiem kwadratowym, np. „x⁶ − 64 = (x − 2)(x + 2)(x² − 2x + 4)(x² + 2x + 4)” (liniowe → postac-iloczynowa)
     "Sprawdzenie", // 68× „Sprawdzenie”
     "Podstawiamy v = #", // 65× „Podstawiamy x = 4”
     "Wyrazy z v w mianowniku dążą do #", // 53× „Wyrazy z n w mianowniku dążą do 0”
@@ -154,16 +155,36 @@ ok('„Składam całość” → postac-iloczynowa', (attachRule({ label: 'Skła
     ok('methods[1]: „Wstawiam … do pierwszego równania” → uklad-przeciwne', !!st && !!st.formula && st.formula.id === 'uklad-przeciwne', st);
 }
 
+{ // „Składam całość” → postac-iloczynowa tylko, gdy każdy czynnik jest liniowy (hasło pokazuje nawiasy z miejsc zerowych)
+    const step = (/** @type {string} */ q) => (S.run(q).explain.steps.find((/** @type {{label: string}} */ s) => s.label === 'Składam całość'));
+    for (const q of ['rozłóż x^4-1', 'rozwiąż x^4-16=0', 'rozłóż x^6 - 64']) {
+        const st = step(q);
+        ok(q + ': „Składam całość” bez postac-iloczynowa (czynnik kwadratowy)', !!st && !(st.formula && st.formula.id === 'postac-iloczynowa'), st);
+    }
+    for (const q of ['rozłóż x^3-x', 'rozłóż 2x^3-8x', 'rozłóż x^3 - 3x + 2']) {
+        const st = step(q);
+        ok(q + ': „Składam całość” → postac-iloczynowa', !!st && !!st.formula && st.formula.id === 'postac-iloczynowa', st);
+    }
+}
+{ // dymek z tabeli jest oznaczony, dymek od silnika nie
+    const r = S.run('rozwiąż x^2 - 5x + 6 = 0'), st = r.explain.steps;
+    const tab = st.find((/** @type {{label: string}} */ s) => s.label === 'Liczę pierwiastek z delty'), eng = st.find((/** @type {{label: string}} */ s) => s.label === 'Liczę deltę');
+    ok('dymek z tabeli: formula.fromRule', !!tab && !!tab.formula && tab.formula.fromRule === true, tab);
+    ok('dymek od silnika: bez fromRule', !!eng && !!eng.formula && !eng.formula.fromRule, eng);
+}
 // ── bramka po wszystkich zadaniach ──
 const isStatement = (/** @type {string} */ l) => STATEMENTS.some((/** @type {RegExp} */ re) => re.test(l));
 /** @type {Map<string, {n: number, ex: string, q: string}>} */
 const missing = new Map();
 const badId = new Set(), used = new Set();
+/** @type {string[]} */
+const allLabels = [];
 let total = 0, covered = 0;
 for (const q of queries) {
     let r; try { r = S.run(q); } catch { continue; }
     if (!r || !r.explain || !r.explain.steps) continue;
     for (const m of r.explain.methods || [r.explain]) for (const s of m.steps) {
+        allLabels.push(s.label);
         if (s.formula) {
             if (!FORMULAS[s.formula.id]) badId.add(s.label + ' → ' + s.formula.id);
             if (!isStatement(s.label)) { total++; covered++; }
@@ -183,6 +204,14 @@ ok('każdy krok-przekształcenie ma dymek albo jest w PENDING', missing.size ===
     [...missing].map(([k, e]) => e.n + '× ' + JSON.stringify(k) + ' (np. „' + e.ex + '” w „' + e.q + '”)'));
 const stale = PENDING.filter(k => !used.has(k));
 ok('każdy wpis PENDING jest jeszcze potrzebny (usuń zbędne)', stale.length === 0, stale);
+// jedno źródło stwierdzeń: step-why nie pisze zdania dokładnie dla STATEMENTS (poza „Granica”, która ma własne zdanie)
+{
+    const { isStatement: whyStatement } = require(path.join(root, 'js', 'step-why.js'));
+    const names = ['Wynik', 'Odpowiedź', 'Równanie', 'Równanie trygonometryczne', 'Wyrażenie', 'Funkcja', 'Całka', 'Układ równań',
+        'Nierówność', 'Działanie', 'Liczba', 'Liczby', 'Wynik w przybliżeniu', 'Granica'];
+    const differ = [...new Set(names.concat(allLabels))].filter(l => whyStatement(l) !== (isStatement(l) && l !== 'Granica'));
+    ok('STATEMENTS zgodne z isStatement w step-why', differ.length === 0, differ);
+}
 ok('PENDING bez powtórzeń', new Set(PENDING).size === PENDING.length);
 
 console.log('  kroki-przekształcenia:', total, ' z dymkiem:', covered, ' pokrycie:', (100 * covered / Math.max(1, total)).toFixed(1) + '%',

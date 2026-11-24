@@ -51,7 +51,7 @@
     /** @typedef {{atInf: boolean, prev: Step | null, next: Step | null, steps: Step[]}} Ctx kontekst: granica w ±∞? kroki obok */
     /** @type {[RegExp, string | ((s: Step, title: string, c: Ctx) => string | null)][]} */
     const RULES = [
-        // ── stwierdzenia: bez zdania ──
+        // ── stwierdzenia: bez zdania (ta sama lista co STATEMENTS[0] w js/step-formulas.js; test/step-coverage.js pilnuje zgodności) ──
         [/^(Wynik|Odpowiedź|Liczby|Liczba|Równanie|Równanie trygonometryczne|Układ równań|Nierówność|Funkcja|Całka|Działanie|Wyrażenie|Wynik w przybliżeniu)$/, ''],
         // ── granice ──
         [/^Granica$/, (s, _t, c) => {
