@@ -256,7 +256,7 @@
     }
     function astInner(n) {
         switch (n.k) {
-            case 'num': return n.dec ? String(K.toNum(n.v)).replace('.', ',') : K.fmt(n.v);
+            case 'num': if (n.lp) return '(' + K.fmt(n.v) + ')'; return n.dec ? String(K.toNum(n.v)).replace('.', ',') : K.fmt(n.v);
             case 'var': return n.v;
             case 'const': return n.v === 'pi' ? 'π' : 'e';
             case 'add': return astText(n.a, 1) + ' + ' + astText(n.b, n.b.k === 'neg' ? 3 : 1);
@@ -343,6 +343,68 @@
     function substitute(e, v, valueExpr) {
         return C.mapExpr(e, function (a) { return a.k === 'var' && a.v === v ? valueExpr : null; });
     }
+
+    // ── Rachunek w kroku „Podstawiamy x = a”: wstawione liczby → wartości wyrazów → sumy policzone ──
+    function astHasSum(n) { return n.k === 'add' || n.k === 'sub' || !!((n.a && astHasSum(n.a)) || (n.b && astHasSum(n.b))); }
+    function astValue(n) { // [EN] dokładna wartość wymierna albo null (pierwiastki, funkcje, zmienna, dzielenie przez 0)
+        try {
+            var a = n.a && astValue(n.a), b = n.b && astValue(n.b);
+            switch (n.k) {
+                case 'num': return n.v;
+                case 'neg': return a && K.neg(a);
+                case 'add': return a && b && K.add(a, b);
+                case 'sub': return a && b && K.sub(a, b);
+                case 'mul': return a && b && K.mul(a, b);
+                case 'div': return a && b && !K.isZero(b) ? K.div(a, b) : null;
+                case 'pow': return a && b && K.isInt(b) && b.n >= 0n && b.n <= 64n ? K.powR(a, Number(b.n)) : null;
+            }
+        } catch (x) { /* [EN] 0^(−1) itp. — brak wartości */ }
+        return null;
+    }
+    function astNum(r, paren) { return { k: 'num', v: r, lp: paren && (r.n < 0n || r.d !== 1n) }; }
+    function astSigns(n) { // [EN] 8 + (−4) → 8 − 4
+        if ((n.k === 'add' || n.k === 'sub') && n.b.k === 'num' && !n.b.lp && n.b.v.n < 0n)
+            return { k: n.k === 'add' ? 'sub' : 'add', a: n.a, b: astNum(K.neg(n.b.v)) };
+        return n;
+    }
+    function astMap(n, f) { // [EN] kopia drzewa z f(dziecko) w miejscu a/b
+        var out = Object.assign({}, n);
+        if (n.a) out.a = f(n.a, 'a');
+        if (n.b) out.b = f(n.b, 'b');
+        return astSigns(out);
+    }
+    function plugVar(n, v, pt, ctx) { // [EN] zmienna → liczba punktu; nawias, gdy liczba ujemna/ułamkowa stoi pod potęgą, po minusie, w iloczynie
+        if (n.k === 'var') return n.v === v ? astNum(pt, ctx !== 'add' && ctx !== 'fn' && ctx !== 'root' && ctx !== 'subA' && (pt.n < 0n || ctx !== 'addB')) : n;
+        if (!n.a) return n;
+        var c = n.k === 'sub' ? ['subA', 'sub'] : n.k === 'add' ? ['add', 'addB'] : n.k === 'fn' || n.k === 'sqrt' ? ['fn', 'fn'] : [n.k, n.k];
+        var out = astMap(n, function (x, s) { return plugVar(x, v, pt, s === 'a' ? c[0] : c[1]); });
+        if (out.k === 'mul') out.implicit = false;
+        return out;
+    }
+    function plugValues(n) { // [EN] każdy fragment bez dodawania → jedna liczba
+        if (!astHasSum(n) && n.k !== 'num') { var r = astValue(n); if (r) return astNum(r); }
+        return n.a ? astMap(n, plugValues) : n;
+    }
+    function plugSums(n) { // [EN] sumy policzone; ułamek zostaje nieskrócony (−20/5), licznik i mianownik osobno
+        if (n.k === 'div') {
+            var a = astValue(n.a), b = astValue(n.b);
+            if (a && b && !K.isZero(b)) return { k: 'div', a: astNum(a, a.d !== 1n), b: astNum(b, true) };
+        }
+        if (astHasSum(n)) { var r = astValue(n); if (r) return astNum(r); }
+        return n.a ? astMap(n, plugSums) : n;
+    }
+    function plugSteps(e, v, t) { // [EN] kolejne zapisy po „=” (bez wyniku końcowego), bez sąsiednich powtórzeń
+        var out = [];
+        try {
+            var cur = plugVar(K.parse(C.show(e)), v, C.numberOf(pointExpr(t)), 'root');
+            [function (x) { return x; }, plugValues, plugSums].forEach(function (f) {
+                cur = f(cur);
+                var s = astText(cur);
+                if (out[out.length - 1] !== s) out.push(s);
+            });
+        } catch (x) { /* [EN] nie umiemy wypisać — zostaje sam wynik */ }
+        return out;
+    }
     var RULES = [
         { // [EN] bez zmiennej: granica stałej to ta stała
             name: 'constant',
@@ -371,7 +433,7 @@
                 var at = fold(substitute(e, v, pt));
                 var val = numVal(at);
                 if (C.hasVar(at, v) || !isFinite(val)) throw new NotSupported();
-                line(log, 'Podstawiamy ' + v + ' = ' + targetText({ at: t.at, src: t.src, side: 0 }), limOf(v, t, e) + ' = ' + C.show(at));
+                line(log, 'Podstawiamy ' + v + ' = ' + targetText({ at: t.at, src: t.src, side: 0 }), limOf(v, t, e) + ' = ' + plugSteps(e, v, t).concat(C.show(at)).filter(function (s, i, a) { return !i || s !== a[i - 1]; }).join(' = '));
                 return { kind: 'num', e: at };
             }
         }

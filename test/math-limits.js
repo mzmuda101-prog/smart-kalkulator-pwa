@@ -427,5 +427,33 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     ok('sposoby: znana granica sin(3x)/x też ma de l\'Hospitala', names('lim x→0 sin(3x)/x').length === 2, names('lim x→0 sin(3x)/x'));
 }
 
+// ── Partia 1 (spec 2026-11-24-przeglad-skokow): podstawienie z rachunkiem ──
+{
+    const steps = q => { const r = S.run(q); return r && r.explain ? r.explain.steps : []; };
+    const sub = (st, v) => st.find(x => new RegExp('^Podstawiamy ' + v + ' = ').test(x.label));
+    const s1 = sub(steps('lim x→2 (x^4-13x^2+36)/(x^3-2x^2+x-2)'), 'x');
+    ok('P1: wstawione liczby', !!s1 && /\(2³ \+ 2 ?· ?2² − 9 ?· ?2 − 18\)\/\(2² \+ 1\)/.test(s1.math), s1 && s1.math);
+    ok('P1: wartości wyrazów', !!s1 && s1.math.includes('(8 + 8 − 18 − 18)/(4 + 1)') && /−20\/5 = −4$/.test(s1.math), s1 && s1.math);
+    const s2 = sub(steps('lim x→-1 (x^3+1)/(x+1)'), 'x');
+    ok('P1: ujemny punkt w nawiasie', !!s2 && s2.math.includes('(−1)²') && s2.math.includes('− (−1)') && /= 3$/.test(s2.math), s2 && s2.math);
+    const s3 = sub(steps('lim x→0,5 (3x^2+3x)/(x+1)'), 'x');
+    ok('P1: punkt ułamkowy w nawiasie', !!s3 && /\(1\/2\)/.test(s3.math) && /= 3\/2$/.test(s3.math), s3 && s3.math);
+    const hop = S.run('lim x→0 sin(3x)/x').explain.methods.find(m => /Hospital/.test(m.label));
+    const s4 = hop && sub(hop.steps, 'x');
+    ok('P1: funkcja — wstawione 0 przed wartością', !!s4 && /3 ?· ?0/.test(s4.math) && /= 3$/.test(s4.math), s4 && s4.math);
+    // bramka: każdy krok „Podstawiamy x = a” w zestawie i ściądze — po pierwszym „=” bez zmiennej, z rachunkiem
+    const bad = [];
+    for (const z of ZESTAW) {
+        const r = S.run(z.input); if (!r || !r.explain) continue;
+        for (const m of r.explain.methods || [r.explain]) for (const st of m.steps) {
+            const mm = /^Podstawiamy (\w) = /.exec(st.label); if (!mm) continue;
+            const rhs = st.math.split(' = ').slice(1);
+            const body = st.math.split(' = ')[0].replace(/^lim\([^)]*\) /, '');
+            if (!rhs.length || new RegExp('(^|[^a-z])' + mm[1] + '([^a-z]|$)').test(rhs[0]) || (rhs.length < 2 && body !== mm[1])) bad.push(z.input + ' :: ' + st.math); // sam wynik bez rachunku = skok
+        }
+    }
+    ok('P1: bramka — każde „Podstawiamy” z rachunkiem', bad.length === 0, bad.slice(0, 5));
+}
+
 console.log(`math-limits: ${pass} OK, ${fail} błędów`);
 process.exit(fail ? 1 : 0);
