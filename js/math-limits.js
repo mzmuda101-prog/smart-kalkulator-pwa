@@ -1071,15 +1071,18 @@
                     : { down: down, text: grpFactor(C.atomExpr(f.b), pow), expr: C.cPow(C.atomExpr(f.b), f.e) });
             });
             if (!M && !ups.concat(downs).some(function (x) { return x === '(' + C.show(xa) + ')'; })) throw new NotSupported();
-            var head = limHead(v, t), coef = K.fmt(e[0].c) === '1' ? '' : K.fmt(e[0].c);
-            if (school) return schoolCancel(e, v, t, log, depth, a, parts, head, coef);
+            // [EN] liczba przed iloczynem: −(x − 2)…, (1/2)(x − 3)… — ułamek w nawiasie, bo 1/2(x − 3) czyta się jak 1/(2(x − 3))
+            var head = limHead(v, t), ct = K.fmt(e[0].c), neg = ct[0] === '−', ca = neg ? ct.slice(1) : ct;
+            var coef = ct === '1' ? '' : (neg ? '−' : '') + (ca === '1' ? '' : /\//.test(ca) ? '(' + ca + ')' : ca);
+            var upOr1 = function (up) { return up || (coef === '' || coef === '−' ? '1' : ''); }; // [EN] 3/(x + 2), nie 31/(x + 2)
+            if (school) return schoolCancel(e, v, t, log, depth, a, parts, head, coef, upOr1);
             if (tables.length) { // [EN] licznik przed mianownikiem (sort jest stabilny)
                 var byName = function (x, y) { return x.name < y.name ? -1 : x.name > y.name ? 1 : 0; };
                 tables.sort(byName); divLines.sort(byName);
                 line(log, 'Dzielimy schematem Hornera', divLines.map(function (x) { return x.dl.replace(/^(.*?) = /, '⟦$1⟧ = '); }).join('\n'), 'schemat-hornera', { horner: tables });
                 log[log.length - 1].formula.here = K.hornerHere(tables);
             }
-            line(log, 'Rozkładamy na czynniki', head + coef + (ups.join('') || '1') + '/' + (downs.length > 1 ? '(' + downs.join('') + ')' : downs.join('')));
+            line(log, 'Rozkładamy na czynniki', head + coef + upOr1(ups.join('')) + '/' + (downs.length > 1 ? '(' + downs.join('') + ')' : downs.join('')));
             var out = M ? C.cMul(rest, C.cPow(xa, K.R(M))) : rest;
             line(log, 'Skracamy (' + C.show(xa) + ')', limOf(v, t, out));
             return limitOf(out, v, t, log, depth);
@@ -1087,7 +1090,7 @@
     };
     // [EN] 0/0 po szkolnemu: licznik i mianownik rozkładane osobno (schoolFactor), skracamy wspólny nawias z pierwiastkiem a,
     // dalej liczymy z postaci iloczynowej. Gdy szkolny rozkład się poddaje, ta strona dostaje jedną tabelkę Hornera.
-    function schoolCancel(e, v, t, log, depth, a, parts, head, coef) {
+    function schoolCancel(e, v, t, log, depth, a, parts, head, coef, upOr1) {
         var isRoot = function (l) { return l.c.length === 2 && K.isZero(hornerAt(l.c, a)); };
         var rootC = null, sides = [], upSteps = [], downSteps = [];
         parts.forEach(function (p) {
@@ -1131,7 +1134,7 @@
         var frac = function () {
             var txt = function (down) { return sides.filter(function (sd) { return sd.down === down; }).map(function (sd) { return sd.text != null ? sd.text : K.factorText(sd.k, sd.leaves.filter(function (l) { return l.n > 0; }), v, {}); }); };
             var up = join(txt(false), !!coef), dn = join(txt(true), false);
-            return head + coef + (up || '1') + (dn ? '/' + den(dn) : '');
+            return head + coef + upOr1(up) + (dn ? '/' + den(dn) : '');
         };
         line(log, 'Rozkładamy na czynniki', frac());
         [false, true].forEach(function (down) {
@@ -1474,7 +1477,7 @@
                 var ansH = limitOf(e, d.v, d.target, alt3, 0);
                 if (_first === 'factorCancel' && agrees(ansH, truth) && formatAnswer(ansH).text === out.text) {
                     alt3.push({ label: 'Wynik', math: userLim(d, e) + ' = ' + out.text, final: true });
-                    var key = function (st) { return JSON.stringify(st.map(function (x) { return [x.label, x.math]; })); };
+                    var key = function (st) { return JSON.stringify(st.map(function (x) { return x.math; })); }; // [EN] same etykiety się różnią (x⁵ − 1) — to nie inny sposób
                     if (key(alt3) !== key(steps)) res.explain.methods = (res.explain.methods || [{ label: METHOD[first], steps: steps }]).concat([{ label: 'Schemat Hornera', steps: alt3 }]);
                 }
             } catch (err) { if (!(err instanceof NotSupported) && !(err instanceof RangeError)) throw err; }

@@ -539,6 +539,27 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     const r6 = meth('lim x→1 (x^5-1)/(x-1)', 'Rozkład na czynniki');
     ok('SZK2: szkolny się poddaje — Horner dla licznika', r6.some(x => / w liczniku$/.test(x.label) && Array.isArray(x.horner) && x.horner.length === 1), labs(r6));
     ok('SZK2: x⁵ − 1 wynik 5', endsWith(r6, '5'), r6.length && r6[r6.length - 1].math);
+    // przegląd 2: liczba przed ułamkiem po skróceniu nie skleja się z „1”, ułamek przed iloczynem w nawiasie
+    const sk = (q, m) => (meth(q, m).find(x => /^Skracamy/.test(x.label)) || {}).math || '';
+    ok('SZK3: 3/(x + 2), nie 31/(x + 2)', sk('lim x→2 (3x-6)/(x^2-4)', 'Rozkład na czynniki') === 'lim(x→2) 3/(x + 2)', sk('lim x→2 (3x-6)/(x^2-4)', 'Rozkład na czynniki'));
+    const pl = (meth('lim x→2 (3x-6)/(x^2-4)', 'Rozkład na czynniki').find(x => /^Podstawiamy/.test(x.label)) || {}).math || '';
+    ok('SZK3: podstawienie 3/(2 + 2) = 3/4', pl.includes('3/(2 + 2) = 3/4'), pl);
+    ok('SZK3: 2/(x + 3)', sk('lim x→3 (2x-6)/(x^2-9)', 'Rozkład na czynniki') === 'lim(x→3) 2/(x + 3)', sk('lim x→3 (2x-6)/(x^2-9)', 'Rozkład na czynniki'));
+    const fr = ['Rozkład na czynniki', 'Schemat Hornera'].map(m => (meth('lim x→3 (x^2-9)/(2x-6)', m).find(x => x.label === 'Rozkładamy na czynniki') || {}).math || '');
+    ok('SZK3: ułamek przed iloczynem w nawiasie (1/2)(x − 3)', fr.every(x => x.includes('(1/2)(x − 3)')), fr);
+    ok('SZK3: Horner równy szkolnemu (x⁵ − 1) — bez osobnego sposobu', !(S.run('lim x→1 (x^5-1)/(x-1)').explain.methods || []).some(m => m.label === 'Schemat Hornera'), (S.run('lim x→1 (x^5-1)/(x-1)').explain.methods || []).map(m => m.label));
+    // bramka: po „lim(…) ” liczba sklejona z „1/(” (31/(…)) w zestawie i zadaniach bramki kroków; wartość po skróceniu = wynik
+    const glued = [], wrong = [];
+    for (const q of ZESTAW.map(z => z.input).concat(require('../scripts/steps-check/queries.js').filter(q => /^lim /.test(q)))) {
+        const r = S.run(q); if (!r || !r.explain) continue;
+        for (const m of r.explain.methods || [r.explain]) for (const st of m.steps) {
+            if (/^lim\([^)]*\) −?\(?\d+1\/\(/.test(st.math) && /^(Rozkładamy|Skracamy|Podstawiamy)/.test(st.label)) glued.push(q + ' :: ' + st.math);
+            const hd = /^Skracamy \(/.test(st.label) && /^lim\((\w)→([^)]*)\) (.*)$/.exec(st.math.split('\n')[0]);
+            if (hd && S.run('lim ' + hd[1] + '→' + hd[2] + ' ' + hd[3]).text !== r.text) wrong.push(q + ' :: ' + st.math);
+        }
+    }
+    ok('SZK3: bramka — bez sklejonego „<liczba>1/(”', glued.length === 0, glued.slice(0, 5));
+    ok('SZK3: bramka — granica po skróceniu = wynik', wrong.length === 0, wrong.slice(0, 5));
 }
 
 // ── Partia 1: Horner w granicy (sposób „Schemat Hornera”) ──
