@@ -101,7 +101,7 @@ ok('3 − y < 5: bez „x” w zdaniu', !/\bx\b/.test(whyOf('rozwiąż 3 - y < 5
         const r = S.run(q), st = r.explain.steps, i = st.findIndex(x => x.label === 'Składamy wynik'), w = whyFor(st[i], r.explain.title, r.explain, i);
         ok(q + ': czynnik i prawdziwa potęga e w zdaniu', w.includes(pw) && !/razy \$e\$/.test(w), w);
     }
-    for (const [q, pw] of [['lim n→∞ (1-1/n)^(n/2)', 'e^{\\frac{-1}{2}}'], ['lim n→∞ (1+2/n)^n', 'e^{2}'], ['lim n→∞ (1+1/n)^n', 'e^{1}']]) {
+    for (const [q, pw] of [['lim n→∞ (1-1/n)^(n/2)', 'e^{-\\frac{1}{2}}'], ['lim n→∞ (1+2/n)^n', 'e^{2}'], ['lim n→∞ (1+1/n)^n', 'e$.']]) {
         const r = S.run(q), m = r.explain.methods && r.explain.methods.find(x => x.label === 'Wzór skrócony');
         if (!m) { ok(q + ': ma wzór skrócony', false); continue; }
         const i = m.steps.findIndex(x => x.label === 'Składamy wynik'), w = whyFor(m.steps[i], r.explain.title, { steps: m.steps }, i);

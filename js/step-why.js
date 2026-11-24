@@ -102,11 +102,12 @@
             // [EN] czynnik i wykładnik odczytane z samego kroku („5 · e^(−1) = 5/e”), żeby zdanie mówiło dokładnie to, co widać
             const m = /^(?:(.+?) · )?e(?:\^\((.+?)\)|([⁰¹²³⁴⁵⁶⁷⁸⁹]+))?(?: = |$)/.exec(s.math);
             const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹', raw = m ? (m[2] || (m[3] ? [...m[3]].map(d => SUP.indexOf(d)).join('') : '1')) : null;
-            const x = raw && raw.replace(/−/g, '-').replace(/^(-?\d+)\/(\d+)$/, '\\frac{$1}{$2}'), k = m && m[1] && m[1].replace(/−/g, '-');
+            const x = raw && raw.replace(/−/g, '-').replace(/^(-?)(\d+)\/(\d+)$/, '$1\\frac{$2}{$3}'), k = m && m[1] && m[1].replace(/−/g, '-');
             const OLD = 'Podstawa dąży do $e$, a wykładnik do liczby z poprzedniego kroku, więc całość dąży do $e$ do tej potęgi.';
             if (!x) return OLD;
-            if (isShortcut(c)) return 'Wykładnik dąży do $' + x + '$, więc granica potęgi to $e^{' + x + '}$.';
-            return k ? 'Stały czynnik $' + k + '$ zostaje przed granicą, a potęga daje $e^{' + x + '}$, więc wynik to $' + k + '\\cdot e^{' + x + '}$.' : OLD;
+            const ep = x === '1' ? 'e' : 'e^{' + x + '}';
+            if (isShortcut(c)) return 'Wykładnik dąży do $' + x + '$, więc granica potęgi to $' + ep + '$.';
+            return k ? 'Stały czynnik $' + k + '$ zostaje przed granicą, a potęga daje $' + ep + '$, więc wynik to $' + k + '\\cdot ' + ep + '$.' : OLD;
         }],
         [/^Potęga e$/, 'Liczba $e$ do coraz większej potęgi rośnie bez końca, a do coraz bardziej ujemnej spada do 0.'],
         [/^Dla \w → −∞$/, 'Tu zmienna jest ujemna, więc wyciągając ją spod pierwiastka, piszemy przed nim minus.'],
