@@ -1474,6 +1474,8 @@
     // ── Upraszczanie i rozkład ───────────────────────────────
     function simplify(ast) {
         var ctx = { dec: hasDecimal(ast) };
+        var frac = ast.k === 'div' && !ast.colon ? simplifyFraction(ast, ctx) : null;
+        if (frac) return frac;
         var start = show(ast, ctx);
         var steps = [{ label: 'Wyrażenie', math: start }];
         var raw = termsOf(ast);
@@ -1489,6 +1491,59 @@
         return done('Upraszczanie', final, null, steps);
     }
 
+    // [EN] ułamek wielomianów: rozkład szkolny licznika i mianownika, skrócenie wspólnych czynników, zastrzeżenie x ≠ … z pierwotnego mianownika.
+    // null = zostaje stare zachowanie (nic się nie skraca, mianownik ma niewymierne zera, wiele zmiennych)
+    function simplifyFraction(ast, ctx) {
+        try {
+            var tn = collect(termsOf(ast.a)), td = collect(termsOf(ast.b)), vs = varsOf(tn.concat(td));
+            if (vs.length !== 1 || !varsOf(td).length) return null;
+            var v = vs[0], cn = coefs(tn, v), cd = coefs(td, v);
+            if (cn.length < 1 || cd.length < 2 || (cn.length === 1 && isZero(cn[0]))) return null;
+            var steps = [{ label: 'Wyrażenie', math: show(ast, ctx) }];
+            var side = function (c, name) {
+                var sf = schoolFactor(c, v, ctx);
+                if (sf) { sf.steps.forEach(function (st) { var o = {}; for (var key in st) o[key] = st[key]; o.label += name; steps.push(o); }); return { k: sf.lead, f: sf.factors }; }
+                var top = c[c.length - 1];
+                return { k: top, f: c.length > 1 ? [{ c: c.map(function (x) { return div(x, top); }), n: 1 }] : [] };
+            };
+            var N = side(cn, ' w liczniku'), D = side(cd, ' w mianowniku');
+            var zeros = [];
+            for (var i = 0; i < D.f.length; i++) {
+                var f = D.f[i].c;
+                if (f.length === 2) zeros.push(neg(f[0]));
+                else if (f.length > 3 || sub(mul(f[1], f[1]), mul(R(4), f[0])).n >= 0n) return null; // [EN] niewymierne (lub nieznane) zera mianownika
+            }
+            zeros.sort(cmp);
+            var k = div(N.k, D.k), nl = N.f.map(function (x) { return { c: x.c, n: x.n }; }), dl = D.f.map(function (x) { return { c: x.c, n: x.n }; });
+            var same = function (a, b) { return a.length === b.length && a.every(function (x, j) { return eq(x, b[j]); }); };
+            var cancel = [];
+            dl.forEach(function (d) {
+                var m = nl.filter(function (x) { return same(x.c, d.c); })[0], t = m ? Math.min(m.n, d.n) : 0;
+                if (t) { m.n -= t; d.n -= t; cancel.push({ c: d.c, n: t }); }
+            });
+            if (!cancel.length) return null;
+            var live = function (l) { return l.filter(function (x) { return x.n > 0; }); };
+            var fr = function (a, b) {
+                var nt = !a.length ? fmt(R(k.n), ctx) : a.length === 1 && a[0].n === 1 && eq(R(k.n), ONE) && !b.length && eq(R(k.d), ONE) ? polyText(a[0].c, v, ctx) : sfText(R(k.n), a, v, ctx); // [EN] pojedynczy czynnik bez nawiasu: x − 2
+                if (!b.length && eq(R(k.d), ONE)) return nt;
+                var dt = b.length ? sfText(R(k.d), b, v, ctx) : fmt(R(k.d), ctx);
+                return nt + '/' + (!b.length || (eq(R(k.d), ONE) && b.length === 1) ? dt : '(' + dt + ')');
+            };
+            var ne = N.f.map(function (x) { return { c: x.c, n: x.n }; }), de = D.f.map(function (x) { return { c: x.c, n: x.n }; });
+            var lhs = fr(ne, de);
+            if (zeros.length) steps.push({ label: 'Zastrzegam dziedzinę', math: polyText(cd, v, ctx) + ' ≠ 0\n' + zeros.map(function (z) { return v + ' ≠ ' + fmt(z, ctx); }).join(', ') });
+            var tag = zeros.length ? ' (dla ' + zeros.map(function (z) { return v + ' ≠ ' + fmt(z, ctx); }).join(', ') + ')' : '';
+            var cur = lhs;
+            cancel.forEach(function (cc, j) {
+                var ni = ne.filter(function (x) { return same(x.c, cc.c); })[0], di = de.filter(function (x) { return same(x.c, cc.c); })[0];
+                ni.n -= cc.n; di.n -= cc.n;
+                var nxt = fr(live(ne), live(de));
+                steps.push({ label: 'Skracam ' + sfPiece(cc.c, cc.n, v, ctx), math: cur + ' = ⟦' + nxt + (j === cancel.length - 1 ? tag : '') + '⟧' });
+                cur = nxt;
+            });
+            return done('Upraszczanie', cur + tag, null, steps);
+        } catch (e) { if (e instanceof NotSupported) return null; throw e; }
+    }
     function underlineSquare(ast, opened, ctx) { // [EN] (x + 1)² + 2x → ⟦x² + x + x + 1⟧ + 2x
         if ((ast.k === 'add' || ast.k === 'sub') && hasSquaredSum(ast.a) && !hasSquaredSum(ast.b)) {
             var pre = showTerms(termsOf(ast.a), ctx, true);

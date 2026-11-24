@@ -374,5 +374,20 @@ pass += 3;
     });
 }
 
+// uprość ułamek wielomianów: rozkład szkolny, skrócenie, zastrzeżenie dziedziny
+{
+    const w = (q, want) => ok(q + ' → ' + want, text(q) === want, text(q));
+    w('uprość (x^2-4)/(x+2)', 'x − 2 (dla x ≠ −2)');
+    w('uprość x/(x^2-x)', '1/(x − 1) (dla x ≠ 0, x ≠ 1)');
+    w('uprość (x^2-1)/(2x-2)', '(x + 1)/2 (dla x ≠ 1)');
+    w('uprość (x^2-2x+1)/(x^2-1)', '(x − 1)/(x + 1) (dla x ≠ −1, x ≠ 1)');
+    w('uprość (x^3+x)/(x^2+1)', 'x');
+    ok('(x^2+1)/(x+1): bez zmian, nic się nie skraca', /Jeszcze tego nie/.test(text('uprość (x^2+1)/(x+1)')), text('uprość (x^2+1)/(x+1)'));
+    ok('niewymierne zero mianownika: bez zmian', /Jeszcze tego nie/.test(text('uprość (x^2-1)/(x^2-2)')), text('uprość (x^2-1)/(x^2-2)'));
+    ok('uprość (x^2-4)/(x+2): kroki', labels('uprość (x^2-4)/(x+2)') === 'Wyrażenie | Rozkładam różnicę kwadratów w liczniku | Zastrzegam dziedzinę | Skracam (x + 2)', labels('uprość (x^2-4)/(x+2)'));
+    ok('uprość (x^2-4)/(x+2): wzór w dymku', fm('uprość (x^2-4)/(x+2)', 'roznica-kwadratow'));
+    ok('uprość (x+1)/2: bez zmian', text('uprość (x+1)/2') === '(1/2)x + 1/2', text('uprość (x+1)/2'));
+}
+
 console.log(`math-steps: ${pass} OK, ${fail} błędów`);
 process.exit(fail ? 1 : 0);

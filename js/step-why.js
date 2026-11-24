@@ -74,6 +74,8 @@
         [/^Skracamy \(/, (_s, _t, c) => c.atInf ? 'To samo stoi w liczniku i w mianowniku, więc się skraca.'
             : 'Ten sam nawias jest w liczniku i mianowniku. Zmienna tylko zbliża się do celu, więc nawias nie jest zerem i wolno skrócić.'],
         [/^Skracamy /, 'To samo stoi w liczniku i w mianowniku, więc się skraca.'],
+        [/^Zastrzegam dziedzinę$/, 'Przez zero nie wolno dzielić, więc pierwotny mianownik nie może być zerem. To zastrzeżenie zostaje także po skróceniu.'],
+        [/^Skracam /, 'Ten sam czynnik stoi w liczniku i w mianowniku, więc wolno go skrócić. Wynik dotyczy tylko x z zastrzeżenia.'],
         [/^Mnożymy przez sprzężenie$/, (s, _t, c) => {
             const id = s.formula && s.formula.id;
             if (id === 'roznica-szescianow' || id === 'roznica-czwartych') return (id === 'roznica-szescianow' ? 'Tu stoją pierwiastki $\\sqrt[3]{\\ }$. ' : 'Tu stoją pierwiastki $\\sqrt[4]{\\ }$. ') + SAME;
