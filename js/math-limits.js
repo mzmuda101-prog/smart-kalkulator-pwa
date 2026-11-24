@@ -1302,6 +1302,11 @@
             }
             // [EN] symbol nieoznaczony do stuknięcia: dymek „co to znaczy” (słownik: nieoznaczone)
             steps = [ind ? { label: 'Granica', math: userLim(d, e) + '  [⟦' + ind + '⟧]', formula: { id: 'nieoznaczone' } } : { label: 'Granica', math: userLim(d, e) }];
+            if (ind === '0/0' && ast.k === 'div' && isFiniteTarget(d.target)) { // [EN] skąd 0/0: licznik i mianownik osobno, każdy kończy się zerem
+                var sub = [ast.a, ast.b].map(function (x) { var ex = C.fromAst(x); return plugSteps(ex, d.v, d.target, fold(substitute(ex, d.v, pointExpr(d.target)))).join(' = '); });
+                steps[0].math += '\n' + sub.join('\n');
+                steps[0].formula.here = 'Licznik i mianownik po wstawieniu dają 0, stąd [0/0].';
+            }
             var quick = null;
             if (!ind && !isFiniteTarget(d.target)) {
                 ans = limitOf(e, d.v, d.target, null, 0);

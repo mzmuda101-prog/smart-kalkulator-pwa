@@ -55,7 +55,7 @@
         [/^(Wynik|Odpowiedź|Liczby|Równanie|Równanie trygonometryczne|Układ równań|Nierówność|Funkcja|Całka|Działanie|Wyrażenie|Wynik w przybliżeniu)$/, ''],
         // ── granice ──
         [/^Granica$/, (s, _t, c) => {
-            const m = /\s\s\[⟦?([^\]⟧]+)⟧?\]$/.exec(s.math);
+            const m = /\s\s\[⟦?([^\]⟧]+)⟧?\](?:\n.*)*$/.exec(s.math);
             if (m && TAG[m[1]]) return (s.formula ? TAG_SHORT : TAG)[m[1]];
             if (c.next && /^Zapisujemy podstawę jako 1 \+ 1\/aₙ/.test(c.next.label)) return TAG['1^∞']; // [EN] silnik nie zawsze nazywa 1^∞ (próg)
             // [EN] bez symbolu nie obiecujemy „nic nie przeszkadza” — silnik nie każdy kłopot nazywa (np. 0 · ∞)

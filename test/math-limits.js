@@ -219,7 +219,7 @@ const WANT_TEXT = { '1a': '1/3', '1d': '0', '1e': '+∞', '7a': '√3/3', '7b': 
 {
     const st8 = (S.run(byId['8a'].input) || {}).explain;
     const s8 = st8 ? st8.steps : [];
-    ok('8a: [0/0] w pierwszym kroku', s8.length && /\[⟦0\/0⟧\]$/.test(s8[0].math), s8[0]);
+    ok('8a: [0/0] w pierwszym kroku', s8.length && /\[⟦0\/0⟧\]$/.test(s8[0].math.split('\n')[0]), s8[0]);
     ok('8a: Rozkładamy na czynniki (x − 4)(x − 2)/((x − 4)(3x + 2))', s8.some(x => x.label === 'Rozkładamy na czynniki' && x.math.includes('(x − 4)(x − 2)/((x − 4)(3x + 2))')), s8.map(x => x.label + ': ' + x.math));
     ok('8a: Skracamy (x − 4)', s8.some(x => x.label === 'Skracamy (x − 4)'), s8.map(x => x.label));
     ok('8a tekst 1/7', text(byId['8a'].input) === '1/7', text(byId['8a'].input));
@@ -531,6 +531,18 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     has('lim x→-1 2-(x-1)/(x+2)', '2 − (−2)/1');
     for (const q of ['lim x→-1 2^x', 'lim x→-1 e^x']) { const a = allSub(q); ok('FIX: wykładnik bez podwójnych nawiasów ' + q, a.length > 0 && a.every(m => !m.includes('((−1))')) && a.some(m => m.includes('^(−1)')), a); }
     const b = allSub('lim x→-2 x/(x-1)'); ok('FIX: bez kroku samych nawiasów', b.length > 0 && b.every(m => !m.includes(' = −2/(−3)')), b);
+}
+
+// ── S11: skąd 0/0 w kroku 1 ──
+{
+    const st = q => { const r = S.run(q); return [].concat(...(r.explain.methods || [r.explain]).map(m => m.steps)); };
+    const s1 = st('lim x→4 (x^2-6x+8)/(3x^2-10x-8)')[0];
+    const l2 = s1.math.split('\n').slice(1).join('\n');
+    ok('S11: licznik podstawiony', l2.includes('4² − 6 · 4 + 8 = ') && /= 0\n/.test(l2), s1.math);
+    ok('S11: mianownik podstawiony', l2.includes('3 · 4² − 10 · 4 − 8') , s1.math);
+    ok('S11: here niepusty', !!(s1.formula && s1.formula.here && /0\/0|licznik/.test(s1.formula.here)), s1.formula);
+    ok('S11: symbol nadal w pierwszej linii', /\[⟦0\/0⟧\]/.test(s1.math.split('\n')[0]), s1.math);
+    ok('S11: przy ∞ bez drugiej linii', !/\n/.test(st('lim n→∞ (2n+1)/(6n+5)')[0].math), st('lim n→∞ (2n+1)/(6n+5)')[0].math);
 }
 
 console.log(`math-limits: ${pass} OK, ${fail} błędów`);
