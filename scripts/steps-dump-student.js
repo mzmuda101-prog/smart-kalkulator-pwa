@@ -34,6 +34,7 @@ function hornerText(h, name) {
 }
 
 const out = [];
+const PREFIX = { granice: 'g', rownania: 'e', analiza: 'a', reszta: 'z' };
 const counter = { granice: 0, rownania: 0, analiza: 0, reszta: 0 };
 for (const q of queries) {
     let r; try { r = S.run(q); } catch { continue; }
@@ -52,9 +53,10 @@ for (const q of queries) {
             if (s.horner) o.horner = (Array.isArray(s.horner) ? s.horner : [s.horner]).map((/** @type {any} */ h) => hornerText(h, h.name));
             return o;
         });
-        out.push({ id: sec[0] + String(++counter[/** @type {'granice'} */ (sec)]).padStart(3, '0'), q, title: r.explain.title, method: m.label || null, steps });
+        out.push({ id: PREFIX[/** @type {'granice'} */ (sec)] + String(++counter[/** @type {'granice'} */ (sec)]).padStart(3, '0'), q, title: r.explain.title, method: m.label || null, steps });
     }
 }
 fs.writeFileSync(outFile, JSON.stringify(out, null, 1));
+assert(new Set(out.map(t => t.id)).size === out.length, 'id nie są unikalne');
 assert(out.length > 0 && out.every(t => t.steps.every((/** @type {any} */ s) => typeof s.why === 'string')));
 console.log('zadań:', out.length, ' kroków:', out.reduce((a, t) => a + t.steps.length, 0));
