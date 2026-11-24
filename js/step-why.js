@@ -253,6 +253,7 @@
         [/^Wyłączam wspólny nawias$/, 'Oba składniki mają ten sam nawias, więc wyciągam go przed nawias jak zwykłą liczbę.'],
         [/^Podstawiam [tu] w miejsce /, 'Tu największa potęga to podwojona środkowa, więc po zamianie zostaje trójmian, który już umiem rozłożyć.'],
         [/^Wracam do [a-z]$/, 'Zamiast litery pomocniczej wpisuję z powrotem potęgę, bo wynik ma być zapisany przez wyjściową zmienną.'],
+        [/^Wciągam liczbę do nawiasu$/, 'Mnożę liczbę sprzed iloczynu przez nawias z ułamkiem, żeby w nawiasie zostały liczby całkowite.'],
         [/^Porządkuję czynniki$/, (s) => {
             const [l, r] = s.math.split(' = '), lead = (/** @type {string} */ t) => (/^[^(a-z]*/.exec(t) || [''])[0];
             return r !== undefined && lead(l) !== lead(r) ? 'Liczby z nawiasów wyjmuję przed iloczyn i ustawiam nawiasy w stałej kolejności.'

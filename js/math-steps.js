@@ -1643,6 +1643,16 @@
         var text = sfText(t.k, t.leaves, v, ctx), lead = t.k, factors = [];
         var last = t.steps[t.steps.length - 1].math.split(' = ').pop().replace(/[⟦⟧]/g, '');
         if (last !== text) t.steps.push({ label: 'Składam całość', math: polyText(c, v, ctx) + ' = ' + text });
+        // [EN] liczba przed iloczynem wchodzi do nawiasu z ułamkiem, gdy mianownik ją dzieli: 2(x − 1/2) → (2x − 1)
+        var kk = t.k, inLeaves = t.leaves.map(function (l) {
+            if (l.c.length !== 2 || !isInt(kk) || l.c.every(isInt)) return l;
+            var m = l.c.reduce(function (acc, x) { return (acc * x.d) / gcd(acc, x.d); }, 1n), mn = m ** BigInt(l.n);
+            if (kk.n % mn !== 0n) return l;
+            kk = R(kk.n / mn);
+            return { c: l.c.map(function (x) { return mul(x, R(m)); }), n: l.n };
+        });
+        var absorbed = sfText(kk, inLeaves, v, ctx);
+        if (absorbed !== text) { t.steps.push({ label: 'Wciągam liczbę do nawiasu', math: text + ' = ' + absorbed }); text = absorbed; }
         t.leaves.forEach(function (l) {
             var lc = l.c[l.c.length - 1], mc = l.c.map(function (x) { return div(x, lc); });
             lead = mul(lead, powR(lc, l.n));
@@ -1692,7 +1702,7 @@
         if (prefix === '−1') prefix = '−';
         if (prefix) steps.push({ label: 'Wyłączam wspólny czynnik przed nawias', math: prefix + '(' + showTerms(rest, ctx) + ')' });
 
-        var result = prefix ? prefix + '(' + showTerms(rest, ctx) + ')' : showTerms(rest, ctx), pushedIn = false;
+        var result = prefix ? prefix + '(' + showTerms(rest, ctx) + ')' : showTerms(rest, ctx);
         var restVars = varsOf(rest);
         if (restVars.length === 1) {
             var v = restVars[0], c = coefs(rest, v), factors = [], lead = c[c.length - 1];
@@ -1731,7 +1741,6 @@
                     return f.n > 1 ? (isZero(f.r) ? inner + sup(f.n) : wrapped + sup(f.n)) : wrapped;
                 }).join('');
                 if (leftover) body += '(' + polyText(leftover, v, ctx) + ')';
-                pushedIn = !!leftover && !eq(leftover[leftover.length - 1], ONE); // [EN] stary zapis wpychał liczbę do nawiasu: (x + 1/2)(2x² + 2)
                 var leadText = eq(lead, ONE) ? '' : fmtParen(lead, ctx);
                 result = prefix + leadText + body;
                 var last = steps[steps.length - 1];
@@ -1756,10 +1765,9 @@
             result = showTerms(rest, ctx);
         }
         if (school) { // [EN] kroki szkolne; wynik jak dotąd, chyba że szkoła rozłożyła dalej (dwa czynniki bez pierwiastków wymiernych)
-            var curved = school.factors.reduce(function (s, f) { return s + (f.c.length > 2 ? f.n : 0); }, 0);
-            if (curved > 1 || pushedIn) result = school.text;
-            steps = [steps[0]].concat(school.steps);
             var parts = function (t) { return (t.match(/\([^()]*\)[⁰¹²³⁴⁵⁶⁷⁸⁹]*|[a-z][⁰¹²³⁴⁵⁶⁷⁸⁹]*/g) || []).sort().join('') + '|' + /^[^(a-z]*/.exec(t)[0]; };
+            if (parts(result) !== parts(school.text)) result = school.text; // [EN] postać szkolna wygrywa; samo przestawienie zostawia dawną kolejność
+            steps = [steps[0]].concat(school.steps);
             var tail = steps[steps.length - 1];
             if (result === school.text) { /* [EN] gotowe */ } else if (tail.label === 'Składam całość' && parts(result) === parts(school.text)) {
                 tail.math = tail.math.slice(0, tail.math.lastIndexOf(' = ')) + ' = ' + result; // [EN] samo przestawienie nawiasów: bez osobnego kroku

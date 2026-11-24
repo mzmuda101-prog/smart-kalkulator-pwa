@@ -254,7 +254,7 @@
             why: 'Kwadrat nawiasu z minusem: oba kwadraty są z plusem, a minus dostaje tylko środkowy, podwojony iloczyn.',
             level: 'Szkoła podstawowa i liceum: wzory skróconego mnożenia',
             more: [
-                'Skąd wzór: kwadrat to nawias razy nawias, $(a-b)^{2}=(a-b)(a-b)$. Mnożymy każdy wyraz przez każdy: $a\\cdot a-a\\cdot b-b\\cdot a+b\\cdot b$. Dwa środkowe wyrazy są takie same i razem dają $-2ab$, więc wychodzi $a^{2}-2ab+b^{2}$.',
+                'Skąd wzór: kwadrat to nawias razy nawias, $(a-b)^{2}=(a-b)(a-b)$. Mnożymy każdy wyraz przez każdy: $a\\cdot a-a\\cdot b-b\\cdot a+b\\cdot b$. Środkowe $-a\\cdot b$ i $-b\\cdot a$ to ten sam wyraz $-ab$, bo kolejność mnożenia nie ma znaczenia. Razem dają $-2ab$, więc wychodzi $a^{2}-2ab+b^{2}$.',
                 'Przykład: $x^{2}-6x+9=x^{2}-2\\cdot x\\cdot 3+3^{2}=(x-3)^{2}$. Tu $a=x$, a $b=3$.',
                 'Najczęstszy błąd: $(x-3)^{2}$ to nie $x^{2}-9$. Brakuje środka $-2\\cdot x\\cdot 3=-6x$, a $3^{2}$ dodajemy, nie odejmujemy.',
                 'Przy rozkładzie: gdy pierwszy i ostatni wyraz trójmianu są kwadratami, sprawdź środek. Jeśli to minus ich podwojony iloczyn, trójmian jest kwadratem różnicy i ma jedno miejsce zerowe.',
@@ -654,7 +654,7 @@
         e: ['granice', 'st', ['liczba e', 'jeden do nieskończoności', 'granica ciągu'], 'lim n→∞ (1-1/n)^n', '1/e', ['nieoznaczone', 'ln1u', 'potega-ilorazu', 'e-skrocony']],
         sprzezenie: ['granice', 'lp', ['sprzężenie', 'mnożenie przez sprzężenie', 'nieskończoność minus nieskończoność', 'pierwiastki'], 'lim n→∞ (sqrt(2n+5)-sqrt(2n+1))', '0', ['roznica-kwadratow', 'roznica-szescianow', 'nieoznaczone']],
         'roznica-szescianow': ['wyrazenia', 'lr', ['sześciany', 'pierwiastek trzeciego stopnia', 'wzory skróconego mnożenia'], 'lim n→∞ (∛(n^3+8n^2)-∛(n^3+2n^2))', '2', ['sprzezenie', 'roznica-czwartych', 'suma-szescianow']],
-        'suma-szescianow': ['wyrazenia', 'lr', ['suma sześcianów', 'sześciany', 'wzory skróconego mnożenia', 'rozkład na czynniki'], 'rozłóż x^3 + 8', '(x + 2)(x² − 2x + 4)', ['roznica-szescianow', 'wylaczanie-przed-nawias']],
+        'suma-szescianow': ['wyrazenia', 'lr', ['suma sześcianów', 'sześciany', 'wzory skróconego mnożenia', 'rozkład na czynniki'], 'rozłóż x^3 + 8', '(x + 2)(x² − 2x + 4)', ['roznica-szescianow', 'wylaczanie-przed-nawias', 'delta']],
         'roznica-czwartych': ['wyrazenia', 'st', ['czwarte potęgi', 'pierwiastek czwartego stopnia'], 'lim n→∞ (∜(n^4+7n^3)-∜(n^4-n^3))', '2', ['roznica-szescianow', 'sprzezenie']],
         'pierwiastek-z-kwadratu': ['wyrazenia', 'lp', ['wartość bezwzględna', 'moduł', 'pierwiastek z kwadratu'], 'lim x→-∞ x/sqrt(3x^2+5)', '−√3/3', ['sprzezenie', 'wartosc-bezwzgledna']],
         'log-iloraz': ['potegi-log', 'lp', ['logarytm ilorazu', 'różnica logarytmów', 'log'], 'lim n→∞ (log_2(8n+1)-log_2(n+6))', '3', ['definicja-logarytmu']],

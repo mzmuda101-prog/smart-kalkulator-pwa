@@ -33,7 +33,7 @@ function check(src, want, more) {
     ok(src + ': iloczyn czynników = wejście', same(prod, p.c), r.factors);
     const all = r.steps.map((/** @type {any} */ s) => s.label + ' ' + s.math).join('\n');
     ok(src + ': Horner tylko gdy użyty', r.used.includes('horner') || !/Horner/.test(all), all);
-    ok(src + ': każdy krok ma dymek albo jest złożeniem', r.steps.every((/** @type {any} */ s) => s.formula || /^(Składam całość|Szukam pierwiastka|Odczytuję|Liczę)/.test(s.label)), r.steps.map((/** @type {any} */ s) => s.label));
+    ok(src + ': każdy krok ma dymek albo jest złożeniem', r.steps.every((/** @type {any} */ s) => s.formula || /^(Składam całość|Wciągam liczbę do nawiasu|Szukam pierwiastka|Odczytuję|Liczę)/.test(s.label)), r.steps.map((/** @type {any} */ s) => s.label));
     if (more) more(r);
 }
 
@@ -68,7 +68,7 @@ const txt = (/** @type {string} */ q) => S.run(q).text;
 ok('rozłóż x^2-5x+6: suma i iloczyn', st('rozłóż x^2-5x+6').some((/** @type {any} */ s) => /sumie/.test(s.label + s.math) && /iloczynie/.test(s.label + s.math)), st('rozłóż x^2-5x+6'));
 ok('rozłóż x^2-5x+6: wynik bez zmian', txt('rozłóż x^2-5x+6') === '(x − 2)(x − 3)', txt('rozłóż x^2-5x+6'));
 ok('rozłóż x^3-x: wynik bez zmian', txt('rozłóż x^3-x') === 'x(x − 1)(x + 1)', txt('rozłóż x^3-x'));
-ok('rozłóż 4x^2-9: wynik bez zmian', txt('rozłóż 4x^2-9') === '4(x − 3/2)(x + 3/2)', txt('rozłóż 4x^2-9'));
+ok('rozłóż 4x^2-9: postać szkolna', txt('rozłóż 4x^2-9') === '(2x − 3)(2x + 3)', txt('rozłóż 4x^2-9'));
 ok('rozłóż 4x^2-9: (2x)² − 3²', st('rozłóż 4x^2-9').some((/** @type {any} */ s) => s.math.includes('(2x)² − 3²')), st('rozłóż 4x^2-9'));
 ok('rozłóż x^4-13x^2+36', txt('rozłóż x^4-13x^2+36') === '(x − 2)(x + 2)(x − 3)(x + 3)', txt('rozłóż x^4-13x^2+36'));
 ok('rozłóż x^4+5x^2+4: dwa czynniki kwadratowe', txt('rozłóż x^4+5x^2+4') === '(x² + 1)(x² + 4)', txt('rozłóż x^4+5x^2+4'));
@@ -96,6 +96,16 @@ ok('grupowanie z minusem: (x³ − 3x²) − (x − 3)', st('rozłóż x^3-3x^2-
     const w2 = whyFor({ label: 'Porządkuję czynniki', math: '(x + 2)(x − 1) = (x − 1)(x + 2)' }, 'Rozkład na czynniki');
     ok('Porządkuję: wyjmowanie liczby', /wyjmuję/.test(w1), w1);
     ok('Porządkuję: samo przestawienie', !/wyjmuję/.test(w2) && /kolejno/.test(w2), w2);
+}
+
+// liczba przed iloczynem wchodzi do nawiasów z ułamkiem (postać szkolna wygrywa)
+for (const [q, want] of [['rozłóż 2x^3-3x^2-2x+3', '(2x − 3)(x − 1)(x + 1)'], ['rozłóż 2x^4-3x^3-5x^2-2x+5', '(2x − 5)(x³ + x² − 1)'], ['rozłóż 2x^2-3x+1', '(2x − 1)(x − 1)']]) {
+    ok(q + ' → ' + want, txt(q) === want, txt(q));
+    ok(q + ': ostatni krok to wynik, bez „Porządkuję”', st(q).slice(-1)[0].math.replace(/[⟦⟧]/g, '').endsWith(want) && !st(q).some((/** @type {any} */ s) => s.label === 'Porządkuję czynniki'), st(q));
+}
+{
+    const p = C.polyCoefs('2x^2-3x+1'), r = C.schoolFactor(p.c, p.v, { dec: false });
+    ok('schoolFactor(2x²−3x+1).text', r.text === '(2x − 1)(x − 1)', r.text);
 }
 
 console.log(`school-factor: ${pass} ok, ${fail} błędów`);
