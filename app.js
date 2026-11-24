@@ -16433,6 +16433,15 @@
                 }
                 results.push({ expr: ex + ' (rozpisanie sumuje się do wyniku)', pass: ok, got: JSON.stringify(r.explain) });
             });
+            // VAT: rozpisanie netto/VAT/brutto + informacja o stawce domyślnej 23%
+            [['100 zł netto', 81.3, true], ['brutto 100', 123, true], ['vat od 100', 23, true],
+             ['100 + 23% vat', 123, false], ['100 zł brutto 8%', 108, false], ['100 brutto 8%', 108, false]].forEach(function (c) {
+                var r = evalCalcExpression(c[0]), ex = r.explain;
+                var ok = r.value != null && Math.abs(r.value - c[1]) < 0.01 && !!ex && ex.rows.length === 3 &&
+                    Math.abs(ex.rows[0][1] + ex.rows[1][1] - ex.rows[2][1]) < 0.02 && /domyślna/.test(ex.title) === c[2];
+                results.push({ expr: c[0] + ' (rozpisanie VAT)', pass: ok, got: r.value + ' ' + JSON.stringify(ex) });
+            });
+            results.push({ expr: '100 + vat + 50 (bez rozpisania VAT)', pass: !evalCalcExpression('100 + vat + 50').explain, got: JSON.stringify(evalCalcExpression('100 + vat + 50').explain) });
             results.push({ expr: '2 + 2 (bez rozpisania)', pass: evalCalcExpression('2 + 2').explain === null, got: String(evalCalcExpression('2 + 2').explain) });
             // Pusty ekran: każdy przykład z kategorii (MATM0_HINT.START_CATEGORIES) daje wynik.
             ((window.MATM0_HINT && window.MATM0_HINT.START_CATEGORIES) || []).forEach(function(cat) {

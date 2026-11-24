@@ -1959,6 +1959,9 @@
             });
         return raw;
     }
+    // Ślad reguł VAT z ostatniego parseNaturalShortcuts — _evaluateCore buduje z niego
+    // rozpisanie „Netto / VAT / Brutto” i mówi, że stawka 23% była domyślna.
+    var _vatMarks = null;
     function parseNaturalShortcuts(raw) {
         raw = _plFold(raw);
         raw = raw.replace(/−/g, '-');
@@ -2009,7 +2012,7 @@
             });
         // [EN] VAT zawarty w kwocie brutto: „23% vat w 123”, „20% vat in 120”, „vat w 123” → x − x/(1+r)
         raw = raw.replace(/(?:([\d.,]+)\s*%\s*)?\b(?:vat[a-z]*|tax)\b(?:\s+([\d.,]+)\s*%)?\s+(?:w|in|included\s+in|zawart[ya]\s+w)\s+([\d.,]+)/gi,
-            function(_, r1, r2, x) { var r = _vatRate(r1 || r2); x = x.replace(',', '.'); return '(' + x + '-' + x + '/(1+' + r + '/100))'; });
+            function(_, r1, r2, x) { _vm('tax', r1 || r2, arguments); var r = _vatRate(r1 || r2); x = x.replace(',', '.'); return '(' + x + '-' + x + '/(1+' + r + '/100))'; });
         // [EN] „15% mniej od 813”, „15% decrease from 813” odejmują; „więcej/increase” dodają (zawsze, bez zgadywania)
         raw = raw.replace(/([\d.,]+)%\s+(?:mniej|taniej|decrease|less|spadk[a-z]*|obnizk[a-z]*)\s+(?:od|z|niz|from|of|on|than)\s+([\d.,]+)/gi,
             function(_, p, b) { return '(' + b.replace(',', '.') + '*(1-' + p.replace(',', '.') + '/100))'; });
@@ -2028,6 +2031,12 @@
         raw = raw.replace(/\b(?:narzut[u]?|mar[zż][ae]?|markup)\s+([\d.,]+)%\s+(?:na|od|do|on)?\s*([\d.,]+)/gi,
             function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
         function _vatRate(r) { var v = r != null ? parseFloat(String(r).replace(',', '.')) : 23; return isFinite(v) && v >= 0 ? v : 23; }
+        // mode: wynik to 'gross' (brutto), 'net' (netto) albo 'tax' (sama kwota VAT); args = arguments callbacku
+        function _vm(mode, r, args) {
+            if (!_vatMarks) return;
+            _vatMarks.push({ mode: mode, rate: _vatRate(r), def: r == null || r === '',
+                full: String(args[0]).trim() === String(args[args.length - 1]).trim() });
+        }
         function _vatBrutto(x, r) { return '(' + x.replace(',', '.') + '*(1+' + _vatRate(r) + '/100))'; }
         function _vatNetto(x, r) { return '(' + x.replace(',', '.') + '/(1+' + _vatRate(r) + '/100))'; }
         // „100 zł netto ile brutto” = 123 (kwota JEST netto); „123 brutto na netto” = 100.
@@ -2036,35 +2045,38 @@
             function(m, x, from, to, r) {
                 var fromNet = /^net/i.test(from), toNet = /^net/i.test(to);
                 if (fromNet === toNet) return m;
+                _vm(fromNet ? 'gross' : 'net', r, arguments);
                 return fromNet ? _vatBrutto(x, r) : _vatNetto(x, r);
             });
-        raw = raw.replace(/\b(?:brutto|gross)\s+([\d.,]+)(?:\s+([\d.,]+)\s*%)?/gi,
-            function(_, x, r) { return _vatBrutto(x, r); });
+        raw = raw.replace(/\b(?:brutto|gross)\s+([\d.,]+)(?![\d.,]|\s*%)(?:\s+([\d.,]+)\s*%)?/gi, // „100 brutto 8%”: 8 to stawka, nie kwota
+            function(_, x, r) { _vm('gross', r, arguments); return _vatBrutto(x, r); });
         raw = raw.replace(/([\d.,]+)\s+(?:brutto|gross)\b(?:\s+([\d.,]+)\s*%)?/gi,
-            function(_, x, r) { return _vatBrutto(x, r); });
-        raw = raw.replace(/\b(?:netto|net)\s+([\d.,]+)(?:\s+([\d.,]+)\s*%)?/gi,
-            function(_, x, r) { return _vatNetto(x, r); });
+            function(_, x, r) { _vm('gross', r, arguments); return _vatBrutto(x, r); });
+        raw = raw.replace(/\b(?:netto|net)\s+([\d.,]+)(?![\d.,]|\s*%)(?:\s+([\d.,]+)\s*%)?/gi, // „100 brutto 8%”: 8 to stawka, nie kwota
+            function(_, x, r) { _vm('net', r, arguments); return _vatNetto(x, r); });
         raw = raw.replace(/([\d.,]+)\s+(?:netto|net)\b(?:\s+([\d.,]+)\s*%)?/gi,
-            function(_, x, r) { return _vatNetto(x, r); });
+            function(_, x, r) { _vm('net', r, arguments); return _vatNetto(x, r); });
         // [EN] Odwrócona kolejność stawki: "100 + 23% vat" ≡ "100 + vat 23%".
         //      MUSI iść przed regułą "B ± vat P%", bo tamta nie widzi stawki przed słowem.
         raw = raw.replace(/([\d.,]+)\s*([+\-])\s*([\d.,]+)\s*%\s*(?:vat|tax)\b/gi,
             function(_, a, op, r) {
+                _vm(op === '-' ? 'net' : 'gross', r, arguments);
                 a = a.replace(',', '.');
                 var f = '(1+' + _vatRate(r) + '/100)';
                 return '(' + a + (op === '-' ? '/' : '*') + f + ')';
             });
         raw = raw.replace(/([\d.,]+)\s*([+\-])\s*(?:vat|tax)(?:\s+([\d.,]+)\s*%)?/gi,
             function(_, a, op, r) {
+                _vm(op === '-' ? 'net' : 'gross', r, arguments);
                 a = a.replace(',', '.');
                 var f = '(1+' + _vatRate(r) + '/100)';
                 return '(' + a + (op === '-' ? '/' : '*') + f + ')';
             });
         // stawka przed lub po słowie: „vat 8% od 100” i „8% vat od 100” (było: 8% z 8 = 0,64)
         raw = raw.replace(/(?:([\d.,]+)\s*%\s*)?\b(?:vat|tax)(?:\s+([\d.,]+)\s*%)?\s+(?:od|from|of|on)\s+([\d.,]+)/gi,
-            function(_, r1, r2, x) { return '(' + x.replace(',', '.') + '*' + _vatRate(r1 || r2) + '/100)'; });
+            function(_, r1, r2, x) { _vm('tax', r1 || r2, arguments); return '(' + x.replace(',', '.') + '*' + _vatRate(r1 || r2) + '/100)'; });
         raw = raw.replace(/([\d.,]+)\s+(?:vat|tax)(?:\s+([\d.,]+)\s*%)?\s+(?:od|from|of|on)\b/gi,
-            function(_, x, r) { return '(' + x.replace(',', '.') + '*' + _vatRate(r) + '/100)'; });
+            function(_, x, r) { _vm('tax', r, arguments); return '(' + x.replace(',', '.') + '*' + _vatRate(r) + '/100)'; });
         raw = raw.replace(/dodaj\s+([\d.,]+)%\s+do\s+([\d.,]+)/gi,
             function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
         raw = raw.replace(/add\s+([\d.,]+)%\s+to\s+([\d.,]+)/gi,
@@ -2395,7 +2407,9 @@
             if (useFirstWins && firstHit && firstHit.kind === 'currency') {
                 expr = _stripPhysicalUnits(expr, unitOpts.unitNamesRe);
             }
+            _vatMarks = [];
             expr = parseNaturalShortcuts(expr);
+            var vatMarks = _vatMarks; _vatMarks = null;
             expr = resolveCalcAnswer(expr, opts.lastAnswer);
             expr = resolveTrigDegrees(expr);
             var _NUM = _numeric();
@@ -2511,10 +2525,27 @@
             return {
                 value: value, unit: unit, text: readableTime, kind: valKind,
                 exact: !approxNum, exactText: exactNumText, preciseValue: preciseValue,
+                explain: _vatExplain(vatMarks, preciseValue != null ? preciseValue : value, unitResult.cat),
             };
         } catch (err) {
             return _dbgFail(opts, 'parse_error', err && err.message);
         }
+    }
+    // Rozpisanie VAT pod wynikiem: netto / VAT / brutto + jawna informacja, że 23% to stawka
+    // domyślna. Tylko gdy całe wyrażenie to JEDNA operacja VAT („100 zł netto”, „brutto 100”,
+    // „100 + vat”, „vat od 100”) — przy „100 + vat + 50” wynik nie jest już samym brutto.
+    function _vatExplain(marks, v, physCat) {
+        if (!marks || marks.length !== 1 || !marks[0].full || physCat || !isFinite(v)) return null;
+        var mk = marks[0], r = mk.rate / 100, net, tax, gross;
+        if (mk.mode === 'gross') { gross = v; net = v / (1 + r); tax = gross - net; }
+        else if (mk.mode === 'net') { net = v; tax = v * r; gross = net + tax; }
+        else { if (!(r > 0)) return null; tax = v; net = v / r; gross = net + tax; }
+        var rTxt = _formatLocaleNumber(mk.rate, 2) + '%';
+        var round = function (x) { return Math.round(x * 100) / 100; };
+        return {
+            title: mk.def ? 'VAT ' + rTxt + ' · stawka domyślna (inną dopisz, np. „… 8%”)' : 'VAT ' + rTxt,
+            rows: [['Netto', round(net)], ['VAT ' + rTxt, round(tax)], ['Brutto', round(gross)]],
+        };
     }
     // [EN] przed walutą: k/tys + „usd 1k"; po walucie: NL + trig (app.js woła w dwóch miejscach pipeline)
     function preprocessShorthands(raw, options) {
