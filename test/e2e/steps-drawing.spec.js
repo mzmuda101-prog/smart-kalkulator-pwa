@@ -168,3 +168,19 @@ test('schemat Hornera stopnia 5 na wąskim ekranie: tabelka przewija się w swoi
   expect(over).toBeLessThanOrEqual(0);
   await expect(page.locator('#stepsView .steps-horner').first()).toHaveAttribute('aria-label', /iloraz .*; reszta 0/);
 });
+
+test('granica 0/0: dwie tabelki Hornera z podpisami, mieszczą się na 360 px', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 780 });
+  await page.goto('index.html', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => !!window.MATM0_TEX);
+  await page.locator('#calcExpr').fill('lim x→2 (x^4-13x^2+36)/(x^3-2x^2+x-2)');
+  await page.locator('#calcExplainTip').click();
+  await page.locator('#stepsView .steps-methods .settings-seg-btn', { hasText: 'Rozkład na czynniki' }).click(); // domyślnie najkrótszy sposób
+  await expect(page.locator('#stepsView .steps-horner')).toHaveCount(2);
+  await expect(page.locator('#stepsView .steps-horner-name')).toHaveText(['Licznik', 'Mianownik']);
+  await expect(page.locator('#stepsView .steps-horner').first()).toHaveAttribute('aria-label', /^Licznik: Schemat Hornera dla r = 2/);
+  const fits = await page.locator('#stepsView .steps-horner-wrap').evaluateAll((els) => els.map((el) => el.getBoundingClientRect().right <= el.closest('.steps-item').getBoundingClientRect().right + 0.5));
+  expect(fits).toEqual([true, true]);
+  const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(over).toBeLessThanOrEqual(0);
+});

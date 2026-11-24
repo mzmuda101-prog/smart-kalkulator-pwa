@@ -5961,7 +5961,7 @@
         var _HORNER_ARROW = '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg>';
         function _stepsHorner(h) {
             var t = _stepsEl('table', 'steps-horner');
-            t.setAttribute('aria-label', 'Schemat Hornera dla r = ' + h.r + ': współczynniki ' + h.top.join(', ') + '; iloczyny ' + h.mid.slice(1).join(', ')
+            t.setAttribute('aria-label', (h.name ? h.name.charAt(0).toUpperCase() + h.name.slice(1) + ': ' : '') + 'Schemat Hornera dla r = ' + h.r + ': współczynniki ' + h.top.join(', ') + '; iloczyny ' + h.mid.slice(1).join(', ')
                 + '; iloraz ' + h.bot.slice(0, -1).join(', ') + '; reszta ' + h.bot[h.bot.length - 1]);
             [['', h.top], [h.r, h.mid], ['', h.bot]].forEach(function (row, ri) {
                 var tr = _stepsEl('tr', ri === 2 ? 'is-sum' : '');
@@ -6302,9 +6302,12 @@
                 }
                 li.appendChild(math);
                 if (step.horner) { // [EN] szeroka tabelka przewija się w swoim pudełku (krawędź pokazuje, że jest dalej)
-                    var hw = _stepsEl('div', 'steps-horner-wrap');
-                    hw.appendChild(_stepsHorner(step.horner));
-                    li.appendChild(hw);
+                    [].concat(step.horner).forEach(function (h) { // [EN] równania: jeden obiekt; granice: licznik i mianownik
+                        if (h.name) li.appendChild(_stepsEl('p', 'steps-horner-name', h.name.charAt(0).toUpperCase() + h.name.slice(1)));
+                        var hw = _stepsEl('div', 'steps-horner-wrap');
+                        hw.appendChild(_stepsHorner(h));
+                        li.appendChild(hw);
+                    });
                 }
                 list.appendChild(li);
                 toDraw.push({ ink: ink, step: step, fid: fid });

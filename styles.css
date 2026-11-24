@@ -2168,6 +2168,8 @@
         .steps-pop-tex { margin: 6px 0; font-size: 1.1rem; overflow-x: auto; overflow-y: hidden; }
         .steps-pop-why { margin: 0; }
         /* schemat Hornera pod krokiem: tabelka jak na kartce */
+        .steps-horner-name { margin: 8px 0 0; font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary); }
+        .steps-horner-name + .steps-horner-wrap { margin-block-start: 4px; }
         .steps-horner-wrap { margin-block-start: 8px; max-inline-size: 100%; overflow-x: auto; overscroll-behavior-x: contain;
             /* krawędź zanika, gdy tabelka idzie dalej w prawo (widoczny znak przewijania) */
             mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); }
