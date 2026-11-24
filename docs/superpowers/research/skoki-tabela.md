@@ -1,0 +1,186 @@
+# Tabela skoków w krokach, przegląd całego silnika
+
+Jedno źródło prawdy dla pozostałej pracy nad „skokami” (miejsca, gdzie krok pomija rachunek,
+ma fałszywe „dlaczego”, żargon albo jest nieczytelny).
+
+- **Data:** 2026-11-24
+- **Wersja apki:** v1.05.50 (gałąź `przeglad-skokow`)
+- **Przeczytane zadania:** 224 (granice 102, równania/nierówności/układy 59, pochodne i całki 41, reszta 22)
+- **Skąd dane:** stałe polecenie agenta „słaby uczeń” (`docs/superpowers/agents/slaby-uczen.md`); zrzuty kroków
+  robi `node scripts/steps-dump-student.js <dział> <plik>` (działy: granice, równania, analiza, reszta).
+  Do tego stare uwagi z raportów C, D, E (`docs/superpowers/research/raport-*.md`), sprawdzone na obecnym silniku.
+- **Duplikaty w danych:** w dziale równania cztery pary tych samych zadań (e005 = e039, e008 = e051,
+  e009 = e052, e004 = e057), więc unikalnych zadań jest 220; uwagi agent zapisał przy pierwszym z pary.
+- **Jak aktualizować:** wiersz zmienia stan na `zrobione vX.YY.ZZ` w tym samym commicie, który wprowadza naprawę
+  z testem (smoke-test w `app.js` albo test w `test/`). Gdy naprawa nie ma sensu: `odrzucone, powód`.
+  Nowe znaleziska dopisuj jako kolejne `S…` w odpowiedniej ważności; to samo zjawisko w wielu zadaniach to jeden wiersz.
+- **Kolejność:** krytyczna, potem powazna, potem drobna; w obrębie ważności od wiersza dotykającego najwięcej zadań
+  (liczba zadań z listy w kolumnie „zadanie”; zakresy typu g019-g031 liczone po rozwinięciu). Wiersze już zrobione na końcu swojej grupy.
+- **Scalanie:** ten sam wzorzec w wielu zadaniach to jeden wiersz; wiersze ze starych raportów zachowały stary numer
+  w nawiasie (np. `S12 (D-Z1)`). Gdy dwaj agenci różnili się w ważności, wzięto wyższą.
+
+## Podsumowanie
+
+Po scaleniu: **90 wierszy** (10 krytycznych, 49 poważnych, 31 drobnych).
+Do zrobienia: 88; zrobione: 2 (D-Z7, D-Z8 w v1.05.50).
+
+| kategoria | krytyczna | powazna | drobna | razem |
+|---|---|---|---|---|
+| skok | 6 | 34 | 16 | 56 |
+| dlaczego-falszywe | 1 | 10 | 3 | 14 |
+| nieczytelne | 3 | 2 | 8 | 13 |
+| zargon | 0 | 3 | 4 | 7 |
+| **razem** | **10** | **49** | **31** | **90** |
+
+Zadania, przy których słaby uczeń napisał „nie umiałbym sam” (z list tak/nie w plikach agentów):
+
+| dział | zadań | „nie” | udział |
+|---|---|---|---|
+| granice | 102 | 52 | 51% |
+| równania (z 4 duplikatami; unikalnych „nie”: 12) | 59 | 14 | 24% |
+| pochodne i całki (analiza) | 41 | 14 | 34% |
+| reszta | 22 | 2 | 9% |
+| **razem** | **224** | **82** | **37%** |
+
+Najgorzej wypadają granice z pierwiastkami wyższych stopni, metoda „Dorabianie jedynki” i „Wzór skrócony”,
+reguła de l’Hospitala z pierwiastkami oraz sprawdzenia całek przez pochodną.
+
+## Tabela główna
+
+Kategorie: `skok`, `dlaczego-falszywe`, `zargon`, `nieczytelne` (wiersze o interaktywności są niżej, w osobnej sekcji).
+Przy wierszach opartych o cytat z kroku nazwa kroku jest w kolumnie „krok”; numer kroku to pole `k` ze zrzutu.
+
+| id | dział | zadanie | krok | kategoria | ważność | co brakuje | propozycja | stan |
+|---|---|---|---|---|---|---|---|---|
+| S1 (K-1b) | granice | lim n→∞ (1−1/n)^n (metoda „Wzór skrócony”); g033, g035, g037, g039, g041, g043, g045, g048, g050, g100, g102 (też ((n+4)/n)^(n+5), (1+2/n)^n, 5(1+1/n)^n) | ostatni („Składamy wynik”) / 3-4 | dlaczego-falszywe | krytyczna | Zdanie „Podstawa dąży do e, a wykładnik do liczby z poprzedniego kroku…” jest fałszywe w tej metodzie (podstawa dąży do 1) i w g100 (czynnik 5, nie potęga) | Osobne why dla metody: „Wzór skrócony daje e^(lim g·(f − 1)); wykładnik wyszedł −1, więc wynik e^(−1)”; dla g100: „Stały czynnik 5 wychodzi przed granicę” | do zrobienia |
+| S2 | granice, równania, reszta | z013 wierzchołek 2x²+3x−2; e005, e039, e030, e034, e035, e038, e040, e041 (też g073, g077 w podstawieniach) | sprawdzenie / podstawienie / q | skok | krytyczna | Rachunki na ułamkach o różnych mianownikach, ułamki piętrowe, mnożenie ułamka i odejmowanie w jednym kroku (np. „q = f(−3/4) = … = −25/8”) | Wartości częściowe w jednej linii: 2·9/16 − 9/4 − 2 = 9/8 − 18/8 − 16/8 = −25/8; L = (9/2)/(3/2) = 3 | do zrobienia |
+| S3 | granice | lim n→∞ (∛(8n³+5n²)−∛(8n³−4n²)); g027, g029, g030, g031, g078, g079, g080 (∛, ∜, x→1, x→3) | 6-7 | skok | krytyczna | Wynik końcowy z kilku potęg ułamkowych i pierwiastków (8^(2/3)=4, ∛4·∛16=4, 16^(3/4)=8, suma 32) w jednym kroku | Pośrednia linia: = 9/(8^(2/3) + ∛64 + (4·2)^(2/3)) = 9/(4 + 4 + 4) = 3/4 | do zrobienia |
+| S4 (C2-b) | analiza | całka 1/(x²−1) (też (x+3)/(x²−3x+2), 1/(x²+x), x³/(x²−1)); a029, a030, a031, a032 | 6-7 | skok | krytyczna | Przejście od (−1/2)/(x+1) do logarytmu bez wzoru ∫1/(x−a)dx = ln\|x−a\| (tablica ma tylko ∫1/x), brak stałej 1/2 przed logarytmem, odwrócona kolejność składników | Dymek ze wzorem; linia ∫(−1/2)/(x+1)dx = −1/2·ln\|x+1\|; zachować kolejność (x+1), (x−1); usunąć powtórzenie „Rozkład na ułamki proste” | do zrobienia |
+| S5 | analiza | całka 1/(x²+4), 1/(x²+3), √x, 3/x³; a020, a021, a038, a040 | sprawdzenie (3) | skok | krytyczna | Sprawdzenie przez pochodną niemożliwe do odtworzenia: pochodna arctg(x/2), x√x, potęgi ujemnej nigdzie nie pokazana | (arctg(x/2))′ = 1/(1+(x/2)²)·1/2 = 2/(x²+4); 2x√x/3 = 2/3·x^(3/2), pochodna 2/3·3/2·x^(1/2) = √x | do zrobienia |
+| S6 (D-Z5) | granice | lim n→∞ n(√(4n²+7)−√(4n²+2)); g021, g028, g029 oraz lim x→5 (x−5)/(3−√(x+4)) | 2 | nieczytelne | krytyczna | Krok „Zapisujemy inaczej” (√(4n²+2) = √2·√(2n²+1), ∛4·∛(…)) komplikuje rachunek, why nic nie mówi; wartości typu 4^(2/3)·2^(2/3)=4 w głowie | Usunąć krok i liczyć z b wprost; jeśli zostaje, konkretne why | do zrobienia |
+| S7 (D-Z11) | granice | lim n→∞ (n²+5)/(2n+1) − (2n²+1)/(4n+5); g015, g016 (też z pierwiastkami) | 2-3 | skok | krytyczna | Całe sprowadzenie do wspólnego mianownika (mnożenie dwumianów i odejmowanie) w głowie; w g016 wyłączenie 2n z trójmianu | (n²+5)(4n+5) − (2n²+1)(2n+1) = (4n³+5n²+20n+25) − (4n³+2n²+2n+1) = 3n²+18n+24 | do zrobienia |
+| S8 | granice | lim n→∞ ((3n+1)²(4n+5))/((2n+3)²(3n+4)); lim n→∞ ((2n²+3)²(5n+2)⁵(n+6))/((4n³+5)³(3n+7)²); g006, g007 | 2-3 | skok | krytyczna | Skąd n³ / n¹⁰ i n¹¹ z kilku czynników z własnymi potęgami i skąd stała 3125/144; why „Zostaje 1 przez coś…” nie pasuje do stałej | Licznik: (2n²+3)² = n⁴(…)², (5n+2)⁵ = n⁵(…)⁵, n+6 = n(…), razem n¹⁰; stała 2²·5⁵/(3²·4³) | do zrobienia |
+| S9 (D-K2) | granice | lim n→∞ (√(n⁴+n³)+√(n⁴−n³)−2n²); g026 | 2-4, 8 | nieczytelne | krytyczna | Trzy pierwiastki sprzęgane przez cały nawias, rozwinięcie (A+B)² z iloczynem AB w głowie, znak odwrócony bez słowa; agent proponuje dwie osobne różnice jak w g025 | (A+B)² − 4n⁴ = 2n⁴+2√(n⁸−n⁶)−4n⁴ = −2(n⁴−√(n⁸−n⁶)); albo rozbić na (√(n⁴+n³)−n²)+(√(n⁴−n³)−n²) | do zrobienia |
+| S10 | granice | lim n→∞ (5n+∛(n⁴+1)+3∜n+2)/(3√(2n²+7)+2n+6∜(n⁵+3)+3√n+6); g013 | 2-3 | nieczytelne | krytyczna | Wykładniki ułamkowe (13/12, 4/3, 3/4, n^(1/12)) wyliczone w głowie, mieszanka ∛, ∜ i potęg | Tabelka dzieleń: 3∜n/n^(4/3) = 3/n^(13/12); n^(4/3)/n^(5/4) = n^(1/12) | do zrobienia |
+| S11 | granice | lim x→4 (x²−6x+8)/(3x²−10x−8) i wszystkie z 0/0 (g058 do g083), ∞/∞, ∞−∞ (g052 do g057) | 1 | skok | powazna | Symbol nieoznaczony [0/0] podany bez podstawienia liczby; dymek „Symbol nieoznaczony” ma puste „here” | (4²−6·4+8)/(3·4²−10·4−8) = 0/0, stuknięcie/linia z podstawieniem | do zrobienia |
+| S12 (D-Z1) | granice | lim n→∞ (√(2n+5)−√(2n+1)); g019-g031, g055-g057, g070-g080 | 2 | skok | powazna | Samo mnożenie przez sprzężenie: uczeń nie widzi skąd mianownik | Linia środkowa: (√A−√B)·(√A+√B)/(√A+√B) = (A−B)/(√A+√B) | do zrobienia |
+| S13 (D-Z2) | granice | lim n→∞ (√(n+5)−√(n+3))/(√(4n+9)−√(4n−7)); g024, g026, g027, g072, g076 (też g019, g021-g031, g055-g057, g070-g080) | 3-5 | dlaczego-falszywe | powazna | Why „Upraszczamy: pierwiastki się skasowały” jest fałszywe: pierwiastek nadal stoi, kasują się tylko kwadraty w liczniku | „Odejmujemy: 2n się redukuje, zostaje 4.” albo „Jeden pierwiastek zniknął, drugą różnicę zrobimy za chwilę.” | do zrobienia |
+| S14 | granice | lim n→∞ √… (g008-g012, g019-g031, g051-g057); lim x→∞ x/√(3x²+5) | 2-3 | skok | powazna | Wyciągnięcie n (x, n²) spod pierwiastka bez zapisu: √(4n²+3) = n√(4+3/n²), √(9n³+7) = n√n·√(…), ∛(n³(…)) | √(4n²+3) = √(n²(4+3/n²)) = n√(4+3/n²) | do zrobienia |
+| S15 | granice | g006, g008-g012, g018-g021, g023, g024, g026, g051, g053, g055-g057, g063, g065, g067, g073, g074, g077 | ostatni | skok | powazna | Wynik → (… + 0) bez wartości częściowych: √4=2, sumy, skracanie, usunięcie niewymierności 1/√3=√3/3, 2√2 w jednym kroku | Linia pośrednia: = 12/(√3+√3) = 12/(2√3) = 6/√3 = 2√3 | do zrobienia |
+| S16 (D-Z6a) | granice | lim n→∞ ((n+4)/n)^(n+5) i inne „Dorabianie jedynki”; g032-g049, g101 | 2 | zargon | powazna | „Dorabiamy jedynkę”, aₙ niezdefiniowane, 4/n = 1/(n/4) w głowie | Etykieta „Zapisujemy podstawę jako 1 + 1/aₙ”; 1 + 4/n = 1 + 1/(n/4) | do zrobienia |
+| S17 | analiza | sprawdzenia w całkach: a003, a012, a022, a023, a029-a038, a040, a041 | sprawdzenie | skok | powazna | Krok „Sprawdzenie” podaje tylko wynik; pochodna sumy/iloczynu policzona w głowie | (x·eˣ − eˣ)′ = (eˣ + x·eˣ) − eˣ = x·eˣ | do zrobienia |
+| S18 | granice, równania | g058, g060, g062, g064, g066, g068, g069, g072, g074, g076, g078, g080, g082; e004, e057 | 2 / 3 | skok | powazna | Tabelka Hornera bez recepty: nie wiadomo co znaczy wiersz, skąd −5 i 6, że 0 to reszta, ani że r zeruje wielomian; dymek z pustym „here”. Sprawdzić po v1.05.50 (D-Z7 już dał tabelkę przed rozkładem) | r = 1: przepisuję 1; −6+1·1 = −5; 11+1·(−5) = 6; −6+1·6 = 0 (reszta 0); wynik x²−5x+6 | do zrobienia |
+| S19 | równania, reszta, granice | e007, e013, e049, e040 (dymek innego wzoru); z002, z011, z012, z014, z015, z016; g058, g078, g102 | dymek | nieczytelne | powazna | Dymek wzoru nie podstawia liczb z zadania (pole „here” puste) albo opisuje inny przypadek niż krok (np. „<” dla równania „=”, „procent z liczby” dla „ile procent”, wzór b·d = 24 przy NWW 12, wzory na deltę dla wierzchołka z003, z005, z013) | Wpisać w „here” a, b, c z zadania; dobrać dymek do kroku (\|x−a\| = r ⇔ x−a = r lub x−a = −r) | do zrobienia |
+| S20 (D-Z6b) | granice | lim n→∞ (1−1/n)^n i inne „Dorabianie jedynki”; g032, g034, g036, g038, g040, g042, g044, g046, g047, g049, g101 | 3-4 | skok | powazna | Rozbicie wykładnika na aₙ·(reszta) niepokazane, np. n = (−n)·(−1), n+5 = (n/4)·4(n+5)/n | n = (−n)·(−1), więc (1+1/(−n))^n = ((1+1/(−n))^(−n))^(−1) | do zrobienia |
+| S21 (D-Z6d) | granice | lim n→∞ (1−1/n)^n i inne „Wzór skrócony”; g033, g035, g037, g039, g041, g043, g045, g048, g050, g102 | 2 | zargon | powazna | Nazwa myli się ze wzorami skróconego mnożenia; why nie mówi czemu liczymy g·(f−1); „here” puste (f, g) | Why: „Dla (1+u)^w z u→0 liczy się iloczyn w·u: granica to e^(w·u).”; f = 1+2/n, g = n | do zrobienia |
+| S22 (D-Z6c) | granice | lim n→∞ ((5n+7)/(5n−8))^n; ((n²+2n+7)/(n²+5n+1))^(2n−1); g042-g045, g047-g050 | 2 | skok | powazna | Różnica licznik − mianownik (15, −3n+6, −6√n) bez rachunku; wykładnik zewnętrzny z nieba | (5n+7)−(5n−8) = 15; (n²+2n+7)−(n²+5n+1) = −3n+6 = −3(n−2) | do zrobienia |
+| S23 (D-K3) | granice | g031, g055, g070, g072-g074, g076, g077; lim n→∞ (2n−∜(16n⁴+40n³+1)); x→3, x→−2, x→−1, x→5 | 2-4 | skok | powazna | Zmiana znaku przy sprzężeniu/mnożeniu przez −1 w głowie; kolor to b²−a² (odwrotnie niż we wzorze a²−b² z dymka), mianownik z minusami | Zapis zgodny ze wzorem: (⟦x²−(x+6)⟧)/(x+√(x+6)); 3−√(x+4) = −(√(x+4)−3) | do zrobienia |
+| S24 | granice | lim n→∞ (∛(n³+8n²)−∛(n³+2n²)); g027-g031, g078-g080 | 2 | skok | powazna | Składniki długiego nawiasu (a², ab, b²) i iloczyn ab pod pierwiastkiem wymnożony w głowie; w dymku a⁴−b⁴ „here” puste (nie wiadomo, że a = ∜(x+15), b = 2) | a = ∜(x+15), b = 2: a³, a²b = 2√(x+15), ab² = 4∜(x+15), b³ = 8 | do zrobienia |
+| S25 | granice | g052, g071, g073, g075, g077, g079, g081 (pochodne √, ∜, ∛ z wielomianu w regule de l’Hospitala) | 2 | skok | powazna | Pochodna pierwiastka złożonego podana bez reguły łańcuchowej | (√(3x²+5))′ = 1/(2√(3x²+5))·6x = 3x/√(3x²+5) | do zrobienia |
+| S26 | granice | g037, g039, g041, g043, g045, g048, g050 | 3 | dlaczego-falszywe | powazna | Why „Środek nawiasu daje e… potęga nad nawiasem”, w metodzie nie ma takiego nawiasu | „Wzór skrócony daje e do potęgi lim g·(f−1), więc liczymy tę granicę” | do zrobienia |
+| S27 (D-Z3a, D-Z3b) | granice | lim n→∞ (√(2n+5)−√(2n+1)); g004, g005, g014, g019, g040, g041 | 3, 5 | skok | powazna | „→ 1/n → 0” bez n³/n⁴ = 1/n; „→ √2·1/√n” bez 4/(2√2) = √2 | → n³/n⁴ · (1+0+0+0)/(1+0+0+0) = 1/n → 0; 4/(2√2·√n) = √2/√n | do zrobienia |
+| S28 (D-Z17) | granice | g022, g023, g024, g070, g073, g077 | 3-5 | skok | powazna | Dzielenie przez ułamek / odwrócenie ułamka i skrócenie w jednym kroku „Upraszczamy” | x/(16/(A+B)) = x(A+B)/16; −(x−5)/[(x−5)/(√+3)] = −(√(x+4)+3) | do zrobienia |
+| S29 (D-D7) | granice | lim x→0 sin(3x)/x; arcsin(2x)/x; arctg(3x)/x; tan(2x)/x; g085, g087, g089, g091, g093, g095 | 2-3 | skok | powazna | Nie powiedziane, że mnożymy i dzielimy przez 3; why ogólne; „· 3” → wynik bez 1·3 | Why: „Mnożymy i dzielimy przez 3, żeby pod sinusem stało to samo 3x”; lim … = 1·3 = 3 | do zrobienia |
+| S30 (P-4, P-18) | analiza | pochodna (3x+1)⁵, sin(x²), sin(x)², ln(x²+1), √(x²+1), x²·sin(2x); a006, a007, a014, a015, a017, a018 | 2 | skok | powazna | Reguła łańcuchowa: nie nazwano funkcji zewnętrznej i jej pochodnej ((u⁵)′ = 5u⁴, (ln u)′ = 1/u, (√u)′ = 1/(2√u), (u²)′ = 2u); why opisuje inny przypadek („W środku nie stoi samo x”) | f(u) = u⁵, f′(u) = 5u⁴, g = 3x+1 → 5(3x+1)⁴·(3x+1)′; „Zewnątrz jest kwadrat, w środku sin(x)” | do zrobienia |
+| S31 | analiza, reszta | a029 (1/(x²−1)), a030, a031 (x²+x), z005, z009, e003 | 2-3 | skok | powazna | Rozkład trójmianu/różnicy kwadratów bez wzoru, delty/Viete’a i bez sprawdzenia mnożeniem | x²−1 = x²−1² = (x−1)(x+1); sprawdzenie (x−1)(x+1) = x²−1; Δ = 9−8 = 1 | do zrobienia |
+| S32 (D-K4, D-Z43, D-Z10) | granice | g054, g053, g055, g056, g057; lim x→−∞ x/√(3x²+5), √(4x²−3x)+2x | 3-7, „Dla x → −∞” | skok | powazna | √(x²)=−x użyte bez rozpisania (−x)√(…), trzy minusy w jednym ułamku, etykieta bez czasownika, why „Licznik i mianownik rosną” przy −∞ | √(3x²+5) = (−x)√(3+5/x²); 3x = −3(−x); etykieta „Pilnujemy znaku dla x → −∞” | do zrobienia |
+| S33 | równania | e009, e052, e053, e048, e007 | 2 | skok | powazna | Dziedzina z dwóch nierówności (x ≥ −3 i x ≥ 3 → D = ⟨3,+∞)) niewyprowadzona; część wspólna bez słowa; x=1 nie powiązane z warunkiem x−3 ≥ 0 | x ≥ −3 oraz x ≥ 3, więc D = ⟨3,+∞); x = 1: x−3 = −2 < 0, więc odpada | do zrobienia |
+| S34 | analiza | a008, a010, a019, a038, a040 (√x, x^(2/3), 3/x², ∫√x, ∫3/x³) | 2 | skok | powazna | Wykładnik ujemny i ułamkowy zamieniany na ułamek/pierwiastek w głowie; 1/x² = x^(−2) dopiero krok później | x^(−1/2) = 1/x^(1/2) = 1/√x; 2/3−1 = −1/3, x^(−1/3) = 1/∛x | do zrobienia |
+| S35 | równania | 2^x = 8, 27, 1/8, 4^x = 2^(x+3); e042, e043, e044, e045, e006 | 2 | skok | powazna | 8 = 2³, 1/8 = 2^(−3), (2²)^x = 2^(2x) bez reguły; why opisuje następny krok | 1/8 = 1/2³ = 2^(−3) (bo a^(−n) = 1/aⁿ); why: „Chcę tę samą podstawę 2” | do zrobienia |
+| S36 (C4-U) | analiza | całka x·eˣ, x·ln x, x·sin x, x²·eˣ; a003, a033, a034, a035 | 2 | dlaczego-falszywe | powazna | Całkowanie przez części: brak powodu wyboru u i dv, du i v w jednym kroku | Why: „Za u biorę x, bo po zróżniczkowaniu zostaje 1 i x znika”; osobna linia du = (x)′dx, v = ∫eˣdx | do zrobienia |
+| S37 (C2-a) | analiza | całka 1/(x²−1), (x+3)/(x²−3x+2), 1/(x²+x), x³/(x²−1); a029, a030, a031, a032 | 4-5 | skok | powazna | Współczynniki A, B: podstawienie miejsca zerowego bez rachunku | x = −1: 1 = A(−1−1) + B(−1+1) = −2A, A = −1/2 | do zrobienia |
+| S38 (D-Z14) | granice | g069, g097, g098; lim x→0 (x−sin x)/x³ | 2-3 | dlaczego-falszywe | powazna | Reguła de l’Hospitala drugi raz bez pokazania, że znowu 0/0; stała 1/3 przenosi się bez słowa; zapis −(cos x −1) | (1−cos 0)/(3·0²) = 0/0, więc stosuję regułę drugi raz; (1/3)·lim (1−cos x)′/(x²)′ | do zrobienia |
+| S39 (P-2) | analiza | a017 (x²sin 2x), a016 (e^(2x)), a018, pochodne sin(x²), x³sin x | wynik | skok | powazna | Przestawienie czynników i składników w wyniku bez słowa (x²·2 = 2x², 2·sin·cos → 2·cos·sin) | Krok „cos(x²)·2x = 2x·cos(x²)” albo zachować kolejność | do zrobienia |
+| S40 | analiza | pochodna (3x+1)⁵, ln(x²+1), √(x²+1); a007, a014, a015 | 3 | skok | powazna | (3x+1)′ = 3 i (x²+1)′ = 2x bez zapisu sumy i stałej przy x | (3x+1)′ = (3x)′+(1)′ = 3·1+0 = 3 | do zrobienia |
+| S41 | równania | e015, e029, z008 (√8 = 2√2) | 4 | skok | powazna | Skąd 2√2: brak rozkładu 8 = 4·2 i wyboru największego kwadratu | √8 = √(4·2) = √4·√2 = 2√2 | do zrobienia |
+| S42 | równania | sin x = 1/2, cos x = √2/2, sin 2x = 1/2; e010, e054, e056 | 3 | skok | powazna | Skąd drugi kąt serii (5π/6 = π−π/6, −π/4); cos π/4 spoza tablicy; „k ∈ ℤ”, radiany niewyjaśnione | drugi kąt: π−π/6 = 5π/6; dopisać sin π/4 = cos π/4 = √2/2 do tablicy | do zrobienia |
+| S43 (D-Z4) | granice | lim n→∞ (log₂(8n+1)−log₂(n+6)); g017, g018 (też log₄) | 3-6 | nieczytelne | powazna | Logarytm znika z zapisu na kilka kroków, „ciągły” niewyjaśnione, log₄(1/8)=−3/2 bez uzasadnienia | Zostawić log₂(…) w każdym kroku; etykieta „Liczymy granicę pod logarytmem”; log₄(1/8) = x ⟺ 4ˣ = 1/8 ⟹ x = −3/2 | do zrobienia |
+| S44 | granice | g052, g054 (lim x→∞ x/√(3x²+5)) | 2 | dlaczego-falszywe | powazna | Why „pochodne są prostsze”, po regule wychodzi znowu ∞/∞; krok 3 po cichu zmienia metodę | Dopisać: „√(3x²+5)/(3x) to znowu [∞/∞], reguła nie pomaga, więc dzielimy przez najwyższą potęgę” | do zrobienia |
+| S45 (C4-b) | analiza | całka x·ln x, x²·eˣ; a033, a035 | 3 | skok | powazna | Nie pokazane v·du = (x²/2)·(1/x) = x/2 | ∫ x²/2·1/x dx = ∫ x/2 dx | do zrobienia |
+| S46 (K2-C7) | analiza | całka 1/(x²+4), 1/(x²+3); a020, a021 | 2 | dlaczego-falszywe | powazna | Why „Ta funkcja jest w tablicy całek, wynik od razu przepisuję” jest nieprawdziwe (trzeba wstawić a=2, 1/a); arctg niewyjaśniony; wynik zapisany inaczej niż wzór (1/a)·arctg(x/a) | a = 2: 1/a·arctg(x/a) = 1/2·arctg(x/2); arctg(y) to kąt, którego tangens wynosi y | do zrobienia |
+| S47 | analiza | całka sin²x, cos²x; a022, a023 | 3 | skok | powazna | Brak rozbicia (1−cos2x)/2 = 1/2 − cos(2x)/2, znaku minus i ∫cos(2x)dx = sin(2x)/2 | ∫ cos(2x)/2 dx = 1/2·sin(2x)/2 = sin(2x)/4 | do zrobienia |
+| S48 (R-3) | równania, reszta | e019, e023; x/2+1=3; 2x/3 = 4 | 2, 4 | dlaczego-falszywe | powazna | x/2 → (1/2)x po cichu; e023: tytuł „Liczę prawą stronę” i why „po lewej jest sama niewiadoma” fałszywe; „odwrotność” to żargon | e023: „Zapisuję ułamek jako współczynnik: 2x/3 = (2/3)x”; x/2 to x podzielone przez 2, więc mnożenie przez 2 cofa dzielenie | do zrobienia |
+| S49 (D3-6) | reszta | z007, z021; 2·(3+4)²; 6 : 2 · 3 | 2-4 | dlaczego-falszywe | powazna | Why „Dalej według kolejności działań” puste; brak reguły „mnożenie i dzielenie od lewej do prawej” (można policzyć 2·3 najpierw) | „Mnożenie i dzielenie wykonuję od lewej do prawej, więc najpierw 6 : 2 = 3.” | do zrobienia |
+| S50 (K1-E) | reszta | z004 uprość (x+1)²+2x; z022 (x+3)²; uprość (x+1)²+2x, kroki (x+3)² | 2 | skok | powazna | Mnożenie nawias razy nawias niewidoczne; kolor leży na „nawias razy nawias”, a dymek pokazuje (a+b)² = a²+2ab+b² (nie pasuje) | (x+1)² = ⟦x²+2·x·1+1²⟧, why „Tu a = x, b = 1.” | do zrobienia |
+| S51 | równania | e009, e052 (√(x+3) = x−3) | 6 | skok | powazna | Przeniesienie całej prawej strony ze zmianą znaków trzech wyrazów w głowie | x + 3 − (x²−6x+9) = x+3−x²+6x−9 = −x²+7x−6 | do zrobienia |
+| S52 (D-Z13) | granice | lim n→∞ (n+3)^(2n²+12n)/(n²+6n)^(n²+6n); g046 | 2, 4 | skok | powazna | Nie widać (n+3)^(2g) = ((n+3)²)^g ani n²+6n = ((n²+6n)/9)·9 | (n+3)^(2g) = ((n+3)²)^g, g = n²+6n | do zrobienia |
+| S53 (D-Z51) | granice | lim x→−1 (3x³+8x²+7x+2)/(2x⁴+4x³−3x²−10x−5); g068 | 2-4 | dlaczego-falszywe | powazna | Cztery dzielenia, a why tłumaczy dwa; etykieta „Skracamy (x+1)” dla (x+1)²; drugi Horner bez słowa | Etykieta „Skracamy (x+1)²”; 3x²+5x+2: 3−5+2 = 0, więc dzielę drugi raz | do zrobienia |
+| S54 | granice | lim x→−∞ √(7−2x)(√(15−8x)−√(3−8x)); g057 | 4 | dlaczego-falszywe | powazna | Why o wyciąganiu ujemnej zmiennej spod pierwiastka nie pasuje do kroku | „Dla x < 0 liczba −x jest dodatnia, więc √(−x) istnieje i można go wyłączyć” | do zrobienia |
+| S55 (C-div) | analiza | całka x³/(x²−1); a032 | 2 | skok | powazna | Dzielenie wielomianów niepokazane; „reszta” to ułamek, nazwa myląca | x³ = x·(x²−1) + x, czyli x³/(x²−1) = x + x/(x²−1) | do zrobienia |
+| S56 | równania | e003 (x²−5x+6=0) | 2 | skok | powazna | Para 2 i 3 spada z nieba: brak sprawdzanych par (1·6, 2·3) i ich sum; −b/a znika po cichu | pary o iloczynie 6: 1·6 (7), 2·3 (5) → pasuje; x₁+x₂ = −(−5)/1 = 5 | do zrobienia |
+| S57 | równania | e047 (log x = 2) | 3 | zargon | powazna | log bez podstawy: nigdzie nie napisano, że to log₁₀ | log(x) = log₁₀(x), więc x = 10² = 100 | do zrobienia |
+| S58 (D-Z7) | granice | lim x→4 (x²−6x+8)/(3x²−10x−8) | 2-3 | skok | powazna | (rozkład bez rachunku, stare), Horner przed rozkładem | tabelka Hornera przed rozkładem, why z konkretną liczbą | zrobione v1.05.50 |
+| S59 (D-Z8) | granice | lim x→4 (x²−6x+8)/(3x²−10x−8) | 5 | skok | powazna | (podstawienie bez liczb, stare) | podstawienie z liczbami krok po kroku: (4−2)/(3·4+2) = 2/14 = 1/7 | zrobione v1.05.50 |
+| S60 | granice | g001-g031, g044, g047, g049, g051 | 2 | skok | drobna | Wyłączamy n przed nawias: dzielenie każdego wyrazu przez wyłączoną potęgę zrobione w głowie | 2n+1 = n·(2n/n + 1/n) = n(2 + 1/n) | do zrobienia |
+| S61 | granice | g059, g061, g063, g065, g067, g069, g083, g086-g098 | 2 | skok | drobna | Pochodne wielomianów, sin, tg, arcsin, arctg, ln, eˣ w regule de l’Hospitala bez zapisu; skrócenie 2 bez słowa | (x²−6x+8)′ = 2x−6; (2x−6)/(6x−10) = 2(x−3)/(2(3x−5)) | do zrobienia |
+| S62 (R-7, R-1b) | równania | e007, e008, e049, e051, e013, e026, e027, e016, e028, e041, e021, e032, e035, e053, e056, e015 (k5) | różne | zargon | drobna | Drobiazgi: ± bez „lub”, ⟨ ⟩ i ∪ niewyjaśnione, „rzeczywistych”, zbędny krok porządkujący w podstawianiu, „x = 2/3 = 2/3”, 3²→9, trzy części nierówności, dwa kroki naraz | x = 3 lub x = −3; ≥ 0 dopuszcza zero, więc 2 i 3 należą; −3+2 < x−2+2 < 3+2 | do zrobienia |
+| S63 (R-L/P) | równania, granice | sprawdzenia: e002, e003, e004, e006, e014, e020, e025, e042, e043, e053, e057 | sprawdzenie | skok | drobna | Sprawdzenie od razu daje wynik, bez wartości częściowych (potęgi, iloczyny); skróty L/P zostają w zapisie | L = 2³ − 6·2² + 11·2 − 6 = 8 − 24 + 22 − 6 = 0; „lewa strona/prawa strona” | do zrobienia |
+| S64 (R-1) | granice, równania | e002, e004, e013, e014, e015, e029, e057 (−b), e003 (−b/a) | 5 | skok | drobna | Wzór ma −b, a stoi od razu 5; znak minus znika po cichu | x₁ = (−(−5) − 1)/(2·1) = (5−1)/2 = 2 | do zrobienia |
+| S65 | granice | g019, g020, g021, g024, g025, g027, g029, g030 | 2 | skok | drobna | Licznik po wymnożeniu sprzężenia (2n+5−(2n+1)) niepoliczony; wynik 4 dopiero w kroku 3 | 2n+5−(2n+1) = 2n+5−2n−1 = 4 | do zrobienia |
+| S66 | granice | g085, g087, g089, g091, g093, g095 (wynik); g086, g088 (cos 0 = 1) | 3 | skok | drobna | Brak mnożenia 1·3 i cos 0 = 1, cos²0 = 1 | lim sin(3x)/(3x)·3 = 1·3 = 3; 3·cos 0 = 3·1 | do zrobienia |
+| S67 | granice, reszta | z001, z014, z015, z018, z019, z020; g020 | 2-3 | skok | drobna | Skracanie ułamków i procentów bez dzielenia (20/100 = 1/5, 30/45 = 2/3, 9/6 = 3/2) i 150:5, 100:4 w głowie | 20/100 = (20:20)/(100:20) = 1/5; 1/5·150 = 150/5 = 30 | do zrobienia |
+| S68 | równania | e001, e005, e011, e030, e036, e040, e043 | 4-7 | skok | drobna | Dwie redukcje naraz (3x−x=2x; 4+6=10), zmiana strony i znaku (y = 3x−1) bez zapisu | 3x − x = 2x; 4 + 6 = 10, więc 2x = 10 | do zrobienia |
+| S69 (D-Z23, D-Z6f, D-Z53, D-Z57) | granice | g024, g036, g037, g069, g072, g080 (też g005); lim x→3 (x²−8x+15)/(∛(3x−1)−2) | 5-6 | nieczytelne | drobna | Zbędne lub mylące nawiasy: ((√…)), (n), „−1(”, „1/3(…)” czyta się jak 1/(3(…)) | (1/3)·(…)·(x−3)(x−5)/(x−3); „−(x+√(x+6))” | do zrobienia |
+| S70 | analiza | a024 (tan²x), a003 (+C), a029-a032, a026 (\|x\| w ln) | 2 | zargon | drobna | „Tablica całek” bez ∫1/cos²x = tg x; „+ C” i \|x\| w logarytmie niewyjaśnione | + C (dowolna stała, bo pochodna stałej to 0); ln\|x\|, bo logarytm z liczby dodatniej | do zrobienia |
+| S71 (U-2) | reszta | z002, z011, z012 (NWD/NWW); z006, z016, z017, z020; 3/4−1/6 | 2-3 | skok | drobna | Rozkład na czynniki bez dzieleń; które czynniki wspólne; skąd mnożniki 3 i 2; why „oba ułamki” fałszywe; why „odejmuję liczniki” ogólne | 12 : 2 = 6, 6 : 2 = 3, 3 : 3 = 1; 12 : 4 = 3, 12 : 6 = 2 | do zrobienia |
+| S72 | równania | e012, e031, e033, e035, e037, e059 (układy) | 2-4 | skok | drobna | Dodawanie stronami i mnożenie równań zrobione w głowie (x+x, y−y, sześć mnożeń) | (x+y)+(x−y) = 5+1 → 2x+0 = 6 | do zrobienia |
+| S73 | granice | g060, g062, g066, g074 (x³−27); g040, g041 | 2, 4-5 | nieczytelne | drobna | Skąd zera w tabelce 1 0 0 −27; zapis „−1 · 1/n” po kroku z −1/n | x³−27 = 1·x³ + 0·x² + 0·x − 27; „−1/n → 0” | do zrobienia |
+| S74 (D-Z9, D-K8) | granice | g027-g031, g013; lim x→1 (∜(x+15)−2)/(x²−5x+4) | 2 | zargon | drobna | (…)^(2/3) zamiast ∛(a²); „sprzężenie” znane uczniowi tylko z kwadratów | ∛((n³+8n²)²); etykieta „Mnożymy przez a²+ab+b²” | do zrobienia |
+| S75 | reszta | z003, z005, z008, z009, z010, z013 (k5) | 2-5 | skok | drobna | q = f(2) bez wartości częściowych; 9 = 3²; x³ = x·x²; przybliżenie 2,82843 bez rachunku; skąd +3/4 | q = 2² − 4·2 + 3 = 4 − 8 + 3 = −1; 9 = 3², więc a = x, b = 3 | do zrobienia |
+| S76 | granice, równania | g004, g005, g007, g013, g014 i wszystkie z krokiem „dążą do 0” | 3 | dlaczego-falszywe | drobna | Etykieta „Wyrazy z n w mianowniku dążą do 0” fałszywa, gdy wynik to 1/n, n², +∞ | „Ułamki z n w mianowniku dążą do 0” lub rozpisać 1/n → 0, n² → +∞ | do zrobienia |
+| S77 (C2-c) | analiza, równania, reszta | e020, e025, a031 (x²+x), z010 (x³−x) | 2 | skok | drobna | Wyłączenie wspólnego czynnika przed nawias bez zapisu; e025: gdzie zniknęła 2 | x² − 3x = x·x − x·3 = x(x−3) | do zrobienia |
+| S78 (D-Z24) | granice | g021, g022, g024, g025 (też D-Z24) | 2-4, 3-9 | nieczytelne | drobna | Krok pokazuje tylko fragment („A = B”) bez lim i czynnika n; dwie różnice pod rząd mają identyczne etykiety i why | Etykiety „Pierwsza różnica…”, „Druga różnica…”; pokazać całość lim n·(…) | do zrobienia |
+| S79 | analiza | a025, a026, a027, a021; całka sin x od 0 do π, 1/x od 1 do e | 4 | skok | drobna | Wartości cos π = −1, cos 0 = 1, ln e = 1, ln 1 = 0, 8/3 + 1/3 = 3 bez zapisu; 1/√3·arctg = arctg/√3 | ln e = 1 (bo e¹ = e), ln 1 = 0 (bo e⁰ = 1) | do zrobienia |
+| S80 | granice | g076, g078, g080 | 4-7 | nieczytelne | drobna | Tabelka Hornera dla dzielenia (x−2):(x−2) = 1 zbędna i myląca | Pominąć wiersz (x−2):(x−2) = 1 | do zrobienia |
+| S81 | granice | g084 lim x→0⁺ 1/x; g017, g018 (logarytm ciągły) | 2, 6 | zargon | drobna | 0⁺ niewyjaśnione; „logarytm jest ciągły” bez sensu dla ucznia | x = 0,1; 0,01; 0,001 → 1/x = 10; 100; 1000 | do zrobienia |
+| S82 | analiza | a036, a037, a041 (podstawienie t) | 2 | skok | drobna | dt = 2dx skąd; zamiana (2x+1)³ na t³ i dx na dt/2 w jednym kroku; wyłączanie 2 okrężne | t = 2x+1, dt = (2x+1)′dx = 2dx; ∫ … t³·dt/2 | do zrobienia |
+| S83 (K7-E) | analiza | pochodna x³·sin x, x²·eˣ, sin(x)²; a001, a012, a018 (k3-4) | 3-4 | dlaczego-falszywe | drobna | Why „Pod funkcją stoi samo x, więc nic więcej nie trzeba liczyć” nic nie mówi o tablicy pochodnych | „Wzór z tablicy: (sin x)′ = cos x, bo pod sinusem stoi samo x.” | do zrobienia |
+| S84 (D-K5, D-Z18) | granice | g093 lim x→0 ln(1+2x)/x; lim x→0 (eˣ−1)/x; g094 | 2-3 | nieczytelne | drobna | ln(2x+1) zamiast ln(1+2x) względem dymka; puste kroki „u = x” i „· 1” | ⟦ln(1+2x)/(2x)⟧·2; jeden krok lim ⟦(eˣ−1)/x⟧ = 1 | do zrobienia |
+| S85 | granice | g100 lim n→∞ 5(1+1/n)ⁿ; g017 (log₂8 = 3) | 3, 6 | skok | drobna | Czynnik 5 znika z zapisu; wartość logarytmu bez sprawdzenia | 5·lim(1+1/n)ⁿ = 5·e; log₂8 = 3, bo 2³ = 8 | do zrobienia |
+| S86 | analiza | a028, a032 (składanie wyniku F(x)) | 5, 7-9 | nieczytelne | drobna | Wynik całki F(x) nigdzie nie jest złożony (pojawia się dopiero w sprawdzeniu / suma po logarytmach) | Krok: ∫(2x+1)dx = x² + x | do zrobienia |
+| S87 (P-1, D3-b) | analiza | a001, a017 (x²·sin 2x), (x²+1)/(x−1) | 4-8 | nieczytelne | drobna | Iloczyn/iloraz: brak etykiet u′ i v′ (dwie identyczne „Liczę pochodną każdego wyrazu”); podstawienie pod wzór pominięte | „Liczę pochodną licznika” / „…mianownika”; = (3x²)·(sin x) + (x³)·(cos x) | do zrobienia |
+| S88 | reszta | z007 (3+4 = 7), z004 (x+x+2x) | 2-3 | skok | drobna | Pośredni zapis 3+4 = 7 i zebrania wyrazów pominięty | 2·(3+4)² = 2·7² | do zrobienia |
+| S89 | reszta | z014 (150 + 20%), z015 | 2 | dlaczego-falszywe | drobna | Why o dzieleniu przez 100 nie mówi, że „150 + 20%” to 150 + 20% z 150 (część dymka w wierszu o dymkach) | „150 + 20% znaczy 150 + 20% z 150, więc najpierw liczę 20% z 150.” | do zrobienia |
+| S90 (D-Z16) | granice | lim n→∞ 1/(√(n+√n)−√(n−1)); g022 | 1 | nieczytelne | drobna | Krok 1 bez symbolu nieoznaczonego (w mianowniku ∞−∞) | „[1/(∞−∞)]”, why „W mianowniku jest ∞−∞, więc najpierw go przekształcamy.” | do zrobienia |
+
+## Lekka interaktywność (pomysły)
+
+Wejście do przyszłego etapu „interaktywność”: dla każdego z 224 zadań agent napisał co najmniej jeden wiersz
+o tym, co mogłoby pokazać stuknięcie. Zwinięte do wzorców; liczby są przybliżone (liczone z wierszy agentów,
+jedno zadanie może mieć kilka wzorców). Stan wszystkich: `pomysł`.
+
+| # | wzorzec | przykładowe id | ok. zadań | stan |
+|---|---|---|---|---|
+| I1 | Stuknij wynik („→ (… + 0)”, „= 3”), pokaż podstawienie 0 i wartości częściowe (√4 = 2, skracanie, 8^(2/3) = 4) | g001, g019, g028, g057, g073 | 70 | pomysł |
+| I2 | Stuknij nawias „n(…)” po wyłączeniu, pokaż dzielenie każdego wyrazu przez n^k; stuknij √, pokaż √(n²·…) = n√… | g001-g031, g051-g057 | 25 | pomysł |
+| I3 | Stuknij kolorowy ułamek ⟦…⟧ po sprzężeniu, pokaż odejmowanie licznika (A − B) i skąd mianownik | g019-g031, g070-g080 | 20 | pomysł |
+| I4 | Stuknij aₙ lub wykładnik, pokaż 1/aₙ, rozbicie wykładnika n = aₙ·(reszta) i różnicę f − 1 | g032-g050, g101, g102 | 19 | pomysł |
+| I5 | Stuknij ⟦0/0⟧, podstawienie liczby; stuknij tabelkę Hornera, wypełnianie komórka po komórce (r·współczynnik + następny) | g058-g083, e004, e057 | 15 | pomysł |
+| I6 | Stuknij pochodną, pokaż regułę (potęga, łańcuchowa, (√u)′ = 1/(2√u)), stuknij sprawdzenie całki, pochodna krok po kroku | g059-g098, a003-a041 | 35 | pomysł |
+| I7 | Stuknij „(kolorowy ułamek) · 3”, pokaż „mnożymy i dzielimy przez 3”, wynik 1·3 | g085-g095 | 8 | pomysł |
+| I8 | Stuknij ułamek lub wynik z ułamkiem, pokaż skracanie (NWD), wspólny mianownik, 3/3 − 4/3 | e030-e041, z001-z020 | 25 | pomysł |
+| I9 | Stuknij potęgę, logarytm lub „log”, pokaż 2³ = 8, a^(−n) = 1/aⁿ, log bez indeksu = log₁₀, a/b/c z definicji | e006-e007, e042-e047 | 12 | pomysł |
+| I10 | Stuknij symbol notacji (±, ℝ \ {2}, Δ < 0, D, k ∈ ℤ, ⟨ ⟩), pokaż „lub”, oś liczbową z warunkami, objaśnienie | e013, e016, e021, e048, e054 | 10 | pomysł |
+| I11 | Stuknij wynik nierówności lub kąt, pokaż parabolę z obszarem, okrąg jednostkowy z dwoma kątami, trójkąt 45-45-90 | e010, e013, e026, e054 | 8 | pomysł |
+| I12 | Stuknij „(x − 3)²”, „x(x − 3)”, rozkład, pokaż mnożenie z powrotem (sprawdzenie), nawias ze zmianą znaków −(7 − 2x) | e009, e020, e025, z004, z022 | 15 | pomysł |
+| I13 | Stuknij t, u, v, dt, A, B, pokaż co to jest i podstawienie miejsca zerowego (t = 2x + 1, dt = 2dx, x = −1 → −2A) | a029-a037 | 10 | pomysł |
+| I14 | Stuknij wartość elementarną (cos π, ln e, arctg, 0⁺), pokaż definicję lub tabelkę wartości (1/x dla 0,1; 0,01; 0,001) | a025-a026, a020, g084 | 6 | pomysł |
+
+## Partie (kolejność kolejnych napraw)
+
+Zasada: jedna partia dotyka jednego obszaru silnika (granice / równania / analiza / reszta), a naprawa idzie
+razem z testem. Partia 1 to już zrobione D-Z7 i D-Z8 (v1.05.50).
+
+**Partia 2: krytyczne i najszerzej powtarzane poważne**
+
+- **2a, granice**: krytyczne S1, S3, S6-S10 (fałszywe zdanie „Wzór skrócony”, pierwiastki wyższych stopni,
+  „Zapisujemy inaczej”, wspólny mianownik, (A+B)², n¹⁰/n¹¹, wykładniki ułamkowe); najszersze poważne S11 (0/0 z podstawieniem), S12-S15 (sprzężenie,
+  „Upraszczamy”, wyłączanie spod pierwiastka, wartości częściowe), S16, S20-S22 i S26 (Dorabianie jedynki / Wzór skrócony), S18 (recepta Hornera), S23-S25, S27-S28, S32.
+  Można rozbić na dwa commity: algebraiczne (S3, S6-S10, S12-S15, S23-S24, S27-S28, S32) i formy e / reguła (S1, S11, S16, S18, S20-S22, S25-S26).
+- **2b, analiza:** krytyczne S4, S5; poważne S17 (sprawdzenia), S30, S40 (reguła łańcuchowa), S34 (wykładniki ułamkowe), S36-S37, S45-S47, S55.
+- **2c, równania i reszta:** krytyczne S2 (rachunki na ułamkach); poważne S19 (dymki z pustym „here” i dymki o innym przypadku), S33, S35, S41-S42, S48-S51, S56-S57.
+
+**Partia 3:** pozostałe poważne (S29, S38, S43-S44, S52-S54) i drobne S60-S90, po jednym obszarze na commit.
+
+**Partia 4:** etap „interaktywność” (sekcja wyżej), dopiero gdy krytyczne i poważne są zamknięte, bo stuknięcie nie powinno być
+jedynym miejscem, gdzie rachunek jest widoczny.
