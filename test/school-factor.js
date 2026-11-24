@@ -133,5 +133,14 @@ ok('rozłóż x^6-64: posortowane', txt('rozłóż x^6-64') === '(x − 2)(x + 2
 ok('rozłóż x^6-64: ostatni krok to wynik', st('rozłóż x^6-64').slice(-1)[0].math.replace(/[⟦⟧]/g, '').endsWith(txt('rozłóż x^6-64')), st('rozłóż x^6-64').slice(-1)[0]);
 ok('rozłóż x^6-1: posortowane', txt('rozłóż x^6-1') === '(x − 1)(x + 1)(x² − x + 1)(x² + x + 1)', txt('rozłóż x^6-1'));
 
+// liczba ujemna: minus przed rozkładem
+ok('rozłóż -84 → −2² · 3 · 7', txt('rozłóż -84') === '−2² · 3 · 7', txt('rozłóż -84'));
+ok('rozłóż -84: kroki', st('rozłóż -84').some((/** @type {any} */ s) => s.math.includes('84 : 2 = 42')) && st('rozłóż -84').slice(-1)[0].math.endsWith('= −2² · 3 · 7'), st('rozłóż -84'));
+{
+    const { whyFor } = require(path.join(__dirname, '..', 'js', 'step-why.js'));
+    const r = S.run('rozłóż -84');
+    ok('rozłóż -84: każdy krok po pierwszym ma „dlaczego”', r.explain.steps.slice(1).every((/** @type {any} */ s, /** @type {number} */ i) => whyFor(s, r.explain.title, r.explain, i + 1)), r.explain.steps.map((/** @type {any} */ s) => s.label));
+}
+
 console.log(`school-factor: ${pass} ok, ${fail} błędów`);
 process.exit(fail ? 1 : 0);

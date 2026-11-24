@@ -1786,22 +1786,25 @@
         });
         return { steps: t.steps, factors: factors, lead: lead, used: t.used, text: text, k: kk, leaves: inLeaves }; // [EN] k · Π leaves = postać z text
     }
-    function primeSteps(n) { // [EN] rozłóż 84: dzielenie przez kolejne liczby pierwsze
-        var ps = primeFactors(n), lines = [], cur = n;
+    function primeSteps(n, minus) { // [EN] rozłóż 84: dzielenie przez kolejne liczby pierwsze; minus (−84) dopisany przed wynik
+        var ps = primeFactors(n), lines = [], cur = n, m = minus ? '−' : '';
         ps.forEach(function (p) { lines.push(cur + ' : ' + p + ' = ' + (cur / p)); cur /= p; });
         var cnt = [];
         ps.forEach(function (p) { var l = cnt[cnt.length - 1]; if (l && l.p === p) l.k++; else cnt.push({ p: p, k: 1 }); });
         var text = cnt.map(function (q) { return q.p + (q.k > 1 ? sup(q.k) : ''); }).join(' · ');
         var flat = ps.join(' · ');
-        var steps = [{ label: 'Liczba', math: String(n) }, { label: 'Dzielę przez kolejne liczby pierwsze', math: lines.join('\n') }];
-        steps.push({ label: 'Zbieram czynniki pierwsze', math: n + ' = ' + (flat === text ? text : flat + ' = ' + text) });
-        return done('Rozkład na czynniki pierwsze', text, null, steps);
+        var steps = [{ label: 'Liczba', math: m + n }];
+        if (minus) steps.push({ label: 'Odkładam minus', math: '−' + n + ' = −1 · ' + n });
+        steps.push({ label: 'Dzielę przez kolejne liczby pierwsze', math: lines.join('\n') });
+        steps.push({ label: 'Zbieram czynniki pierwsze', math: m + n + ' = ' + m + (flat === text ? text : flat + ' = ' + m + text) });
+        return done('Rozkład na czynniki pierwsze', m + text, null, steps);
     }
     function factorize(ast) {
         var ctx = { dec: hasDecimal(ast) };
         var steps = [{ label: 'Wyrażenie', math: show(ast, ctx) }];
         var poly = sorted(collect(termsOf(ast)));
         if (poly.length === 1 && !hasVars(ast) && isInt(poly[0].c) && poly[0].c.n >= 2n && poly[0].c.n <= 1000000000n) return primeSteps(poly[0].c.n);
+        if (poly.length === 1 && !hasVars(ast) && isInt(poly[0].c) && poly[0].c.n <= -2n && poly[0].c.n >= -1000000000n) return primeSteps(-poly[0].c.n, true);
         if (poly.length < 2) return done('Rozkład', showTerms(poly, ctx), null, steps);
         var vars = varsOf(poly);
         var v0 = vars[0], school = vars.length === 1 ? schoolFactor(coefs(poly, v0), v0, ctx) : null;

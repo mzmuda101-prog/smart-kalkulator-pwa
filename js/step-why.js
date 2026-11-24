@@ -269,6 +269,7 @@
             return r !== undefined && lead(l) !== lead(r) ? 'Liczby z nawiasów wyjmuję przed iloczyn i ustawiam nawiasy w stałej kolejności.'
                 : 'To ten sam iloczyn, tylko nawiasy ustawiam w stałej kolejności, jak w wyniku.';
         }],
+        [/^Odkładam minus$/, 'Liczby pierwsze są dodatnie, więc rozkładam liczbę bez minusa, a minus dopisuję przed wynik.'],
         [/^Dzielę przez kolejne liczby pierwsze$/, 'Dzielę przez najmniejszą liczbę pierwszą, przez którą się da, aż zostanie 1.'],
         [/^Zbieram czynniki pierwsze$/, 'Liczby, przez które dzieliłem, dają razem wyjściową liczbę; powtórzone zapisuję jako potęgę.'],
         [/^Nie ma wspólnego czynnika/, 'Żaden czynnik nie powtarza się we wszystkich wyrazach.'],
