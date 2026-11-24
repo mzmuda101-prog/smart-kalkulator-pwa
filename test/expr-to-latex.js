@@ -110,6 +110,15 @@ ok('zestaw: 58/58 rysunków wraca do tego samego zadania', bad.length === 0, bad
     // [EN] licznik minus mianownik: nawias pierwszej sumy zostaje (słaby uczeń widzi, co od czego odejmujemy)
     ok('kroki: (n + 4) − n z nawiasem', stepToLatex('(n + 4) − n = 4')[0] === '\\left(n+4\\right)-n', stepToLatex('(n + 4) − n = 4'));
     ok('kroki: (5n + 7) − (5n − 8) z nawiasami', stepToLatex('(5n + 7) − (5n − 8) = 15')[0] === '\\left(5n+7\\right)-\\left(5n-8\\right)', stepToLatex('(5n + 7) − (5n − 8) = 15'));
+    // grupowanie: nawiasy par zostają (inaczej x³ − 2x² + x − 2 = x³ − 2x² + x − 2)
+    const grp = stepToLatex('x³ − 2x² + x − 2 = (x³ − 2x²) + (x − 2) = ⟦x²(x − 2) + (x − 2)⟧', 'grupowanie-wyrazow');
+    ok('kroki: grupowanie z nawiasami par', grp[1] === '=\\left(x^{3}-2x^{2}\\right)+\\left(x-2\\right)' && grp[2].endsWith('{x^{2}\\left(x-2\\right)+\\left(x-2\\right)}'), grp);
+    ok('kroki: wspólny nawias z nawiasem', stepToLatex('x²(x − 2) + (x − 2) = ⟦(x − 2)(x² + 1)⟧')[0] === 'x^{2}\\left(x-2\\right)+\\left(x-2\\right)', stepToLatex('x²(x − 2) + (x − 2) = ⟦(x − 2)(x² + 1)⟧'));
+    ok('kroki: grupowanie z minusem', stepToLatex('(x³ − 3x²) − (x − 3)')[0] === '\\left(x^{3}-3x^{2}\\right)-\\left(x-3\\right)', stepToLatex('(x³ − 3x²) − (x − 3)'));
+    // uprość: zastrzeżenie (dla x ≠ …) narysowane, nie tekstem
+    const dla = stepToLatex('(x − 2)(x + 2)/(x + 2) = ⟦x − 2 (dla x ≠ −2)⟧', 'f');
+    ok('kroki: (dla x ≠ −2) narysowane', dla[1] === '=\\htmlData{formula=f}{x-2\\ \\left(\\text{dla}\\ x\\ne -2\\right)}', dla);
+    ok('kroki: dwa zastrzeżenia', stepToLatex('1/(x − 1) (dla x ≠ 0, x ≠ 1)')[0] === '\\frac{1}{x-1}\\ \\left(\\text{dla}\\ x\\ne 0,\\ x\\ne 1\\right)', stepToLatex('1/(x − 1) (dla x ≠ 0, x ≠ 1)'));
     ok('kroki: przecinek zostaje przy wzorze', stepToLatex('1 − 1/n = 1 + 1/(−n),  aₙ = −n').join('|') === '1-\\frac{1}{n}|=1+\\frac{1}{-n},|a_{n}|=-n');
 }
 

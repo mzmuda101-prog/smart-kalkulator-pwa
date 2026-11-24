@@ -174,6 +174,14 @@
             return rest == null ? null : '\\lim_{' + lim[1] + '\\to ' + targetTex(lim[2]) + '}' + rest;
         }
         if (p[0] === '±' || p[0] === '+') { const r = pieceTex(p.slice(1), fid); return r == null ? null : (p[0] === '+' ? '+' : '\\pm ') + r; }
+        if (p[0] === '⟦' && p.indexOf('⟧') === p.length - 1) { const r = pieceTex(p.slice(1, -1), fid); return r == null ? null : '\\htmlData{formula=' + fid + '}{' + r + '}'; }
+        // uprość: wynik (dla x ≠ −2, x ≠ 1) — zastrzeżenie dziedziny rysowane obok wyniku
+        const dla = /^([\s\S]*\S) \(dla ([^()]+)\)$/.exec(p);
+        if (dla) {
+            const head = pieceTex(dla[1], fid), conds = dla[2].split(', ').map(c => c.split(' ≠ ').map(x => pieceTex(x, fid)));
+            if (head != null && conds.every(c => c.length === 2 && c[0] != null && c[1] != null))
+                return head + '\\ \\left(\\text{dla}\\ ' + conds.map(c => c[0] + '\\ne ' + c[1]).join(',\\ ') + '\\right)';
+        }
         if (WORD.test(p.replace(FNWORDS, ''))) return null;
         // (n + 4) − n: nawias pierwszej sumy zostaje, choć zbędny — widać, co od czego odejmujemy (licznik − mianownik)
         if (p[0] === '(') {
@@ -184,6 +192,27 @@
                 const a = pieceTex(inner, fid), b = pieceTex(p.slice(j + 2), fid);
                 if (a != null && b != null) return '\\left(' + a + '\\right)' + b;
             }
+        }
+        // (x³ − 2x²) + (x − 2), x²(x − 2) + (x − 2): nawias wokół sumy w sumie zostaje (grupowanie wyrazów w pary)
+        const terms = []; { let d = 0, st = 0;
+            for (let j = 0; j < p.length; j++) {
+                if (OPEN.includes(p[j])) d++; else if (CLOSE.includes(p[j])) d--;
+                else if (!d && j && (p.startsWith(' + ', j) || p.startsWith(' − ', j))) { terms.push(p.slice(st, j)); terms.push(p[j + 1]); st = j + 3; j += 2; }
+            }
+            terms.push(p.slice(st)); }
+        const wrapped = (/** @type {string} */ t) => { // cały kawałek w jednym nawiasie, w środku suma
+            if (t[0] !== '(' || t[t.length - 1] !== ')') return null;
+            let d = 0;
+            for (let j = 0; j < t.length - 1; j++) { if (t[j] === '(') d++; else if (t[j] === ')' && --d === 0) return null; }
+            return / [+−] /.test(t.slice(1, -1)) ? t.slice(1, -1) : null;
+        };
+        if (terms.length > 1 && terms.some((t, j) => !(j % 2) && wrapped(t) != null)) {
+            const outT = terms.map((t, j) => {
+                if (j % 2) return t === '+' ? '+' : '-';
+                const w = wrapped(t), r = pieceTex(w != null ? w : t, fid);
+                return r == null ? null : w != null ? '\\left(' + r + '\\right)' : r;
+            });
+            if (outT.every(x => x != null)) return outT.join('');
         }
         // n¹⁰ → n^(10) (tokenizer zna tylko jedną cyfrę ²…⁹), log₄( → log_4(
         p = p.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]{2,}|[⁰¹]/g, m => '^(' + m.split('').map(ch => '⁰¹²³⁴⁵⁶⁷⁸⁹'.indexOf(ch)).join('') + ')')
