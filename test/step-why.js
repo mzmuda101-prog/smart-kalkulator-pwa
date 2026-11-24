@@ -97,6 +97,24 @@ ok('3 − y < 5: bez „x” w zdaniu', !/\bx\b/.test(whyOf('rozwiąż 3 - y < 5
     }
     const r5 = S.run('lim n→∞ 5(1+1/n)^n'), s5 = r5.explain.steps, i5 = s5.findIndex(x => x.label === 'Składamy wynik');
     const w5 = whyFor(s5[i5], r5.explain.title, r5.explain, i5);
+    for (const [q, pw] of [['lim n→∞ 5(1-1/n)^n', 'e^{-1}'], ['lim n→∞ 5(1+2/n)^n', 'e^{2}'], ['lim n→∞ 3(1+1/n)^(n/2)', 'e^{\\frac{1}{2}}']]) {
+        const r = S.run(q), st = r.explain.steps, i = st.findIndex(x => x.label === 'Składamy wynik'), w = whyFor(st[i], r.explain.title, r.explain, i);
+        ok(q + ': czynnik i prawdziwa potęga e w zdaniu', w.includes(pw) && !/razy \$e\$/.test(w), w);
+    }
+    for (const [q, pw] of [['lim n→∞ (1-1/n)^(n/2)', 'e^{\\frac{-1}{2}}'], ['lim n→∞ (1+2/n)^n', 'e^{2}'], ['lim n→∞ (1+1/n)^n', 'e^{1}']]) {
+        const r = S.run(q), m = r.explain.methods && r.explain.methods.find(x => x.label === 'Wzór skrócony');
+        if (!m) { ok(q + ': ma wzór skrócony', false); continue; }
+        const i = m.steps.findIndex(x => x.label === 'Składamy wynik'), w = whyFor(m.steps[i], r.explain.title, { steps: m.steps }, i);
+        ok(q + ': Składamy wynik (wzór skrócony) mówi o granicy potęgi ' + pw, w.includes(pw) && /Wykładnik dąży do/.test(w) && !/to jest wynik/.test(w), w);
+    }
+    { // nowe zdania: do 25 słów
+        const qs = ['lim n→∞ (1-1/n)^n', 'lim n→∞ ((n+4)/n)^(n+5)', 'lim n→∞ (1+2/n)^n'], long = [];
+        for (const q of qs) { const r = S.run(q), st = r.explain.methods.find(x => x.label === 'Wzór skrócony').steps;
+            st.forEach((x, i) => { const w = whyFor(x, r.explain.title, { steps: st }, i); if (w.replace(/\$[^$]*\$/g, 'X').split(/\s+/).filter(Boolean).length > 25) long.push(w); }); }
+        for (const q of ['lim n→∞ 5(1-1/n)^n', 'lim n→∞ 3(1+1/n)^(n/2)']) { const r = S.run(q), st = r.explain.steps, i = st.findIndex(x => x.label === 'Składamy wynik'); const w = whyFor(st[i], r.explain.title, r.explain, i);
+            if (w.replace(/\$[^$]*\$/g, 'X').split(/\s+/).length > 25) long.push(w); }
+        ok('nowe zdania wzoru skróconego i czynnika: do 25 słów', long.length === 0, long);
+    }
     ok('5(1+1/n)^n: Składamy wynik mówi o czynniku 5', w5.includes('5') && !/Podstawa dąży do \$e\$/.test(w5), w5);
 }
 // „Sprawdzenie” zależy od zadania

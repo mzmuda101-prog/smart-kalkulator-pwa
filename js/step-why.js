@@ -99,13 +99,14 @@
             ? 'Wzór skrócony daje $e$ do potęgi $\\lim g\\cdot(f-1)$, więc liczymy właśnie tę granicę.'
             : 'Środek nawiasu daje $e$. Zostaje policzyć, do czego dąży potęga nad nawiasem.'],
         [/^Składamy wynik$/, (s, _t, c) => {
-            const factor = /^(.+?) · e/.exec(s.math), k = factor && factor[1].replace(/−/g, '-');
-            if (!isShortcut(c)) return k ? 'Stały czynnik $' + k + '$ wychodzi przed granicę i zostaje, więc wynik to $' + k + '$ razy $e$.'
-                : 'Podstawa dąży do $e$, a wykładnik do liczby z poprzedniego kroku, więc całość dąży do $e$ do tej potęgi.';
-            const last = c.prev && c.prev.math.split(' = ').pop().replace(/^→\s*/, '').trim();
-            const n = last && /^−?\d+(\/\d+)?$/.test(last) ? last.replace('−', '-').replace(/^(-?\d+)\/(\d+)$/, '\\frac{$1}{$2}') : null;
-            const pw = n ? 'do potęgi $' + n + '$' : 'do granicy z poprzedniego kroku';
-            return (k ? 'Stały czynnik $' + k + '$ zostaje przed wynikiem. ' : '') + 'Wzór skrócony daje $e$ ' + pw + ', więc to jest wynik' + (k ? '' : ' potęgi') + '.';
+            // [EN] czynnik i wykładnik odczytane z samego kroku („5 · e^(−1) = 5/e”), żeby zdanie mówiło dokładnie to, co widać
+            const m = /^(?:(.+?) · )?e(?:\^\((.+?)\)|([⁰¹²³⁴⁵⁶⁷⁸⁹]+))?(?: = |$)/.exec(s.math);
+            const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹', raw = m ? (m[2] || (m[3] ? [...m[3]].map(d => SUP.indexOf(d)).join('') : '1')) : null;
+            const x = raw && raw.replace(/−/g, '-').replace(/^(-?\d+)\/(\d+)$/, '\\frac{$1}{$2}'), k = m && m[1] && m[1].replace(/−/g, '-');
+            const OLD = 'Podstawa dąży do $e$, a wykładnik do liczby z poprzedniego kroku, więc całość dąży do $e$ do tej potęgi.';
+            if (!x) return OLD;
+            if (isShortcut(c)) return 'Wykładnik dąży do $' + x + '$, więc granica potęgi to $e^{' + x + '}$.';
+            return k ? 'Stały czynnik $' + k + '$ zostaje przed granicą, a potęga daje $e^{' + x + '}$, więc wynik to $' + k + '\\cdot e^{' + x + '}$.' : OLD;
         }],
         [/^Potęga e$/, 'Liczba $e$ do coraz większej potęgi rośnie bez końca, a do coraz bardziej ujemnej spada do 0.'],
         [/^Dla \w → −∞$/, 'Tu zmienna jest ujemna, więc wyciągając ją spod pierwiastka, piszemy przed nim minus.'],
