@@ -2148,6 +2148,17 @@
         .steps-math.is-open .steps-ink [data-formula] { background: var(--primary-light); }
         .steps-math:has(.steps-formula-sr:focus-visible) .steps-ink [data-formula] { outline: 2px solid var(--primary); outline-offset: 2px; }
         @media (hover: hover) { .steps-ink [data-formula]:hover { background: var(--primary-light); } }
+        .steps-label:has(.steps-rule-btn) { display: flex; align-items: center; gap: 8px; }
+        .steps-rule-btn {
+            display: inline-flex; align-items: center; justify-content: center; flex: none;
+            inline-size: 32px; block-size: 32px; padding: 0; border: 0; border-radius: 8px;
+            background: transparent; color: var(--primary); cursor: pointer; -webkit-tap-highlight-color: transparent;
+            transition: background-color 150ms ease, transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        .steps-rule-btn:active { transform: scale(0.94); }
+        .steps-rule-btn[aria-expanded="true"] { background: var(--primary-light); }
+        .steps-rule-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+        @media (hover: hover) { .steps-rule-btn:hover { background: var(--primary-light); } }
         .steps-pop {
             position: relative; margin-top: 12px; padding: 10px 12px;
             border: 1px solid var(--border-focus); border-radius: var(--radius-sm, 10px);

@@ -5994,13 +5994,13 @@
         function _closeStepsPop() {
             if (!stepsView) return;
             stepsView.querySelectorAll('.steps-pop').forEach(function (p) { p.remove(); });
-            stepsView.querySelectorAll('.steps-formula-sr[aria-expanded="true"]').forEach(function (b) { b.setAttribute('aria-expanded', 'false'); });
+            stepsView.querySelectorAll('.steps-formula-sr[aria-expanded="true"], .steps-rule-btn[aria-expanded="true"]').forEach(function (b) { b.setAttribute('aria-expanded', 'false'); });
             stepsView.querySelectorAll('.steps-math.is-open').forEach(function (m) { m.classList.remove('is-open'); });
         }
         function _stepsPopEscape() { // [EN] zamyka otwarty dymek, fokus na fragment wzoru; false = nie było dymku
             var open = stepsView && !stepsView.hidden && stepsView.querySelector('.steps-math.is-open');
             if (!open) return false;
-            var sr = open.querySelector('.steps-formula-sr');
+            var sr = open.closest('.steps-item').querySelector('.steps-rule-btn, .steps-formula-sr');
             _closeStepsPop();
             if (sr) sr.focus({ preventScroll: true });
             return true;
@@ -6051,11 +6051,11 @@
                 foot.appendChild(more);
                 pop.appendChild(foot);
                 // [EN] strzałka dymku i punkt, z którego rośnie, celują w podkreślony fragment
-                var hit = math.querySelector('.steps-ink [data-formula]') || math;
+                var hit = li.querySelector('.steps-rule-btn') || math.querySelector('.steps-ink [data-formula]') || math;
                 var lr = li.getBoundingClientRect(), hr = hit.getBoundingClientRect();
                 pop.style.setProperty('--pop-x', Math.max(16, Math.min(lr.width - 16, hr.left + hr.width / 2 - lr.left)) + 'px');
                 math.after(pop);
-                var sr = math.querySelector('.steps-formula-sr');
+                var sr = li.querySelector('.steps-rule-btn, .steps-formula-sr');
                 if (sr) sr.setAttribute('aria-expanded', 'true');
             });
         }
@@ -6245,7 +6245,7 @@
             if (top && top.el === commandHelpDrawer && b.ret) top.ret = b.ret; // [EN] Esc wraca tam, skąd otwarto kroki, nie do ukrytego podręcznika
             var scroller = _stepsScroller();
             if (scroller) scroller.scrollTop = b.scroll; // [EN] to samo miejsce w krokach, dymek dalej otwarty
-            var sr = stepsView.querySelector('.steps-math.is-open .steps-formula-sr');
+            var sr = stepsView.querySelector('.steps-item:has(.steps-math.is-open) :is(.steps-rule-btn, .steps-formula-sr)');
             if (sr) {
                 sr.focus({ preventScroll: true });
                 requestAnimationFrame(function () { sr.focus({ preventScroll: true }); }); // [EN] po klatce dialogOpened (fokus na ×)
@@ -6293,7 +6293,18 @@
                 math.appendChild(sr);
                 math.appendChild(ink);
                 var fid = step.formula && formulas[step.formula.id] ? step.formula.id : '';
-                if (fid) { // [EN] klawiatura i czytnik: niewidoczny przycisk; fokus rysuje obwódkę na podkreślonym fragmencie
+                var ruleBtn = null;
+                if (fid && String(step.math).indexOf('⟦') < 0) { // [EN] wzór bez koloru w zapisie: widoczny przycisk z książką w wierszu etykiety (jedna kontrolka na dymek)
+                    ruleBtn = _stepsEl('button', 'steps-rule-btn');
+                    ruleBtn.type = 'button';
+                    ruleBtn.dataset.formula = fid;
+                    ruleBtn.setAttribute('aria-label', 'Reguła: ' + formulas[fid].name);
+                    ruleBtn.setAttribute('aria-expanded', 'false');
+                    ruleBtn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>';
+                    if (step.formula.here) li.dataset.formulaHere = step.formula.here;
+                    label.appendChild(ruleBtn);
+                }
+                if (fid && !ruleBtn) { // [EN] klawiatura i czytnik: niewidoczny przycisk; fokus rysuje obwódkę na podkreślonym fragmencie
                     var btn = _stepsEl('button', 'steps-formula-sr', formulas[fid].name + ', wyjaśnienie');
                     btn.type = 'button';
                     btn.dataset.formula = fid;

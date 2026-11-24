@@ -202,3 +202,30 @@ test('przełącznik: najkrótszy pierwszy i wciśnięty, „Rozkład na czynniki
     await page.keyboard.press('Escape');
   }
 });
+
+test('krok z regułą bez koloru: przycisk z książką otwiera dymek, Esc oddaje fokus', async ({ page }) => {
+  await page.goto('index.html', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => !!window.MATM0_TEX && !!window.MATM0_FORMULAS);
+  await page.locator('#calcExpr').fill('rozwiąż x^2-5x+6=0');
+  await page.locator('#calcExplainTip').click();
+  const methods = page.locator('#stepsView .steps-methods');
+  if (await methods.count()) await methods.getByRole('button', { name: /Delta/ }).click();
+  const item = page.locator('#stepsView .steps-item', { has: page.locator('.steps-label', { hasText: 'Liczę pierwiastek z delty' }) });
+  const btn = item.locator('.steps-label button.steps-rule-btn');
+  await expect(btn).toHaveCount(1);
+  await expect(btn).toHaveAttribute('aria-label', /^Reguła:/);
+  await expect(item.locator('.steps-formula-sr')).toHaveCount(0); // jedna kontrolka na dymek
+  const box = await btn.boundingBox();
+  expect(box.width).toBeGreaterThanOrEqual(24);
+  expect(box.height).toBeGreaterThanOrEqual(24);
+  await btn.click();
+  const pop = page.locator('#stepsView .steps-pop');
+  await expect(pop).toBeVisible();
+  await expect(pop.locator('.steps-pop-name')).not.toBeEmpty();
+  await expect(btn).toHaveAttribute('aria-expanded', 'true');
+  await page.keyboard.press('Escape');
+  await expect(pop).toHaveCount(0);
+  await expect(btn).toBeFocused();
+  // krok z kolorowym fragmentem nie ma takiego przycisku
+  await expect(page.locator('#stepsView .steps-item:has(.steps-ink [data-formula]) .steps-rule-btn')).toHaveCount(0);
+});
