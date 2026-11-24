@@ -83,7 +83,7 @@
             ? 'Wymnażamy: tam, gdzie była różnica z pierwiastkiem, pierwiastki się skasowały.'
             : 'Wymnażamy i zbieramy podobne wyrazy, żeby wyrażenie było krótsze.'],
         [/^Rozkładamy na czynniki$/, (_s, _t, c) => {
-            const m = c.next && /^Skracamy \((.+)\)$/.exec(c.next.label);
+            const m = c.next && /^Skracamy \((.+)\)[⁰¹²³⁴⁵⁶⁷⁸⁹]*$/.exec(c.next.label);
             const br = m && '(' + m[1].replace(/ − /g, '-').replace(/ \+ /g, '+') + ')';
             return 'Wyszło $\\frac{0}{0}$, więc i licznik, i mianownik mają nawias $' + (br || '(x-a)') + '$. Wyciągamy go, żeby potem skrócić.';
         }],
@@ -239,7 +239,12 @@
         [/^Mnożę na krzyż$/, 'Dwa ułamki są równe, gdy licznik pierwszego razy mianownik drugiego daje to samo co na odwrót.'],
         [/^Sprawdzam dziedzinę$/, 'Rozwiązanie musi należeć do dziedziny, inaczej wyjściowe równanie nie miałoby dla niego sensu.'],
         [/^Odrzucam rozwiązanie spoza dziedziny$/, 'Ta liczba nie należy do dziedziny, więc wyjściowe równanie nie ma dla niej sensu.'],
-        [/^Dzielę schematem Hornera$/, 'Wiem już, że nawias z tym pierwiastkiem dzieli wielomian, więc liczę, co zostaje po podzieleniu.'],
+        [/^Dzielę schematem Hornera$/, (s, _t, c) => {
+            const br = / w (liczniku|mianowniku)$/.test(s.label) && !(c.prev && /^Szukam pierwiastka/.test(c.prev.label)) && /: \(([^)]*)\)⟧/.exec(s.math);
+            // [EN] w granicy pierwiastek znamy z 0/0 — bez szukania wśród dzielników
+            return br ? 'Wstawienie dało $\\frac{0}{0}$, więc ten wielomian zeruje się w tym punkcie i dzieli się przez $(' + br[1].replace(/ − /g, '-').replace(/ \+ /g, '+') + ')$.'
+                : 'Wiem już, że nawias z tym pierwiastkiem dzieli wielomian, więc liczę, co zostaje po podzieleniu.';
+        }],
         [/^Zapisuję iloczyn$/, 'Wielomian to dzielnik razy wynik dzielenia, więc rozpisuję go na dwa nawiasy.'],
         [/^Szukam dwóch liczb o sumie/, 'Sprawdzam pary dzielników wyrazu wolnego, aż zgodzi się też suma.'],
         [/^Szukam pierwiastka/, (s) => /dzielniki/.test(s.math) ? 'Całkowity pierwiastek takiego wielomianu musi dzielić liczbę bez $x$, więc sprawdzam jej dzielniki, aż któryś da 0.' : 'Szukam liczby, dla której wielomian daje 0. Wtedy nawias z tą liczbą dzieli wielomian.'],

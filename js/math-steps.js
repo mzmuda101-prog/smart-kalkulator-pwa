@@ -1694,7 +1694,7 @@
             var same = factors.filter(function (f) { return f.c.length === mc.length && f.c.every(function (x, i) { return eq(x, mc[i]); }); })[0];
             if (same) same.n += l.n; else factors.push({ c: mc, n: l.n });
         });
-        return { steps: t.steps, factors: factors, lead: lead, used: t.used, text: text };
+        return { steps: t.steps, factors: factors, lead: lead, used: t.used, text: text, k: kk, leaves: inLeaves }; // [EN] k · Π leaves = postać z text
     }
     function primeSteps(n) { // [EN] rozłóż 84: dzielenie przez kolejne liczby pierwsze
         var ps = primeFactors(n), lines = [], cur = n;
@@ -2257,7 +2257,7 @@
             NotSupported: NotSupported, R: R, ZERO: ZERO, ONE: ONE, gcd: gcd, add: add, neg: neg, sub: sub,
             mul: mul, div: div, isZero: isZero, isInt: isInt, eq: eq, toNum: toNum, powR: powR,
             sqrtExact: sqrtExact, sup: sup, sub_: sub_, fmt: fmt, fmtApprox: fmtApprox, fold: fold, done: done,
-            MAX_INPUT: MAX_INPUT, hornerHere: hornerHere, schoolFactor: schoolFactor, polyText: polyText,
+            MAX_INPUT: MAX_INPUT, hornerHere: hornerHere, schoolFactor: schoolFactor, polyText: polyText, factorText: sfText,
             polyCoefs: function (src) { // [EN] wielomian z tekstu → {c, v} tak jak w factorize; null przy kilku zmiennych
                 var t = collect(termsOf(parseTokens(tokenize(src, {})))), vs = varsOf(t);
                 return vs.length === 1 ? { c: coefs(t, vs[0]), v: vs[0] } : null;

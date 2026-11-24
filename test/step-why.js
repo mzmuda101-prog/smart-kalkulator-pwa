@@ -122,6 +122,11 @@ ok('3 − y < 5: bez „x” w zdaniu', !/\bx\b/.test(whyOf('rozwiąż 3 - y < 5
 // „Sprawdzenie” zależy od zadania
 ok('Sprawdzenie w całce ≠ w równaniu', whyFor({ label: 'Sprawdzenie', math: '' }, 'Całka') !== whyFor({ label: 'Sprawdzenie', math: '' }, 'Równanie'));
 
+// zad. 4: pierwiastek znany z 0/0 — zdanie przy dzieleniu mówi skąd
+{
+    const w = whyOfM('lim x→1 (x^3-3x+2)/(x^2-2x+1)', 'Rozkład na czynniki', 'Dzielę schematem Hornera') || '';
+    ok('Horner w rozkładzie szkolnym: pierwiastek z 0/0', /frac\{0\}\{0\}/.test(w) && w.includes('(x-1)'), w);
+}
 // Partia 1: Horner w granicy
 {
     const w = whyOf('lim x→2 (x^4-13x^2+36)/(x^3-2x^2+x-2)', 'Rozkładamy na czynniki') || '', h = whyOfM('lim x→2 (x^4-13x^2+36)/(x^3-2x^2+x-2)', 'Schemat Hornera', 'Dzielimy schematem Hornera') || '';
