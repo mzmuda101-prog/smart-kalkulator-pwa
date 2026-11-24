@@ -142,6 +142,7 @@ Przy wierszach opartych o cytat z kroku nazwa kroku jest w kolumnie „krok”; 
 | S88 | reszta | z007 (3+4 = 7), z004 (x+x+2x) | 2-3 | skok | drobna | Pośredni zapis 3+4 = 7 i zebrania wyrazów pominięty | 2·(3+4)² = 2·7² | do zrobienia |
 | S89 | reszta | z014 (150 + 20%), z015 | 2 | dlaczego-falszywe | drobna | Why o dzieleniu przez 100 nie mówi, że „150 + 20%” to 150 + 20% z 150 (część dymka w wierszu o dymkach) | „150 + 20% znaczy 150 + 20% z 150, więc najpierw liczę 20% z 150.” | do zrobienia |
 | S90 (D-Z16) | granice | lim n→∞ 1/(√(n+√n)−√(n−1)); g022 | 1 | nieczytelne | drobna | Krok 1 bez symbolu nieoznaczonego (w mianowniku ∞−∞) | „[1/(∞−∞)]”, why „W mianowniku jest ∞−∞, więc najpierw go przekształcamy.” | do zrobienia |
+| S91 | granice | lim x→1 1-(x-3)^2/(x+1); rzadkie kształty spoza zestawu | Podstawiamy x = a | skok | drobna | Potęga i dzielenie liczone w jednym kroku: `1 − (−2)²/2 = 1 − 2`; podobnie `3 · 3 · 0 → 0` | Osobny poziom: `1 − 4/2 = 1 − 2` (końcowy przegląd v1.05.50) | do zrobienia |
 
 ## Lekka interaktywność (pomysły)
 

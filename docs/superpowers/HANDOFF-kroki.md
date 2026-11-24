@@ -38,6 +38,7 @@ Starsze przekazanie: `docs/superpowers/HANDOFF-wzory.md` (rysunek wzoru, klawiat
 | v1.05.40 | **sposoby, etap 1** (spec `2026-11-23-sposoby-design.md`): domyślnie najkrótszy sposób; 1^∞ — „Wzór skrócony” (hasło `e-skrocony`); ∞/∞ dla funkcji (x) — de l'Hospital; „Wróć do kroków” przywraca przełącznik sposobów |
 
 | v1.05.45 | **sposoby, etap 2+3**: równanie kwadratowe — „Suma i iloczyn” (wzory Viète'a) obok delty; wielomiany — szukam pierwiastka → schemat Hornera (tabelka ze strzałkami, pole kroku `horner`, `_stepsHorner` w app.js) → zapisuję iloczyn; hasła `wzory-viete`, `schemat-hornera` |
+| v1.05.50 | **przegląd skoków, partia 1** (spec `2026-11-24-przeglad-skokow-design.md`): granice — „Podstawiamy x = a” z rachunkiem poziomami (wstawione liczby → wartości → sumy → iloczyny → wynik, `plugSteps` w math-limits.js, nawiasy przy ujemnych); krok „Dzielimy schematem Hornera” przed rozkładem (tabelki licznik/mianownik, `horner` jako lista); stałe polecenie agenta `docs/superpowers/agents/slaby-uczen.md`, zrzut `scripts/steps-dump-student.js`; **tabela uwag `docs/superpowers/research/skoki-tabela.md`** (91 wierszy, 14 pomysłów na interaktywność) |
 
 Dalej: 4) czytelność długich wzorów (łamanie „aₙ = …”, mały wykładnik; długi zapis dzielenia nad tabelką Hornera
 przy stopniu 5 rozpycha kartę — test w `steps-drawing.spec.js` ma znacznik `shortcut`); potem kolejne sposoby
