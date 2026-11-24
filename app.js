@@ -6303,7 +6303,11 @@
                 li.appendChild(math);
                 if (step.horner) { // [EN] szeroka tabelka przewija się w swoim pudełku (krawędź pokazuje, że jest dalej)
                     [].concat(step.horner).forEach(function (h) { // [EN] równania: jeden obiekt; granice: licznik i mianownik
-                        if (h.name) li.appendChild(_stepsEl('p', 'steps-horner-name', h.name.charAt(0).toUpperCase() + h.name.slice(1)));
+                        if (h.name) {
+                            var hn = _stepsEl('p', 'steps-horner-name', h.name.charAt(0).toUpperCase() + h.name.slice(1));
+                            hn.setAttribute('aria-hidden', 'true'); // [EN] nazwę czyta już aria-label tabelki
+                            li.appendChild(hn);
+                        }
                         var hw = _stepsEl('div', 'steps-horner-wrap');
                         hw.appendChild(_stepsHorner(h));
                         li.appendChild(hw);

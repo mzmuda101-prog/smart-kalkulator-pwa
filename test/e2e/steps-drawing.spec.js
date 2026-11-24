@@ -168,6 +168,7 @@ test('schemat Hornera stopnia 5 na wąskim ekranie: tabelka przewija się w swoi
   expect(r.scrolls).toBe(true); // shortcut: długi zapis dzielenia nad tabelką wciąż rozpycha kartę — etap 4 (długie wzory)
   const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(over).toBeLessThanOrEqual(0);
+  await expect(page.locator('#stepsView .steps-horner-name').first()).toHaveAttribute('aria-hidden', 'true');
   await expect(page.locator('#stepsView .steps-horner').first()).toHaveAttribute('aria-label', /iloraz .*; reszta 0/);
 });
 

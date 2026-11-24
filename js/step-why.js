@@ -89,7 +89,7 @@
             const r = s.horner && s.horner[0] && s.horner[0].r;
             if (r == null) return 'Dzielimy licznik i mianownik przez nawias, który się w nich powtarza.';
             const sgn = r.startsWith('−') ? '+' + r.slice(1) : '-' + r;
-            return 'Liczba $' + r.replace('−', '-') + '$ zeruje licznik i mianownik, więc oba dzielą się przez $(x' + sgn + ')$.';
+            return 'Liczba $' + r.replace('−', '-') + '$ zeruje licznik i mianownik, więc oba dzielą się przez $' + (r === '0' ? 'x' : '(x' + sgn + ')') + '$.';
         }],
         [/^Dorabiamy jedynkę$/, 'Wzór na $e$ wymaga postaci $1+\\frac{1}{\\text{coś}}$, a w potędze tego samego „coś”. Przerabiamy podstawę na ten kształt.'],
         [/^Kolorowa potęga dąży do e$/, 'W nawiasie jest $1+\\frac{1}{a_{n}}$, a nad nim to samo $a_{n}$. Resztę wykładnika liczymy osobno.'],

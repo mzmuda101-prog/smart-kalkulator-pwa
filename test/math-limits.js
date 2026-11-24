@@ -498,5 +498,18 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     ok('P1H: bramka — każdy rozkład ma Hornera', bad.length === 0, bad);
 }
 
+// ── Poprawki końcowego przeglądu: sumy z iloczynami, wykładnik, nawiasy ──
+{
+    const allSub = z => { const r = S.run(z); return [].concat(...(r.explain.methods || [r.explain]).map(m => m.steps)).filter(x => /^Podstawiamy/.test(x.label)).map(x => x.math); };
+    const has = (q, frag) => { const a = allSub(q); ok('FIX: ' + q + ' ∋ ' + frag, a.some(m => m.includes(frag)), a); };
+    has('lim x→2 (x-1)^2*(x+3)+1', '5 · 1² + 1');
+    has('lim x→2 (x-1)^2*(x+3)+1', '5 + 1');
+    has('lim x→-2 7-(x+1)(x-3)', '7 − (−1) · (−5)');
+    has('lim x→-2 7-(x+1)(x-3)', '7 − 5');
+    has('lim x→-1 2-(x-1)/(x+2)', '2 − (−2)/1');
+    for (const q of ['lim x→-1 2^x', 'lim x→-1 e^x']) { const a = allSub(q); ok('FIX: wykładnik bez podwójnych nawiasów ' + q, a.length > 0 && a.every(m => !m.includes('((−1))')) && a.some(m => m.includes('^(−1)')), a); }
+    const b = allSub('lim x→-2 x/(x-1)'); ok('FIX: bez kroku samych nawiasów', b.length > 0 && b.every(m => !m.includes(' = −2/(−3)')), b);
+}
+
 console.log(`math-limits: ${pass} OK, ${fail} błędów`);
 process.exit(fail ? 1 : 0);

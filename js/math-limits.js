@@ -395,14 +395,15 @@
         if (out.k === 'mul') out.b = pr(out.b);
         else if (out.k === 'pow') out.a = pr(out.a, 2);
         else if (out.k === 'div') out.b = pr(out.b, 2);
-        else if (out.k === 'sub') out.b = pr(out.b);
+        else if (out.k === 'sub') out.b = parenLead(out.b, pr);
+        else if (out.k === 'add' && (out.b.k === 'mul' || out.b.k === 'div')) out.b = parenLead(out.b, pr);
         else if (out.k === 'neg') out.a = parenLead(out.a, pr);
         return out;
     }
     function plugVar(n, v, pt, ctx) { // [EN] zmienna → liczba punktu; nawias, gdy liczba ujemna/ułamkowa stoi pod potęgą, po minusie, w iloczynie
         if (n.k === 'var') return n.v === v ? astNum(pt, ctx !== 'add' && ctx !== 'fn' && ctx !== 'root' && ctx !== 'subA' && (pt.n < 0n || ctx !== 'addB')) : n;
         if (!n.a) return n;
-        var c = n.k === 'sub' ? ['subA', 'sub'] : n.k === 'add' ? ['add', 'addB'] : n.k === 'fn' || n.k === 'sqrt' ? ['fn', 'fn'] : [n.k, n.k];
+        var c = n.k === 'sub' ? ['subA', 'sub'] : n.k === 'add' ? ['add', 'addB'] : n.k === 'fn' || n.k === 'sqrt' ? ['fn', 'fn'] : n.k === 'pow' ? ['pow', 'fn'] : [n.k, n.k];
         var out = astMap(n, function (x, s) { return plugVar(x, v, pt, s === 'a' ? c[0] : c[1]); });
         if (out.k === 'mul') out.implicit = false;
         return out;
@@ -416,8 +417,12 @@
         if (!astHasSum(n) && n.k !== 'num') { var r = astValue(n); if (r) return astNum(r); }
         return n.a ? astMap(n, plugValues) : n;
     }
-    function plugSumVals(n) { // [EN] każda suma → liczba, ale iloczyny i ilorazy jeszcze niepomnożone: 32 · (−3)
-        if ((n.k === 'add' || n.k === 'sub') && astHasSum(n)) { var r = astValue(n); if (r) return astNum(r); }
+    function astProdOfSum(n) { // [EN] iloczyn/iloraz/potęga z sumą w środku, gdziekolwiek w drzewie
+        if ((n.k === 'mul' || n.k === 'div' || n.k === 'pow') && (astHasSum(n.a) || astHasSum(n.b))) return true;
+        return !!((n.a && astProdOfSum(n.a)) || (n.b && astProdOfSum(n.b)));
+    }
+    function plugSumVals(n) { // [EN] każda suma → liczba, ale iloczyny i ilorazy jeszcze niepomnożone: 32 · (−3); suma z iloczynem sum: najpierw wnętrza
+        if ((n.k === 'add' || n.k === 'sub') && astHasSum(n) && !astProdOfSum(n)) { var r = astValue(n); if (r) return astNum(r); }
         return n.a ? astMap(n, plugSumVals) : n;
     }
     function plugSums(n) { // [EN] sumy policzone; ułamek zostaje nieskrócony (−20/5), licznik i mianownik osobno
@@ -425,21 +430,22 @@
             var a = astValue(n.a), b = astValue(n.b);
             if (a && b && !K.isZero(b)) return { k: 'div', a: astNum(a, a.d !== 1n), b: astNum(b, true) };
         }
-        if (astHasSum(n)) { var r = astValue(n); if (r) return astNum(r); }
+        if (astHasSum(n) && !astProdOfSum(n)) { var r = astValue(n); if (r) return astNum(r); }
         return n.a ? astMap(n, plugSums) : n;
     }
+    function bare(s) { return s.replace(/[()]/g, ''); } // [EN] krok różniący się tylko nawiasami nie jest krokiem
     function plugSteps(e, v, t, at) { // [EN] kolejne zapisy po „=” (bez wyniku końcowego), bez sąsiednich powtórzeń
         var out = [];
         try {
             var cur = plugVar(K.parse(C.show(e)), v, C.numberOf(pointExpr(t)), 'root');
-            [function (x) { return x; }, plugRadicands, plugValues, plugSumVals, plugSums].forEach(function (f) {
+            [function (x) { return x; }, plugRadicands, plugValues, plugSumVals, function (x) { return x.k === 'add' || x.k === 'sub' ? plugValues(x) : x; }, plugSums].forEach(function (f) {
                 cur = f(cur);
                 var s = astText(cur);
-                if (out[out.length - 1] !== s) out.push(s);
+                if (!out.length || bare(out[out.length - 1]) !== bare(s)) out.push(s);
             });
         } catch (x) { /* [EN] nie umiemy wypisać — zostaje sam wynik */ }
         out.push(C.show(at));
-        return out.filter(function (s, i) { return !i || s !== out[i - 1]; });
+        return out.filter(function (s, i) { return !i || bare(s) !== bare(out[i - 1]); });
     }
     var RULES = [
         { // [EN] bez zmiennej: granica stałej to ta stała

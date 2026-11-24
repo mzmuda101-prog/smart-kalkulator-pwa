@@ -94,5 +94,10 @@ ok('Sprawdzenie w całce ≠ w równaniu', whyFor({ label: 'Sprawdzenie', math: 
     ok('Hornera w granicy: zdanie o liczbie 2', h.includes('$2$') && h.includes('(x-2)'), h);
 }
 
+{
+    const h0 = whyOf('lim x→0 (x^2+3x)/(x^2-2x)', 'Dzielimy schematem Hornera') || '';
+    ok('Horner przy x → 0: (x), nie (x-0)', h0.includes('(x)') === false && !h0.includes('x-0') && /\$x\$/.test(h0), h0);
+}
+
 console.log(fail ? '❌ ' + fail + ' błędów, ' + pass + ' ok' : '✅ step-why: ' + pass + ' ok');
 process.exit(fail ? 1 : 0);
