@@ -186,7 +186,7 @@
         [/^Porządkuję równania$/, 'Ustawiam oba równania tak samo: niewiadome po lewej w tej samej kolejności, liczba po prawej.'],
         [/^Podstawiam do (pierwszego|drugiego) równania$/, 'Zamiast tej litery wpisuję to, co wyszło w poprzednim kroku.'],
         [/^Wstawiam \w = .* do (pierwszego|drugiego) równania$/, 'Znam już jedną niewiadomą, więc z dowolnego równania wyliczę drugą.'],
-        [/^Wstawiam \w = [^ ]+$/, 'Znam już jedną niewiadomą, więc wstawiam ją do wyrażenia na drugą.'],
+        [/^Wstawiam \w = [^ ]+$/, 'Policzoną liczbę wstawiam do wyrażenia wyznaczonego na początku i dostaję drugą wartość.'],
         [/^Mnożę (pierwsze|drugie) przez/, 'Chcę, żeby przy jednej niewiadomej stały przeciwne liczby. Wtedy po dodaniu równań ta niewiadoma zniknie.'],
         [/^Dodaję równania stronami$/, 'Lewą stronę dodaję do lewej, prawą do prawej. Przeciwne wyrazy się znoszą i zostaje jedna niewiadoma.'],
         [/^Lewe strony są proporcjonalne$/, 'Drugie równanie po lewej to pierwsze pomnożone przez liczbę, więc oba opisują tę samą prostą albo proste równoległe.'],
@@ -204,7 +204,7 @@
         [/^Pierwiastek nie jest ujemny$/, 'Pierwiastek kwadratowy nigdy nie daje liczby ujemnej, więc równanie nie ma rozwiązań.'],
         [/^Podnoszę obie strony do kwadratu$/, 'Lewa i prawa część są równe, więc po podniesieniu do potęgi 2 nadal będą równe.'],
         [/^Odrzucam fałszywe rozwiązanie$/, 'Ta liczba spełnia równanie po podniesieniu do kwadratu, ale w oryginale pierwiastek równałby się liczbie ujemnej.'],
-        [/^Sprawdzam rozwiązania$/, 'Po podniesieniu do kwadratu sprawdzam każde rozwiązanie w równaniu wyjściowym.'],
+        [/^Sprawdzam rozwiązania$/, 'Wstawiam każdą liczbę do równania z pierwiastkiem: lewa i prawa strona wychodzą równe.'],
         [/^(Sinus|Cosinus) przyjmuje wartości od −1 do 1$/, 'Ta liczba leży poza przedziałem od −1 do 1, więc żaden kąt jej nie daje.'],
         [/^Odczytuję kąt z tablicy$/, 'Szukam kąta, dla którego funkcja daje tę wartość. Takie kąty warto znać na pamięć.'],
         [/^Zapisuję wszystkie rozwiązania$/, (s) => / lub /.test(s.math)
@@ -217,10 +217,10 @@
         [/^Mnożę czynniki w najwyższej potędze$/, 'Biorę każdy czynnik tyle razy, ile najwięcej występuje. Ten iloczyn dzieli się przez każdą z liczb.'],
         [/^Nie ma wspólnych czynników$/, 'Liczby nie mają wspólnego czynnika pierwszego, więc jedynym wspólnym dzielnikiem jest 1.'],
         [/^Liczę p$/, 'Wstawiam $a$ i $b$ z tej funkcji; $p$ to pierwsza współrzędna wierzchołka.'],
-        [/^Liczę q$/, 'Wierzchołek leży na wykresie, więc jego wysokość to wartość funkcji w punkcie $p$.'],
+        [/^Liczę q$/, 'Wstawiam $p$ za $x$ do wzoru i liczę drugą współrzędną wierzchołka.'],
         [/^Zapisuję postać kanoniczną$/, 'Postać $a(x-p)^{2}+q$ od razu pokazuje wierzchołek i to, czy parabola idzie w górę, czy w dół.'],
         [/^Zamieniam procent na ułamek$/, 'Liczę, ile to setnych: liczbę procentów dzielę przez 100.'],
-        [/^Mnożę ułamek przez liczbę$/, 'Procent z liczby to ta część liczby, więc mnożę ułamek przez nią.'],
+        [/^Mnożę ułamek przez liczbę$/, 'Ułamek z poprzedniego kroku mówi, jaką część tej liczby bierzemy.'],
         [/^Liczę procent z liczby$/, 'Najpierw sprawdzam, ile to jest ten procent z liczby.'],
         [/^Dodaję procent do liczby$/, 'Do wyjściowej kwoty dokładam część policzoną przed chwilą.'],
         [/^Odejmuję procent od liczby$/, 'Od wyjściowej kwoty zabieram część policzoną przed chwilą.'],
@@ -234,7 +234,7 @@
         [/^Wyznaczam dziedzinę$/, (s) => / ≥ 0/.test(s.math) ? 'Pierwiastek kwadratowy liczymy tylko z liczb nieujemnych i sam nie jest ujemny.'
             : / > 0/.test(s.math) ? 'Logarytm istnieje tylko dla liczb dodatnich, więc argument musi być większy od zera.'
             : 'Przez zero dzielić nie wolno, więc wykluczam liczby, które zerują mianownik.'],
-        [/^Zapisuję obie strony jako potęgi /, 'Gdy obie strony mają tę samą podstawę, wystarczy porównać wykładniki.'],
+        [/^Zapisuję obie strony jako potęgi /, 'Szukam jednej liczby, której potęgami da się zapisać obie liczby z tego zadania.'],
         [/^Liczę wykładnik ze wzoru skróconego$/, 'Podstawa $f$ jest prawie jedynką, więc o wyniku decyduje $g$ razy $(f-1)$, a nie sam wykładnik.'],
         [/^Porównuję wykładniki$/, 'Na dole po obu stronach stoi teraz ta sama liczba, więc wystarczy przyrównać to, co na górze.'],
         [/^Zapisuję wykładnik jako logarytm$/, 'Prawej strony nie zamienię na potęgę z prostym wykładnikiem, więc wynik zostaje w postaci logarytmu.'],
@@ -294,7 +294,7 @@
         [/^Wymnażam nawiasy$/, 'Mnożę każdy wyraz z jednego nawiasu przez każdy wyraz z drugiego.'],
 
         // ── pochodne ──
-        [/^Rozpoznaję iloczyn$/, 'Funkcja to iloczyn dwóch części zależnych od $x$. Nazywam je $u$ i $v$, żeby użyć wzoru na pochodną iloczynu.'],
+        [/^Rozpoznaję iloczyn$/, 'Nazywam obie części literami $u$ i $v$, żeby potem łatwo wstawić je do wzoru.'],
         [/^Rozpoznaję iloraz$/, 'Funkcja to ułamek: licznik nazywam $u$, mianownik $v$, żeby użyć wzoru na pochodną ilorazu.'],
         [/^Wstawiam do wzoru$/, 'Mam już $u$, $v$ i ich pochodne. Wstawiam je do wzoru w tej samej kolejności co we wzorze.'],
         [/^Liczę pochodną złożoną$/, 'W środku nie stoi samo $x$, tylko dłuższe wyrażenie, więc sama tablica nie wystarczy.'],
@@ -318,7 +318,7 @@
         [/^Stałą wyłączam przed całkę$/, 'Liczba przed funkcją nie zmienia się przy całkowaniu, zostaje jako mnożnik.'],
         [/^Mnożę przez wyłączoną stałą$/, 'Na końcu mnożę wynik przez liczbę, którą wcześniej wyłączyłem przed całkę.'],
         [/^Całkuję stałą$/, 'Całka z liczby $k$ to $k\\cdot x$, bo $(k\\cdot x)^{\\prime}=k$.'],
-        [/^Całkuję przez części$/, 'Pod całką jest iloczyn. Jeden czynnik różniczkuję ($u$), drugi całkuję ($dv$), żeby powstała prostsza całka.'],
+        [/^Całkuję przez części$/, 'Wybieram $u$ tak, żeby po zróżniczkowaniu się uprościło, a $dv$ tak, żeby łatwo je scałkować.'],
         [/^Podstawiam do wzoru$/, 'Wstawiamy $u$, $v$ i $du$ do wzoru na całkowanie przez części.'],
         [/^Podstawienie: /, 'Zastępujemy wnętrze jedną literą, żeby całka wyglądała jak wzór z tablicy.'],
         [/^Wracam do zmiennej /, 'Na końcu zamieniamy literę pomocniczą z powrotem na wyrażenie z początku.'],

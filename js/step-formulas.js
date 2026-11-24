@@ -717,7 +717,51 @@
         if (FORMULAS[id]) Object.assign(FORMULAS[id], { dzial: dzial, poziom: poziom, keywords: keywords, try: tryExpr, expect: expect, related: related });
     }
 
-    const API = { FORMULAS: FORMULAS, DZIALY: DZIALY };
+    // Reguły kroków jako dane (spec 2026-11-24-dymki-podstawy): etykieta kroku → hasło słownika.
+    // Krok, który sam ustawił `formula` (z kolorem ⟦…⟧ w miejscu użycia), ma pierwszeństwo przed tabelą.
+    // Hasło musi być prawdziwe dla każdej etykiety, którą łapie wzorzec. `here` (opcjonalne) = funkcja od kroku.
+    /** @typedef {{label: string, math: string, formula?: {id: string, here?: string}}} Step */
+    /** @type {Array<{re: RegExp, id: string, here?: (step: Step) => string}>} */
+    const STEP_RULES = [
+        { re: /^Liczę pierwiastek z delty$/, id: 'delta' },
+        { re: /^Składam całość$/, id: 'postac-iloczynowa' },
+        { re: /^Wyłączam [a-z] przed nawias$/, id: 'wylaczanie-przed-nawias' },
+        { re: /^(Zapisuję część jako ułamek|Mnożę ułamek przez liczbę|Liczę procent z liczby)$/, id: 'procent-z-liczby' },
+        { re: /^(Najpierw nawias: )?(dodaję|odejmuję|Dodaję|Odejmuję) liczniki$/, id: 'wspolny-mianownik' },
+        { re: /^Sprowadzamy do wspólnego mianownika$/, id: 'wspolny-mianownik' },
+        { re: /^Rozkładam na czynniki pierwsze$/, id: 'nwd-nww' }, // [EN] tylko w NWD/NWW (rozkład liczby ma inne etykiety)
+        { re: /^(Liczę q|Zapisuję postać kanoniczną)$/, id: 'wierzcholek' },
+        { re: /^Rozpoznaję iloczyn$/, id: 'pochodna-iloczynu' },
+        { re: /^Rozpoznaję iloraz$/, id: 'pochodna-ilorazu' },
+        { re: /^Mnożę przez pochodną środka$/, id: 'pochodna-zlozona' },
+        { re: /^(Całkuję przez części|Wstawiam policzoną całkę)$/, id: 'przez-czesci' },
+        { re: /^Zapisujemy podstawę jako 1 \+ 1\/aₙ$/, id: 'e' },
+        { re: /^Zapisuję obie strony jako potęgi /, id: 'rownosc-poteg' },
+        { re: /^(Odrzucam fałszywe rozwiązanie|Sprawdzam rozwiązania)$/, id: 'rownanie-z-pierwiastkiem' }, // [EN] tylko po podniesieniu do kwadratu
+        { re: /^Wartość bezwzględna jest zerem tylko dla zera$/, id: 'wartosc-bezwzgledna' },
+        // układ: sposób „Podstawianie” wstawia bez „do …”, sposób „Przeciwne współczynniki” — „do pierwszego/drugiego równania”
+        { re: /^(Wyznaczam [a-z] z (pierwszego|drugiego) równania|Wstawiam [a-z] = \S+)$/, id: 'uklad-podstawianie' },
+        { re: /^(Mnożę (pierwsze|drugie) przez .+|Wstawiam [a-z] = \S+ do (pierwszego|drugiego) równania)$/, id: 'uklad-przeciwne' },
+    ];
+    // Kroki-stwierdzenia: bez dymku z założenia (spec, cel 2). Lista ma być krótka; każde dopisanie z uzasadnieniem.
+    // „Granica” bez symbolu nieoznaczonego: krok z symbolem ma już formula „nieoznaczone” od silnika.
+    /** @type {RegExp[]} */
+    const STATEMENTS = [
+        /^(Wynik|Odpowiedź|Równanie|Wyrażenie|Funkcja|Całka|Układ równań|Nierówność|Działanie|Liczba|Liczby|Wynik w przybliżeniu)$/,
+        /^Granica$/,
+    ];
+    /** ustawia `step.formula = { id }` z tabeli, gdy krok go nie ma i nie jest stwierdzeniem; mutuje i zwraca krok
+     * @param {Step} step */
+    function attachRule(step) {
+        if (!step || step.formula || STATEMENTS.some(re => re.test(step.label))) return step;
+        const rule = STEP_RULES.find(r => r.re.test(step.label));
+        if (!rule) return step;
+        step.formula = { id: rule.id };
+        if (rule.here) step.formula.here = rule.here(step);
+        return step;
+    }
+
+    const API = { FORMULAS: FORMULAS, DZIALY: DZIALY, STEP_RULES: STEP_RULES, STATEMENTS: STATEMENTS, attachRule: attachRule };
     const g = /** @type {any} */ (typeof window !== 'undefined' ? window : globalThis);
     g.MATM0_FORMULAS = API;
     if (typeof module !== 'undefined' && module.exports) module.exports = API;

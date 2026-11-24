@@ -2310,10 +2310,19 @@
         }
     }
 
+    // [EN] dymki z tabeli STEP_RULES (js/step-formulas.js) dla każdego kroku każdego sposobu; jedno miejsce dla run i runBare
+    function withRules(res) {
+        if (!res || !res.explain || !res.explain.steps) return;
+        var F = (typeof window !== 'undefined' && window.MATM0_FORMULAS) || (typeof require === 'function' && require('./step-formulas.js'));
+        if (!F || !F.attachRule) return; // [EN] w przeglądarce bez słownika kroki zostają bez dymków z tabeli
+        (res.explain.methods || []).concat([res.explain]).forEach(function (m) { m.steps.forEach(F.attachRule); });
+    }
+
     var _last = { key: null, value: null }; // [EN] liveEval woła to przy każdym znaku
     function memo(key, fn) {
         if (_last.key === key) return _last.value;
         var value = safely(fn);
+        withRules(value);
         _last = { key: key, value: value };
         return value;
     }

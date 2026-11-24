@@ -68,10 +68,10 @@ const COVER = [
 
 for (const [q, id, here] of COVER) {
     ok(id + ': wpis w słowniku', !!FORMULAS[id], id);
-    const st = stepsWith(q, id);
-    ok(q + ' → dymek ' + id, st.length > 0, st.length);
+    // [EN] tylko kroki z kolorem ⟦…⟧ od silnika; dymki z tabeli STEP_RULES nie mają koloru (stuknięcie przez ikonę)
+    const st = stepsWith(q, id).filter(s => /⟦/.test(s.math));
+    ok(q + ' → dymek z kolorem ' + id, st.length > 0, stepsWith(q, id).map(s => s.math));
     if (!st.length) continue;
-    ok(q + ' → ' + id + ': kolor w kroku', st.every(s => /⟦/.test(s.math)), st.map(s => s.math));
     const got = st[0].formula.here;
     ok(q + ' → ' + id + ': liczby z zadania', got === here, got);
     if (got) ok(q + ' → ' + id + ': liczby narysowane bez zapisu z klawiatury', !leaks(got), stepToLatex(got));

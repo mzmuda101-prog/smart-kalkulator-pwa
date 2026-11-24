@@ -48,6 +48,7 @@ const SUITES = [
     'test/step-popovers.js',
     'test/results-unchanged.js',
     'test/step-why.js',
+    'test/step-coverage.js',
     'test/formula-keys.js',
     'test/formula-image.js',
     'test/formula-model-manifest.js',
