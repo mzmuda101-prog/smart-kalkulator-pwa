@@ -1500,10 +1500,21 @@
             var v = vs[0], cn = coefs(tn, v), cd = coefs(td, v);
             if (cn.length < 1 || cd.length < 2 || (cn.length === 1 && isZero(cn[0]))) return null;
             var steps = [{ label: 'Wyrażenie', math: show(ast, ctx) }];
+            var den0Text = show(ast.b, ctx).replace(/^\((.*)\)$/, '$1');
             var side = function (c, name) {
                 var sf = schoolFactor(c, v, ctx);
                 if (sf) { sf.steps.forEach(function (st) { var o = {}; for (var key in st) o[key] = st[key]; o.label += name; steps.push(o); }); return { k: sf.lead, f: sf.factors }; }
                 var top = c[c.length - 1];
+                if (c.length === 2) { // [EN] liniowy: liczba (lub minus) przed nawias jawnie, nie po cichu
+                    var den0 = c.reduce(function (l, x) { return (l * x.d) / gcd(l, x.d); }, 1n);
+                    var g = c.reduce(function (acc, x) { return gcd(acc, mul(x, R(den0)).n); }, 0n), head = R(top.n < 0n ? -g : g, den0);
+                    if (!eq(head, ONE)) {
+                        var minus = eq(head, neg(ONE)), restC = c.map(function (x) { return div(x, head); });
+                        steps.push({ label: (minus ? 'Wyłączam minus przed nawias' : 'Wyłączam wspólny czynnik przed nawias') + name,
+                            math: (name === ' w mianowniku' ? den0Text : polyText(c, v, ctx)) + ' = ⟦' + sfK(head, ctx) + '(' + polyText(restC, v, ctx) + ')⟧',
+                            formula: { id: 'wylaczanie-przed-nawias', here: 'a = ' + fmt(head, ctx) } });
+                    }
+                }
                 return { k: top, f: c.length > 1 ? [{ c: c.map(function (x) { return div(x, top); }), n: 1 }] : [] };
             };
             var N = side(cn, ' w liczniku'), D = side(cd, ' w mianowniku');
@@ -1525,13 +1536,14 @@
             var live = function (l) { return l.filter(function (x) { return x.n > 0; }); };
             var fr = function (a, b) {
                 var nt = !a.length ? fmt(R(k.n), ctx) : a.length === 1 && a[0].n === 1 && eq(R(k.n), ONE) && !b.length && eq(R(k.d), ONE) ? polyText(a[0].c, v, ctx) : sfText(R(k.n), a, v, ctx); // [EN] pojedynczy czynnik bez nawiasu: x − 2
+                if (k.n < 0n && (b.length || !eq(R(k.d), ONE)) && (a.length > 1 || (a.length && a[0].n > 1))) nt = '−(' + sfText(R(-k.n), a, v, ctx) + ')'; // [EN] minus przed całym licznikiem
                 if (!b.length && eq(R(k.d), ONE)) return nt;
                 var dt = b.length ? sfText(R(k.d), b, v, ctx) : fmt(R(k.d), ctx);
                 return nt + '/' + (!b.length || (eq(R(k.d), ONE) && b.length === 1) ? dt : '(' + dt + ')');
             };
             var ne = N.f.map(function (x) { return { c: x.c, n: x.n }; }), de = D.f.map(function (x) { return { c: x.c, n: x.n }; });
             var lhs = fr(ne, de);
-            if (zeros.length) steps.push({ label: 'Zastrzegam dziedzinę', math: polyText(cd, v, ctx) + ' ≠ 0\n' + zeros.map(function (z) { return v + ' ≠ ' + fmt(z, ctx); }).join(', ') });
+            if (zeros.length) steps.push({ label: 'Zastrzegam dziedzinę', math: den0Text + ' ≠ 0\n' + zeros.map(function (z) { return v + ' ≠ ' + fmt(z, ctx); }).join(', ') });
             var tag = zeros.length ? ' (dla ' + zeros.map(function (z) { return v + ' ≠ ' + fmt(z, ctx); }).join(', ') + ')' : '';
             var cur = lhs;
             cancel.forEach(function (cc, j) {

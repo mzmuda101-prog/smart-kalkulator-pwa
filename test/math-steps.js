@@ -389,5 +389,30 @@ pass += 3;
     ok('uprość (x+1)/2: bez zmian', text('uprość (x+1)/2') === '(1/2)x + 1/2', text('uprość (x+1)/2'));
 }
 
+{
+    const w2 = (q, want) => ok(q + ' → ' + want, text(q) === want, text(q));
+    const lb = q => labels(q).split(' | ');
+    ok('(x^2-1)/(2x-2): wspólny czynnik w mianowniku', lb('uprość (x^2-1)/(2x-2)').includes('Wyłączam wspólny czynnik przed nawias w mianowniku') && st('uprość (x^2-1)/(2x-2)').some(x => x.math === '2x − 2 = ⟦2(x − 1)⟧' && x.formula && x.formula.id === 'wylaczanie-przed-nawias'), labels('uprość (x^2-1)/(2x-2)'));
+    ok('(2x+4)/(x^2-4): wspólny czynnik w liczniku', lb('uprość (2x+4)/(x^2-4)').includes('Wyłączam wspólny czynnik przed nawias w liczniku') && st('uprość (2x+4)/(x^2-4)').some(x => x.math === '2x + 4 = ⟦2(x + 2)⟧'), labels('uprość (2x+4)/(x^2-4)'));
+    w2('uprość (2x+4)/(x^2-4)', '2/(x − 2) (dla x ≠ −2, x ≠ 2)');
+    w2('uprość (x^2-9)/(3-x)', '−(x + 3) (dla x ≠ 3)');
+    const m9 = st('uprość (x^2-9)/(3-x)');
+    ok('(x^2-9)/(3-x): krok z minusem', m9.some(x => x.label === 'Wyłączam minus przed nawias w mianowniku' && x.math === '3 − x = ⟦−(x − 3)⟧'), m9);
+    ok('(x^2-9)/(3-x): dziedzina w zapisie użytkownika', m9.some(x => x.label === 'Zastrzegam dziedzinę' && x.math.startsWith('3 − x ≠ 0')), m9);
+    ok('(x^2-9)/(3-x): minus przed całym licznikiem', m9.some(x => /^Skracam/.test(x.label) && x.math.startsWith('−((x − 3)(x + 3))/(x − 3) = ')), m9);
+    // wynik równa się oryginałowi w dwóch punktach (tam, gdzie określony)
+    const f = {
+        '(x^2-4)/(x+2)': x => (x * x - 4) / (x + 2), 'x/(x^2-x)': x => x / (x * x - x), '(x^2-1)/(2x-2)': x => (x * x - 1) / (2 * x - 2),
+        '(x^2-5x+6)/(x^2-4)': x => (x * x - 5 * x + 6) / (x * x - 4), '(x^3-x)/(x^2+x)': x => (x ** 3 - x) / (x * x + x),
+        '(2x+4)/(x^2-4)': x => (2 * x + 4) / (x * x - 4), '(x^2-9)/(3-x)': x => (x * x - 9) / (3 - x), '(x^2+2x+1)/(x+1)': x => (x * x + 2 * x + 1) / (x + 1)
+    };
+    const ev = (t, x) => Function('x', 'return ' + t.replace(/ \(dla.*$/, '').replace(/−/g, '-').replace(/(\d|\))(?=[x(])/g, '$1*').replace(/x(?=\()/g, 'x*'))(x); // wynik aplikacji jako wyrażenie JS
+    Object.keys(f).forEach(q => {
+        const t = text('uprość ' + q);
+        ok(q + ' ma wynik z zastrzeżeniem', /\(dla x ≠/.test(t), t);
+        [3.5, -7.25].forEach(x => ok(q + ' w x=' + x, Math.abs(f[q](x) - ev(t, x)) < 1e-9, t));
+    });
+}
+
 console.log(`math-steps: ${pass} OK, ${fail} błędów`);
 process.exit(fail ? 1 : 0);

@@ -74,6 +74,7 @@
         [/^Skracamy \(/, (_s, _t, c) => c.atInf ? 'To samo stoi w liczniku i w mianowniku, więc się skraca.'
             : 'Ten sam nawias jest w liczniku i mianowniku. Zmienna tylko zbliża się do celu, więc nawias nie jest zerem i wolno skrócić.'],
         [/^Skracamy /, 'To samo stoi w liczniku i w mianowniku, więc się skraca.'],
+        [/^Wyłączam minus przed nawias$/, 'Wyłączamy minus, żeby nawias wyglądał tak samo jak w drugiej części ułamka. Wtedy da się go skrócić, a minus zostaje przed całością.'],
         [/^Zastrzegam dziedzinę$/, 'Przez zero nie wolno dzielić, więc pierwotny mianownik nie może być zerem. To zastrzeżenie zostaje także po skróceniu.'],
         [/^Skracam /, 'Ten sam czynnik stoi w liczniku i w mianowniku, więc wolno go skrócić. Wynik dotyczy tylko x z zastrzeżenia.'],
         [/^Mnożymy przez sprzężenie$/, (s, _t, c) => {
