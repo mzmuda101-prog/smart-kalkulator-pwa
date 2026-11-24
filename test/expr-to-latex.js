@@ -74,7 +74,7 @@ ok('zestaw: 58/58 rysunków wraca do tego samego zadania', bad.length === 0, bad
     const extra = ['lim x→0 sin(3x)/x', 'lim x→0 tan(2x)/x', 'lim x→0 arcsin(2x)/x', 'lim x→0 arctg(3x)/x', 'lim x→0 ln(1+2x)/x',
         'lim x→0 (e^x-1)/x', 'lim x→0 (x - sin(x))/x^3', 'rozwiąż x^2 - 4x + 4 = 0', 'rozłóż x^2 - 9', 'rozwiąż x^2 - 2x - 1 = 0',
         'rozwiąż x^2 = 9', 'kroki 3/4 - 1/6', 'pochodna x/(x+1)', 'pochodna sin(x^2)', 'całka 1/(x^2+4)', 'całka sin(x)^2',
-        'całka cos(x)^2', 'całka tan(x)^2', 'całka x^2 od 0 do 1', 'rozwiąż 5 - 2x ≥ 11', 'rozwiąż x^2 + 2 > 2x', 'rozwiąż x^2 + 1 < 0', 'rozwiąż x^2 - 4x + 4 > 0', 'rozwiąż x^2 - 2x - 1 < 0', 'rozwiąż 2x + 3y = 12; 3x - 2y = 5', 'rozwiąż x = 2y, x + y = 9', 'rozwiąż x + y = 1, x + y = 2', 'rozwiąż x + y = 1, 2x + 2y = 2', 'rozwiąż 2x + y = 1, x - y = 1', 'rozwiąż 1/x = 2', 'rozwiąż (x+3)/(x-1) = (x-1)/(x+1)', 'rozwiąż x^2/(x-1) = 1/(x-1)', 'rozwiąż 2^x = 1/8', 'rozwiąż 9^x = 27', 'rozwiąż 2^x = 5', 'rozwiąż log(x) = 2', 'rozwiąż log_2(x+3) = log_2(2x)', 'rozwiąż |x-2| = 3', 'rozwiąż |x-2| >= 3', 'rozwiąż |x| > 0', 'rozwiąż √(x+3) = x - 3', 'rozwiąż √x = -2', 'rozwiąż sin(x) = 1/2', 'rozwiąż cos(x) = -1/2', 'rozwiąż tg(x) = sqrt(3)', 'rozwiąż sin(x) = 2', 'rozwiąż sin(2x) = 1/2', 'nwd(12, 18)', 'nww(8, 15)', 'wierzchołek x^2 - 4x + 3', 'wierzchołek 2x^2 + 3x - 2', 'wierzchołek y = -x^2 + 2x', 'kroki 20% z 150', 'kroki 150 + 20%', 'kroki ile procent 30 z 120', 'kroki 12,5% z 80'];
+        'całka cos(x)^2', 'całka tan(x)^2', 'całka x^2 od 0 do 1', 'rozwiąż 5 - 2x ≥ 11', 'rozwiąż x^2 + 2 > 2x', 'rozwiąż x^2 + 1 < 0', 'rozwiąż x^2 - 4x + 4 > 0', 'rozwiąż x^2 - 2x - 1 < 0', 'rozwiąż 2x + 3y = 12; 3x - 2y = 5', 'rozwiąż x = 2y, x + y = 9', 'rozwiąż x + y = 1, x + y = 2', 'rozwiąż x + y = 1, 2x + 2y = 2', 'rozwiąż 2x + y = 1, x - y = 1', 'rozwiąż 1/x = 2', 'rozwiąż (x+3)/(x-1) = (x-1)/(x+1)', 'rozwiąż x^2/(x-1) = 1/(x-1)', 'rozwiąż 2^x = 1/8', 'rozwiąż 9^x = 27', 'rozwiąż 2^x = 5', 'rozwiąż log(x) = 2', 'rozwiąż log_2(x+3) = log_2(2x)', 'rozwiąż |x-2| = 3', 'rozwiąż |x-2| >= 3', 'rozwiąż |x| > 0', 'rozwiąż √(x+3) = x - 3', 'rozwiąż √x = -2', 'rozwiąż sin(x) = 1/2', 'rozwiąż cos(x) = -1/2', 'rozwiąż tg(x) = sqrt(3)', 'rozwiąż sin(x) = 2', 'rozwiąż sin(2x) = 1/2', 'nwd(12, 18)', 'nww(8, 15)', 'wierzchołek x^2 - 4x + 3', 'wierzchołek 2x^2 + 3x - 2', 'wierzchołek y = -x^2 + 2x', 'kroki 20% z 150', 'kroki 150 + 20%', 'kroki ile procent 30 z 120', 'kroki 12,5% z 80', 'rozłóż x^2 - 6x + 9', 'rozłóż 4x^2 - 9', 'rozłóż x^3 - 8', 'rozłóż x^3 + 8', 'rozłóż 2x^2 - 3x + 1', 'rozłóż x^3 - 2x^2 + x - 2', 'rozłóż x^4 - 13x^2 + 36', 'rozłóż x^3 - 6x^2 + 11x - 6', 'rozłóż x^4 + 5x^2 + 4', 'rozłóż 84'];
     for (const q of ZESTAW.map(z => z.input).concat(sciaga, extra)) {
         let r; try { r = S.run(q); } catch { continue; }
         if (!r || !r.explain || !r.explain.steps) continue;
@@ -110,6 +110,15 @@ ok('zestaw: 58/58 rysunków wraca do tego samego zadania', bad.length === 0, bad
     // [EN] licznik minus mianownik: nawias pierwszej sumy zostaje (słaby uczeń widzi, co od czego odejmujemy)
     ok('kroki: (n + 4) − n z nawiasem', stepToLatex('(n + 4) − n = 4')[0] === '\\left(n+4\\right)-n', stepToLatex('(n + 4) − n = 4'));
     ok('kroki: (5n + 7) − (5n − 8) z nawiasami', stepToLatex('(5n + 7) − (5n − 8) = 15')[0] === '\\left(5n+7\\right)-\\left(5n-8\\right)', stepToLatex('(5n + 7) − (5n − 8) = 15'));
+    // grupowanie: nawiasy par zostają (inaczej x³ − 2x² + x − 2 = x³ − 2x² + x − 2)
+    const grp = stepToLatex('x³ − 2x² + x − 2 = (x³ − 2x²) + (x − 2) = ⟦x²(x − 2) + (x − 2)⟧', 'grupowanie-wyrazow');
+    ok('kroki: grupowanie z nawiasami par', grp[1] === '=\\left(x^{3}-2x^{2}\\right)+\\left(x-2\\right)' && grp[2].endsWith('{x^{2}\\left(x-2\\right)+\\left(x-2\\right)}'), grp);
+    ok('kroki: wspólny nawias z nawiasem', stepToLatex('x²(x − 2) + (x − 2) = ⟦(x − 2)(x² + 1)⟧')[0] === 'x^{2}\\left(x-2\\right)+\\left(x-2\\right)', stepToLatex('x²(x − 2) + (x − 2) = ⟦(x − 2)(x² + 1)⟧'));
+    ok('kroki: grupowanie z minusem', stepToLatex('(x³ − 3x²) − (x − 3)')[0] === '\\left(x^{3}-3x^{2}\\right)-\\left(x-3\\right)', stepToLatex('(x³ − 3x²) − (x − 3)'));
+    // uprość: zastrzeżenie (dla x ≠ …) narysowane, nie tekstem
+    const dla = stepToLatex('(x − 2)(x + 2)/(x + 2) = ⟦x − 2 (dla x ≠ −2)⟧', 'f');
+    ok('kroki: (dla x ≠ −2) narysowane', dla[1] === '=\\htmlData{formula=f}{x-2\\ \\left(\\text{dla}\\ x\\ne -2\\right)}', dla);
+    ok('kroki: dwa zastrzeżenia', stepToLatex('1/(x − 1) (dla x ≠ 0, x ≠ 1)')[0] === '\\frac{1}{x-1}\\ \\left(\\text{dla}\\ x\\ne 0,\\ x\\ne 1\\right)', stepToLatex('1/(x − 1) (dla x ≠ 0, x ≠ 1)'));
     ok('kroki: przecinek zostaje przy wzorze', stepToLatex('1 − 1/n = 1 + 1/(−n),  aₙ = −n').join('|') === '1-\\frac{1}{n}|=1+\\frac{1}{-n},|a_{n}|=-n');
 }
 

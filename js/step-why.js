@@ -52,7 +52,7 @@
     /** @type {[RegExp, string | ((s: Step, title: string, c: Ctx) => string | null)][]} */
     const RULES = [
         // ── stwierdzenia: bez zdania ──
-        [/^(Wynik|Odpowiedź|Liczby|Równanie|Równanie trygonometryczne|Układ równań|Nierówność|Funkcja|Całka|Działanie|Wyrażenie|Wynik w przybliżeniu)$/, ''],
+        [/^(Wynik|Odpowiedź|Liczby|Liczba|Równanie|Równanie trygonometryczne|Układ równań|Nierówność|Funkcja|Całka|Działanie|Wyrażenie|Wynik w przybliżeniu)$/, ''],
         // ── granice ──
         [/^Granica$/, (s, _t, c) => {
             const m = /\s\s\[⟦?([^\]⟧]+)⟧?\](?:\n.*)*$/.exec(s.math);
@@ -74,6 +74,10 @@
         [/^Skracamy \(/, (_s, _t, c) => c.atInf ? 'To samo stoi w liczniku i w mianowniku, więc się skraca.'
             : 'Ten sam nawias jest w liczniku i mianowniku. Zmienna tylko zbliża się do celu, więc nawias nie jest zerem i wolno skrócić.'],
         [/^Skracamy /, 'To samo stoi w liczniku i w mianowniku, więc się skraca.'],
+        [/^Wyłączam minus przed nawias$/, 'Wyłączamy minus, żeby nawias wyglądał tak samo jak w drugiej części ułamka. Wtedy da się go skrócić, a minus zostaje przed całością.'],
+        [/^Zastrzegam dziedzinę$/, 'Przez zero nie wolno dzielić, więc pierwotny mianownik nie może być zerem. To zastrzeżenie zostaje także po skróceniu.'],
+        [/^Skracam /, (_s, _t, c) => 'Ten sam czynnik stoi w liczniku i w mianowniku, więc wolno go skrócić.'
+            + (c.steps.some(x => x.label === 'Zastrzegam dziedzinę') ? ' Wynik dotyczy tylko x z zastrzeżenia.' : '')],
         [/^Mnożymy przez sprzężenie$/, (s, _t, c) => {
             const id = s.formula && s.formula.id;
             if (id === 'roznica-szescianow' || id === 'roznica-czwartych') return (id === 'roznica-szescianow' ? 'Tu stoją pierwiastki $\\sqrt[3]{\\ }$. ' : 'Tu stoją pierwiastki $\\sqrt[4]{\\ }$. ') + SAME;
@@ -83,7 +87,7 @@
             ? 'Wymnażamy: tam, gdzie była różnica z pierwiastkiem, pierwiastki się skasowały.'
             : 'Wymnażamy i zbieramy podobne wyrazy, żeby wyrażenie było krótsze.'],
         [/^Rozkładamy na czynniki$/, (_s, _t, c) => {
-            const m = c.next && /^Skracamy \((.+)\)$/.exec(c.next.label);
+            const m = c.next && /^Skracamy \((.+)\)[⁰¹²³⁴⁵⁶⁷⁸⁹]*$/.exec(c.next.label);
             const br = m && '(' + m[1].replace(/ − /g, '-').replace(/ \+ /g, '+') + ')';
             return 'Wyszło $\\frac{0}{0}$, więc i licznik, i mianownik mają nawias $' + (br || '(x-a)') + '$. Wyciągamy go, żeby potem skrócić.';
         }],
@@ -239,12 +243,35 @@
         [/^Mnożę na krzyż$/, 'Dwa ułamki są równe, gdy licznik pierwszego razy mianownik drugiego daje to samo co na odwrót.'],
         [/^Sprawdzam dziedzinę$/, 'Rozwiązanie musi należeć do dziedziny, inaczej wyjściowe równanie nie miałoby dla niego sensu.'],
         [/^Odrzucam rozwiązanie spoza dziedziny$/, 'Ta liczba nie należy do dziedziny, więc wyjściowe równanie nie ma dla niej sensu.'],
-        [/^Dzielę schematem Hornera$/, 'Wiem już, że nawias z tym pierwiastkiem dzieli wielomian, więc liczę, co zostaje po podzieleniu.'],
+        [/^Dzielę schematem Hornera$/, (s, _t, c) => {
+            const br = / w (liczniku|mianowniku)$/.test(s.label) && !(c.prev && /^Szukam pierwiastka/.test(c.prev.label)) && /: \(([^)]*)\)⟧/.exec(s.math);
+            // [EN] w granicy pierwiastek znamy z 0/0 — bez szukania wśród dzielników
+            return br ? 'Wstawienie dało $\\frac{0}{0}$, więc ten wielomian zeruje się w tym punkcie i dzieli się przez $(' + br[1].replace(/ − /g, '-').replace(/ \+ /g, '+') + ')$.'
+                : 'Wiem już, że nawias z tym pierwiastkiem dzieli wielomian, więc liczę, co zostaje po podzieleniu.';
+        }],
         [/^Zapisuję iloczyn$/, 'Wielomian to dzielnik razy wynik dzielenia, więc rozpisuję go na dwa nawiasy.'],
         [/^Szukam dwóch liczb o sumie/, 'Sprawdzam pary dzielników wyrazu wolnego, aż zgodzi się też suma.'],
         [/^Szukam pierwiastka/, (s) => /dzielniki/.test(s.math) ? 'Całkowity pierwiastek takiego wielomianu musi dzielić liczbę bez $x$, więc sprawdzam jej dzielniki, aż któryś da 0.' : 'Szukam liczby, dla której wielomian daje 0. Wtedy nawias z tą liczbą dzieli wielomian.'],
         [/^Nie ma pierwiastków wymiernych/, 'Żaden dzielnik wyrazu wolnego nie zeruje wielomianu, więc prościej go nie rozłożymy.'],
-        [/^Wyłączam wspólny czynnik/, 'Ten sam czynnik jest w każdym wyrazie, więc wyciągam go przed nawias.'],
+        [/^Wyłączam wspólny czynnik/, (s, _t, c) => s.formula ? (c.steps.indexOf(s) <= 1 ? 'Zaczynam od tego, bo po wyjęciu wspólnej części w nawiasie zostaje prostsze wyrażenie.'
+            : 'Wszystkie wyrazy tego wielomianu mają wspólną część; po jej wyjęciu w nawiasie zostaje prostsze wyrażenie.')
+            : 'Ten sam czynnik jest w każdym wyrazie, więc wyciągam go przed nawias.'],
+        // ── rozkład jak w szkole ──
+        [/^Zwijam kwadrat (sumy|różnicy)$/, 'Sprawdzam, czy pierwszy i ostatni wyraz to kwadraty i czy środkowy pasuje; jeśli tak, wystarczy jeden nawias.'],
+        [/^Rozkładam (różnicę|sumę) sześcianów$/, 'Liczbę zapisuję jako trzecią potęgę, więc od razu widzę, co wstawić za $a$ i $b$.'],
+        [/^Grupuję wyrazy w pary$/, 'Patrzę na pierwsze dwa i ostatnie dwa wyrazy osobno: po wyjęciu z nich czegoś zostaje ten sam nawias.'],
+        [/^Wyłączam wspólny nawias$/, 'Oba składniki mają ten sam nawias, więc wyciągam go przed nawias jak zwykłą liczbę.'],
+        [/^Podstawiam [tu] w miejsce /, 'Tu największa potęga to podwojona środkowa, więc po zamianie zostaje trójmian, który już umiem rozłożyć.'],
+        [/^Wracam do [a-z]$/, 'Zamiast litery pomocniczej wpisuję z powrotem potęgę, bo wynik ma być zapisany przez wyjściową zmienną.'],
+        [/^Wciągam liczbę do nawiasu$/, 'Mnożę liczbę sprzed iloczynu przez nawias z ułamkiem, żeby w nawiasie zostały liczby całkowite.'],
+        [/^Porządkuję czynniki$/, (s) => {
+            const [l, r] = s.math.split(' = '), lead = (/** @type {string} */ t) => (/^[^(a-z]*/.exec(t) || [''])[0];
+            return r !== undefined && lead(l) !== lead(r) ? 'Liczby z nawiasów wyjmuję przed iloczyn i ustawiam nawiasy w stałej kolejności.'
+                : 'To ten sam iloczyn, tylko nawiasy ustawiam w stałej kolejności, jak w wyniku.';
+        }],
+        [/^Odkładam minus$/, 'Liczby pierwsze są dodatnie, więc rozkładam liczbę bez minusa, a minus dopisuję przed wynik.'],
+        [/^Dzielę przez kolejne liczby pierwsze$/, 'Dzielę przez najmniejszą liczbę pierwszą, przez którą się da, aż zostanie 1.'],
+        [/^Zbieram czynniki pierwsze$/, 'Liczby, przez które dzieliłem, dają razem wyjściową liczbę; powtórzone zapisuję jako potęgę.'],
         [/^Nie ma wspólnego czynnika/, 'Żaden czynnik nie powtarza się we wszystkich wyrazach.'],
         [/^Zmienna się skróciła/, 'Po uproszczeniu zostało zdanie fałszywe, więc żadna liczba nie spełnia równania.'],
         [/^Brak rozwiązań$/, 'Żadna liczba nie spełnia równania.'],
@@ -284,7 +311,7 @@
         [/^Korzystam z tablicy pochodnych$/, 'Pod funkcją stoi samo $x$, więc nic więcej nie trzeba liczyć.'],
         [/^Wstawiam policzoną całkę$/, 'Mała całka jest już policzona, więc wstawiam ją na jej miejsce we wzorze.'],
         [/^Całkuję każdą część$/, (s) => /cos\(2/.test(s.math) ? 'W $\\cos 2x$ jest w środku $2x$, więc całkując, dzielę jeszcze przez 2.' : 'Obie części są w tablicy całek, więc wyniki od razu przepisuję.'],
-        [/^Składam całość$/, 'Dopisuję czynnik, który wcześniej wyłączyłem przed nawias.'],
+        [/^Składam całość$/, 'Zbieram nawiasy z poprzednich kroków w jeden iloczyn: to rozkład całego wyrażenia.'],
         [/^Składam wynik$/, 'Wstawiam policzone części do wzoru i zapisuję całość.'],
         // ── całki ──
         [/^Całka sumy/, 'Całkę sumy liczymy jako sumę całek każdego składnika.'],
@@ -323,8 +350,9 @@
         const head = /lim\(\w→([^)]*)\)/.exec(all[0] ? all[0].math : step.math);
         /** @type {Ctx} */
         const ctx = { atInf: !!head && /∞/.test(head[1]), prev: k > 0 ? all[k - 1] : null, next: k >= 0 && k + 1 < all.length ? all[k + 1] : null, steps: all };
+        const label = step.label.replace(/ w (liczniku|mianowniku)$/, ''); // [EN] rozkład szkolny w granicy: ten sam krok, tylko podpisana strona ułamka
         for (const [re, why] of RULES) {
-            if (!re.test(step.label)) continue;
+            if (!re.test(label)) continue;
             const out = typeof why === 'function' ? why(step, title || '', ctx) : why;
             return out || '';
         }

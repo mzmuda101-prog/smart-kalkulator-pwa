@@ -220,7 +220,8 @@ const WANT_TEXT = { '1a': '1/3', '1d': '0', '1e': '+∞', '7a': '√3/3', '7b': 
     const st8 = (S.run(byId['8a'].input) || {}).explain;
     const s8 = st8 ? st8.steps : [];
     ok('8a: [0/0] w pierwszym kroku', s8.length && /\[⟦0\/0⟧\]$/.test(s8[0].math.split('\n')[0]), s8[0]);
-    ok('8a: Rozkładamy na czynniki (x − 4)(x − 2)/((x − 4)(3x + 2))', s8.some(x => x.label === 'Rozkładamy na czynniki' && x.math.includes('(x − 4)(x − 2)/((x − 4)(3x + 2))')), s8.map(x => x.label + ': ' + x.math));
+    // [EN] zad. 4: domyślnie zapis szkolny (nawiasy jak w „postaci iloczynowej” każdej strony)
+    ok('8a: Rozkładamy na czynniki (x − 2)(x − 4)/((3x + 2)(x − 4))', s8.some(x => x.label === 'Rozkładamy na czynniki' && x.math.includes('(x − 2)(x − 4)/((3x + 2)(x − 4))')), s8.map(x => x.label + ': ' + x.math));
     ok('8a: Skracamy (x − 4)', s8.some(x => x.label === 'Skracamy (x − 4)'), s8.map(x => x.label));
     ok('8a tekst 1/7', text(byId['8a'].input) === '1/7', text(byId['8a'].input));
     const s9 = ((S.run(byId['9e'].input) || {}).explain || { steps: [] }).steps;
@@ -417,7 +418,7 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     const run = q => S.run(q);
     const names = q => { const m = run(q).explain.methods; return m ? m.map(x => x.label) : []; };
     const A = 'lim x→4 (x^2-6x+8)/(3x^2-10x-8)';
-    ok('sposoby: 8a — rozkład i de l\'Hospital', JSON.stringify(names(A)) === JSON.stringify(['Rozkład na czynniki', "de l'Hospital"]), names(A));
+    ok('sposoby: 8a — rozkład, de l\'Hospital i Horner', JSON.stringify(names(A)) === JSON.stringify(['Rozkład na czynniki', "de l'Hospital", 'Schemat Hornera']), names(A));
     const m = run(A).explain.methods;
     ok('sposoby: domyślny = pierwszy, kroki rozwiązania to jego kroki', m && run(A).explain.steps === m[0].steps);
     ok('sposoby: de l\'Hospital zaczyna od reguły i ma ten sam wynik', m && m[1].steps[1].label === "Reguła de l'Hospitala"
@@ -465,7 +466,7 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
 
 // ── Partia 1 (spec 2026-11-24-przeglad-skokow): podstawienie z rachunkiem ──
 {
-    const steps = q => { const r = S.run(q); return r && r.explain ? r.explain.steps : []; };
+    const steps = q => { const r = S.run(q); if (!r || !r.explain) return []; const h = (r.explain.methods || []).find(m => m.label === 'Schemat Hornera'); return h ? h.steps : r.explain.steps; };
     const sub = (st, v) => st.find(x => new RegExp('^Podstawiamy ' + v + ' = ').test(x.label));
     const s1 = sub(steps('lim x→2 (x^4-13x^2+36)/(x^3-2x^2+x-2)'), 'x');
     ok('P1: wstawione liczby', !!s1 && /\(2³ \+ 2 ?· ?2² − 9 ?· ?2 − 18\)\/\(2² \+ 1\)/.test(s1.math), s1 && s1.math);
@@ -507,9 +508,63 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     ok('P1: bramka — każde „Podstawiamy” z rachunkiem', bad.length === 0, bad.slice(0, 5));
 }
 
-// ── Partia 1: Horner w granicy ──
+// ── Rozkład szkolny w granicy 0/0 (zad. 4): domyślnie jak w szkole, Horner jako osobny sposób ──
 {
-    const steps = q => S.run(q).explain.steps;
+    const meth = (q, label) => { const m = S.run(q).explain.methods || []; return (m.find(x => x.label === label) || {}).steps || []; };
+    const ids = st => st.map(x => x.formula && x.formula.id).filter(Boolean);
+    const endsWith = (st, v) => st.length && new RegExp('= ' + v + '$').test(st[st.length - 1].math);
+    const Q1 = 'lim x→2 (x^2-4)/(x^2-5x+6)';
+    const r1 = meth(Q1, 'Rozkład na czynniki'), h1 = meth(Q1, 'Schemat Hornera');
+    ok('SZK: różnica kwadratów i Viète w rozkładzie', ids(r1).includes('roznica-kwadratow') && ids(r1).includes('wzory-viete'), r1.map(x => x.label));
+    ok('SZK: rozkład bez kroku Hornera', r1.length > 0 && !r1.some(x => x.label === 'Dzielimy schematem Hornera'), r1.map(x => x.label));
+    ok('SZK: sposób Schemat Hornera z tabelkami', h1.some(x => x.label === 'Dzielimy schematem Hornera' && Array.isArray(x.horner) && x.horner.length), h1.map(x => x.label));
+    ok('SZK: strona podpisana (licznik/mianownik)', r1.some(x => / w liczniku$/.test(x.label)) && r1.some(x => / w mianowniku$/.test(x.label)), r1.map(x => x.label));
+    ok('SZK: wynik −4 we wszystkich sposobach', (S.run(Q1).explain.methods || []).length === 3 && S.run(Q1).explain.methods.every(m => endsWith(m.steps, '−4')), (S.run(Q1).explain.methods || []).map(m => m.label));
+    const Q2 = 'lim x→2 (x^4-13x^2+36)/(x^3-2x^2+x-2)', r2 = meth(Q2, 'Rozkład na czynniki');
+    ok('SZK: podstawienie t i grupowanie', ids(r2).includes('podstawienie-t') && ids(r2).includes('grupowanie-wyrazow'), ids(r2));
+    ok('SZK: x⁴ wynik −4', endsWith(r2, '−4') && S.run(Q2).text === '−4', r2.length && r2[r2.length - 1].math);
+    const Q3 = 'lim x→1 (x^3-3x+2)/(x^2-2x+1)', m3 = S.run(Q3).explain.methods || [];
+    ok('SZK: pierwiastek podwójny — wynik 3 w każdym sposobie', m3.length >= 2 && m3.every(m => endsWith(m.steps, '3')), m3.map(m => m.label));
+    // poprawki z przeglądu: zapis z czynników szkolnych, podstawienie do postaci iloczynowej, Horner gdy szkolny się poddaje
+    const fac = st => (st.find(x => x.label === 'Rozkładamy na czynniki') || {}).math || '';
+    const labs = st => st.map(x => x.label);
+    const r5 = meth('lim x→0.5 (2x^2+x-1)/(4x^2-1)', 'Rozkład na czynniki');
+    ok('SZK2: nawiasy szkolne (2x − 1)', fac(r5).includes('(2x − 1)(x + 1)/((2x − 1)(2x + 1))') && labs(r5).includes('Skracamy (2x − 1)'), r5.map(x => x.label + ': ' + x.math));
+    const r3 = meth(Q3, 'Rozkład na czynniki');
+    ok('SZK2: potęgi jak w „Składam całość”, skracamy (x − 1)²', fac(r3).includes('(x − 1)²(x + 2)/(x − 1)²') && labs(r3).includes('Skracamy (x − 1)²'), r3.map(x => x.label + ': ' + x.math));
+    ok('SZK2: x = 1 znane z 0/0 — bez szukania pierwiastka', !labs(r3).some(l => /^Szukam pierwiastka/.test(l)), labs(r3));
+    ok('SZK2: x⁴ — kolejność nawiasów jak w liczniku', fac(r2).includes('(x − 2)(x + 2)(x − 3)(x + 3)/((x − 2)(x² + 1))'), fac(r2));
+    const sub2 = (r2.find(x => /^Podstawiamy/.test(x.label)) || {}).math || '';
+    ok('SZK2: podstawienie do postaci iloczynowej, bez wymnażania', sub2.includes('(2 + 2)') && sub2.includes('(2 − 3)') && !r2.some(x => x.math.includes('x³ + 2x² − 9x − 18')) && /= −4$/.test(sub2), sub2);
+    const r6 = meth('lim x→1 (x^5-1)/(x-1)', 'Rozkład na czynniki');
+    ok('SZK2: szkolny się poddaje — Horner dla licznika', r6.some(x => / w liczniku$/.test(x.label) && Array.isArray(x.horner) && x.horner.length === 1), labs(r6));
+    ok('SZK2: x⁵ − 1 wynik 5', endsWith(r6, '5'), r6.length && r6[r6.length - 1].math);
+    // przegląd 2: liczba przed ułamkiem po skróceniu nie skleja się z „1”, ułamek przed iloczynem w nawiasie
+    const sk = (q, m) => (meth(q, m).find(x => /^Skracamy/.test(x.label)) || {}).math || '';
+    ok('SZK3: 3/(x + 2), nie 31/(x + 2)', sk('lim x→2 (3x-6)/(x^2-4)', 'Rozkład na czynniki') === 'lim(x→2) 3/(x + 2)', sk('lim x→2 (3x-6)/(x^2-4)', 'Rozkład na czynniki'));
+    const pl = (meth('lim x→2 (3x-6)/(x^2-4)', 'Rozkład na czynniki').find(x => /^Podstawiamy/.test(x.label)) || {}).math || '';
+    ok('SZK3: podstawienie 3/(2 + 2) = 3/4', pl.includes('3/(2 + 2) = 3/4'), pl);
+    ok('SZK3: 2/(x + 3)', sk('lim x→3 (2x-6)/(x^2-9)', 'Rozkład na czynniki') === 'lim(x→3) 2/(x + 3)', sk('lim x→3 (2x-6)/(x^2-9)', 'Rozkład na czynniki'));
+    const fr = ['Rozkład na czynniki', 'Schemat Hornera'].map(m => (meth('lim x→3 (x^2-9)/(2x-6)', m).find(x => x.label === 'Rozkładamy na czynniki') || {}).math || '');
+    ok('SZK3: ułamek przed iloczynem w nawiasie (1/2)(x − 3)', fr.every(x => x.includes('(1/2)(x − 3)')), fr);
+    ok('SZK3: Horner równy szkolnemu (x⁵ − 1) — bez osobnego sposobu', !(S.run('lim x→1 (x^5-1)/(x-1)').explain.methods || []).some(m => m.label === 'Schemat Hornera'), (S.run('lim x→1 (x^5-1)/(x-1)').explain.methods || []).map(m => m.label));
+    // bramka: po „lim(…) ” liczba sklejona z „1/(” (31/(…)) w zestawie i zadaniach bramki kroków; wartość po skróceniu = wynik
+    const glued = [], wrong = [];
+    for (const q of ZESTAW.map(z => z.input).concat(require('../scripts/steps-check/queries.js').filter(q => /^lim /.test(q)))) {
+        const r = S.run(q); if (!r || !r.explain) continue;
+        for (const m of r.explain.methods || [r.explain]) for (const st of m.steps) {
+            if (/^lim\([^)]*\) −?\(?\d+1\/\(/.test(st.math) && /^(Rozkładamy|Skracamy|Podstawiamy)/.test(st.label)) glued.push(q + ' :: ' + st.math);
+            const hd = /^Skracamy \(/.test(st.label) && /^lim\((\w)→([^)]*)\) (.*)$/.exec(st.math.split('\n')[0]);
+            if (hd && S.run('lim ' + hd[1] + '→' + hd[2] + ' ' + hd[3]).text !== r.text) wrong.push(q + ' :: ' + st.math);
+        }
+    }
+    ok('SZK3: bramka — bez sklejonego „<liczba>1/(”', glued.length === 0, glued.slice(0, 5));
+    ok('SZK3: bramka — granica po skróceniu = wynik', wrong.length === 0, wrong.slice(0, 5));
+}
+
+// ── Partia 1: Horner w granicy (sposób „Schemat Hornera”) ──
+{
+    const steps = q => { const ex = S.run(q).explain; return ((ex.methods || []).find(m => m.label === 'Schemat Hornera') || { steps: [] }).steps; };
     const st = steps('lim x→2 (x^4-13x^2+36)/(x^3-2x^2+x-2)');
     const i = st.findIndex(x => x.label === 'Rozkładamy na czynniki');
     const h = st[i - 1];
@@ -527,22 +582,22 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     ok('S18: dwie tabelki — każdy ciąg z nazwą', hh.includes('licznik: r = 2') && hh.includes('mianownik: r = 2') && hh.indexOf('licznik: r = 2') < hh.indexOf('mianownik: r = 2'), hh);
     // FF5: pierwszy współczynnik spisany w dół widać na początku ciągu
     ok('FF5: pierwszy współczynnik po r', /^licznik: r = 2: 1, /.test(hh) && /mianownik: r = 2: \d+, /.test(hh), hh);
-    const dd = S.run('lim x→1 (x^3-3x+2)/(x^2-2x+1)').explain.steps.find(x => x.label === 'Dzielimy schematem Hornera');
+    const dd = steps('lim x→1 (x^3-3x+2)/(x^2-2x+1)').find(x => x.label === 'Dzielimy schematem Hornera');
     const dh = dd && dd.formula.here || '';
     ok('S18: pierwiastek podwójny — trzy ciągi z nazwami', (dh.match(/licznik: r = 1: /g) || []).length === 2 && dh.includes('mianownik: r = 1'), dh);
-    const hm = S.run('lim x→-1 (x^3+1)/(x+1)').explain.steps.find(x => x.label === 'Dzielimy schematem Hornera');
+    const hm = steps('lim x→-1 (x^3+1)/(x+1)').find(x => x.label === 'Dzielimy schematem Hornera');
     ok('S18: Horner w granicy — ujemne r w nawiasie', !!hm && typeof hm.formula.here === 'string' && hm.formula.here.includes('(−1) · 1'), hm && hm.formula.here);
     // bramka: każdy „Rozkładamy na czynniki” w zestawie ma tuż przed sobą krok z tabelkami, reszta 0
     const bad = [];
     for (const z of ZESTAW) {
         const r = S.run(z.input); if (!r || !r.explain) continue;
-        for (const m of r.explain.methods || [r.explain]) m.steps.forEach((s, k) => {
+        for (const m of (r.explain.methods || []).filter(x => x.label === 'Schemat Hornera')) m.steps.forEach((s, k) => {
             if (s.label !== 'Rozkładamy na czynniki') return;
             const p = m.steps[k - 1];
             if (!p || !Array.isArray(p.horner) || !p.horner.length || p.horner.some(t => t.bot[t.bot.length - 1] !== '0')) bad.push(z.input);
         });
     }
-    ok('P1H: bramka — każdy rozkład ma Hornera', bad.length === 0, bad);
+    ok('P1H: bramka — każdy rozkład w sposobie Hornera ma Hornera', bad.length === 0, bad);
 }
 
 // ── Poprawki końcowego przeglądu: sumy z iloczynami, wykładnik, nawiasy ──
@@ -583,6 +638,24 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     // [EN] 3: wykładnik równy aₙ — bez trywialnej linii n = n · 1
     const e3 = S.run('lim n→∞ (1+1/n)^n').explain.steps.find(x => /^Zapisujemy podstawę/.test(x.label)).math;
     ok('FF3: bez n = n · 1', !/· 1$/m.test(e3) && !e3.includes('n = n'), e3);
+}
+
+// Horner w punktach połówkowych: liczba przed nawiasami, nawiasy zebrane w potęgę, bez sklejania liczb
+{
+    const meth2 = (q, m) => ((S.run(q).explain.methods || []).find(x => x.label === m) || { steps: [] }).steps;
+    const fac2 = q => (meth2(q, 'Schemat Hornera').find(x => x.label === 'Rozkładamy na czynniki') || {}).math || '';
+    ok('FX6: 4(x − 1/2)²/(2x(x − 1/2))', fac2('lim x→0.5 (4x^2-4x+1)/(2x^2-x)') === 'lim(x→0,5) 4(x − 1/2)²/(2x(x − 1/2))', fac2('lim x→0.5 (4x^2-4x+1)/(2x^2-x)'));
+    ok('FX6: (2/3)x(x + 1/2)/(2(x + 1/2))', fac2('lim x→-0.5 (2x^2+x)/(6x+3)') === 'lim(x→−0,5) (2/3)x(x + 1/2)/(2(x + 1/2))', fac2('lim x→-0.5 (2x^2+x)/(6x+3)'));
+    ok('FX6: 6(x + 1/2)/((x + 1/2)(4x − 2))', fac2('lim x→-0.5 (6x+3)/(4x^2-1)') === 'lim(x→−0,5) 6(x + 1/2)/((x + 1/2)(4x − 2))', fac2('lim x→-0.5 (6x+3)/(4x^2-1)'));
+    // podstawienie: ułamek dzielony przez liczbę w nawiasie, (3/2)/2, nie 3/2/2
+    const pod = (meth2('lim x→0.5 (2x^2+x-1)/(4x^2-1)', 'Rozkład na czynniki').find(x => /^Podstawiamy/.test(x.label)) || {}).math || '';
+    ok('FX7: (3/2)/2, nie 3/2/2', pod.includes('(3/2)/2') && !/[^(]3\/2\/2/.test(pod), pod);
+    const glue = [];
+    for (const q of require('../scripts/steps-check/queries.js').filter(q => /^lim /.test(q))) {
+        const r = S.run(q); if (!r || !r.explain) continue;
+        for (const m of r.explain.methods || [r.explain]) for (const st of m.steps) if (/\d\/\d+\/[\d(]/.test(st.math.replace(/\([^()]*\)/g, '()')) || /\)\d/.test(st.math)) glue.push(q + ' :: ' + st.math);
+    }
+    ok('FX6/7: w zadaniach granic bez a/b/c i bez „)4”', glue.length === 0, glue);
 }
 
 console.log(`math-limits: ${pass} OK, ${fail} błędów`);

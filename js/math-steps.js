@@ -607,6 +607,42 @@
         if (!r) throw new NotSupported();
         var low = deflate(c, r);
         sol.push({ r: r });
+        hornerSteps(c, v, ctx, r).forEach(function (st) { steps.push(st); });
+        var lin = '(' + v + (r.n < 0n ? ' + ' + fmt(neg(r), ctx) : ' − ' + fmt(r, ctx)) + ')';
+        steps.push({ label: 'Przyrównuję każdy czynnik do zera', math: lin.slice(1, -1) + ' = 0 lub ' + polyText(low, v, ctx) + ' = 0\n' + v + ' = ' + fmt(r, ctx) + ' lub ' + polyText(low, v, ctx) + ' = 0' });
+        solveDegree(low, v, steps, ctx, sol);
+    }
+    // [EN] rozkład jak w szkole → każdy czynnik = 0; null, gdy został czynnik stopnia ≥ 3 (wtedy zostaje sam Horner)
+    function schoolSolve(c, v, steps, ctx) {
+        var sf = schoolFactor(c, v, ctx);
+        if (!sf || sf.factors.some(function (f) { return f.c.length > 3; })) return null;
+        var out = steps.concat(sf.steps), sol = [];
+        var zero = sf.factors.map(function (f) { return polyText(f.c, v, ctx) + ' = 0'; }).join(' lub ');
+        var parts = sf.factors.map(function (f) { return f.c.length === 2 ? v + ' = ' + fmt(neg(f.c[0]), ctx) : polyText(f.c, v, ctx) + ' = 0'; }).join(' lub ');
+        out.push({ label: 'Przyrównuję każdy czynnik do zera', math: zero + (parts === zero ? '' : '\n' + parts) });
+        sf.factors.forEach(function (f) {
+            if (f.c.length === 2) sol.push({ r: neg(f.c[0]) });
+            else solveQuadratic(f.c, v, out, ctx, sol);
+        });
+        return { steps: out, sol: sol };
+    }
+    // [EN] stopień ≥ 3: sposób szkolny (rozkład) i Horner jako dwa sposoby, gdy się różnią
+    function solveHigher(c, v, steps, ctx, lhs, rhs) {
+        var sch = schoolSolve(c, v, steps, ctx), hs = steps.slice(), hsol = [], hok = true;
+        try { solveDegree(c, v, hs, ctx, hsol); } catch (e) { if (!(e instanceof NotSupported)) throw e; hok = false; }
+        if (!sch && !hok) throw new NotSupported();
+        if (!sch) return finishSolutions(hsol, v, lhs, rhs, hs, ctx);
+        var res = finishSolutions(sch.sol, v, lhs, rhs, sch.steps, ctx);
+        if (hok) {
+            var resH = finishSolutions(hsol, v, lhs, rhs, hs, ctx);
+            if (JSON.stringify(resH.explain.steps) !== JSON.stringify(res.explain.steps)) {
+                res.explain.methods = [{ label: 'Rozkład na czynniki', steps: res.explain.steps }, { label: 'Schemat Hornera', steps: resH.explain.steps }];
+            }
+        }
+        return res;
+    }
+    function hornerSteps(c, v, ctx, r) { // [EN] pierwiastek wśród dzielników, schemat Hornera, iloczyn (r już znany)
+        var steps = [], low = deflate(c, r);
         var lin = '(' + v + (r.n < 0n ? ' + ' + fmt(neg(r), ctx) : ' − ' + fmt(r, ctx)) + ')';
         // [EN] skąd kandydaci: dzielniki wyrazu wolnego (gdy przy najwyższej potędze stoi 1), raport E, R6
         var divs = isInt(c[0]) && eq(c[c.length - 1], ONE) && !isZero(c[0]) ? divisorsText(c[0]) : '';
@@ -629,8 +665,7 @@
             math: 'W(' + v + ') = ⟦' + lin + '(' + polyText(low, v, ctx) + ')⟧',
             formula: { id: 'bezout' }
         });
-        steps.push({ label: 'Przyrównuję każdy czynnik do zera', math: lin.slice(1, -1) + ' = 0 lub ' + polyText(low, v, ctx) + ' = 0\n' + v + ' = ' + fmt(r, ctx) + ' lub ' + polyText(low, v, ctx) + ' = 0' });
-        solveDegree(low, v, steps, ctx, sol);
+        return steps;
     }
 
     // ── Równania trygonometryczne (plan „jak Photomath”, pkt 6): sin/cos/tg(p·x) = wartość z tablicy ──
@@ -1085,6 +1120,7 @@
             if (!pureSquare && zero !== steps[steps.length - 1].math) {
                 steps.push({ label: 'Przenoszę wszystko na lewą stronę', math: zero });
             }
+            if (c.length >= 4) return solveHigher(c, v, steps, ctx, lhs, rhs);
             solveDegree(c, v, steps, ctx, sol);
         }
         var res = finishSolutions(sol, v, lhs, rhs, steps, ctx);
@@ -1414,7 +1450,7 @@
             if (!isFinite(l) || !isFinite(r) || Math.abs(l - r) > 1e-6 * (1 + Math.abs(l) + Math.abs(r))) throw new NotSupported();
         });
         if (!list.length) return done('Równanie', 'Brak rozwiązań rzeczywistych', null, steps);
-        var check = list.filter(function (s) { return s.r; }).slice(0, 3).map(function (s) {
+        var check = list.filter(function (s) { return s.r; }).map(function (s) {
             var env = {}; env[v] = s.r;
             var a = evalExact(lhs, env), b = evalExact(rhs, env);
             if (!eq(a, b)) throw new NotSupported();
@@ -1438,6 +1474,8 @@
     // ── Upraszczanie i rozkład ───────────────────────────────
     function simplify(ast) {
         var ctx = { dec: hasDecimal(ast) };
+        var frac = ast.k === 'div' && !ast.colon ? simplifyFraction(ast, ctx) : null;
+        if (frac) return frac;
         var start = show(ast, ctx);
         var steps = [{ label: 'Wyrażenie', math: start }];
         var raw = termsOf(ast);
@@ -1453,6 +1491,94 @@
         return done('Upraszczanie', final, null, steps);
     }
 
+    // [EN] ułamek wielomianów: rozkład szkolny licznika i mianownika, skrócenie wspólnych czynników, zastrzeżenie x ≠ … z pierwotnego mianownika.
+    // null = zostaje stare zachowanie (nic się nie skraca, mianownik ma niewymierne zera, wiele zmiennych)
+    function simplifyFraction(ast, ctx) {
+        try {
+            var tn = collect(termsOf(ast.a)), td = collect(termsOf(ast.b)), vs = varsOf(tn.concat(td));
+            if (vs.length !== 1 || !varsOf(td).length) return null;
+            var v = vs[0], cn = coefs(tn, v), cd = coefs(td, v);
+            if (cn.length < 1 || cd.length < 2 || (cn.length === 1 && isZero(cn[0]))) return null;
+            var steps = [{ label: 'Wyrażenie', math: show(ast, ctx) }];
+            var den0Text = show(ast.b, ctx).replace(/^\((.*)\)$/, '$1');
+            var side = function (c, name) {
+                var sf = schoolFactor(c, v, ctx);
+                if (sf) {
+                    sf.steps.forEach(function (st) { var o = {}; for (var key in st) o[key] = st[key]; o.label += name; steps.push(o); });
+                    // [EN] nawiasy o całkowitych, względnie pierwszych współczynnikach i dodatnim początku (2x − 1, nie x − 1/2); liczba idzie do k
+                    var kp = sf.k, lv = sf.leaves.map(function (l) {
+                        var L = l.c.reduce(function (a, x) { return (a * x.d) / gcd(a, x.d); }, 1n);
+                        var gg = l.c.reduce(function (a, x) { return gcd(a, mul(x, R(L)).n); }, 0n), u = R(l.c[l.c.length - 1].n < 0n ? -gg : gg, L);
+                        kp = mul(kp, powR(u, l.n));
+                        return { c: l.c.map(function (x) { return div(x, u); }), n: l.n };
+                    });
+                    var was = sfText(sf.k, sf.leaves, v, ctx), now = sfText(kp, lv, v, ctx);
+                    if (now !== was) steps.push({ label: 'Porządkuję czynniki' + name, math: was + ' = ' + now });
+                    return { k: kp, f: lv };
+                }
+                var top = c[c.length - 1];
+                if (c.length === 2) { // [EN] liniowy: liczba (lub minus) przed nawias jawnie, nie po cichu
+                    var den0 = c.reduce(function (l, x) { return (l * x.d) / gcd(l, x.d); }, 1n);
+                    var g = c.reduce(function (acc, x) { return gcd(acc, mul(x, R(den0)).n); }, 0n), head = R(top.n < 0n ? -g : g, den0);
+                    if (!eq(head, ONE)) {
+                        var minus = eq(head, neg(ONE)), restC = c.map(function (x) { return div(x, head); });
+                        steps.push({ label: (minus ? 'Wyłączam minus przed nawias' : 'Wyłączam wspólny czynnik przed nawias') + name,
+                            math: (name === ' w mianowniku' ? den0Text : polyText(c, v, ctx)) + ' = ⟦' + sfK(head, ctx) + '(' + polyText(restC, v, ctx) + ')⟧',
+                            formula: { id: 'wylaczanie-przed-nawias', here: 'a = ' + fmt(head, ctx) } });
+                    }
+                    return { k: head, f: [{ c: c.map(function (x) { return div(x, head); }), n: 1 }] };
+                }
+                return { k: top, f: c.length > 1 ? [{ c: c.map(function (x) { return div(x, top); }), n: 1 }] : [] };
+            };
+            var N = side(cn, ' w liczniku'), D = side(cd, ' w mianowniku');
+            var zeros = [];
+            for (var i = 0; i < D.f.length; i++) {
+                var f = D.f[i].c;
+                if (f.length === 2) zeros.push(neg(div(f[0], f[1])));
+                else if (f.length > 3 || sub(mul(f[1], f[1]), mul(R(4), mul(f[0], f[2]))).n >= 0n) return null; // [EN] niewymierne (lub nieznane) zera mianownika
+            }
+            zeros.sort(cmp);
+            var k = div(N.k, D.k), nl = N.f.map(function (x) { return { c: x.c, n: x.n }; }), dl = D.f.map(function (x) { return { c: x.c, n: x.n }; });
+            var same = function (a, b) { return a.length === b.length && a.every(function (x, j) { return eq(x, b[j]); }); };
+            var cancel = [];
+            dl.forEach(function (d) {
+                var m = nl.filter(function (x) { return same(x.c, d.c); })[0], t = m ? Math.min(m.n, d.n) : 0;
+                if (t) { m.n -= t; d.n -= t; cancel.push({ c: d.c, n: t }); }
+            });
+            if (!cancel.length) return null;
+            var live = function (l) { return l.filter(function (x) { return x.n > 0; }); };
+            var fr = function (a, b) {
+                var nt = !a.length ? fmt(R(k.n), ctx) : a.length === 1 && a[0].n === 1 && eq(R(k.n), ONE) && !b.length && eq(R(k.d), ONE) ? polyText(a[0].c, v, ctx) : sfText(R(k.n), a, v, ctx); // [EN] pojedynczy czynnik bez nawiasu: x − 2
+                if (k.n < 0n && (b.length || !eq(R(k.d), ONE)) && (a.length > 1 || (a.length && a[0].n > 1))) nt = '−(' + sfText(R(-k.n), a, v, ctx) + ')'; // [EN] minus przed całym licznikiem
+                if (!b.length && eq(R(k.d), ONE)) return nt;
+                var dt = b.length ? sfText(R(k.d), b, v, ctx) : fmt(R(k.d), ctx);
+                return nt + '/' + (!b.length || (eq(R(k.d), ONE) && b.length === 1) ? dt : '(' + dt + ')');
+            };
+            var ne = N.f.map(function (x) { return { c: x.c, n: x.n }; }), de = D.f.map(function (x) { return { c: x.c, n: x.n }; });
+            var unit = function (q) { return eq(q, ONE) || eq(q, neg(ONE)); };
+            // [EN] obie strony z własną liczbą (0,25(…)/(0,5(…))): zapis taki, jak w krokach rozkładu, nie od razu podzielony
+            var lhs = !unit(N.k) && !unit(D.k) ? sfText(N.k, ne, v, ctx) + '/(' + sfText(D.k, de, v, ctx) + ')' : fr(ne, de);
+            if (zeros.length) steps.push({ label: 'Zastrzegam dziedzinę', math: den0Text + ' ≠ 0\n' + zeros.map(function (z) { return v + ' ≠ ' + fmt(z, ctx); }).join(', ') });
+            var tag = zeros.length ? ' (dla ' + zeros.map(function (z) { return v + ' ≠ ' + fmt(z, ctx); }).join(', ') + ')' : '';
+            var cur = lhs;
+            cancel.forEach(function (cc, j) {
+                var ni = ne.filter(function (x) { return same(x.c, cc.c); })[0], di = de.filter(function (x) { return same(x.c, cc.c); })[0];
+                ni.n -= cc.n; di.n -= cc.n;
+                var nxt = fr(live(ne), live(de));
+                var ln = live(ne), lastC = j === cancel.length - 1;
+                if (lastC && ctx.dec && !live(de).length && ln.length === 1 && ln[0].n === 1 && ln[0].c.length === 2 && !isInt(k)) { // [EN] 0,5(2x + 1) → x + 0,5
+                    var ex = polyText(ln[0].c.map(function (x) { return mul(x, k); }), v, ctx);
+                    nxt = nxt + ' = ' + ex;
+                    steps.push({ label: 'Skracam ' + sfPiece(cc.c, cc.n, v, ctx), math: cur + ' = ⟦' + nxt + tag + '⟧' });
+                    cur = ex;
+                    return;
+                }
+                steps.push({ label: 'Skracam ' + sfPiece(cc.c, cc.n, v, ctx), math: cur + ' = ⟦' + nxt + (lastC ? tag : '') + '⟧' });
+                cur = nxt;
+            });
+            return done('Upraszczanie', cur + tag, null, steps);
+        } catch (e) { if (e instanceof NotSupported) return null; throw e; }
+    }
     function underlineSquare(ast, opened, ctx) { // [EN] (x + 1)² + 2x → ⟦x² + x + x + 1⟧ + 2x
         if ((ast.k === 'add' || ast.k === 'sub') && hasSquaredSum(ast.a) && !hasSquaredSum(ast.b)) {
             var pre = showTerms(termsOf(ast.a), ctx, true);
@@ -1464,12 +1590,224 @@
         if (n.k === 'pow' && (n.a.k === 'add' || n.a.k === 'sub') && n.b.k === 'num' && eq(n.b.v, R(2))) return true;
         return (n.a ? hasSquaredSum(n.a) : false) || (n.b ? hasSquaredSum(n.b) : false);
     }
+    // ── Rozkład jak w szkole (spec 2026-11-24-rozklad-szkolny): wspólny czynnik, wzory skróconego mnożenia,
+    // suma i iloczyn / delta, grupowanie, t = x², na końcu Horner. Każdy czynnik stopnia ≥ 2 przechodzi tę samą listę.
+    function cbrtExact(a) { // [EN] pierwiastek sześcienny wymierny (a ≥ 0) albo null
+        var f = function (n) {
+            var x = BigInt(Math.round(Math.cbrt(Number(n))));
+            for (var d = -1n; d <= 1n; d++) if ((x + d) ** 3n === n) return x + d;
+            return null;
+        };
+        var p = f(a.n), q = f(a.d);
+        return p !== null && q !== null ? R(p, q) : null;
+    }
+    function monoC(a, k) { var out = []; for (var i = 0; i < k; i++) out.push(ZERO); out.push(a); return out; } // [EN] a·x^k jako współczynniki
+    function sfNum(q, ctx) { var t = fmt(q, ctx); return /[/−]/.test(t) ? '(' + t + ')' : t; } // [EN] liczba pod potęgą/w iloczynie
+    function sfBase(p, k, v, ctx) { var t = polyText(monoC(p, k), v, ctx); return t === v ? v : '(' + t + ')'; } // [EN] x, (2x), (x²)
+    function sfK(k, ctx) { // [EN] liczba przed iloczynem: 2, −, (1/2), −(1/2) — ułamek w nawiasie, żeby nie skleił się z nawiasem; dziesiętny bez (0,5(x − 2))
+        if (eq(k, ONE)) return '';
+        if (eq(k, neg(ONE))) return '−';
+        var t = fmtAbs(k, ctx);
+        return (k.n < 0n ? '−' : '') + (/\//.test(t) ? '(' + t + ')' : t);
+    }
+    function sfPiece(c, n, v, ctx) { // [EN] czynnik w iloczynie: x, x², (x − 2), (x − 3)²
+        var t = c.length === 2 && isZero(c[0]) && eq(c[1], ONE) ? v : '(' + polyText(c, v, ctx) + ')';
+        return n > 1 ? t + sup(n) : t;
+    }
+    function sfText(k, leaves, v, ctx) { // [EN] te same nawiasy razem: (x − 1)(x − 1) → (x − 1)²
+        var merged = [];
+        leaves.forEach(function (l) {
+            var same = merged.filter(function (m) { return m.c.length === l.c.length && m.c.every(function (x, i) { return eq(x, l.c[i]); }); })[0];
+            if (same) same.n += l.n; else merged.push({ c: l.c, n: l.n });
+        });
+        return sfK(k, ctx) + merged.map(function (l) { return sfPiece(l.c, l.n, v, ctx); }).join('');
+    }
+    function sfStage(c, v, ctx) { // [EN] jedna próba z listy; {steps, k, pieces, used} albo null; c = k · Π pieces^n
+        var P = polyText(c, v, ctx), deg = c.length - 1, nz = c.filter(function (x) { return !isZero(x); }).length;
+        if (nz < 2) return null;
+        // 1. wspólny czynnik: liczba (także ułamek, żeby w nawiasie zostały liczby całkowite) i potęga zmiennej
+        var den0 = c.reduce(function (l, x) { return (l * x.d) / gcd(l, x.d); }, 1n);
+        var g = c.reduce(function (acc, x) { return gcd(acc, mul(x, R(den0)).n); }, 0n);
+        var head = R(c[deg].n < 0n ? -g : g, den0), m = c.findIndex(function (x) { return !isZero(x); });
+        if (!eq(head, ONE) || m > 0) {
+            var rest = c.slice(m).map(function (x) { return div(x, head); });
+            var e = {}; if (m) e[v] = m;
+            var preT = sfK(head, ctx) + (m ? polyText(monoC(ONE, m), v, ctx) : ''), pre = preT === '' ? '1' : preT === '−' ? '−1' : preT;
+            return {
+                steps: [{ label: 'Wyłączam wspólny czynnik przed nawias', math: P + ' = ⟦' + preT + '(' + polyText(rest, v, ctx) + ')⟧', formula: { id: 'wylaczanie-przed-nawias', here: 'a = ' + pre } }],
+                k: head, pieces: (m ? [{ c: [ZERO, ONE], n: m }] : []).concat([{ c: rest, n: 1 }]), used: ['wspolny']
+            };
+        }
+        var lc = c[deg], c0 = c[0];
+        // 2. wzory skróconego mnożenia czytane wstecz
+        if (nz === 2) {
+            var p2 = sqrtExact(lc), q2 = sqrtExact(neg(c0));
+            if (deg % 2 === 0 && p2 && q2) {
+                var h = deg / 2, A = sfBase(p2, h, v, ctx), minus = monoC(p2, h), plus = monoC(p2, h);
+                minus[0] = neg(q2); plus[0] = q2;
+                return {
+                    steps: [{ label: 'Rozkładam różnicę kwadratów', math: P + ' = ' + A + '² − ' + sfNum(q2, ctx) + '² = ⟦(' + polyText(minus, v, ctx) + ')(' + polyText(plus, v, ctx) + ')⟧',
+                        formula: { id: 'roznica-kwadratow', here: 'a = ' + polyText(monoC(p2, h), v, ctx) + ', b = ' + fmt(q2, ctx) } }],
+                    k: ONE, pieces: [{ c: minus, n: 1 }, { c: plus, n: 1 }], used: ['roznica-kwadratow']
+                };
+            }
+            var p3 = cbrtExact(lc), q3 = cbrtExact(c0.n < 0n ? neg(c0) : c0);
+            if (deg === 3 && p3 && q3) {
+                var diff = c0.n < 0n, s = diff ? neg(q3) : q3;
+                var lin = [s, p3], quad = [mul(q3, q3), mul(neg(s), p3), mul(p3, p3)];
+                return {
+                    steps: [{ label: diff ? 'Rozkładam różnicę sześcianów' : 'Rozkładam sumę sześcianów',
+                        math: P + ' = ' + sfBase(p3, 1, v, ctx) + '³ ' + (diff ? '−' : '+') + ' ' + sfNum(q3, ctx) + '³ = ⟦(' + polyText(lin, v, ctx) + ')(' + polyText(quad, v, ctx) + ')⟧',
+                        formula: { id: diff ? 'roznica-szescianow' : 'suma-szescianow', here: 'a = ' + polyText([ZERO, p3], v, ctx) + ', b = ' + fmt(q3, ctx) } }],
+                    k: ONE, pieces: [{ c: lin, n: 1 }, { c: quad, n: 1 }], used: [diff ? 'roznica-szescianow' : 'suma-szescianow']
+                };
+            }
+            return null;
+        }
+        // 2–3. trójmian kwadratowy: kwadrat sumy/różnicy, suma i iloczyn, delta
+        if (deg === 2) {
+            var b = c[1], ps = sqrtExact(lc), qs = sqrtExact(c0);
+            if (ps && qs && (eq(b, mul(R(2), mul(ps, qs))) || eq(b, mul(R(-2), mul(ps, qs))))) {
+                var plusSq = b.n > 0n, sq = plusSq ? qs : neg(qs), Ab = polyText([ZERO, ps], v, ctx);
+                return {
+                    steps: [{ label: plusSq ? 'Zwijam kwadrat sumy' : 'Zwijam kwadrat różnicy',
+                        math: P + ' = ' + sfBase(ps, 1, v, ctx) + '² ' + (plusSq ? '+' : '−') + ' 2 · ' + Ab + ' · ' + sfNum(qs, ctx) + ' + ' + sfNum(qs, ctx) + '² = ⟦(' + polyText([sq, ps], v, ctx) + ')²⟧',
+                        formula: { id: plusSq ? 'kwadrat-sumy' : 'kwadrat-roznicy', here: 'a = ' + Ab + ', b = ' + fmt(qs, ctx) } }],
+                    k: ONE, pieces: [{ c: [sq, ps], n: 2 }], used: [plusSq ? 'kwadrat-sumy' : 'kwadrat-roznicy']
+                };
+            }
+            var delta = sub(mul(b, b), mul(R(4), mul(lc, c0))), root = sqrtExact(delta);
+            if (!root || isZero(c0) || isZero(b)) return null;
+            var twoA = mul(R(2), lc), r1 = div(sub(neg(b), root), twoA), r2 = div(add(neg(b), root), twoA);
+            var abs = function (r) { return r.n < 0n ? neg(r) : r; };
+            if ((cmp(abs(r2), abs(r1)) || cmp(r1, r2)) < 0) { var sw = r1; r1 = r2; r2 = sw; } // [EN] kolejność jak w wyniku: (x − 1)(x + 4), (x − 2)(x + 2)
+            var lf = function (r) { return [neg(r), ONE]; };
+            var fac = '(' + polyText(lf(r1), v, ctx) + ')(' + polyText(lf(r2), v, ctx) + ')';
+            if (eq(lc, ONE) && isInt(r1) && isInt(r2) && !eq(r1, r2)) {
+                var S1 = neg(b), sub1 = v + '₁', sub2 = v + '₂';
+                return {
+                    steps: [
+                        { label: 'Szukam dwóch liczb o sumie ' + fmt(S1, ctx) + ' i iloczynie ' + fmt(c0, ctx),
+                            math: '⟦' + sub1 + ' + ' + sub2 + '⟧ = ' + fmt(S1, ctx) + ', ⟦' + sub1 + ' · ' + sub2 + '⟧ = ' + fmt(c0, ctx) + '\n'
+                                + fmt(r1, ctx) + ' + ' + sfNum(r2, ctx) + ' = ' + fmt(S1, ctx) + ', ' + fmt(r1, ctx) + ' · ' + sfNum(r2, ctx) + ' = ' + fmt(c0, ctx),
+                            formula: { id: 'wzory-viete', here: 'a = 1, b = ' + fmt(b, ctx) + ', c = ' + fmt(c0, ctx) } },
+                        { label: 'Zapisuję postać iloczynową', math: P + ' = ⟦' + fac + '⟧', formula: { id: 'postac-iloczynowa' } }
+                    ],
+                    k: ONE, pieces: [{ c: lf(r1), n: 1 }, { c: lf(r2), n: 1 }], used: ['viete']
+                };
+            }
+            var qsteps = [];
+            solveQuadratic(c, v, qsteps, ctx, []);
+            var one = eq(r1, r2);
+            qsteps.push({ label: 'Zapisuję postać iloczynową', math: P + ' = ' + sfK(lc, ctx) + '⟦' + (one ? sfPiece(lf(r1), 2, v, ctx) : fac) + '⟧', formula: { id: 'postac-iloczynowa' } });
+            return { steps: qsteps, k: lc, pieces: one ? [{ c: lf(r1), n: 2 }] : [{ c: lf(r1), n: 1 }, { c: lf(r2), n: 1 }], used: ['delta'] };
+        }
+        var ex = []; // [EN] wykładniki niezerowych wyrazów, od najwyższego
+        for (var i = deg; i >= 0; i--) if (!isZero(c[i])) ex.push(i);
+        // 4. grupowanie: (pierwsze dwa) + (ostatnie dwa) z tym samym nawiasem
+        if (nz === 4 && ex[0] - ex[1] === ex[2]) {
+            var d = ex[2], A0 = monoC(c[ex[0]], d); A0[0] = c[ex[1]];
+            var den = A0.reduce(function (l, x) { return (l * x.d) / gcd(l, x.d); }, 1n);
+            var mA = R(A0.reduce(function (acc, x) { return gcd(acc, mul(x, R(den)).n); }, 0n), den);
+            var Ap = A0.map(function (x) { return div(x, mA); }), kk = div(c[d], Ap[d]);
+            if (eq(c[0], mul(kk, Ap[0]))) {
+                var br = '(' + polyText(Ap, v, ctx) + ')', top = monoC(c[ex[0]], ex[0]), bot = monoC(c[d], d);
+                top[ex[1]] = c[ex[1]]; bot[0] = c[0];
+                var kAbs = kk.n < 0n ? neg(kk) : kk, g2 = (kk.n < 0n ? ' − ' : ' + ') + (eq(kAbs, ONE) ? '' : sfNum(kAbs, ctx)) + br;
+                var g1 = polyText(monoC(mA, ex[1]), v, ctx) + br, other = monoC(mA, ex[1]); other[0] = kk;
+                return {
+                    steps: [
+                        { label: 'Grupuję wyrazy w pary', math: P + ' = (' + polyText(top, v, ctx) + ')' + (bot[d].n < 0n ? ' − (' + polyText(bot.map(neg), v, ctx) : ' + (' + polyText(bot, v, ctx)) + ') = ⟦' + g1 + g2 + '⟧', formula: { id: 'grupowanie-wyrazow' } },
+                        { label: 'Wyłączam wspólny nawias', math: g1 + g2 + ' = ⟦' + br + '(' + polyText(other, v, ctx) + ')⟧', formula: { id: 'wylaczanie-przed-nawias', here: 'a = ' + br } }
+                    ],
+                    k: ONE, pieces: [{ c: Ap, n: 1 }, { c: other, n: 1 }], used: ['grupowanie']
+                };
+            }
+        }
+        // 5. podstawienie t = x^k (wyrazy x^2k, x^k i liczba)
+        if (nz === 3 && ex[2] === 0 && ex[0] === 2 * ex[1] && ex[1] >= 2) {
+            var kx = ex[1], tv = v === 't' ? 'u' : 't', ct = [c[0], c[kx], c[2 * kx]];
+            var sub_t = schoolTree(ct, tv, ctx);
+            if (sub_t) {
+                var back = function (q) { var out = []; q.forEach(function (x, j) { if (j) for (var z = 1; z < kx; z++) out.push(ZERO); out.push(x); }); return out; };
+                var leaves = sub_t.leaves.map(function (l) { return { c: back(l.c), n: l.n }; });
+                var powT = polyText(monoC(ONE, kx), v, ctx);
+                return {
+                    steps: [{ label: 'Podstawiam ' + tv + ' w miejsce ' + powT, math: tv + ' = ' + powT + '\n' + P + ' = ⟦' + polyText(ct, tv, ctx) + '⟧', formula: { id: 'podstawienie-t' } }]
+                        .concat(sub_t.steps, [{ label: 'Wracam do ' + v, math: sfText(sub_t.k, sub_t.leaves, tv, ctx) + ' = ⟦' + sfText(sub_t.k, leaves, v, ctx) + '⟧', formula: { id: 'podstawienie-t' } }]),
+                    k: sub_t.k, pieces: leaves, used: ['podstawienie-t'].concat(sub_t.used)
+                };
+            }
+        }
+        // 6. schemat Hornera, gdy jest pierwiastek wymierny
+        var rr = deg >= 3 ? rationalRoot(c) : null;
+        if (!rr) return null;
+        return { steps: hornerSteps(c, v, ctx, rr), k: ONE, pieces: [{ c: [neg(rr), ONE], n: 1 }, { c: deflate(c, rr), n: 1 }], used: ['horner'] };
+    }
+    function schoolTree(c, v, ctx) { // [EN] rekurencja po czynnikach; {steps, used, k, leaves} albo null, gdy nic się nie rozłożyło
+        var steps = [], used = [];
+        var grow = function (q, n) {
+            var st = q.length >= 3 ? sfStage(q, v, ctx) : null;
+            if (!st) return { k: ONE, leaves: [{ c: q, n: n }] };
+            steps.push.apply(steps, st.steps);
+            st.used.forEach(function (u) { if (used.indexOf(u) < 0) used.push(u); });
+            var k = powR(st.k, n), leaves = [];
+            st.pieces.forEach(function (p) { var gr = grow(p.c, p.n * n); k = mul(k, gr.k); leaves = leaves.concat(gr.leaves); });
+            return { k: k, leaves: leaves };
+        };
+        var t = grow(c, 1);
+        return steps.length ? { steps: steps, used: used, k: t.k, leaves: t.leaves } : null;
+    }
+    // [EN] wynik: {steps, factors: [{c (moniczny, rosnąco), n}], lead, used, text} albo null; c = lead · Π factors^n
+    function schoolFactor(c, v, ctx) {
+        c = c.slice();
+        while (c.length > 1 && isZero(c[c.length - 1])) c.pop();
+        if (c.length < 3) return null;
+        var t = schoolTree(c, v, ctx);
+        if (!t) return null;
+        var text = sfText(t.k, t.leaves, v, ctx), lead = t.k, factors = [];
+        var last = t.steps[t.steps.length - 1].math.split(' = ').pop().replace(/[⟦⟧]/g, '');
+        if (last !== text) t.steps.push({ label: 'Składam całość', math: polyText(c, v, ctx) + ' = ' + text });
+        // [EN] liczba przed iloczynem wchodzi do nawiasu z ułamkiem, gdy mianownik ją dzieli: 2(x − 1/2) → (2x − 1)
+        var kk = t.k, inLeaves = t.leaves.map(function (l) {
+            if (l.c.length !== 2 || !isInt(kk) || l.c.every(isInt)) return l;
+            var m = l.c.reduce(function (acc, x) { return (acc * x.d) / gcd(acc, x.d); }, 1n), mn = m ** BigInt(l.n);
+            if (kk.n % mn !== 0n) return l;
+            kk = R(kk.n / mn);
+            return { c: l.c.map(function (x) { return mul(x, R(m)); }), n: l.n };
+        });
+        var absorbed = sfText(kk, inLeaves, v, ctx);
+        if (absorbed !== text) { t.steps.push({ label: 'Wciągam liczbę do nawiasu', math: text + ' = ' + absorbed }); text = absorbed; }
+        t.leaves.forEach(function (l) {
+            var lc = l.c[l.c.length - 1], mc = l.c.map(function (x) { return div(x, lc); });
+            lead = mul(lead, powR(lc, l.n));
+            var same = factors.filter(function (f) { return f.c.length === mc.length && f.c.every(function (x, i) { return eq(x, mc[i]); }); })[0];
+            if (same) same.n += l.n; else factors.push({ c: mc, n: l.n });
+        });
+        return { steps: t.steps, factors: factors, lead: lead, used: t.used, text: text, k: kk, leaves: inLeaves }; // [EN] k · Π leaves = postać z text
+    }
+    function primeSteps(n, minus) { // [EN] rozłóż 84: dzielenie przez kolejne liczby pierwsze; minus (−84) dopisany przed wynik
+        var ps = primeFactors(n), lines = [], cur = n, m = minus ? '−' : '';
+        ps.forEach(function (p) { lines.push(cur + ' : ' + p + ' = ' + (cur / p)); cur /= p; });
+        var cnt = [];
+        ps.forEach(function (p) { var l = cnt[cnt.length - 1]; if (l && l.p === p) l.k++; else cnt.push({ p: p, k: 1 }); });
+        var text = cnt.map(function (q) { return q.p + (q.k > 1 ? sup(q.k) : ''); }).join(' · ');
+        var flat = ps.join(' · ');
+        var steps = [{ label: 'Liczba', math: m + n }];
+        if (minus) steps.push({ label: 'Odkładam minus', math: '−' + n + ' = −1 · ' + n });
+        steps.push({ label: 'Dzielę przez kolejne liczby pierwsze', math: lines.join('\n') });
+        steps.push({ label: 'Zbieram czynniki pierwsze', math: m + n + ' = ' + m + (flat === text ? text : flat + ' = ' + m + text) });
+        return done('Rozkład na czynniki pierwsze', m + text, null, steps);
+    }
     function factorize(ast) {
         var ctx = { dec: hasDecimal(ast) };
         var steps = [{ label: 'Wyrażenie', math: show(ast, ctx) }];
         var poly = sorted(collect(termsOf(ast)));
+        if (poly.length === 1 && !hasVars(ast) && isInt(poly[0].c) && poly[0].c.n >= 2n && poly[0].c.n <= 1000000000n) return primeSteps(poly[0].c.n);
+        if (poly.length === 1 && !hasVars(ast) && isInt(poly[0].c) && poly[0].c.n <= -2n && poly[0].c.n >= -1000000000n) return primeSteps(-poly[0].c.n, true);
         if (poly.length < 2) return done('Rozkład', showTerms(poly, ctx), null, steps);
         var vars = varsOf(poly);
+        var v0 = vars[0], school = vars.length === 1 ? schoolFactor(coefs(poly, v0), v0, ctx) : null;
         var den = poly.reduce(function (l, t) { return (l * t.c.d) / gcd(l, t.c.d); }, 1n);
         var g = poly.reduce(function (acc, t) { return gcd(acc, mul(t.c, R(den)).n); }, 0n);
         var head = R(g, den);
@@ -1531,7 +1869,8 @@
                     return f.n > 1 ? (isZero(f.r) ? inner + sup(f.n) : wrapped + sup(f.n)) : wrapped;
                 }).join('');
                 if (leftover) body += '(' + polyText(leftover, v, ctx) + ')';
-                var leadText = eq(lead, ONE) ? '' : fmtParen(lead, ctx);
+                var leadText = '';
+                if (!eq(lead, ONE)) { prefix = sfK(mul(head, lead), ctx) + monoText(common); } // [EN] jedna liczba przed iloczynem: (1/8) · 4 → (1/2), nie „1/84”
                 result = prefix + leadText + body;
                 var last = steps[steps.length - 1];
                 if (last.label.indexOf('Rozkładam różnicę') === 0) {
@@ -1553,6 +1892,26 @@
         } else if (!prefix) {
             steps.push({ label: 'Nie ma wspólnego czynnika, więc zostaje bez zmian', math: showTerms(rest, ctx) });
             result = showTerms(rest, ctx);
+        }
+        // [EN] bezpiecznik: czynnik stopnia ≥ 2 z pierwiastkiem wymiernym = rozkład niedokończony, zostaje stara ścieżka
+        if (school && school.factors.some(function (f) { return f.c.length > 2 && rationalRoot(f.c); })) school = null;
+        if (school) { // [EN] kroki szkolne; wynik szkolny, chyba że różni się tylko kolejnością nawiasów
+            var parts = function (t) { return (t.match(/\([^()]*\)[⁰¹²³⁴⁵⁶⁷⁸⁹]*|[a-z][⁰¹²³⁴⁵⁶⁷⁸⁹]*/g) || []).sort().join('') + '|' + /^[^(a-z]*/.exec(t)[0]; };
+            if (parts(result) !== parts(school.text)) { // [EN] postać szkolna wygrywa; samo przestawienie zostawia dawną kolejność
+                // [EN] porządek: liniowe w kolejności rozkładu ((2x − 3)(x − 1)(x + 1) zostaje), potem wyższe stopnie wg współczynników
+                var order = school.leaves.slice().sort(function (p, q) {
+                    if (p.c.length !== q.c.length) return p.c.length - q.c.length;
+                    if (p.c.length === 2) return 0; // [EN] sort stabilny
+                    for (var j = p.c.length - 2; j >= 0; j--) { var o = cmp(div(p.c[j], p.c[p.c.length - 1]), div(q.c[j], q.c[q.c.length - 1])); if (o) return o; }
+                    return 0;
+                });
+                result = sfText(school.k, order, v0, ctx);
+            }
+            steps = [steps[0]].concat(school.steps);
+            var tail = steps[steps.length - 1];
+            if (result === school.text) { /* [EN] gotowe */ } else if (tail.label === 'Składam całość' && parts(result) === parts(school.text)) {
+                tail.math = tail.math.slice(0, tail.math.lastIndexOf(' = ')) + ' = ' + result; // [EN] samo przestawienie nawiasów: bez osobnego kroku
+            } else steps.push({ label: 'Porządkuję czynniki', math: school.text + ' = ' + result });
         }
         return done('Rozkład na czynniki', result, null, steps);
     }
@@ -2000,7 +2359,11 @@
             NotSupported: NotSupported, R: R, ZERO: ZERO, ONE: ONE, gcd: gcd, add: add, neg: neg, sub: sub,
             mul: mul, div: div, isZero: isZero, isInt: isInt, eq: eq, toNum: toNum, powR: powR,
             sqrtExact: sqrtExact, sup: sup, sub_: sub_, fmt: fmt, fmtApprox: fmtApprox, fold: fold, done: done,
-            MAX_INPUT: MAX_INPUT, hornerHere: hornerHere,
+            MAX_INPUT: MAX_INPUT, hornerHere: hornerHere, schoolFactor: schoolFactor, polyText: polyText, factorText: sfText,
+            polyCoefs: function (src) { // [EN] wielomian z tekstu → {c, v} tak jak w factorize; null przy kilku zmiennych
+                var t = collect(termsOf(parseTokens(tokenize(src, {})))), vs = varsOf(t);
+                return vs.length === 1 ? { c: coefs(t, vs[0]), v: vs[0] } : null;
+            },
             parse: function (src) { return parseTokens(tokenize(src, { calculus: true })); }
         }
     };

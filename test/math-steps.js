@@ -129,7 +129,9 @@ ok('3e: Liczę dwa rozwiązania, 2 · 1 w mianowniku', has(q2, 'Liczę dwa rozwi
 ok('3e: jedno rozwiązanie', has('rozwiąż x^2 - 4x + 4 = 0', 'Liczę jedno rozwiązanie') && fm('rozwiąż x^2 - 4x + 4 = 0', 'wzor-x0'), st('rozwiąż x^2 - 4x + 4 = 0'));
 ok('3e: sprawdzenie 6x² → 6 · 1²', st('rozwiąż x^3 - 6x^2 + 11x - 6 = 0').some(x => x.math.includes('L = 1³ − 6 · 1² + 11 · 1 − 6 = 0')), st('rozwiąż x^3 - 6x^2 + 11x - 6 = 0').slice(-2));
 // rozkład: miejsca zerowe, potem postać iloczynowa
-ok('3e: rozkład przez miejsca zerowe (z delty, R5)', has('rozłóż x^2 - 5x + 6', 'Liczę deltę') && fm('rozłóż x^2 - 5x + 6', 'postac-iloczynowa'), st('rozłóż x^2 - 5x + 6'));
+// rozkład jak w szkole: pierwiastki całkowite → suma i iloczyn; inaczej delta (R5)
+ok('3e: rozkład sumą i iloczynem', fm('rozłóż x^2 - 5x + 6', 'wzory-viete') && fm('rozłóż x^2 - 5x + 6', 'postac-iloczynowa') && !has('rozłóż x^2 - 5x + 6', 'Liczę deltę'), st('rozłóż x^2 - 5x + 6'));
+ok('3e: rozkład przez miejsca zerowe (z delty, R5)', has('rozłóż 2x^2 - 3x + 1', 'Liczę deltę') && fm('rozłóż 2x^2 - 3x + 1', 'postac-iloczynowa'), st('rozłóż 2x^2 - 3x + 1'));
 // kwadrat sumy
 ok('3e: kwadrat sumy', has('uprość (x + 1)^2 + 2x', 'Rozpisuję kwadrat sumy') && fm('uprość (x + 1)^2 + 2x', 'kwadrat-sumy'), st('uprość (x + 1)^2 + 2x'));
 // ułamki: rozszerzanie widać, czasowniki
@@ -187,7 +189,7 @@ pass += 3;
     ok('3g: x/2 — bez pustego kroku, mnożę przez 2', !has(Z, 'Porządkuję i redukuję wyrazy podobne') && has(Z, 'Mnożę obie strony przez 2', 'x = 2 · 2 = 4'), st(Z));
     ok('3g: (2/3)x = 4 — mnożę przez 3/2', has('rozwiąż 2x/3 = 4', 'Mnożę obie strony przez 3/2', 'x = 4 · 3/2 = 6'), st('rozwiąż 2x/3 = 4'));
     ok('3g: −x = 4 — zmieniam znak, nie dzielę przez −1', has('rozwiąż 7 = 3 - x', 'Zmieniam znak obu stron', 'x = −4'), st('rozwiąż 7 = 3 - x'));
-    ok('3g: Bezout — przejście do drugiego czynnika', has('rozwiąż x^3 - 6x^2 + 11x - 6 = 0', 'Przyrównuję każdy czynnik do zera', 'x − 1 = 0 lub x² − 5x + 6 = 0\nx = 1 lub x² − 5x + 6 = 0'));
+    ok('3g: Bezout — przejście do drugiego czynnika', S.run('rozwiąż x^3 - 6x^2 + 11x - 6 = 0').explain.methods[1].steps.some(x => x.label === 'Przyrównuję każdy czynnik do zera' && x.math === 'x − 1 = 0 lub x² − 5x + 6 = 0\nx = 1 lub x² − 5x + 6 = 0'));
     const W = 'rozwiąż x^2 - 3x = 0';
     ok('3g: x² − 3x = 0 — bez współczynników, z x − 3 = 0', !has(W, 'Odczytuję współczynniki') && has(W, 'Wyłączam x przed nawias', 'x(x − 3) = 0')
         && has(W, 'Przyrównuję każdy czynnik do zera', 'x = 0 lub x − 3 = 0\nx = 0 lub x = 3'), st(W));
@@ -351,6 +353,90 @@ pass += 3;
     ok('2+3: Horner — tekst dzielenia i tabelka', !!h && h.math.replace(/[⟦⟧]/g, '') === '(x³ − 6x² + 11x − 6) : (x − 1) = x² − 5x + 6'
         && JSON.stringify(h.horner) === JSON.stringify({ r: '1', top: ['1', '−6', '11', '−6'], mid: ['', '1', '−5', '6'], bot: ['1', '−5', '6', '0'] }), h);
     ok('2+3: dymek Bezouta przy iloczynie', !!C[hi + 1] && C[hi + 1].formula && C[hi + 1].formula.id === 'bezout' && /⟦\(x − 1\)\(x² − 5x \+ 6\)⟧/.test(C[hi + 1].math), C[hi + 1]);
+}
+
+// rozwiąż: wielomian stopnia >= 3 — rozkład jak w szkole obok Hornera (zad. 3)
+{
+    const hs = q => S.run(q).explain;
+    const fid = (q, id) => hs(q).steps.some(x => x.formula && x.formula.id === id);
+    ok('x^3-x=0: pierwiastki', text('rozwiąż x^3-x=0') === 'x₁ = −1, x₂ = 0, x₃ = 1', text('rozwiąż x^3-x=0'));
+    ok('x^3-x=0: wyłączanie przed nawias', fid('rozwiąż x^3-x=0', 'wylaczanie-przed-nawias'));
+    ok('x^4-5x^2+4=0: cztery pierwiastki', text('rozwiąż x^4-5x^2+4=0') === 'x₁ = −2, x₂ = −1, x₃ = 1, x₄ = 2', text('rozwiąż x^4-5x^2+4=0'));
+    ok('x^4-5x^2+4=0: podstawienie t', fid('rozwiąż x^4-5x^2+4=0', 'podstawienie-t'));
+    ok('x^3-6x^2+11x-6=0: wynik bez zmian', text('rozwiąż x^3-6x^2+11x-6=0') === 'x₁ = 1, x₂ = 2, x₃ = 3');
+    ok('x^4-3x^2+1=0: nadal nieobsługiwane', /Jeszcze tego nie/.test(text('rozwiąż x^4-3x^2+1=0')), text('rozwiąż x^4-3x^2+1=0'));
+    ok('x^4+x^2-6=0: ±√2', text('rozwiąż x^4+x^2-6=0') === 'x₁ = −√2, x₂ = √2', text('rozwiąż x^4+x^2-6=0'));
+    ok('x^4+x^2-6=0: brak rozwiązań rzeczywistych w kroku', S.run('rozwiąż x^4+x^2-6=0').explain.steps.some(x => /brak rozwiązań rzeczywistych/.test(x.math)));
+    ['rozwiąż x^3-6x^2+11x-6=0', 'rozwiąż x^4-5x^2+4=0', 'rozwiąż 2x^3-3x^2-2x+3=0'].forEach(q => {
+        const m = hs(q).methods;
+        ok(q + ': sposoby', !!m && m.map(x => x.label).join('|') === 'Rozkład na czynniki|Schemat Hornera', m && m.map(x => x.label));
+        ok(q + ': ten sam ostatni krok', !!m && JSON.stringify(m[0].steps.slice(-1)) === JSON.stringify(m[1].steps.slice(-1)));
+    });
+}
+
+// uprość ułamek wielomianów: rozkład szkolny, skrócenie, zastrzeżenie dziedziny
+{
+    const w = (q, want) => ok(q + ' → ' + want, text(q) === want, text(q));
+    w('uprość (x^2-4)/(x+2)', 'x − 2 (dla x ≠ −2)');
+    w('uprość x/(x^2-x)', '1/(x − 1) (dla x ≠ 0, x ≠ 1)');
+    w('uprość (x^2-1)/(2x-2)', '(x + 1)/2 (dla x ≠ 1)');
+    w('uprość (x^2-2x+1)/(x^2-1)', '(x − 1)/(x + 1) (dla x ≠ −1, x ≠ 1)');
+    w('uprość (x^3+x)/(x^2+1)', 'x');
+    ok('(x^2+1)/(x+1): bez zmian, nic się nie skraca', /Jeszcze tego nie/.test(text('uprość (x^2+1)/(x+1)')), text('uprość (x^2+1)/(x+1)'));
+    ok('niewymierne zero mianownika: bez zmian', /Jeszcze tego nie/.test(text('uprość (x^2-1)/(x^2-2)')), text('uprość (x^2-1)/(x^2-2)'));
+    ok('uprość (x^2-4)/(x+2): kroki', labels('uprość (x^2-4)/(x+2)') === 'Wyrażenie | Rozkładam różnicę kwadratów w liczniku | Zastrzegam dziedzinę | Skracam (x + 2)', labels('uprość (x^2-4)/(x+2)'));
+    ok('uprość (x^2-4)/(x+2): wzór w dymku', fm('uprość (x^2-4)/(x+2)', 'roznica-kwadratow'));
+    ok('uprość (x+1)/2: bez zmian', text('uprość (x+1)/2') === '(1/2)x + 1/2', text('uprość (x+1)/2'));
+}
+
+{
+    const w2 = (q, want) => ok(q + ' → ' + want, text(q) === want, text(q));
+    const lb = q => labels(q).split(' | ');
+    ok('(x^2-1)/(2x-2): wspólny czynnik w mianowniku', lb('uprość (x^2-1)/(2x-2)').includes('Wyłączam wspólny czynnik przed nawias w mianowniku') && st('uprość (x^2-1)/(2x-2)').some(x => x.math === '2x − 2 = ⟦2(x − 1)⟧' && x.formula && x.formula.id === 'wylaczanie-przed-nawias'), labels('uprość (x^2-1)/(2x-2)'));
+    ok('(2x+4)/(x^2-4): wspólny czynnik w liczniku', lb('uprość (2x+4)/(x^2-4)').includes('Wyłączam wspólny czynnik przed nawias w liczniku') && st('uprość (2x+4)/(x^2-4)').some(x => x.math === '2x + 4 = ⟦2(x + 2)⟧'), labels('uprość (2x+4)/(x^2-4)'));
+    w2('uprość (2x+4)/(x^2-4)', '2/(x − 2) (dla x ≠ −2, x ≠ 2)');
+    w2('uprość (x^2-9)/(3-x)', '−(x + 3) (dla x ≠ 3)');
+    const m9 = st('uprość (x^2-9)/(3-x)');
+    ok('(x^2-9)/(3-x): krok z minusem', m9.some(x => x.label === 'Wyłączam minus przed nawias w mianowniku' && x.math === '3 − x = ⟦−(x − 3)⟧'), m9);
+    ok('(x^2-9)/(3-x): dziedzina w zapisie użytkownika', m9.some(x => x.label === 'Zastrzegam dziedzinę' && x.math.startsWith('3 − x ≠ 0')), m9);
+    ok('(x^2-9)/(3-x): minus przed całym licznikiem', m9.some(x => /^Skracam/.test(x.label) && x.math.startsWith('−((x − 3)(x + 3))/(x − 3) = ')), m9);
+    // wynik równa się oryginałowi w dwóch punktach (tam, gdzie określony)
+    const f = {
+        '(x^2-4)/(x+2)': x => (x * x - 4) / (x + 2), 'x/(x^2-x)': x => x / (x * x - x), '(x^2-1)/(2x-2)': x => (x * x - 1) / (2 * x - 2),
+        '(x^2-5x+6)/(x^2-4)': x => (x * x - 5 * x + 6) / (x * x - 4), '(x^3-x)/(x^2+x)': x => (x ** 3 - x) / (x * x + x),
+        '(2x+4)/(x^2-4)': x => (2 * x + 4) / (x * x - 4), '(x^2-9)/(3-x)': x => (x * x - 9) / (3 - x), '(x^2+2x+1)/(x+1)': x => (x * x + 2 * x + 1) / (x + 1)
+    };
+    const ev = (t, x) => Function('x', 'return ' + t.replace(/ \(dla.*$/, '').replace(/−/g, '-').replace(/(\d|\))(?=[x(])/g, '$1*').replace(/x(?=\()/g, 'x*'))(x); // wynik aplikacji jako wyrażenie JS
+    Object.keys(f).forEach(q => {
+        const t = text('uprość ' + q);
+        ok(q + ' ma wynik z zastrzeżeniem', /\(dla x ≠/.test(t), t);
+        [3.5, -7.25].forEach(x => ok(q + ' w x=' + x, Math.abs(f[q](x) - ev(t, x)) < 1e-9, t));
+    });
+}
+
+// Sprawdzenie obejmuje każdy pierwiastek z odpowiedzi (x⁴ − 5x² + 4: także x = 2)
+for (const q of ['rozwiąż x^4-5x^2+4=0', 'rozwiąż x^3-6x^2+11x-6=0']) {
+    const s = st(q), chk = (s.find(x => x.label === 'Sprawdzenie') || { math: '' }).math, ans = s.find(x => x.label === 'Odpowiedź').math.split('\n').map(l => l.split(' = ')[1]);
+    ok(q + ': Sprawdzenie dla każdego pierwiastka', ans.every(r => chk.split('\n').some(l => l.startsWith('x = ' + r + ':'))), chk);
+}
+
+// uprość: nawiasy z liczbami całkowitymi (jak rozkład szkolny), łańcuch kroków bez przeskoków
+{
+    const w3 = (q, want) => ok(q + ' → ' + want, text(q) === want, text(q));
+    const chain = q => { // każdy krok skracania zaczyna się od tego, na czym skończył się poprzedni krok
+        const s = st(q), i = s.findIndex(x => /^Skracam/.test(x.label)), prev = s.slice(1, i).filter(x => !/^Zastrzegam/.test(x.label)).map(x => x.math.split(' = ').pop().replace(/[⟦⟧]/g, ''));
+        return { s, cancel: s[i], prev };
+    };
+    w3('uprość (4x^2-1)/(2x-1)', '2x + 1 (dla x ≠ 1/2)');
+    ok('(4x^2-1)/(2x-1): Skracam (2x − 1)', st('uprość (4x^2-1)/(2x-1)').some(x => x.label === 'Skracam (2x − 1)'), labels('uprość (4x^2-1)/(2x-1)'));
+    w3('uprość (2x^2-x-1)/(x-1)', '2x + 1 (dla x ≠ 1)');
+    const c2 = chain('uprość (2x^2-x-1)/(x-1)');
+    ok('(2x^2-x-1)/(x-1): skracanie od (2x + 1)(x − 1)/(x − 1)', c2.cancel && c2.cancel.math.startsWith('(2x + 1)(x − 1)/(x − 1) = '), c2.cancel);
+    w3('uprość (x-1)/(2x^2-x-1)', '1/(2x + 1) (dla x ≠ −1/2, x ≠ 1)');
+    const c4 = chain('uprość (x^2-0.25)/(x-0.5)');
+    ok('(x^2-0.25)/(x-0.5): bez (0,25)', !c4.s.some(x => x.math.includes('(0,25)')), c4.s);
+    ok('(x^2-0.25)/(x-0.5): skracam (2x − 1)', c4.cancel && c4.cancel.label === 'Skracam (2x − 1)' && c4.cancel.math.startsWith('0,25(2x − 1)(2x + 1)/(0,5(2x − 1)) = '), c4.cancel);
+    w3('uprość (x^2-0.25)/(x-0.5)', 'x + 0,5 (dla x ≠ 0,5)');
 }
 
 console.log(`math-steps: ${pass} OK, ${fail} błędów`);

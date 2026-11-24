@@ -25,7 +25,7 @@ const extra = ['lim n→∞ (1-1/n)^2', 'lim x→-∞ sqrt(7-2x)(sqrt(15-8x)-sqr
     'lim x→0+ 1/x', 'lim n→∞ 5(1+1/n)^n', 'rozwiąż 2x + 3 = 11', 'rozwiąż x^2 = 9', 'kroki 3/4 - 1/6', 'pochodna sin(x^2)',
     'pochodna x/(x+1)', 'całka 1/(x^2+4)', 'całka sin(x)^2', 'rozwiąż x^2 + 1 = 0', 'pochodna 3x^2',
     'całka 1/(x^2-1)', 'całka x*sin(x)', 'całka (2x+1)^3', 'całka tan(x)^2', 'całka √x', 'całka sin(x) od 0 do pi', 'pochodna (3x+1)^5',
-    'pochodna √x', 'pochodna 5x^3', 'pochodna (x^2+1)/(x-1)', 'pochodna x^2*e^x', 'całka x^3/(x^2-1)', 'rozwiąż 5 - 2x ≥ 11', 'rozwiąż x^2 + 2 > 2x', 'rozwiąż x^2 + 1 < 0', 'rozwiąż x^2 - 4x + 4 > 0', 'rozwiąż -x^2 + 1 > 0', 'rozwiąż x + 1 > x', 'rozwiąż 2x + 3y = 12; 3x - 2y = 5', 'rozwiąż x = 2y, x + y = 9', 'rozwiąż x + y = 1, x + y = 2', 'rozwiąż x + y = 1, 2x + 2y = 2', 'rozwiąż 3x - y = 1, -x + 2y = 3', 'rozwiąż 1/x = 2', 'rozwiąż (x+1)/(x-2) = 3', 'rozwiąż (x+3)/(x-1) = (x-1)/(x+1)', 'rozwiąż x^2/(x-1) = 1/(x-1)', 'rozwiąż 2^x = 8', 'rozwiąż 4^x = 2^(x+3)', 'rozwiąż 2^x = 5', 'rozwiąż log_2(x) = 3', 'rozwiąż log_2(x+3) = log_2(2x)', 'rozwiąż log_2(x-5) = log_2(1-x)', 'rozwiąż |x-2| = 3', 'rozwiąż |x| = -1', 'rozwiąż |2x+1| = 0', 'rozwiąż |x-2| < 3', 'rozwiąż |x-2| >= 3', 'rozwiąż |x| > -2', 'rozwiąż |x| > 0', 'rozwiąż √(x+3) = x - 3', 'rozwiąż √x = -2', 'rozwiąż sqrt(2x-1) = 3', 'rozwiąż sin(x) = 1/2', 'rozwiąż cos(x) = sqrt(2)/2', 'rozwiąż tg(x) = 1', 'rozwiąż sin(x) = 0', 'rozwiąż sin(x) = 2', 'rozwiąż sin(2x) = 1/2', 'nwd(12, 18)', 'nww(4, 6)', 'nwd(8, 15)', 'wierzchołek x^2 - 4x + 3', 'wierzchołek 2x^2 + 3x - 2', 'kroki 20% z 150', 'kroki 150 + 20%', 'kroki 200 - 15%', 'kroki ile procent 30 z 120'];
+    'pochodna √x', 'pochodna 5x^3', 'pochodna (x^2+1)/(x-1)', 'pochodna x^2*e^x', 'całka x^3/(x^2-1)', 'rozwiąż 5 - 2x ≥ 11', 'rozwiąż x^2 + 2 > 2x', 'rozwiąż x^2 + 1 < 0', 'rozwiąż x^2 - 4x + 4 > 0', 'rozwiąż -x^2 + 1 > 0', 'rozwiąż x + 1 > x', 'rozwiąż 2x + 3y = 12; 3x - 2y = 5', 'rozwiąż x = 2y, x + y = 9', 'rozwiąż x + y = 1, x + y = 2', 'rozwiąż x + y = 1, 2x + 2y = 2', 'rozwiąż 3x - y = 1, -x + 2y = 3', 'rozwiąż 1/x = 2', 'rozwiąż (x+1)/(x-2) = 3', 'rozwiąż (x+3)/(x-1) = (x-1)/(x+1)', 'rozwiąż x^2/(x-1) = 1/(x-1)', 'rozwiąż 2^x = 8', 'rozwiąż 4^x = 2^(x+3)', 'rozwiąż 2^x = 5', 'rozwiąż log_2(x) = 3', 'rozwiąż log_2(x+3) = log_2(2x)', 'rozwiąż log_2(x-5) = log_2(1-x)', 'rozwiąż |x-2| = 3', 'rozwiąż |x| = -1', 'rozwiąż |2x+1| = 0', 'rozwiąż |x-2| < 3', 'rozwiąż |x-2| >= 3', 'rozwiąż |x| > -2', 'rozwiąż |x| > 0', 'rozwiąż √(x+3) = x - 3', 'rozwiąż √x = -2', 'rozwiąż sqrt(2x-1) = 3', 'rozwiąż sin(x) = 1/2', 'rozwiąż cos(x) = sqrt(2)/2', 'rozwiąż tg(x) = 1', 'rozwiąż sin(x) = 0', 'rozwiąż sin(x) = 2', 'rozwiąż sin(2x) = 1/2', 'nwd(12, 18)', 'nww(4, 6)', 'nwd(8, 15)', 'wierzchołek x^2 - 4x + 3', 'wierzchołek 2x^2 + 3x - 2', 'kroki 20% z 150', 'kroki 150 + 20%', 'kroki 200 - 15%', 'kroki ile procent 30 z 120', 'rozłóż x^3 - x', 'rozłóż x^2 - 5x + 6', 'rozłóż x^2 - 6x + 9', 'rozłóż 4x^2 - 9', 'rozłóż x^3 - 8', 'rozłóż x^3 + 8', 'rozłóż 2x^2 - 3x + 1', 'rozłóż x^3 - 2x^2 + x - 2', 'rozłóż x^4 - 13x^2 + 36', 'rozłóż x^3 - 6x^2 + 11x - 6', 'rozłóż x^4 + 5x^2 + 4', 'rozłóż 84', 'rozłóż x^3 - 3x^2 - x + 3', 'rozłóż 2x^3 + x^2 + 2x + 1', 'rozłóż x^3 + x^2 - x - 1', 'rozłóż x^3 - 3x + 2', 'uprość (x^2-4)/(x+2)', 'uprość x/(x^2-x)', 'uprość (x^2-2x+1)/(x^2-1)', 'uprość (x^2-9)/(3-x)', 'uprość (2x+4)/(x^2-4)', 'uprość (x^3+x)/(x^2+1)', 'uprość (4x^2-1)/(2x-1)', 'uprość (x^2-0.25)/(x-0.5)', 'rozłóż x^6 - 64', 'lim x→0.5 (4x^2-4x+1)/(2x^2-x)', 'rozwiąż x^3 - x = 0', 'rozwiąż x^4 - 5x^2 + 4 = 0', 'rozwiąż x^3 - 6x^2 + 11x - 6 = 0', 'rozwiąż x^4 + x^2 - 6 = 0', 'rozwiąż 2x^3 - 3x^2 - 2x + 3 = 0'];
 
 const missing = new Set(), bad = [], dubs = new Set();
 const { FORMULAS } = require(path.join(root, 'js', 'step-formulas.js'));
@@ -68,6 +68,8 @@ ok('[1^∞] wyjaśnione', /1\^\{\\infty\}/.test(first('lim n→∞ (1-1/n)^n')))
 ok('krok 1 bez symbolu — neutralnie', !/nie przeszkadza/.test(first('lim x→-∞ sqrt(7-2x)(sqrt(15-8x)-sqrt(3-8x))')));
 // uwagi „słabego ucznia” (3c): zdanie pasuje do konkretnego kroku, nie tylko do nazwy
 const whyOf = (q, label) => { const r = S.run(q), st = r.explain.steps, i = st.findIndex(x => x.label.startsWith(label)); return i < 0 ? null : whyFor(st[i], r.explain.title, r.explain, i); };
+// [EN] sposób z przełącznika (zad. 4: Horner w granicy to osobny sposób „Schemat Hornera”)
+const whyOfM = (q, method, label) => { const r = S.run(q), m = (r.explain.methods || []).find(x => x.label === method), st = m ? m.steps : [], i = st.findIndex(x => x.label.startsWith(label)); return i < 0 ? null : whyFor(st[i], r.explain.title, { title: r.explain.title, steps: st }, i); };
 ok('sprzężenie przy x → liczba nie mówi o ∞ − ∞', !/infty/.test(whyOf('lim x→5 (x-5)/(3-sqrt(x+4))', 'Mnożymy przez sprzężenie') || 'infty'));
 ok('sprzężenie przy n → ∞ mówi o ∞ − ∞', /infty-\\infty/.test(whyOf('lim n→∞ (sqrt(n^2+n)-n)', 'Mnożymy przez sprzężenie') || ''));
 ok('„Skracamy (−x)” przy −∞ bez „nawias nie jest zerem”', !/nie jest zerem/.test(whyOf('lim x→-∞ x/sqrt(3x^2+5)', 'Skracamy (') || 'nie jest zerem'));
@@ -120,15 +122,20 @@ ok('3 − y < 5: bez „x” w zdaniu', !/\bx\b/.test(whyOf('rozwiąż 3 - y < 5
 // „Sprawdzenie” zależy od zadania
 ok('Sprawdzenie w całce ≠ w równaniu', whyFor({ label: 'Sprawdzenie', math: '' }, 'Całka') !== whyFor({ label: 'Sprawdzenie', math: '' }, 'Równanie'));
 
+// zad. 4: pierwiastek znany z 0/0 — zdanie przy dzieleniu mówi skąd
+{
+    const w = whyOfM('lim x→1 (x^3-3x+2)/(x^2-2x+1)', 'Rozkład na czynniki', 'Dzielę schematem Hornera') || '';
+    ok('Horner w rozkładzie szkolnym: pierwiastek z 0/0', /frac\{0\}\{0\}/.test(w) && w.includes('(x-1)'), w);
+}
 // Partia 1: Horner w granicy
 {
-    const w = whyOf('lim x→2 (x^4-13x^2+36)/(x^3-2x^2+x-2)', 'Rozkładamy na czynniki') || '', h = whyOf('lim x→2 (x^4-13x^2+36)/(x^3-2x^2+x-2)', 'Dzielimy schematem Hornera') || '';
+    const w = whyOf('lim x→2 (x^4-13x^2+36)/(x^3-2x^2+x-2)', 'Rozkładamy na czynniki') || '', h = whyOfM('lim x→2 (x^4-13x^2+36)/(x^3-2x^2+x-2)', 'Schemat Hornera', 'Dzielimy schematem Hornera') || '';
     ok('Rozkładamy: konkretny nawias (x-2)', w.includes('(x-2)') && !w.includes('(x-a)'), w);
     ok('Hornera w granicy: zdanie o liczbie 2', h.includes('$2$') && h.includes('(x-2)'), h);
 }
 
 {
-    const h0 = whyOf('lim x→0 (x^2+3x)/(x^2-2x)', 'Dzielimy schematem Hornera') || '';
+    const h0 = whyOfM('lim x→0 (x^2+3x)/(x^2-2x)', 'Schemat Hornera', 'Dzielimy schematem Hornera') || '';
     ok('Horner przy x → 0: (x), nie (x-0)', h0.includes('(x)') === false && !h0.includes('x-0') && /\$x\$/.test(h0), h0);
 }
 
@@ -144,6 +151,16 @@ ok('Sprawdzenie w całce ≠ w równaniu', whyFor({ label: 'Sprawdzenie', math: 
         ok('FF7: nie obiecuje policzenia ' + q, !/da się już policzyć/.test(lh(q)), lh(q));
     ok('FF7: ∞/∞ znowu', /infty/.test(lh('lim x→∞ x/sqrt(3x^2+5)')), lh('lim x→∞ x/sqrt(3x^2+5)'));
     ok('FF7: przy podstawieniu zdanie bez zmian', /da się już policzyć/.test(lh('lim x→4 (x^2-6x+8)/(3x^2-10x-8)')), lh('lim x→4 (x^2-6x+8)/(3x^2-10x-8)'));
+}
+
+// fala końcowa: „Zaczynam od tego” tylko w pierwszym przekształceniu; „Skracam” bez zastrzeżenia, gdy go nie ma
+{
+    const w1 = whyOf('uprość (x^2-1)/(2x-2)', 'Wyłączam wspólny czynnik') || '', w2 = whyOf('rozłóż x^3 - x', 'Wyłączam wspólny czynnik') || '';
+    ok('FW9: wspólny czynnik w mianowniku po liczniku — bez „Zaczynam”', w1 && !/Zaczynam/.test(w1), w1);
+    ok('FW9: wspólny czynnik jako pierwszy krok — „Zaczynam”', /Zaczynam/.test(w2), w2);
+    const s1 = whyOf('uprość (x^3+x)/(x^2+1)', 'Skracam') || '', s2 = whyOf('uprość (x^2-4)/(x+2)', 'Skracam') || '';
+    ok('FW9: Skracam bez zastrzeżenia', s1 && !/zastrzeż/.test(s1), s1);
+    ok('FW9: Skracam z zastrzeżeniem', /zastrzeż/.test(s2), s2);
 }
 
 console.log(fail ? '❌ ' + fail + ' błędów, ' + pass + ' ok' : '✅ step-why: ' + pass + ' ok');

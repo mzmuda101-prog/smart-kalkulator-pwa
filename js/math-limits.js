@@ -394,7 +394,10 @@
         var pr = function (x, need) { return x && x.k === 'num' && !x.lp && (x.v.n < 0n || need === 2 && x.v.d !== 1n) ? Object.assign({}, x, { lp: true }) : x; };
         if (out.k === 'mul') out.b = pr(out.b);
         else if (out.k === 'pow') out.a = pr(out.a, 2);
-        else if (out.k === 'div') out.b = pr(out.b, 2);
+        else if (out.k === 'div') { // [EN] (3/2)/2, nie 3/2/2
+            out.b = pr(out.b, 2);
+            if (out.a.k === 'num' && !out.a.lp && out.a.v.d !== 1n) out.a = Object.assign({}, out.a, { lp: true });
+        }
         else if (out.k === 'sub') out.b = parenLead(out.b, pr);
         else if (out.k === 'add' && (out.b.k === 'mul' || out.b.k === 'div')) out.b = parenLead(out.b, pr);
         else if (out.k === 'neg') out.a = parenLead(out.a, pr);
@@ -434,10 +437,10 @@
         return n.a ? astMap(n, plugSums) : n;
     }
     function bare(s) { return s.replace(/[()]/g, ''); } // [EN] krok różniący się tylko nawiasami nie jest krokiem
-    function plugSteps(e, v, t, at) { // [EN] kolejne zapisy po „=” (bez wyniku końcowego), bez sąsiednich powtórzeń
+    function plugSteps(e, v, t, at, text) { // [EN] kolejne zapisy po „=” (bez wyniku końcowego), bez sąsiednich powtórzeń; text = zapis e, gdy inny niż C.show
         var out = [];
         try {
-            var cur = plugVar(K.parse(C.show(e)), v, C.numberOf(pointExpr(t)), 'root');
+            var cur = plugVar(K.parse(text || C.show(e)), v, C.numberOf(pointExpr(t)), 'root');
             [function (x) { return x; }, plugRadicands, plugValues, plugSumVals, function (x) { return x.k === 'add' || x.k === 'sub' ? plugValues(x) : x; }, plugSums].forEach(function (f) {
                 cur = f(cur);
                 var s = astText(cur);
@@ -1040,46 +1043,142 @@
         },
         apply: function (e, v, t, log, depth) {
             var a = C.numberOf(pointExpr(t)), xa = C.polyExpr([K.neg(a), ONE], v);
-            var M = 0, rest = C.num(e[0].c), ups = [], downs = [], tables = [], divLines = [];
+            var M = 0, rest = C.num(e[0].c), ups = [], downs = [], tables = [], divLines = [], upK = { k: ONE, e: 0 }, dnK = { k: ONE, e: 0 };
+            var school = _factorMode === 'school' && !!log, parts = []; // [EN] parts: czynniki po kolei, dla zapisu szkolnego
             e[0].fs.forEach(function (f) {
                 var c = K.isInt(f.e) ? C.polyCoefs(C.atomExpr(f.b), v) : null;
-                var pow = Number(f.e.n < 0n ? -f.e.n : f.e.n), list = f.e.n < 0n ? downs : ups;
+                var pow = Number(f.e.n < 0n ? -f.e.n : f.e.n), down = f.e.n < 0n, list = down ? downs : ups;
                 if (!c || c.length < 2) {
                     rest = C.cMul(rest, C.cPow(C.atomExpr(f.b), f.e));
                     list.push(grpFactor(C.atomExpr(f.b), pow));
+                    parts.push({ down: down, text: grpFactor(C.atomExpr(f.b), pow), expr: C.cPow(C.atomExpr(f.b), f.e) });
                     return;
                 }
                 c = trimPoly(c);
-                var m = 0;
+                var m = 0, c0 = c, t0 = tables.length;
                 while (c.length > 1 && K.isZero(hornerAt(c, a))) {
                     var low = deflateBy(c, a), top = c.slice().reverse(), mid = [''], bot = [top[0]]; // [EN] schemat Hornera jak w równaniach
                     for (var hi = 1; hi < top.length; hi++) { var pr = K.mul(a, bot[hi - 1]); mid.push(K.fmt(pr)); bot.push(K.add(top[hi], pr)); }
                     if (c.length === 2 && K.eq(c[1], ONE)) { c = low; m++; continue; } // [EN] już dokładnie (x − a): dzielenie (x − a) : (x − a) = 1 to szum
-                    tables.push({ name: f.e.n < 0n ? 'mianownik' : 'licznik', r: K.fmt(a), top: top.map(K.fmt), mid: mid, bot: bot.map(K.fmt) });
+                    tables.push({ name: down ? 'mianownik' : 'licznik', r: K.fmt(a), top: top.map(K.fmt), mid: mid, bot: bot.map(K.fmt) });
                     var dl = '(' + C.show(C.polyExpr(c, v)) + ') : (' + C.show(xa) + ') = ' + C.show(C.polyExpr(low, v));
                     divLines.push({ name: tables[tables.length - 1].name, dl: dl });
                     c = low; m++;
                 }
-                M += (f.e.n < 0n ? -1 : 1) * m * pow;
+                M += (down ? -1 : 1) * m * pow;
                 var Q = C.polyExpr(c, v);
                 rest = C.cMul(rest, C.cPow(Q, f.e));
                 for (var i = 0; i < m * pow; i++) list.push('(' + C.show(xa) + ')');
-                if (!isOne(Q)) list.push(grpFactor(Q, pow));
+                var nzQ = c.filter(function (x) { return !K.isZero(x); }).length, at = c.findIndex(function (x) { return !K.isZero(x); });
+                if (m && nzQ === 1) { // [EN] jednomian po dzieleniu (4, 2x): liczba przed nawiasy, nie „(x − 1/2)4”
+                    var sd = down ? dnK : upK;
+                    sd.k = K.mul(sd.k, K.powR(c[at], pow)); sd.e += at * pow;
+                } else if (!isOne(Q)) list.push(grpFactor(Q, pow));
+                parts.push(m ? { down: down, pow: pow, c0: c0, m: m, cEnd: c, tables: tables.slice(t0), divLines: divLines.slice(t0) }
+                    : { down: down, text: grpFactor(C.atomExpr(f.b), pow), expr: C.cPow(C.atomExpr(f.b), f.e) });
             });
             if (!M && !ups.concat(downs).some(function (x) { return x === '(' + C.show(xa) + ')'; })) throw new NotSupported();
-            var head = limHead(v, t), coef = K.fmt(e[0].c) === '1' ? '' : K.fmt(e[0].c);
+            // [EN] liczba przed iloczynem: −(x − 2)…, (1/2)(x − 3)… — ułamek w nawiasie, bo 1/2(x − 3) czyta się jak 1/(2(x − 3))
+            var head = limHead(v, t), ct = K.fmt(e[0].c), neg = ct[0] === '−', ca = neg ? ct.slice(1) : ct;
+            var coef = ct === '1' ? '' : (neg ? '−' : '') + (ca === '1' ? '' : /\//.test(ca) ? '(' + ca + ')' : ca);
+            var upOr1 = function (up) { return up || (coef === '' || coef === '−' ? '1' : ''); }; // [EN] 3/(x + 2), nie 31/(x + 2)
+            if (school) return schoolCancel(e, v, t, log, depth, a, parts, head, coef, upOr1);
             if (tables.length) { // [EN] licznik przed mianownikiem (sort jest stabilny)
                 var byName = function (x, y) { return x.name < y.name ? -1 : x.name > y.name ? 1 : 0; };
                 tables.sort(byName); divLines.sort(byName);
                 line(log, 'Dzielimy schematem Hornera', divLines.map(function (x) { return x.dl.replace(/^(.*?) = /, '⟦$1⟧ = '); }).join('\n'), 'schemat-hornera', { horner: tables });
                 log[log.length - 1].formula.here = K.hornerHere(tables);
             }
-            line(log, 'Rozkładamy na czynniki', head + coef + (ups.join('') || '1') + '/' + (downs.length > 1 ? '(' + downs.join('') + ')' : downs.join('')));
+            // [EN] strona: liczba (ułamek w nawiasie), potęga zmiennej, nawiasy zebrane w potęgę: 4(x − 1/2)², 2x(x − 1/2)
+            var sideText = function (sk, list, lead) {
+                var kt = K.fmt(sk.k), ng = kt[0] === '−', ka = ng ? kt.slice(1) : kt, n = 0, seen = [];
+                var kx = (ng ? '−' : '') + (ka === '1' ? '' : /\//.test(ka) ? '(' + ka + ')' : ka), vx = sk.e ? v + (sk.e > 1 ? K.sup(String(sk.e)) : '') : '';
+                list.forEach(function (x) { var hit = seen.filter(function (y) { return y.t === x; })[0]; if (hit) hit.n++; else seen.push({ t: x, n: 1 }); });
+                var br = seen.map(function (y) { return y.n > 1 ? y.t + K.sup(String(y.n)) : y.t; }).join('');
+                n = (ka !== '1' ? 1 : 0) + (vx ? 1 : 0) + seen.length;
+                var out = kx + vx + br;
+                return lead ? (out === '' || out === '−' ? out + '1' : out) : n > 1 ? '(' + out + ')' : out || '1';
+            };
+            var upText = sideText({ k: K.mul(e[0].c, upK.k), e: upK.e }, ups, true), dnText = sideText(dnK, downs, false);
+            line(log, 'Rozkładamy na czynniki', head + upText + '/' + dnText);
             var out = M ? C.cMul(rest, C.cPow(xa, K.R(M))) : rest;
             line(log, 'Skracamy (' + C.show(xa) + ')', limOf(v, t, out));
             return limitOf(out, v, t, log, depth);
         }
     };
+    // [EN] 0/0 po szkolnemu: licznik i mianownik rozkładane osobno (schoolFactor), skracamy wspólny nawias z pierwiastkiem a,
+    // dalej liczymy z postaci iloczynowej. Gdy szkolny rozkład się poddaje, ta strona dostaje jedną tabelkę Hornera.
+    function schoolCancel(e, v, t, log, depth, a, parts, head, coef, upOr1) {
+        var isRoot = function (l) { return l.c.length === 2 && K.isZero(hornerAt(l.c, a)); };
+        var rootC = null, sides = [], upSteps = [], downSteps = [];
+        parts.forEach(function (p) {
+            if (p.text != null) { sides.push(p); return; }
+            var name = p.down ? 'mianownik' : 'licznik', tail = p.down ? ' w mianowniku' : ' w liczniku', own = p.down ? downSteps : upSteps;
+            var sf = p.c0.length > 2 ? K.schoolFactor(p.c0, v, {}) : null, k = ONE, leaves;
+            if (sf) {
+                k = sf.k; leaves = sf.leaves;
+                // [EN] pierwiastek x = a znamy z 0/0 — bez szukania go wśród dzielników
+                var known = 'W(x) = ' + K.polyText(p.c0, v, {}) + '\n', skip = sf.steps.filter(function (st) {
+                    return st.label === 'Szukam pierwiastka wśród dzielników' && st.math.indexOf(known) === 0 && (/\nW\(([^)]*)\) = [^\n]*$/.exec(st.math) || [])[1] === K.fmt(a);
+                })[0];
+                sf.steps.forEach(function (st) { if (st !== skip) own.push(Object.assign({}, st, { label: st.label + tail })); });
+            } else {
+                leaves = [{ c: [K.neg(a), ONE], n: p.m }];
+                if (p.cEnd.length > 1) leaves.push({ c: p.cEnd, n: 1 }); else k = p.cEnd[0];
+                if (p.c0.length > 2 && p.tables.length) {
+                    line(own, 'Dzielę schematem Hornera' + tail, p.divLines.map(function (x) { return x.dl.replace(/^(.*?) = /, '⟦$1⟧ = '); }).join('\n'), 'schemat-hornera', { horner: p.tables });
+                    own[own.length - 1].formula.here = K.hornerHere(p.tables);
+                }
+            }
+            leaves = leaves.map(function (l) {
+                if (!isRoot(l)) return { c: l.c, n: l.n * p.pow };
+                // [EN] nawias z pierwiastkiem zawsze w tej samej postaci (całkowite, dodatni x): (2x − 1), nie (x − 1/2)
+                var den = l.c[0].d * l.c[1].d, ints = l.c.map(function (x) { return x.n * (den / x.d); });
+                var g = K.gcd(ints[0] < 0n ? -ints[0] : ints[0], ints[1] < 0n ? -ints[1] : ints[1]), s = K.R(ints[1] < 0n ? -den : den, g);
+                k = K.div(k, K.powR(s, l.n));
+                rootC = l.c.map(function (x) { return K.mul(x, s); });
+                return { c: rootC, n: l.n * p.pow, root: true };
+            });
+            sides.push({ down: p.down, name: name, k: K.powR(k, p.pow), leaves: leaves });
+        });
+        var count = function (down) { return sides.reduce(function (acc, sd) { return acc + (sd.leaves && sd.down === down ? sd.leaves.reduce(function (x, l) { return x + (l.root ? l.n : 0); }, 0) : 0); }, 0); };
+        var cut = Math.min(count(false), count(true));
+        if (!cut) throw new NotSupported();
+        upSteps.concat(downSteps).forEach(function (st) { log.push(st); }); // [EN] licznik przed mianownikiem
+        var join = function (list, lead) { // [EN] liczba przed iloczynem nie skleja się z poprzednim nawiasem: (x − 1)·2(x + 1)
+            return list.filter(Boolean).map(function (s, i) { return (i || lead) && !/^[(a-z]/.test(s) ? '(' + s + ')' : s; }).join('');
+        };
+        var den = function (x) { return /^[^\s()]+$/.test(x) || /^\([^()]*\)[⁰¹²³⁴⁵⁶⁷⁸⁹]*$/.test(x) ? x : '(' + x + ')'; };
+        var frac = function () {
+            var txt = function (down) { return sides.filter(function (sd) { return sd.down === down; }).map(function (sd) { return sd.text != null ? sd.text : K.factorText(sd.k, sd.leaves.filter(function (l) { return l.n > 0; }), v, {}); }); };
+            var up = join(txt(false), !!coef), dn = join(txt(true), false);
+            return head + coef + upOr1(up) + (dn ? '/' + den(dn) : '');
+        };
+        line(log, 'Rozkładamy na czynniki', frac());
+        [false, true].forEach(function (down) {
+            var left = cut;
+            sides.forEach(function (sd) {
+                if (sd.text != null || sd.down !== down) return;
+                sd.leaves = sd.leaves.map(function (l) { if (!l.root || !left) return l; var d = Math.min(left, l.n); left -= d; return { c: l.c, n: l.n - d, root: true }; });
+            });
+        });
+        var after = frac();
+        line(log, 'Skracamy (' + K.polyText(rootC, v, {}) + ')' + (cut > 1 ? K.sup(String(cut)) : ''), after);
+        var out = C.num(e[0].c);
+        sides.forEach(function (sd) {
+            if (sd.text != null) { out = C.cMul(out, sd.expr); return; }
+            var sg = sd.down ? -1 : 1;
+            out = C.cMul(out, C.num(sd.down ? K.div(ONE, sd.k) : sd.k));
+            sd.leaves.forEach(function (l) { if (l.n) out = C.cMul(out, C.cPow(C.polyExpr(l.c, v), K.R(sg * l.n))); });
+        });
+        var mark = log.length, res = limitOf(out, v, t, log, depth), st = log[mark];
+        // [EN] podstawiamy do tej samej postaci iloczynowej, która stoi po skróceniu (nie do przestawionej przez C.show)
+        if (log.length === mark + 1 && /^Podstawiamy /.test(st.label) && res.kind === 'num') {
+            var body = after.slice(head.length), chain = plugSteps(out, v, t, res.e, body);
+            if (chain.length > 1) st.math = head + body + ' = ' + chain.join(' = ');
+        }
+        return res;
+    }
     function grpFactor(x, pow) {
         var s = x.length > 1 ? '(' + C.show(x) + ')' : C.show(x);
         return pow > 1 ? (x.length > 1 ? s : '(' + s + ')') + K.sup(String(pow)) : s;
@@ -1260,6 +1359,7 @@
     var WORK_BUDGET = 1500; // [EN] operacji w wysokiej precyzji na zadanie; zestaw 58 zużywa najwyżej ~670, (x − sin x)/x³ ~1100
     // [EN] sposoby: _prefer = reguła próbowana najpierw w pierwszym ruchu; _first = reguła, która zrobiła pierwszy ruch
     var _prefer = null, _first = null;
+    var _factorMode = 'school'; // [EN] factorCancel: 'school' (rozkład jak w szkole) albo 'horner' (sposób „Schemat Hornera”)
     function limitOf(e, v, t, log, depth) {
         if ((depth || 0) > MAX_DEPTH) throw new NotSupported();
         var top = !depth, order = top && _prefer ? [_prefer].concat(RULES.filter(function (r) { return r !== _prefer; })) : RULES;
@@ -1372,7 +1472,7 @@
         var res = K.done('Granica', out.text, out.value, steps);
         // [EN] drugi sposób: 0/0 przy x → liczba — de l'Hospital obok rozkładu/sprzężenia/znanej granicy (Mateusz, zadania 7–9)
         if (ind === '0/0' && isFiniteTarget(d.target) && METHOD[first]) {
-            var alt = steps.slice(0, steps.length - 1).filter(function (s, i) { return i === 0 || s.label === 'Zapisujemy inaczej'; });
+            var alt = methodStart(steps);
             _prefer = lHospital; _work = 0; _budget = WORK_BUDGET;
             try {
                 var ansL = limitOf(e, d.v, d.target, alt, 0);
@@ -1387,10 +1487,24 @@
             } catch (err) { if (!(err instanceof NotSupported) && !(err instanceof RangeError)) throw err; }
             finally { _prefer = null; _budget = Infinity; }
         }
+        // [EN] rozkład szkolny jest domyślny; dzisiejsze kroki z tabelkami to osobny sposób „Schemat Hornera”, gdy się różnią
+        if (ind === '0/0' && isFiniteTarget(d.target) && first === 'factorCancel') {
+            var alt3 = methodStart(steps);
+            _prefer = factorCancel; _factorMode = 'horner'; _work = 0; _budget = WORK_BUDGET;
+            try {
+                var ansH = limitOf(e, d.v, d.target, alt3, 0);
+                if (_first === 'factorCancel' && agrees(ansH, truth) && formatAnswer(ansH).text === out.text) {
+                    alt3.push({ label: 'Wynik', math: userLim(d, e) + ' = ' + out.text, final: true });
+                    var key = function (st) { return JSON.stringify(st.map(function (x) { return x.math; })); }; // [EN] same etykiety się różnią (x⁵ − 1) — to nie inny sposób
+                    if (key(alt3) !== key(steps)) res.explain.methods = (res.explain.methods || [{ label: METHOD[first], steps: steps }]).concat([{ label: 'Schemat Hornera', steps: alt3 }]);
+                }
+            } catch (err) { if (!(err instanceof NotSupported) && !(err instanceof RangeError)) throw err; }
+            finally { _prefer = null; _factorMode = 'school'; _budget = Infinity; }
+        }
         // [EN] etap 1 sposobów: 1^∞ — wzór skrócony obok dorabiania jedynki; ∞/∞ — de l'Hospital obok najwyższej potęgi
         var other = !res.explain.methods && (ind === '1^∞' && first === 'eLimit' ? eShortcut : ind === '∞/∞' && first === 'dominantPower' && d.v !== 'n' ? lHospital : null);
         if (other) {
-            var alt2 = steps.slice(0, steps.length - 1).filter(function (s, i) { return i === 0 || s.label === 'Zapisujemy inaczej'; });
+            var alt2 = methodStart(steps);
             _prefer = other; _work = 0; _budget = WORK_BUDGET;
             try {
                 var ans2 = limitOf(e, d.v, d.target, alt2, 0);
@@ -1403,6 +1517,8 @@
         }
         return res;
     }
+    // [EN] początek drugiego sposobu: krok 1 i ewentualne „Zapisujemy inaczej” z pierwszego
+    function methodStart(steps) { return steps.slice(0, steps.length - 1).filter(function (s, i) { return i === 0 || s.label === 'Zapisujemy inaczej'; }); }
     // [EN] nazwy sposobów do przełącznika w krokach (pierwszy ruch silnika)
     var METHOD = { factorCancel: 'Rozkład na czynniki', conjugate: 'Sprzężenie', knownLimits: 'Znana granica', commonDenominator: 'Wspólny mianownik',
         eLimit: 'Dorabianie jedynki', eShortcut: 'Wzór skrócony', dominantPower: 'Najwyższa potęga', lHospital: "de l'Hospital" };
