@@ -922,7 +922,7 @@
             var fr = splitFraction(p.f), par = function (x) { return x.length > 1 ? '(' + C.show(x) + ')' : C.show(x); };
             // [EN] różnica jak na kartce: wyrazy z n najpierw (−3n + 6, nie 6 − 3n), potem postać z h (−3(n − 2))
             var dsum = fold(C.expandExpr(C.cSub(fr.N, fr.D)));
-            var dsh = dsum.slice().sort(function (x, y) { return (y.fs.length > 0) - (x.fs.length > 0); })
+            var dsh = dsum.slice().sort(function (x, y) { return Number(y.fs.length > 0) - Number(x.fs.length > 0); })
                 .map(function (x, i) { var t = C.show([x]); return i === 0 ? t : /^−/.test(t) ? ' − ' + t.slice(1) : ' + ' + t; }).join('');
             var hn = C.show(splitFraction(h).N);
             var diff = isOne(fr.D) ? '' : '\n' + par(fr.N) + ' − ' + par(fr.D) + ' = ' + dsh + (hn !== dsh ? ' = ' + hn : '');
