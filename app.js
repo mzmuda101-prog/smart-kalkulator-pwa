@@ -16326,6 +16326,33 @@
                 var pass = r.value != null && Math.abs(r.value - t.value) < 1e-6 && (r.unit || null) === t.unit;
                 results.push({ expr: t.expr + ' (P% od B)', pass: pass, got: r.value + ' ' + r.unit });
             });
+            // Sens wyniku (audyt 2026-11-24): każdy z tych dawał cicho zły wynik.
+            [
+                { expr: '-2^2', value: -4 },                 // znak słabszy niż potęga (było 4)
+                { expr: '-2^2+1', value: -3 },
+                { expr: '2*-3^2', value: -18 },
+                { expr: '2^-2', value: 0.25 },
+                { expr: '(-2)^2', value: 4 },
+                { expr: '(100 + 10%) * 2', value: 220 },     // P% w nawiasie (było 200,2)
+                { expr: '2 * (100 - 20%)', value: 160 },
+                { expr: '23% vat od 100', value: 23 },        // stawka przed „vat” (było 5,29)
+                { expr: 'średnia 2,5 3,5', value: 3 },        // przecinek dziesiętny w liście (było 3,75)
+                { expr: '3 1/2', value: 3.5 },                // liczba mieszana (było 15,5)
+                { expr: '2 3', value: null },                 // dwie liczby to nie 23
+                { expr: '12 5 zł', value: null },
+                { expr: '100 Mb na MB', value: null },        // bity ≠ bajty (było 100 MB)
+                { expr: '29.02.2026', value: null, text: null }, // nie ma takiej daty (było 1.3.2026)
+                { expr: 'ile dni do 31.04', value: null },
+                { expr: '31.01.2026 + 1 miesiąc', text: '28.2.2026 (sobota)' }, // koniec miesiąca (było 3.3)
+                { expr: '31.03.2026 - 1 miesiąc', text: '28.2.2026 (sobota)' },
+                { expr: '29.02.2028 + 1 rok', text: '28.2.2029 (środa)' },
+            ].forEach(function(t) {
+                var r = evalCalcExpression(t.expr) || {};
+                var pass = 'text' in t && t.text !== null ? r.text === t.text
+                    : t.value === null ? r.value == null && !r.text
+                    : r.value != null && Math.abs(r.value - t.value) < 1e-9;
+                results.push({ expr: t.expr + ' (sens wyniku)', pass: pass, got: r.text || r.value });
+            });
             // PIT / pensja (parametry 2026, _TAX_PL). Wartości pensji = publikowane kalkulatory
             // wynagrodzeń (2026 min. 4 806 → 3 605,85; 2025 min. 4 666 → 3 510,92).
             [

@@ -641,7 +641,12 @@
         if (_todayOverride) return new Date(_todayOverride.getTime());
         var d = new Date(); d.setHours(0, 0, 0, 0); return d;
     }
-    function _validDMY(d, m, y) { return m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1 && y <= 9999; }
+    // dzień musi istnieć w tym miesiącu: 30 lutego, 31.04 → brak wyniku (było: cicho 1–2 marca / 1 maja)
+    function _validDMY(d, m, y) {
+        if (!(m >= 1 && m <= 12 && d >= 1 && y >= 1 && y <= 9999)) return false;
+        var leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+        return d <= [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1];
+    }
     function _fmtDate(d) {
         return d.getDate() + '.' + (d.getMonth() + 1) + '.' + d.getFullYear() + ' (' + _PL_WEEKDAYS[d.getDay()] + ')';
     }
@@ -678,6 +683,8 @@
         else if (/^miesi|^month/.test(u)) mo += n;
         else if (/^(lat|rok|roku|year)/.test(u)) y += n;
         else da += n;
+        // 31.01 + 1 miesiąc = 28.02 (ostatni dzień), nie 3.03 — jak w kalendarzu i w Excelu
+        if (/^miesi|^month|^(lat|rok|roku|year)/.test(u)) da = Math.min(da, new Date(y, mo + 1, 0).getDate());
         d.setTime(new Date(y, mo, da).getTime());
     }
     // Kalendarz na pełnym momencie („teraz") — zachowuje godzinę (setDate, nie konstruktor).
@@ -685,8 +692,12 @@
         n = Math.round(n) * sign;
         u = u.toLowerCase();
         if (/^tyg|^tydzie|^week/.test(u)) d.setDate(d.getDate() + n * 7);
-        else if (/^miesi|^month/.test(u)) d.setMonth(d.getMonth() + n);
-        else if (/^(lat|rok|roku|year)/.test(u)) d.setFullYear(d.getFullYear() + n);
+        else if (/^miesi|^month|^(lat|rok|roku|year)/.test(u)) {
+            // jak wyżej: 31.01 14:00 + 1 miesiąc = 28.02 14:00, bez przeskoku na marzec
+            var mo2 = d.getMonth() + (/^miesi|^month/.test(u) ? n : 12 * n), day2 = d.getDate();
+            d.setDate(1); d.setMonth(mo2);
+            d.setDate(Math.min(day2, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()));
+        }
         else d.setDate(d.getDate() + n);
     }
     // Prawa strona „+/- offsetu" daty: „5dni", „5 dni", „20h", „1h30" (spacje opcjonalne).
@@ -1582,7 +1593,10 @@
         var m = s.match(/^(srednia|average|mean|avg|suma|sum|min(?:imum)?|max(?:imum)?|maksimum|mediana|median)\s+(?:z|of)\s+(.+)$/i);
         if (!m) return null;
         var kind = m[1].toLowerCase();
-        var tokens = m[2].trim().replace(/[,:;]+$/g, '').split(/[\s,;:]+/).filter(Boolean);
+        var list = m[2].trim().replace(/[,:;]+$/g, '');
+        // „średnia 2,5 3,5”: spacje rozdzielają, a przecinek tylko między cyframi = ułamek (było 3,75 zamiast 3)
+        var commaDecimal = /\s/.test(list) && !/,(?!\d)|(?<!\d),/.test(list);
+        var tokens = list.split(commaDecimal ? /[\s;:]+/ : /[\s,;:]+/).filter(Boolean);
         if (!tokens.length) return null;
         var values = [];
         for (var i = 0; i < tokens.length; i++) {
@@ -2024,8 +2038,9 @@
                 var f = '(1+' + _vatRate(r) + '/100)';
                 return '(' + a + (op === '-' ? '/' : '*') + f + ')';
             });
-        raw = raw.replace(/\b(?:vat|tax)(?:\s+([\d.,]+)\s*%)?\s+(?:od|from|of|on)\s+([\d.,]+)/gi,
-            function(_, r, x) { return '(' + x.replace(',', '.') + '*' + _vatRate(r) + '/100)'; });
+        // stawka przed lub po słowie: „vat 8% od 100” i „8% vat od 100” (było: 8% z 8 = 0,64)
+        raw = raw.replace(/(?:([\d.,]+)\s*%\s*)?\b(?:vat|tax)(?:\s+([\d.,]+)\s*%)?\s+(?:od|from|of|on)\s+([\d.,]+)/gi,
+            function(_, r1, r2, x) { return '(' + x.replace(',', '.') + '*' + _vatRate(r1 || r2) + '/100)'; });
         raw = raw.replace(/([\d.,]+)\s+(?:vat|tax)(?:\s+([\d.,]+)\s*%)?\s+(?:od|from|of|on)\b/gi,
             function(_, x, r) { return '(' + x.replace(',', '.') + '*' + _vatRate(r) + '/100)'; });
         raw = raw.replace(/dodaj\s+([\d.,]+)%\s+do\s+([\d.,]+)/gi,
@@ -2049,11 +2064,22 @@
         // „odejmij P% od B", „P% rabatu na B", „B − P%".)
         raw = raw.replace(/([\d.,]+)%\s+od\s+([\d.,]+)/gi, '($2*$1/100)');
         var _pctRe = /^([^%]*[^%\s])\s*([+\-])\s*([\d.,]+)%(?=\s*(?:[+\-]|$))/;
-        for (var _pctGuard = 0; _pctRe.test(raw) && _pctGuard < 40; _pctGuard++) {
-            raw = raw.replace(_pctRe, function(_, base, op, b) {
-                return '(' + base + ')' + op + '((' + base + ')*' + b.replace(',', '.') + '/100)';
-            });
+        function _pctChain(str) {
+            for (var g = 0; _pctRe.test(str) && g < 40; g++) {
+                str = str.replace(_pctRe, function(_, base, op, b) {
+                    return '(' + base + ')' + op + '((' + base + ')*' + b.replace(',', '.') + '/100)';
+                });
+            }
+            return str;
         }
+        // „(100 + 10%) * 2” = 220: najpierw najgłębsze nawiasy z „B ± P%” (było 200,2 — 10% szło jako 0,1)
+        var _pctGrp = /\(([^()]*[+\-]\s*[\d.,]+%\s*)\)/;
+        for (var _pg = 0; _pctGrp.test(raw) && _pg < 40; _pg++) {
+            var _before = raw;
+            raw = raw.replace(_pctGrp, function(_, inner) { return '(' + _pctChain(inner.trim()) + ')'; });
+            if (raw === _before) break;
+        }
+        raw = _pctChain(raw);
         raw = raw.replace(/([\d.,]+)%/g, '($1/100)');
         return raw;
     }
@@ -2254,6 +2280,8 @@
         if (!tolerated) return _dbgFail(opts, 'empty_input');
         // Agregaty („suma z 100 200 300”) to LISTY liczb — tam spacja rozdziela pozycje.
         var original = _expandPhysConstants(_expandBaseLiterals(_normalizeCompactMultiplier(_joinThousandGroups(tolerated))));
+        // liczba mieszana: „3 1/2” = 3,5, „2 1/4 kg” = 2,25 kg (było 31/2 = 15,5 po zjedzeniu spacji)
+        original = original.replace(/(^|[\s(+\-*×])(\d+) (\d+)\/(\d+)(?![\d.,\/])/g, '$1($2+$3/$4)');
         var fxRates = opts.fxRates || {};
         var currencyOpts = {
             fxRates: fxRates,
@@ -2358,6 +2386,10 @@
                 }
             }
             var exprBeforeUnits = expr;
+            // Mb/Gb/Tb (bity) — tabela jednostek zna tylko bajty i bez tego „100 Mb na MB” dawało
+            // 100 MB zamiast 12,5. Cichy zły wynik jest gorszy niż brak. (Transfer „1 TB przy 100 Mbps” ma własną trasę wyżej.)
+            // shortcut: odmowa zamiast przeliczania bitów; dodać bity do tabeli, gdy ktoś o nie poprosi
+            if (/(?:\d|\b(?:na|w|to|in))\s*[KMGTP]b(?:\/s|ps)?(?![A-Za-z])/.test(original)) return _dbgFail(opts, 'bits_unsupported');
             var unitResult = resolveUnitsExpression(expr, unitOpts);
             if (!curRes.hasCurrency && !firstUnitWins) {
                 var qalgOut = _tryQuantityAlgebra(exprBeforeUnits, unitResult, unitOpts);
@@ -2379,6 +2411,8 @@
             if (/[a-z]\s*\(/i.test(expr)) expr = expr.replace(/,\s+/g, ';');
             expr = expr.replace(/,(?=\d)/g, '.');
             expr = expr.replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-');
+            // dwie liczby obok siebie („2 3”, „12 5 zł”) to nie liczba 23 — bez zgadywania
+            if (/\d\s+\.?\d/.test(expr)) return _dbgFail(opts, 'split_number', expr);
             expr = expr.replace(/\s+/g, '');
             if (!expr) return _dbgFail(opts, 'empty_expr');
             var fn = _NUM.compileGraphExpression ? _NUM.compileGraphExpression(expr) : null;

@@ -36,6 +36,9 @@
         // 18446744073709600000 zamiast 18446744073709551616 (a „2^64 + 1" to samo).
         // Prawostronnie łączna, jak w compileGraphExpression.
         function parsePow() {
+            // znak słabszy niż potęga: -2^64 = -(2^64)
+            if (peek() === '-') { i++; return -parsePow(); }
+            if (peek() === '+') { i++; return parsePow(); }
             var base = parseFactor();
             if (peek() !== '^') return base;
             i++;
@@ -216,22 +219,22 @@
             return value;
         }
 
+        // Znak słabszy niż potęga, jak w szkole: -2^2 = -(2^2) = -4; 2^-2 dalej = 0,25.
         function parseFactor() {
+            if (peek() && peek().type === 'operator' && (peek().value === '+' || peek().value === '-')) {
+                var op = consume().value;
+                var neg = parseFactor();
+                return op === '-' ? -neg : neg;
+            }
             var value = parseUnary();
-            while (peek() && peek().type === 'operator' && peek().value === '^') {
+            if (peek() && peek().type === 'operator' && peek().value === '^') {
                 consume();
-                var rhs = parseFactor();
-                value = Math.pow(value, rhs);
+                value = Math.pow(value, parseFactor());
             }
             return value;
         }
 
         function parseUnary() {
-            if (peek() && peek().type === 'operator' && (peek().value === '+' || peek().value === '-')) {
-                var op = consume().value;
-                var value = parseUnary();
-                return op === '-' ? -value : value;
-            }
             var v = parsePrimary();
             while (peek() && peek().type === 'operator' && peek().value === '!') { consume(); v = factorial(v); }
             return v;
@@ -265,7 +268,11 @@
                 }
                 // sin²x, sin^2(x): potęga przy nazwie funkcji dotyczy wyniku funkcji
                 var power = null;
-                if (peek() && peek().type === 'operator' && peek().value === '^') { consume(); power = parseUnary(); }
+                if (peek() && peek().type === 'operator' && peek().value === '^') {
+                    consume();
+                    var pSign = peek() && peek().type === 'operator' && peek().value === '-' ? (consume(), -1) : 1; // sin^-1
+                    power = pSign * parseUnary();
+                }
                 if (peek() && peek().type === 'paren' && peek().value === '(') {
                     consume();
                     var args = [parseExpression()];
