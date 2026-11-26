@@ -148,8 +148,8 @@
             {
                 title: 'Finanse — VAT (domyślnie 23%, własna stawka z % na końcu)',
                 items: [
-                    { syntax: 'brutto B', syntaxAlt: 'gross B', command: 'brutto {net}', yields: 'B × 1,23 (netto → brutto)', description: 'B = kwota netto' },
-                    { syntax: 'netto B', syntaxAlt: 'net B', command: 'netto {gross}', yields: 'B ÷ 1,23 (brutto → netto)', description: 'B = kwota brutto' },
+                    { syntax: 'brutto B', syntaxAlt: 'gross B', command: 'brutto {net}', yields: 'B × 1,23 (netto → brutto)', description: 'B = kwota netto; chip „To pensja?” liczy jako wypłatę' },
+                    { syntax: 'netto B', syntaxAlt: 'net B', command: 'netto {gross}', yields: 'B ÷ 1,23 (brutto → netto)', description: 'B = kwota brutto; chip „To pensja?” liczy na rękę' },
                     { syntax: 'brutto B P%', syntaxAlt: 'gross B P%', command: 'brutto {net} {vatCustom}%', yields: 'B × (1 + P/100)', description: 'własna stawka VAT' },
                     { syntax: 'netto B P%', syntaxAlt: 'net B P%', command: 'netto {gross} {vatCustom}%', yields: 'B ÷ (1 + P/100)', description: 'brutto → netto przy stawce P' },
                     { syntax: 'B - vat', syntaxAlt: 'B - tax', command: '{grossRm} - vat', yields: 'B ÷ 1,23', description: 'usuń VAT 23% z brutta' },

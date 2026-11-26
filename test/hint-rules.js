@@ -55,5 +55,17 @@ ok('B3: nie rusza gdy brak zmian (100 + 23)', H.normalizeIntent('100 + 23') === 
 ok('B3: nie łapie „przez" w środku słowa (przezrocze)', H.normalizeIntent('przezrocze 5') === null);
 ok('B3: pusty/tekstowy → null', H.normalizeIntent('') === null && H.normalizeIntent('zwykły tekst') === null);
 
+// Brutto/netto: VAT ↔ pensja jednym chipem (podmienia całe wyrażenie, ta sama kwota)
+function sw(e) { var c = H.getLiveHints(e); return c.length === 1 && c[0].replace ? c[0] : null; }
+ok('netto 7000 → pensja 7000', (sw('netto 7000') || {}).replace === 'pensja 7000');
+ok('7 000 zł netto → pensja 7 000 zł', (sw('7 000 zł netto') || {}).replace === 'pensja 7 000 zł');
+ok('brutto 5000 → pensja netto 5000', (sw('brutto 5000') || {}).replace === 'pensja netto 5000');
+ok('100 zł netto ile brutto → pensja netto 100 zł', (sw('100 zł netto ile brutto') || {}).replace === 'pensja netto 100 zł');
+ok('pensja 7000 → netto 7000 zł', (sw('pensja 7000') || {}).replace === 'netto 7000 zł');
+ok('pensja netto 5000 → brutto 5000 zł', (sw('pensja netto 5000') || {}).replace === 'brutto 5000 zł');
+ok('krótki podpis + pełny opis', (sw('netto 7000') || {}).label === 'To pensja?' && /na rękę z 7000 brutto/.test((sw('netto 7000') || {}).title));
+ok('ze stawką albo słowem vat — bez chipa', !sw('netto 100 8%') && !sw('100 + vat') && !sw('vat od 100'));
+ok('inna waluta — bez chipa (pensja tylko w zł)', !sw('netto 7000 €'));
+
 console.log('  ' + (fail ? '✗' : '✓') + ' hint-rules: ' + pass + '/' + (pass + fail) + ' PASS');
 process.exit(fail ? 1 : 0);

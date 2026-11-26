@@ -2097,7 +2097,9 @@
             }
             if (lines === 1 && calcExpr.value) { // obok wyrażenia: lewa, wolna część wiersza (wyrażenie stoi z prawej)
                 var free = w.width - tw - padX - 12;
-                if (free >= 96) {
+                var firstChip = calcLiveHint.firstElementChild; // krótki chip („To pensja?”) mieści się w mniejszej szczelinie
+                var need = Math.min(96, firstChip ? firstChip.offsetWidth + 4 : 96);
+                if (free >= need) {
                     calcLiveHint.classList.add('is-beside');
                     set(w.top - d.top + padT + (lh - _INLINE_CHIP_H) / 2, w.left - d.left, free);
                     return;
@@ -2129,12 +2131,18 @@
         function _makeLiveHintChip(c) {
             var btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = 'calc-hint-chip';
+            btn.className = 'calc-hint-chip' + (c.replace != null ? ' calc-hint-chip--suggest' : ''); // długi podpis → wielokropek, nie wyjazd za ekran
             btn.textContent = c.label || c;
+            if (c.title) { btn.title = c.title; btn.setAttribute('aria-label', c.title); }
             btn.addEventListener('mousedown', function (e) { e.preventDefault(); }); // fokus zostaje w polu
             btn.addEventListener('click', function () {
                 if (!calcExpr) return;
-                insertAtCursor(calcExpr, c.insert != null ? c.insert : (' ' + c));
+                if (c.replace != null) { // chip „Jako pensja / Jako VAT” podmienia całe wyrażenie
+                    calcExpr.value = c.replace;
+                    try { calcExpr.setSelectionRange(c.replace.length, c.replace.length); } catch (_e) { /* pole bez zaznaczenia */ }
+                } else {
+                    insertAtCursor(calcExpr, c.insert != null ? c.insert : (' ' + c));
+                }
                 liveEval();
             });
             return btn;

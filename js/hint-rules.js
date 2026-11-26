@@ -119,10 +119,48 @@
         'lim x→0+ 1/x', 'granica sin(3x)/x przy x → 0', 'uprość √8'
     ];
 
+    /* „Brutto/netto” znaczy co innego przy fakturze (VAT) i przy pensji (składki + PIT).
+       Silnik bierze VAT, bo pensja ma własne słowa — tu jednym chipem przełączamy na drugie
+       znaczenie z TĄ SAMĄ kwotą (chip podmienia całe wyrażenie, nie dokleja).
+       Ze stawką („netto 100 8%”) albo słowem „vat” nie ma wątpliwości → bez chipa. */
+    var _AMT = '(\\d[\\d\\s.,]*\\d|\\d)', _CUR = '(?:\\s*(?:zl|zł|pln))?';
+    var _VAT_ASK = '(?:(?:a\\s+)?(?:to\\s+)?ile\\s+(?:to\\s+)?|na\\s+|w\\s+|to\\s+)';
+    function _re(src) { return new RegExp('^' + src + '$'); }
+    var MEANING_SWITCH = [
+        // VAT „netto z kwoty brutto” ↔ pensja „na rękę z brutto”
+        { re: [_re('netto\\s+' + _AMT + _CUR), _re(_AMT + _CUR + '\\s+netto'), _re(_AMT + _CUR + '\\s+brutto\\s+' + _VAT_ASK + 'netto')],
+          short: 'To pensja?', label: function (a) { return 'Licz jako pensję: na rękę z ' + a + ' brutto'; }, to: function (a) { return 'pensja ' + a; } },
+        // VAT „brutto z kwoty netto” ↔ pensja „brutto dla kwoty na rękę”
+        { re: [_re('brutto\\s+' + _AMT + _CUR), _re(_AMT + _CUR + '\\s+brutto'), _re(_AMT + _CUR + '\\s+netto\\s+' + _VAT_ASK + 'brutto')],
+          short: 'To pensja?', label: function (a) { return 'Licz jako pensję: brutto dla ' + a + ' na rękę'; }, to: function (a) { return 'pensja netto ' + a; } },
+        // i z powrotem: pensja → VAT
+        { re: [_re('(?:pensja|uop|wynagrodzenie)\\s+' + _AMT + _CUR)],
+          toVat: true, short: 'To VAT?', label: function (a) { return 'Licz jako VAT: netto z ' + a + ' brutto'; }, to: function (a) { return 'netto ' + a; } },
+        { re: [_re('(?:pensja|uop|wynagrodzenie)\\s+netto\\s+' + _AMT + _CUR)],
+          toVat: true, short: 'To VAT?', label: function (a) { return 'Licz jako VAT: brutto z ' + a + ' netto'; }, to: function (a) { return 'brutto ' + a; } },
+    ];
+    function meaningSwitch(n) {
+        for (var i = 0; i < MEANING_SWITCH.length; i++) {
+            var rule = MEANING_SWITCH[i];
+            for (var j = 0; j < rule.re.length; j++) {
+                var m = n.match(rule.re[j]);
+                if (m) { // waluta zostaje: „7 000 zł netto” → „pensja 7 000 zł”
+                    var a = m[1].trim(), cur = /(?:^|[\s\d])(?:z[lł]|pln)(?=\s|$)/.test(n) ? ' zł' : '';
+                    if (rule.toVat) cur = ' zł'; // pensja jest zawsze w złotych — VAT też liczymy w zł
+                    // krótki podpis mieści się obok wyrażenia na telefonie; pełny opis → title/aria-label
+                    return [{ label: rule.short, title: rule.label(a + cur), replace: rule.to(a) + cur }];
+                }
+            }
+        }
+        return null;
+    }
+
     function getLiveHints(expr) {
         var raw = String(expr || '').trim();
         if (!raw) return [];
-        var n = norm(raw);
+        var n = norm(raw).replace(/\s+/g, ' ');
+        var sw = meaningSwitch(n);
+        if (sw) return sw;
         if (hasCompleteTransform(n)) return [];
         for (var i = 0; i < LIVE_RULES.length; i++) {
             if (LIVE_RULES[i].test(n, raw)) return LIVE_RULES[i].chips(raw) || [];
