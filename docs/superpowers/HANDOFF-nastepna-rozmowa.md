@@ -13,6 +13,14 @@ Na start przywitaj się krótko, powiedz, co przeczytałeś, i zaproponuj nastę
 - Granice: podstawienie pokazuje rachunek poziomami (bramka w testach: każde „Podstawiamy” z rachunkiem, bez gołych liczb ujemnych); krok „Dzielimy schematem Hornera” z tabelkami przed rozkładem (bramka: każdy rozkład ma Hornera).
 - Przegląd całego silnika: 224 zadania, 4 działy + stare raporty C, D, E → 91 uwag (10 krytycznych), 14 wzorców lekkiej interaktywności.
 
+## W TOKU (2026-11-27): etap „dymki przy podstawach”
+- Gałąź `dymki-podstawy`, kopia robocza `.worktrees/dymki-podstawy` (HEAD 6bdb2f0, na origin/main v1.05.63). Zrobione: tabela reguł
+  `STEP_RULES` + bramka `test/step-coverage.js` (100% kroków w `queries.js`), przycisk z książką, 31 nowych haseł.
+- Zostało: tura poprawek z końcowego przeglądu i ucznia — lista 9 punktów w
+  `.worktrees/dymki-podstawy/.superpowers/sdd/2026-11-24-dymki-podstawy/final-fixes.md` (dziennik: `progress.md` obok),
+  potem krótki przegląd, rebase na origin/main, wydanie v1.05.65 (lub wyżej, jeśli main poszedł dalej).
+- Pomysł Mateusza na później: „rozumienie zdań” (np. `100m w 5 min to ile km/h`; silnik liczy `100 m / 5 min to km/h`) — osobny etap, uzgodnić z sesją od parsera.
+
 ## Następny krok (do decyzji Mateusza)
 - Zrobione: partia 2a-1 (v1.05.55), rozkład jak w szkole = paczka A sposobów (v1.05.60).
 - Do wyboru: **paczka B sposobów** z `docs/superpowers/research/sposoby-katalog.md` (nierówności „wężykiem”, Cramer/Gauss,
