@@ -28,30 +28,20 @@ const kind = (/** @type {string} */ label) => label.replace(/[−+]?\d+([.,/]\d+
 // bramka pada, gdy wpis nie jest już potrzebny (żaden krok bez dymku go nie używa).
 const PENDING = [
     "Sprawdzenie", // tylko całki: „(x³/3)′ = x² ✓” (pochodna wyniku; równania i układy → sprawdzenie)
-    "Podstawiamy v = #", // 65× „Podstawiamy x = 4”
-    "Wyrazy z v w mianowniku dążą do #", // 53× „Wyrazy z n w mianowniku dążą do 0”
-    "Skracamy (…)", // 40× „Skracamy (−x)”
     "Rozkładamy na czynniki", // 37× „Rozkładamy na czynniki”
+    // [EN] bez hasła z powodu: pięć różnych przekształceń pod jedną etykietą (wyłączenie liczby z sumy, minusa, liczby spod pierwiastka,
+    // przestawienie składników); żadna jedna reguła nie jest prawdziwa dla wszystkich. Do tabeli skoków (osobny podział etykiet w silniku).
     "Zapisujemy inaczej", // 27× „Zapisujemy inaczej”
     "Upraszczamy", // 26× „Upraszczamy”
-    "Wyłączamy v przed nawias", // 19× „Wyłączamy n przed nawias”
-    "Skracamy v", // 19× „Skracamy n”
     "Składamy wynik", // 18× „Składamy wynik”
     "Granica wykładnika", // 14× „Granica wykładnika”
     "Szukam pierwiastka wśród dzielników", // 11× „Szukam pierwiastka wśród dzielników”
-    "Wyłączamy v² przed nawias", // 10× „Wyłączamy n² przed nawias”
-    "Skracamy v²", // 10× „Skracamy n²”
     "Kolorowy ułamek dąży do #", // 8× „Kolorowy ułamek dąży do 1”
     "Stałą wyłączam przed całkę", // 8× „Stałą wyłączam przed całkę”
     "Mnożę przez wyłączoną stałą", // 8× „Mnożę przez wyłączoną stałą”
-    "Wyłączamy najwyższe potęgi przed nawias", // 5× „Wyłączamy najwyższe potęgi przed nawias”
     "Liczę pierwiastek z delty w liczniku", // 5× „Liczę pierwiastek z delty w liczniku”
     "Wciągam liczbę do nawiasu w liczniku", // 5× „Wciągam liczbę do nawiasu w liczniku”
     "Stała zostaje przed pochodną", // 5× „Stała zostaje przed pochodną”
-    "Wyłączamy v³ przed nawias", // 4× „Wyłączamy n³ przed nawias”
-    "Wyłączamy √v przed nawias", // 4× „Wyłączamy √n przed nawias”
-    "Skracamy √v", // 4× „Skracamy √n”
-    "Wyłączamy (…) przed nawias", // 4× „Wyłączamy (−x) przed nawias”
     "Liczę pierwiastek z delty w mianowniku", // 4× „Liczę pierwiastek z delty w mianowniku”
     "Wciągam liczbę do nawiasu w mianowniku", // 4× „Wciągam liczbę do nawiasu w mianowniku”
     "Szukam miejsc zerowych", // 4× „Szukam miejsc zerowych”
@@ -61,13 +51,9 @@ const PENDING = [
     "Wyznaczam A i B", // 4× „Wyznaczam A i B”
     "Rozkład na ułamki proste", // 4× „Rozkład na ułamki proste”
     "Każdy ułamek daje logarytm", // 4× „Każdy ułamek daje logarytm”
-    "Skracamy v³", // 3× „Skracamy n³”
     "Mnożę przez stałą", // 3× „Mnożę przez stałą”
     "Całkuję każdą część", // 3× „Całkuję każdą część”
     "Wracam do zmiennej v", // 3× „Wracam do zmiennej x”
-    "Wyłączamy v√v przed nawias", // 2× „Wyłączamy n√n przed nawias”
-    "Skracamy v√v", // 2× „Skracamy n√n”
-    "Logarytm jest ciągły", // 2× „Logarytm jest ciągły”
     "Rozwiązuję podwójną nierówność", // 2× „Rozwiązuję podwójną nierówność”
     "Mnożę", // 2× „Mnożę”
     "Upraszczam pierwiastek z delty", // 2× „Upraszczam pierwiastek z delty”
@@ -75,23 +61,12 @@ const PENDING = [
     "Liczę prawą stronę", // 2× „Liczę prawą stronę”
     "Porządkuję równania", // 2× „Porządkuję równania”
     "Podstawienie: v = v²", // 2× „Podstawienie: t = x²”
-    "Wyłączamy v⁵ przed nawias", // 1× „Wyłączamy n⁵ przed nawias”
-    "Skracamy v⁵", // 1× „Skracamy n⁵”
-    "Rozbijamy na dwie różnice", // 1× „Rozbijamy na dwie różnice”
-    "Dodajemy granice", // 1× „Dodajemy granice”
-    "Wyłączamy v⁶ przed nawias", // 1× „Wyłączamy n⁶ przed nawias”
-    "Skracamy v⁶", // 1× „Skracamy n⁶”
     "Dla v → −∞", // 1× „Dla x → −∞”
-    "Wyłączamy √(…) przed nawias", // 1× „Wyłączamy √(−x) przed nawias”
-    "Skracamy √(…)", // 1× „Skracamy √(−x)”
     "Szukam pierwiastka wśród dzielników w liczniku", // 1× „Szukam pierwiastka wśród dzielników w liczniku”
     "Szukam pierwiastka wśród dzielników w mianowniku", // 1× „Szukam pierwiastka wśród dzielników w mianowniku”
-    "Skracamy (…)²", // 1× „Skracamy (x + 1)²”
     "Najpierw nawias: dodaję", // 1× „Najpierw nawias: dodaję”
     "Potęguję", // 1× „Potęguję”
-    "Granica jednostronna #⁺", // 1× „Granica jednostronna 0⁺”
     "Wyciągam kwadrat spod pierwiastka", // 1× „Wyciągam kwadrat spod pierwiastka”
-    "Podstawiamy v → ∞", // 1× „Podstawiamy n → ∞”
     "Wciągam liczbę do nawiasu", // 1× „Wciągam liczbę do nawiasu”
     "Brak miejsc zerowych", // 1× „Brak miejsc zerowych”
     "Odczytuję znak z paraboli", // 1× „Odczytuję znak z paraboli”
@@ -178,6 +153,41 @@ ok('„Składam całość” → postac-iloczynowa', (attachRule({ label: 'Skła
     }
     // sprawdzenie całki to pochodna wyniku, a nie wstawianie liczby — hasło „sprawdzenie” by kłamało
     ok('„Sprawdzenie” całki bez hasła „sprawdzenie”', rule('Sprawdzenie', '(x³/3)′ = x² ✓').id !== 'sprawdzenie', rule('Sprawdzenie', '(x³/3)′ = x² ✓'));
+}
+{ // podstawy granic (zadanie 4)
+    const rule = (/** @type {string} */ label, /** @type {string} */ math) => attachRule({ label: label, math: math }).formula || {};
+    /** @type {Array<[string, string, string]>} */
+    const LIM = [
+        ['Wyłączamy n przed nawias', 'lim(n→∞) n(2 + 1/n)/(n(6 + 5/n))', 'granica-najwyzsza-potega'],
+        ['Wyłączamy n² przed nawias', 'lim(n→∞) n²(1 + 3/n)/(n²(2 + 5/n))', 'granica-najwyzsza-potega'],
+        ['Wyłączamy najwyższe potęgi przed nawias', 'lim(n→∞) n³(1 + 4/n)/(n⁴(1 + 3/n))', 'granica-najwyzsza-potega'],
+        ['Wyłączamy √n przed nawias', 'lim(n→∞) √n(1 + 7/√n)/(√n(√9 + 4/√n))', 'granica-najwyzsza-potega'],
+        ['Wyłączamy (−x) przed nawias', 'lim(x→−∞) −(−x)/((−x)√(3 + 5/x²))', 'granica-najwyzsza-potega'],
+        ['Skracamy n²', 'lim(n→∞) (1 + 3/n)/(2 + 5/n)', 'granica-najwyzsza-potega'],
+        ['Skracamy (−x)', 'lim(x→−∞) −1/√(3 + 5/x²)', 'granica-najwyzsza-potega'],
+        ['Skracamy √(−x)', 'lim(x→−∞) 12√(2 − 7/x)/(√(8 − 15/x))', 'granica-najwyzsza-potega'],
+        ['Skracamy (x − 4)', 'lim(x→4) (x − 2)/(3x + 2)', 'skracanie-czynnika-w-granicy'],
+        ['Skracamy (2x − 1)', 'lim(x→0,5) (x + 1)/(2x + 1)', 'skracanie-czynnika-w-granicy'],
+        ['Skracamy (x + 1)²', 'lim(x→−1) (3x + 2)/(2x² − 5)', 'skracanie-czynnika-w-granicy'],
+        ['Wyrazy z n w mianowniku dążą do 0', '→ (2 + 0)/(6 + 0) = 1/3', 'granice-podstawowe'],
+        ['Wyrazy z x w mianowniku dążą do 0', '→ −1/√(3 + 0) = −√3/3', 'granice-podstawowe'],
+        ['Podstawiamy n → ∞', '1/n → 0:  (1 − 0)² = 1', 'granice-podstawowe'],
+        ['Podstawiamy x = 4', 'lim(x→4) (x − 2)/(3x + 2) = (4 − 2)/(3 · 4 + 2) = 1/7', 'granica-ciaglosc'],
+        ['Podstawiamy x = −0,5', 'lim(x→−0,5) x/3 = (−1/2)/3 = −1/6', 'granica-ciaglosc'],
+        ['Granica jednostronna 0⁺', 'licznik → 1, mianownik → 0⁺,  lim(x→0⁺) 1/x = +∞', 'granica-jednostronna'],
+        ['Rozbijamy na dwie różnice', 'lim(n→∞) [(√(n² + 9n) − √(n² + 1)) + (√(n² + 5n) − √(n² + 1))]', 'granica-sumy'],
+        ['Dodajemy granice', '→ 9/2 + 5/2 = 7', 'granica-sumy'],
+        ['Logarytm jest ciągły', '→ log₂(8) = 3', 'ciaglosc-logarytmu'],
+    ];
+    for (const [label, math, id] of LIM) {
+        const f = rule(label, math);
+        ok('„' + label + '” → ' + id, f.id === id, f);
+    }
+    // „Skracamy (x − a)” przy granicy w ∞ to inna reguła niż skracanie czynnika zerującego się w punkcie
+    ok('„Podstawiamy x = −0,5”: here = a = −0,5', rule('Podstawiamy x = −0,5', 'lim(x→−0,5) x/3 = −1/6').here === 'a = −0,5', rule('Podstawiamy x = −0,5', 'lim(x→−0,5) x/3 = −1/6'));
+    ok('„Skracamy (x − 4)”: here = czynnik', rule('Skracamy (x − 4)', 'lim(x→4) (x − 2)/(3x + 2)').here === 'czynnik = (x − 4)');
+    ok('„Skracamy (−x)” w −∞ nie jest skracaniem czynnika z punktu', rule('Skracamy (−x)', 'lim(x→−∞) −1/√(3 + 5/x²)').id !== 'skracanie-czynnika-w-granicy');
+    ok('„Zapisujemy inaczej” zostaje bez hasła (pięć różnych przekształceń)', !rule('Zapisujemy inaczej', '(6x + 3)/(4x² − 1) = 3(2x + 1)/(4x² − 1)').id);
 }
 { // dymek z tabeli jest oznaczony, dymek od silnika nie
     const r = S.run('rozwiąż x^2 - 5x + 6 = 0'), st = r.explain.steps;

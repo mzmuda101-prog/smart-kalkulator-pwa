@@ -781,6 +781,98 @@
                 'Skąd nazwa: „czynniki” to wyrażenia, które mnożymy, a „rozkład na czynniki” to zapis wielomianu jako iloczynu.',
             ],
         },
+        // ── podstawy granic (spec 2026-11-24-dymki-podstawy, zadanie 4) ──
+        'granica-najwyzsza-potega': {
+            name: 'Wyłączenie najwyższej potęgi w granicy',
+            tex: '\\frac{a\\,n^{k}+\\dots}{b\\,n^{k}+\\dots}=\\frac{n^{k}\\left(a+\\dots\\right)}{n^{k}\\left(b+\\dots\\right)}=\\frac{a+\\dots}{b+\\dots}',
+            why: 'Przy zmiennej rosnącej bez końca o wyniku decyduje wyraz, który rośnie najszybciej. Wyciągamy go przed nawias z góry i z dołu ułamka, skracamy, a reszta ma postać $\\frac{c}{n}$ i dąży do 0.',
+            level: 'Liceum (rozszerzenie) i studia: granice ciągów i funkcji',
+            more: [
+                'Przykład: $\\frac{2n+1}{6n+5}=\\frac{n\\left(2+\\frac{1}{n}\\right)}{n\\left(6+\\frac{5}{n}\\right)}=\\frac{2+\\frac{1}{n}}{6+\\frac{5}{n}}\\to\\frac{2}{6}=\\frac{1}{3}$.',
+                'Przy pierwiastkach „najwyższa” znaczy „rosnąca najszybciej”. W $\\sqrt{n}+7$ wygrywa $\\sqrt{n}$: wyłączamy go i zostaje $1+\\frac{7}{\\sqrt{n}}$.',
+                'Przy $x\\to-\\infty$ często wyłączamy $-x$ zamiast $x$, bo $-x$ jest dodatnie, a dla ujemnego $x$ pierwiastek kwadratowy z $x^{2}$ to właśnie $-x$.',
+                'Co wychodzi na końcu: gdy wyższa potęga stoi w mianowniku, granica to 0. Gdy potęgi są równe, granica to iloraz współczynników, jak w przykładzie. Gdy wyższa stoi w liczniku, po skróceniu zostaje potęga zmiennej i granica to nieskończoność (hasło o granicach podstawowych).',
+                'Skąd wzór: ten sam czynnik w liczniku i mianowniku można skrócić, bo nie jest zerem. Wyłączenie potęgi to dzielenie każdego wyrazu przez nią: z $2n+1$ robi się $n\\left(2+\\frac{1}{n}\\right)$, bo $n\\cdot 2=2n$ i $n\\cdot\\frac{1}{n}=1$. Wartość się nie zmienia, zmienia się zapis, w którym widać, co dąży do 0.',
+                'Skąd nazwa: „wyłączamy przed nawias” to wyciągnięcie wspólnego czynnika przed nawias. „Najwyższa potęga” to ta z największym wykładnikiem.',
+            ],
+        },
+        'granice-podstawowe': {
+            name: 'Granice podstawowe w nieskończoności',
+            tex: '\\lim_{n\\to\\infty}\\frac{c}{n^{k}}=0,\\qquad\\lim_{n\\to\\infty}n^{k}=+\\infty\\quad(k>0)',
+            why: 'Dzielenie stałej przez coraz większą wartość daje wyniki bliskie 0. Potęga zmiennej z dodatnim wykładnikiem nie ma górnej granicy.',
+            level: 'Liceum (rozszerzenie) i studia: granice ciągów i funkcji',
+            more: [
+                'Przykład: $\\frac{5}{n}$, $\\frac{3}{n^{2}}$ i $\\frac{1}{\\sqrt{n}}$ dążą do 0. Dla $n=1000$ mamy $\\frac{5}{n}=0{,}005$, a dla $n=1000000$ już $0{,}000005$.',
+                'To samo przy $x\\to\\infty$ i $x\\to-\\infty$: $\\frac{c}{x^{k}}$ zbliża się do 0, a przy $x\\to-\\infty$ wartości mogą być ujemne.',
+                'Potęga z dodatnim wykładnikiem rośnie bez końca, np. $n^{2}\\to+\\infty$ i $\\sqrt{n}\\to+\\infty$. Gdy po skróceniu w liczniku zostaje potęga zmiennej, wynik granicy to $+\\infty$.',
+                'Uwaga: wzór dotyczy ułamka, w którym licznik jest stałą. Ułamek $\\frac{n}{n}$ nie dąży do 0, bo licznik też rośnie, dlatego najpierw wyłączamy potęgę i skracamy.',
+                'Skąd wzór: chcemy, żeby $\\frac{c}{n}$ było mniejsze od $\\frac{1}{1000}$. Dla $c=5$ wystarczy $n>5000$, bo wtedy $\\frac{5}{n}<\\frac{1}{1000}$. Tak samo da się zejść poniżej każdej, nawet bardzo małej liczby, a właśnie to znaczy „granica 0”. Dla $\\frac{1}{\\sqrt{n}}$ rozumowanie jest takie samo: jest mniejsze od $\\frac{1}{1000}$, gdy $n>1000000$.',
+                'Skąd nazwa: „dąży do” znaczy „zbliża się coraz bardziej”. „Granica” to liczba, do której wyrazy się zbliżają.',
+            ],
+        },
+        'granica-ciaglosc': {
+            name: 'Granica funkcji ciągłej: wstawiamy liczbę',
+            tex: '\\lim_{x\\to a}f(x)=f(a)',
+            why: 'Gdy wyrażenie ma w punkcie $a$ wartość i w jego pobliżu nie robi skoków, granica to właśnie ta wartość. Wystarczy wstawić $a$ za $x$.',
+            level: 'Liceum (rozszerzenie) i studia: granice funkcji',
+            more: [
+                'Przykład: $\\lim_{x\\to 4}\\frac{x-2}{3x+2}=\\frac{4-2}{3\\cdot 4+2}=\\frac{2}{14}=\\frac{1}{7}$. Mianownik dla $x=4$ to 14, nie 0, więc wstawianie jest bezpieczne.',
+                'Kiedy to działa: wielomiany, ułamki z mianownikiem różnym od 0 w tym punkcie, pierwiastki z liczb dodatnich, $\\sin x$ i $\\cos x$.',
+                'Gdy wstawienie daje $\\frac{0}{0}$ (hasło o symbolu nieoznaczonym), najpierw przekształcamy i skracamy, a dopiero potem wstawiamy.',
+                'Skąd wzór: funkcja jest ciągła w punkcie $a$, gdy jej wykres nie ma tam skoku ani dziury. Wtedy $x$ zbliżające się do $a$ daje wartości $f(x)$ zbliżające się do $f(a)$, a to jest dokładnie zapis $\\lim_{x\\to a}f(x)=f(a)$.',
+                'Skąd nazwa: „ciągła” to taka, której wykres w tym miejscu da się narysować jednym pociągnięciem, bez odrywania ołówka.',
+            ],
+        },
+        'skracanie-czynnika-w-granicy': {
+            name: 'Skracanie czynnika w granicy',
+            tex: '\\lim_{x\\to a}\\frac{(x-a)\\,g(x)}{(x-a)\\,h(x)}=\\lim_{x\\to a}\\frac{g(x)}{h(x)}',
+            why: 'Wspólny nawias w liczniku i mianowniku skracamy. W granicy wolno, bo $x$ tylko zbliża się do $a$ i go nie osiąga, więc $x-a$ nie jest zerem.',
+            level: 'Liceum (rozszerzenie) i studia: granice funkcji',
+            more: [
+                'Przykład: przy $x\\to 4$ mamy $\\frac{x^{2}-6x+8}{3x^{2}-10x-8}=\\frac{(x-4)(x-2)}{(x-4)(3x+2)}=\\frac{x-2}{3x+2}\\to\\frac{2}{14}=\\frac{1}{7}$.',
+                'Obie funkcje, przed skróceniem i po, mają te same wartości wszędzie oprócz $x=4$, gdzie pierwsza nie istnieje. Granica pyta tylko o to, co dzieje się blisko 4, a nie w samym 4, dlatego granice są takie same.',
+                'Skracamy czynnik (całość pomnożoną przez resztę), a nie składnik sumy: z $\\frac{x+3}{x}$ nic nie skrócimy.',
+                'Skąd wzór: $\\frac{A\\cdot g}{A\\cdot h}=\\frac{A}{A}\\cdot\\frac{g}{h}$, a $\\frac{A}{A}=1$, gdy $A\\neq 0$. Dla $x\\neq a$ nawias $x-a$ nie jest zerem, więc skracanie jest dozwolone dla wszystkich $x$ blisko $a$.',
+                'Skąd nazwa: „skracać” to dzielić licznik i mianownik przez to samo. Zapis robi się krótszy, a wartość zostaje ta sama.',
+            ],
+        },
+        'granica-jednostronna': {
+            name: 'Granica jednostronna',
+            tex: '\\lim_{x\\to a^{+}}f(x)\\ \\ (x>a),\\qquad\\lim_{x\\to a^{-}}f(x)\\ \\ (x<a)',
+            why: 'Do $a$ można dojść z dwóch stron. Plus przy $a$ znaczy „z prawej”: $x$ jest trochę większe od $a$. Minus znaczy „z lewej”: $x$ jest trochę mniejsze.',
+            level: 'Liceum (rozszerzenie) i studia: granice funkcji',
+            more: [
+                'Przykład: $\\lim_{x\\to 0^{+}}\\frac{1}{x}=+\\infty$. Dla $x=0{,}1$ wychodzi 10, dla $x=0{,}001$ wychodzi 1000, a dla $x>0$ wynik jest zawsze dodatni.',
+                'Z lewej strony, dla $x=-0{,}001$, wychodzi $-1000$, więc $\\lim_{x\\to 0^{-}}\\frac{1}{x}=-\\infty$. Obie granice jednostronne są różne, więc zwykła granica $\\lim_{x\\to 0}\\frac{1}{x}$ nie istnieje.',
+                'Zwykła granica istnieje wtedy, gdy obie jednostronne istnieją i są równe.',
+                'Skąd wzór: na osi liczbowej do $a$ można dojść od dołu albo od góry. Znak przy $a$ to tylko etykieta mówiąca, którą drogę wybraliśmy. To nie jest liczba $a+1$ ani $a-1$.',
+                'Skąd nazwa: granica „jednostronna”, bo $x$ zbliża się do $a$ tylko z jednej strony.',
+            ],
+        },
+        'granica-sumy': {
+            name: 'Granica sumy i różnicy',
+            tex: '\\lim\\left(f\\pm g\\right)=\\lim f\\pm\\lim g',
+            why: 'Gdy każdy składnik ma skończoną granicę, granica sumy to suma granic, a różnicy to różnica granic. Wolno więc liczyć składniki oddzielnie.',
+            level: 'Liceum (rozszerzenie) i studia: granice ciągów i funkcji',
+            more: [
+                'Przykład: $\\sqrt{n^{2}+9n}-2\\sqrt{n^{2}+1}+\\sqrt{n^{2}+5n}$ to $\\left(\\sqrt{n^{2}+9n}-\\sqrt{n^{2}+1}\\right)+\\left(\\sqrt{n^{2}+5n}-\\sqrt{n^{2}+1}\\right)$. Granice tych dwóch różnic to $\\frac{9}{2}$ i $\\frac{5}{2}$, więc całość dąży do $\\frac{9}{2}+\\frac{5}{2}=7$.',
+                'Uwaga: wolno tylko wtedy, gdy każda część ma skończoną granicę. W $n-n$ obie części rosną bez końca i wzór nic nie mówi, to symbol $\\left[\\infty-\\infty\\right]$.',
+                'Skąd wzór: gdy $f$ jest bardzo blisko $A$, a $g$ bardzo blisko $B$, to $f+g$ jest bardzo blisko $A+B$. Na przykład $f=4{,}99$ (blisko 5) i $g=2{,}51$ (blisko 2,5) dają $7{,}5$, czyli blisko $5+2{,}5$.',
+                'Skąd nazwa: to granica policzona z sumy (albo z różnicy), z podziałem na granice składników.',
+            ],
+        },
+        'ciaglosc-logarytmu': {
+            name: 'Granica logarytmu',
+            tex: '\\lim\\log_{a}f(x)=\\log_{a}\\left(\\lim f(x)\\right)\\quad\\text{gdy}\\ \\lim f(x)>0',
+            why: 'Logarytm jest funkcją bez skoków, o ile argument jest dodatni. Dlatego szukamy, do czego dąży argument, i dopiero ten wynik logarytmujemy.',
+            level: 'Liceum (rozszerzenie) i studia: granice',
+            more: [
+                'Przykład: $\\log_{2}(8n+1)-\\log_{2}(n+6)=\\log_{2}\\frac{8n+1}{n+6}$. Ułamek dąży do 8, więc granica to $\\log_{2}8=3$, bo $2^{3}=8$.',
+                'Uwaga: wzór wymaga granicy dodatniej i skończonej. Gdy w środku jest coraz bliżej 0 (z dodatnich wartości), logarytm dąży do $-\\infty$, a gdy rośnie bez końca, do $+\\infty$.',
+                'Skąd wzór: wykres $y=\\log_{a}x$ dla $x>0$ to gładka krzywa bez dziur i skoków. Gdy $f(x)$ zbliża się do liczby $L>0$, punkt wykresu zbliża się do punktu $(L,\\log_{a}L)$, więc wartość logarytmu zbliża się do $\\log_{a}L$.',
+                'Skąd nazwa: to szczególny przypadek ciągłości (hasło o granicy funkcji ciągłej): funkcję nazywamy ciągłą, gdy jej wykres da się narysować bez odrywania ołówka.',
+            ],
+        },
     };
     // tg, arcsin, arctg: ten sam pomysł co sin u/u, inny wzór w dymku
     for (const [id, fn, name] of [['tgu', '\\operatorname{tg}', 'tg'], ['arcsinu', '\\arcsin', 'arcsin'], ['arctgu', '\\operatorname{arctg}', 'arctg']]) {
@@ -879,10 +971,21 @@
         'rownosc-logarytmow': ['potegi-log', 'lp', ['równanie logarytmiczne', 'równość logarytmów', 'argument logarytmu', 'ta sama podstawa'], 'rozwiąż log_2(x+3) = log_2(2x)', 'x = 3', ['definicja-logarytmu', 'rownosc-poteg', 'dziedzina']],
         'czynniki-pierwsze': ['liczby', 'lp', ['czynniki pierwsze', 'liczby pierwsze', 'rozkład liczby', 'dzielniki'], 'rozłóż 84', '2² · 3 · 7', ['nwd-nww']],
         'skladanie-rozkladu': ['wyrazenia', 'lr', ['rozkład wielomianu', 'czynniki', 'wielomian', 'postać iloczynowa'], 'rozłóż x^6 - 64', '(x − 2)(x + 2)(x² − 2x + 4)(x² + 2x + 4)', ['postac-iloczynowa', 'roznica-kwadratow', 'suma-szescianow', 'roznica-szescianow']],
+        'granica-najwyzsza-potega': ['granice', 'lr', ['granica w nieskończoności', 'najwyższa potęga', 'wyłączanie najwyższej potęgi', 'iloraz wielomianów', 'skracanie n'], 'lim n→∞ (2n+1)/(6n+5)', '1/3', ['granice-podstawowe', 'wylaczanie-przed-nawias', 'nieoznaczone']],
+        'granice-podstawowe': ['granice', 'lr', ['granice podstawowe', 'jeden przez n', 'dąży do zera', 'liczba przez nieskończoność', 'potęga rośnie bez końca'], 'lim n→∞ (n^2+3n+4)/(2n^2+5n+1)', '1/2', ['granica-najwyzsza-potega', 'nieoznaczone']],
+        'granica-ciaglosc': ['granice', 'lr', ['podstawianie liczby', 'granica funkcji ciągłej', 'wstawiamy liczbę', 'granica w punkcie', 'ciągłość'], 'lim x→2 (x^2+1)/(x+1)', '5/3', ['nieoznaczone', 'skracanie-czynnika-w-granicy', 'ciaglosc-logarytmu']],
+        'skracanie-czynnika-w-granicy': ['granice', 'lr', ['skracanie w granicy', 'zero przez zero', 'wspólny czynnik', 'x różne od a'], 'lim x→4 (x^2-6x+8)/(3x^2-10x-8)', '1/7', ['nieoznaczone', 'granica-ciaglosc', 'skladanie-rozkladu', 'wylaczanie-przed-nawias']],
+        'granica-jednostronna': ['granice', 'lr', ['granica jednostronna', 'z prawej', 'z lewej', 'zero plus', 'jeden przez zero'], 'lim x→0+ 1/x', '+∞', ['nieoznaczone', 'granice-podstawowe']],
+        'granica-sumy': ['granice', 'lr', ['granica sumy', 'granica różnicy', 'suma granic', 'rozbijanie na części'], 'lim n→∞ (sqrt(n^2+9n)-2sqrt(n^2+1)+sqrt(n^2+5n))', '7', ['sprzezenie', 'nieoznaczone', 'granice-podstawowe']],
+        'ciaglosc-logarytmu': ['granice', 'lr', ['granica logarytmu', 'logarytm jest ciągły', 'logarytm z granicy'], 'lim n→∞ (log_2(8n+1)-log_2(n+6))', '3', ['granica-ciaglosc', 'definicja-logarytmu', 'granice-podstawowe']],
     };
     for (const [id, [dzial, poziom, keywords, tryExpr, expect, related]] of Object.entries(HANDBOOK)) {
         if (FORMULAS[id]) Object.assign(FORMULAS[id], { dzial: dzial, poziom: poziom, keywords: keywords, try: tryExpr, expect: expect, related: related });
     }
+
+    /** krok jest w granicy przy zmiennej dążącej do ±∞
+     * @param {Step} step */
+    function atInf(step) { return /→\s*[−-]?∞/.test(step.math); }
 
     /** prawa strona ostatniego „=” to iloczyn samych czynników liniowych: liczba, x, (x − 2), (x + 1)²
      * @param {Step} step */
@@ -935,6 +1038,15 @@
         { re: /^Rozwiązuję oba przypadki$/, id: 'wartosc-bezwzgledna' }, // [EN] tylko po „Rozbijam na dwa przypadki” przy |…|
         { re: /^Porównuję argumenty logarytmów$/, id: 'rownosc-logarytmow' },
         { re: /^(Odkładam minus|Dzielę przez kolejne liczby pierwsze|Zbieram czynniki pierwsze)$/, id: 'czynniki-pierwsze' },
+        // podstawy granic (zadanie 4). „Podstawiamy n → ∞” i „Wyrazy z n …” to jedno hasło (granice-podstawowe): oba kroki robią to samo,
+        // wstawiają granice c/nᵏ → 0 i nᵏ → +∞; „Podstawiamy x = a” to inny fakt (ciągłość), więc osobne hasło.
+        { re: /^(Wyłączamy .+ przed nawias|Skracamy .+)$/, id: 'granica-najwyzsza-potega', when: atInf }, // [EN] w ±∞; „Skracamy (x − a)” z punktu niżej
+        { re: /^Skracamy \(.+\)[²³⁴⁵⁶⁷⁸⁹]?$/, id: 'skracanie-czynnika-w-granicy', when: s => !atInf(s), here: s => 'czynnik = ' + s.label.replace(/^Skracamy /, '') },
+        { re: /^(Wyrazy z [a-z] w mianowniku dążą do 0|Podstawiamy [a-z] → ∞)$/, id: 'granice-podstawowe' },
+        { re: /^Podstawiamy [a-z] = /, id: 'granica-ciaglosc', when: s => /^lim\(/.test(s.math), here: s => 'a = ' + s.label.replace(/^Podstawiamy [a-z] = /, '') },
+        { re: /^Granica jednostronna .+[⁺⁻]$/, id: 'granica-jednostronna' },
+        { re: /^(Rozbijamy na dwie różnice|Dodajemy granice)$/, id: 'granica-sumy' },
+        { re: /^Logarytm jest ciągły$/, id: 'ciaglosc-logarytmu' },
     ];
     // Kroki-stwierdzenia: bez dymku z założenia (spec, cel 2). Lista ma być krótka; każde dopisanie z uzasadnieniem.
     // „Granica” bez symbolu nieoznaczonego: krok z symbolem ma już formula „nieoznaczone” od silnika.

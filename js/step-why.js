@@ -62,18 +62,18 @@
             return 'Sprawdzamy, do czego zbliża się wyrażenie, gdy zmienna zbliża się do celu.';
         }],
         [/^Zapisujemy inaczej$/, 'To samo wyrażenie, tylko ułożone tak, żeby dało się je dalej przekształcać.'],
-        [/^Podstawiamy \w → /, 'Liczba dzielona przez coraz większą wartość jest prawie zerem. Nic innego nie przeszkadza, więc od razu wstawiamy 0.'],
+        [/^Podstawiamy \w → /, 'Zostały same ułamki ze zmienną na dole, więc od razu wstawiamy 0 za każdy z nich.'],
         [/^Podstawiamy /, (s) => /\//.test(s.math.replace(/^lim\([^)]*\)/, '')) ? 'W mianowniku nie wychodzi zero, więc wystarczy wstawić liczbę.'
-            : 'Nic już nie przeszkadza: wyrażenie ma sens w tym punkcie, więc wstawiamy liczbę.'],
+            : 'Pozostał zwykły rachunek: za zmienną idzie liczba z granicy.'],
         [/^Wyrazy z \w w mianowniku dążą do 0$/, s => /[+−]∞$/.test(s.math)
             ? 'Ułamki znikają, ale zostaje potęga zmiennej, która rośnie bez końca, więc wynik to nieskończoność.'
-            : /1\/.*→ 0$/.test(s.math) ? 'Zostaje 1 przez coś, co rośnie bez końca, więc całość dąży do 0.'
-                : 'Liczba podzielona przez coraz większą wartość staje się prawie zerem, więc w jej miejsce wstawiamy 0.'],
-        [/^Wyłączamy najwyższe potęgi/, 'Patrzymy, która część rośnie najszybciej, bo to ona decyduje o wyniku.'],
-        [/^Wyłączamy .* przed nawias$/, 'Wyciągamy część, która rośnie najszybciej. W nawiasach zostają liczby i ułamki, które za chwilę znikną.'],
-        [/^Skracamy \(/, (_s, _t, c) => c.atInf ? 'To samo stoi w liczniku i w mianowniku, więc się skraca.'
-            : 'Ten sam nawias jest w liczniku i mianowniku. Zmienna tylko zbliża się do celu, więc nawias nie jest zerem i wolno skrócić.'],
-        [/^Skracamy /, 'To samo stoi w liczniku i w mianowniku, więc się skraca.'],
+            : /1\/.*→ 0$/.test(s.math) ? 'Z całości zostaje jedynka dzielona przez zmienną, czyli coś bliskiego zeru.'
+                : 'Każdy taki ułamek ma już granicę 0, więc zostają same liczby.'],
+        [/^Wyłączamy najwyższe potęgi/, 'Góra i dół mają różne potęgi, więc każdą wyciągamy osobno.'],
+        [/^Wyłączamy .* przed nawias$/, 'Dzięki temu w nawiasie zostają liczby i ułamki, w których zmienna stoi na dole.'],
+        [/^Skracamy \(/, (_s, _t, c) => c.atInf ? 'Po skróceniu zostają same składniki, w których zmienna stoi na dole.'
+            : 'Ten nawias zerował licznik i mianownik naraz, stąd bierze się symbol $\\frac{0}{0}$. Po skróceniu wystarczy wstawić liczbę.'],
+        [/^Skracamy /, 'Po skróceniu zostają same składniki, w których zmienna stoi na dole.'],
         [/^Wyłączam minus przed nawias$/, 'Wyłączamy minus, żeby nawias wyglądał tak samo jak w drugiej części ułamka. Wtedy da się go skrócić, a minus zostaje przed całością.'],
         [/^Zastrzegam dziedzinę$/, 'Przez zero nie wolno dzielić, więc pierwotny mianownik nie może być zerem. To zastrzeżenie zostaje także po skróceniu.'],
         [/^Skracam /, (_s, _t, c) => 'Ten sam czynnik stoi w liczniku i w mianowniku, więc wolno go skrócić.'
@@ -128,10 +128,10 @@
         [/^Sprowadzamy do wspólnego mianownika$/, 'Ułamki można dodać albo odjąć dopiero wtedy, gdy mają ten sam mianownik.'],
         [/^Zapisujemy oba wykładniki tak samo$/, 'Przerabiamy potęgi tak, żeby góra i dół ułamka miały nad sobą to samo.'],
         [/^Rozbijamy na dwie różnice$/, 'Dzielimy wyrażenie na dwie części, z których każda jest zwykłą różnicą pierwiastków.'],
-        [/^Dodajemy granice$/, 'Obie części mają skończone granice, więc granica sumy to suma granic.'],
+        [/^Dodajemy granice$/, 'Obie granice już mamy, zostaje działanie na dwóch liczbach.'],
         [/^Łączymy logarytmy/, 'Zamiast dwóch logarytmów zostaje jeden, z ułamkiem w środku.'],
         [/^Każdy ułamek daje logarytm$/, 'Każdą część liczymy osobno, a potem dodajemy logarytmy.'],
-        [/^Logarytm jest ciągły$/, 'Logarytm nie ma skoków, więc liczymy granicę tego, co w środku, i wstawiamy ją do logarytmu.'],
+        [/^Logarytm jest ciągły$/, 'Ułamek pod logarytmem ma już granicę, więc liczymy samą wartość logarytmu.'],
         [/^Logarytm rośnie bez ograniczeń$/, 'To, co jest w logarytmie, rośnie bez końca, więc logarytm też rośnie bez końca.'],
         [/^Granica jednostronna/, 'Mianownik dąży do 0, a licznik nie. Dzielimy przez coraz mniejszą liczbę, więc wynik rośnie bez końca; znak zależy od strony.'],
         [/^Granice jednostronne są różne$/, 'Z lewej strony wychodzi co innego niż z prawej, więc jednej granicy nie ma.'],
