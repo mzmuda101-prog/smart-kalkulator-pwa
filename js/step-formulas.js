@@ -446,7 +446,7 @@
         'wartosc-bezwzgledna': {
             name: 'Wartość bezwzględna',
             tex: '\\left|x-a\\right|<r\\iff a-r<x<a+r',
-            why: '$\\left|x-a\\right|$ to odległość liczby $x$ od liczby $a$ na osi. Nierówność $\\left|x-a\\right|<r$ (dla dodatniego $r$) mówi więc, że $x$ leży bliżej niż $r$ od punktu $a$.',
+            why: '$\\left|x-a\\right|$ to odległość liczby $x$ od liczby $a$ na osi. Nierówność $\\left|x-a\\right|<r$ (dla dodatniego $r$) mówi więc, że $x$ leży bliżej niż $r$ od punktu $a$. Równanie $\\left|x-a\\right|=r$ daje dwa punkty, $a-r$ i $a+r$, a $\\left|x-a\\right|>r$ to dwa kawałki osi: dalej niż $r$ w lewo albo w prawo.',
             level: 'Liceum, zakres podstawowy: liczby rzeczywiste',
             more: [
                 'Przykład: $\\left|x-2\\right|<3$. Liczby odległe od 2 o mniej niż 3 leżą między $2-3=-1$ a $2+3=5$, czyli $x\\in(-1,5)$.',
@@ -646,7 +646,7 @@
             level: 'Szkoła podstawowa i liceum: wyrażenia algebraiczne',
             more: [
                 'Przykład: $3(x-2)=3x-6$, bo $3\\cdot x=3x$ i $3\\cdot(-2)=-6$.',
-                'Minus przed nawiasem: $2x+2-(x-3)=2x+2-x+3$. Liczba $-3$ w nawiasie zmieniła się na $+3$.',
+                'Minus przed nawiasem: $2x+2-(x-3)=2x+2-x+3$. Liczba $-3$ w nawiasie zmieniła się na $+3$. Skąd to: minus to mnożenie przez $-1$, więc $-(b-c)=-1\\cdot b+(-1)\\cdot(-c)=-b+c$.',
                 'Nawias razy nawias: każdy wyraz pierwszego mnożymy przez każdy wyraz drugiego, np. $(x+1)(x+3)=x^{2}+3x+x+3$.',
                 'Skąd wzór: $3(x-2)$ to trzy razy ten sam nawias, czyli $(x-2)+(x-2)+(x-2)$. Zbieramy trzy iksy i trzy razy $-2$: wychodzi $3x-6$. Tak samo $a(b+c)$ to $a$ razy cała suma, więc każdy składnik bierzemy $a$ razy.',
                 'Skąd nazwa: nawias „opuszczamy”, czyli przestajemy go pisać, bo po wymnożeniu nie jest już potrzebny.',
@@ -668,7 +668,7 @@
         'obie-strony': {
             name: 'To samo działanie po obu stronach',
             tex: 'a=b\\iff a\\cdot c=b\\cdot c\\iff\\frac{a}{c}=\\frac{b}{c}\\quad(c\\neq 0)',
-            why: 'Gdy lewą i prawą stronę pomnożymy albo podzielimy przez tę samą liczbę różną od zera, równanie ma te same rozwiązania co wcześniej.',
+            why: 'Mnożenie albo dzielenie obu stron przez tę samą liczbę różną od zera, zmiana znaku obu stron i zamiana stron nie zmieniają rozwiązań równania. W nierówności liczba ujemna odwraca znak nierówności.',
             level: 'Szkoła podstawowa i liceum: równania liniowe',
             more: [
                 'Przykład: z $3x=6$ po podzieleniu obu stron przez 3 mamy $x=2$. Przy $\\frac{2}{3}x=4$ mnożymy obie strony przez odwrotność, czyli $\\frac{3}{2}$, i mamy $x=6$.',
@@ -694,7 +694,7 @@
         'iloczyn-rowny-zero': {
             name: 'Iloczyn równy zero',
             tex: 'a\\cdot b=0\\iff a=0\\ \\text{lub}\\ b=0',
-            why: 'Gdy po lewej stoją pomnożone nawiasy, a po prawej zero, każdy nawias przyrównujemy do zera osobno. Z jednego trudnego równania robi się kilka prostych.',
+            why: 'Gdy po lewej stoją pomnożone czynniki, a po prawej zero, każdy czynnik przyrównujemy do zera osobno. Z jednego trudnego równania robi się kilka prostych.',
             level: 'Liceum: równania kwadratowe i wielomianowe',
             more: [
                 'Przykład: $x(x-3)=0$. Albo $x=0$, albo $x-3=0$, czyli $x=3$.',
@@ -726,17 +726,17 @@
                 'Gdy wyrazu brak, jego współczynnik to 0: w $x^{2}-9$ jest $b=0$.',
                 'Najpierw porządkujemy: wszystko na jedną stronę, od najwyższej potęgi. W $-x^{2}+7x-6=0$ jest $a=-1$, $b=7$ i $c=-6$.',
                 'Skąd wzór: każdy trójmian kwadratowy składa się z $x^{2}$, z $x$ i z liczby, a przy każdym stoi jakaś liczba. Litery $a$, $b$, $c$ to tylko nazwy tych liczb, dzięki którym wzory na deltę i rozwiązania działają dla każdego równania.',
-                'Skąd nazwa: „trójmian”, bo składa się z trzech jednomianów, a „wyraz wolny”, bo stoi bez $x$.',
+                'Skąd nazwa: „trójmian”, bo składa się z trzech jednomianów, a „wyraz wolny”, bo stoi bez $x$. „Współczynnik” to liczba stojąca przy potędze $x$: współtworzy z nią wyraz, bo jest z nią pomnożona, np. w $-5x$ współczynnik to $-5$.',
             ],
         },
         dziedzina: {
             name: 'Dziedzina równania',
             tex: '\\frac{1}{w}:\\ w\\neq 0,\\qquad\\sqrt{w}:\\ w\\ge 0,\\qquad\\log_{a}w:\\ w>0',
-            why: 'Zanim zaczniemy przekształcać, ustalamy, jakie $x$ w ogóle można wstawić do zadania. Rozwiązanie spoza tego zbioru odrzucamy.',
+            why: 'Dziedzina to liczby, które w ogóle można wstawić do zadania. Wyznaczamy ją na początku, a rozwiązanie spoza niej na końcu odrzucamy.',
             level: 'Liceum: równania wymierne, z pierwiastkiem i logarytmiczne',
             more: [
                 'Ułamek: mianownik nie może być zerem. W $\\frac{1}{x}=2$ wykluczamy $x=0$, więc $D=\\mathbb{R}\\setminus\\{0\\}$.',
-                'Pierwiastek kwadratowy: liczba pod nim nie może być ujemna. W $\\sqrt{x+3}$ żądamy $x+3\\ge 0$, czyli $x\\ge -3$.',
+                'Pierwiastek kwadratowy: liczba pod nim nie może być ujemna. W $\\sqrt{x+3}$ żądamy $x+3\\ge 0$, czyli $x\\ge -3$. Gdy pierwiastek równa się wyrażeniu z $x$, jak w $\\sqrt{x+3}=x-3$, to prawa strona też nie może być ujemna: $x-3\\ge 0$, bo pierwiastek kwadratowy nigdy nie jest ujemny.',
                 'Logarytm: liczba pod nim musi być dodatnia. W $\\log_{3}(2x-1)$ żądamy $2x-1>0$, czyli $x>\\frac{1}{2}$.',
                 'Na końcu sprawdzamy, czy rozwiązanie należy do dziedziny. Liczbę spoza niej odrzucamy, nawet jeśli wyszła z rachunku. Przy skracaniu ułamka zastrzeżenie zostaje: $\\frac{x^{2}-1}{x-1}$ to $x+1$ tylko dla $x\\neq 1$.',
                 'Skąd wzór: każdy warunek bierze się z definicji. Dzielenie przez zero nie ma wyniku, bo żadna liczba razy 0 nie daje na przykład 2. Pierwiastek kwadratowy z $w$ to liczba nieujemna, której kwadrat daje $w$, a kwadrat nie bywa ujemny. Logarytm $\\log_{3}w$ to wykładnik, do którego podnosimy 3, żeby dostać $w$, a potęga liczby 3 jest zawsze dodatnia.',
@@ -771,13 +771,13 @@
         'skladanie-rozkladu': {
             name: 'Rozkład wielomianu na czynniki',
             tex: 'x^{4}-1=(x-1)(x+1)(x^{2}+1)',
-            why: 'Każdy rozłożony nawias zastępujemy jego rozkładem. Czynnik kwadratowy bez miejsc zerowych ($\\Delta<0$) nie rozkłada się dalej i zostaje.',
+            why: 'Każdy rozłożony nawias zastępujemy jego rozkładem. Czynnik kwadratowy zostaje w całości, gdy nie ma miejsc zerowych ($\\Delta<0$) albo ma tylko niewymierne i dalszy rozkład nie jest w zadaniu potrzebny.',
             level: 'Liceum, zakres rozszerzony: wielomiany',
             more: [
                 'Przykład: $x^{6}-64=(x^{3}-8)(x^{3}+8)$. Potem $x^{3}-8=(x-2)(x^{2}+2x+4)$ i $x^{3}+8=(x+2)(x^{2}-2x+4)$. Składamy: $x^{6}-64=(x-2)(x+2)(x^{2}-2x+4)(x^{2}+2x+4)$.',
                 'Nawias $x^{2}+2x+4$ ma deltę $4-16=-12$, czyli ujemną, więc nie ma miejsc zerowych i zostaje w iloczynie.',
-                'Nawias kwadratowy z deltą dodatnią też czasem zostaje, gdy w zadaniu (np. przy granicy) dalszy rozkład nie jest potrzebny.',
-                'Skąd wzór: każdy krok rozkładu zamienia jeden nawias na iloczyn, który jest mu równy. Wstawienie równego w miejsce równego nie zmienia wartości, więc na końcu cały iloczyn równa się wyjściowemu wielomianowi. Sprawdzasz, wymnażając.',
+                'Przykład z granicy: $2x^{4}+4x^{3}-3x^{2}-10x-5=(x+1)^{2}(2x^{2}-5)$. Nawias $2x^{2}-5$ ma deltę $0+40=40$, więc miejsca zerowe ma, ale niewymierne ($\\pm\\sqrt{2{,}5}$). Po skróceniu $(x+1)^{2}$ nie jest już potrzebny, więc zostaje w całości.',
+                'Skąd wzór: każdy krok rozkładu zamienia jeden nawias na iloczyn, który jest mu równy. Wstawienie równego w miejsce równego nie zmienia wartości, więc na końcu cały iloczyn równa się wyjściowemu wielomianowi. Sprawdzamy, wymnażając.',
                 'Skąd nazwa: „czynniki” to wyrażenia, które mnożymy, a „rozkład na czynniki” to zapis wielomianu jako iloczynu.',
             ],
         },

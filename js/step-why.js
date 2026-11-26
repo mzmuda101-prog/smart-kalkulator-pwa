@@ -146,7 +146,7 @@
         [/^Skracam ułamek$/, 'Licznik i mianownik dzielą się przez tę samą liczbę, więc ułamek zapisuję prościej.'],
         [/^Dzielę obie strony przez /, (_s, title) => title === 'Nierówność'
             ? 'Dzielę przez liczbę dodatnią, więc znak nierówności zostaje bez zmian.'
-            : 'Chcę, żeby niewiadoma została sama. Dzieląc obie strony przez tę samą liczbę, nie zmieniam równania.'],
+            : 'Przy niewiadomej stoi jeszcze liczba, a po tym kroku niewiadoma zostaje sama i widać wynik.'],
         [/^Sprawdzenie$/, (_s, title) => /Całka/.test(title)
             ? 'Pochodna wyniku musi dać funkcję spod całki. Wtedy wiemy, że całka jest dobra.'
             : /Układ/.test(title) ? 'Wstawiam obie liczby do obu równań: każde musi wyjść prawdziwe.'
@@ -172,7 +172,7 @@
         [/^Nie ma wyrazu z /, 'Niewiadoma występuje tylko w kwadracie, więc zostawiamy ją samą po jednej stronie.'],
         [/^Wyłączam \w przed nawias$/, 'Nie ma wyrazu bez niewiadomej, więc każdy wyraz dzieli się przez nią.'],
         [/^Przyrównuję każdy czynnik do zera$/, 'Iloczyn jest zerem tylko wtedy, gdy któryś czynnik jest zerem.'],
-        [/^Zmieniam znak obu stron$/, 'Mnożę obie strony przez $-1$, więc obie zmieniają znak.'],
+        [/^Zmieniam znak obu stron$/, 'Po lewej jest niewiadoma z minusem, a szukam jej bez minusa.'],
         [/^Dzielę przez .* i odwracam znak$/, 'Przy niewiadomej stoi minus, więc razem z dzieleniem obracam też znak.'],
         [/^Odczytuję znak z paraboli$/, (s) => {
             const p = s.parabola;
