@@ -725,7 +725,7 @@
                 });
                 out = rest;
                 line(log, 'Sprowadzamy do wspólnego mianownika', shown);
-                line(log, 'Upraszczamy', limOf(v, t, out));
+                line(log, 'Upraszczamy', limOf(v, t, out), 'wspolny-mianownik');
             }
             return limitOf(out, v, t, log, depth);
         }
@@ -854,7 +854,7 @@
                 });
             }
             out = fold(out);
-            line(log, 'Upraszczamy', limOf(v, t, out));
+            line(log, 'Upraszczamy', limOf(v, t, out), CONJ_FORMULA[k]);
             return limitOf(out, v, t, log, depth);
         }
     };
@@ -940,7 +940,7 @@
                 : '(' + core + ')' + pw(sgh) + (still ? ' = e' + pw(sgh) : '')));
             if (log) log[log.length - 1].formula = { id: 'e' };
             var mark = log ? log.length : 0;
-            if (!still) line(log, 'Granica wykładnika', limOf(v, t, gh));
+            if (!still) line(log, 'Granica wykładnika', limOf(v, t, gh), 'e');
             var L = limitOf(gh, v, t, still ? null : log, depth); // [EN] stały wykładnik jest już w kroku wyżej
             // [EN] wykładnik bez kroków pośrednich (prosta granica): jeden krok zamiast dwóch
             var single = still || (!!log && log.length === mark + 1 && L.kind === 'num');
@@ -959,7 +959,7 @@
             var ct = K.eq(p.c, ONE) ? '' : K.fmt(p.c) + ' · ', fin = formatAnswer(res).text;
             // [EN] współczynnik spoza potęgi (5·(1 + 1/n)ⁿ) wraca dopiero tutaj — inaczej krok mówiłby „e = 5e”
             if (still && !ct) { if (log && fin !== et) log[mark - 1].math += ' = ' + fin; }
-            else line(log, 'Składamy wynik', ct + et + (fin !== ct + et ? ' = ' + fin : ''));
+            else line(log, 'Składamy wynik', ct + et + (fin !== ct + et ? ' = ' + fin : ''), 'e');
             return res;
         }
     };
@@ -974,7 +974,7 @@
             line(log, 'Liczę wykładnik ze wzoru skróconego', '⟦' + grp(p.g) + ' · (' + C.show(p.f) + ' − 1)⟧ = ' + put + (put === sgh ? '' : ' = ' + sgh), 'e-skrocony');
             if (log) log[log.length - 1].formula.here = 'f = ' + C.show(p.f) + ', g = ' + C.show(p.g); // [EN] bez tego dymek nie mówi, co jest f, a co g
             var mark = log ? log.length : 0;
-            if (!still) line(log, 'Granica wykładnika', limOf(v, t, gh));
+            if (!still) line(log, 'Granica wykładnika', limOf(v, t, gh), 'e-skrocony');
             var L = limitOf(gh, v, t, still ? null : log, depth);
             if (!still && log && log.length === mark + 1 && L.kind === 'num') log[mark].math += ' = ' + C.show(rationalize(fold(L.e)));
             var pw = function (x) { return x === '1' ? '' : /^\d+$/.test(x) ? K.sup(x) : '^(' + x + ')'; };
@@ -986,7 +986,7 @@
             if (L.kind !== 'num') throw new NotSupported();
             var res = { kind: 'num', e: C.cMul(C.num(p.c), C.cExp(C.E_CONST, L.e)) };
             var et = 'e' + pw(C.show(rationalize(fold(L.e)))), ct = K.eq(p.c, ONE) ? '' : K.fmt(p.c) + ' · ', fin = formatAnswer(res).text;
-            line(log, 'Składamy wynik', ct + et + (fin !== ct + et ? ' = ' + fin : ''));
+            line(log, 'Składamy wynik', ct + et + (fin !== ct + et ? ' = ' + fin : ''), 'e-skrocony');
             return res;
         }
     };
@@ -1220,7 +1220,7 @@
             // [EN] bez [ ] wokół koloru: nawias kwadratowy znaczy tu „co wychodzi po wstawieniu” (symbol nieoznaczony)
             var bracket = up ? '⟦' + C.paren(hit.top) + '/' + grp(u) + '⟧' : '⟦' + C.paren(u) + '/' + grp(hit.top) + '⟧';
             line(log, 'Korzystamy ze znanej granicy', 'u = ' + uText + ' → 0:  ' + limHead(v, t) + bracket + ' · ' + C.show(rest), hit.label);
-            line(log, 'Kolorowy ułamek dąży do 1', limOf(v, t, rest));
+            line(log, 'Kolorowy ułamek dąży do 1', limOf(v, t, rest), hit.label);
             return limitOf(rest, v, t, log, depth);
         }
     };
@@ -1420,7 +1420,11 @@
         var eng = limOf(d.v, d.target, e).slice(head.length);
         if (mine === eng || sameButOrder(mine, eng)) return null;
         var bare = function (x) { return /^\(.*\)$/.test(x) && !/\)\s*[^\s)]/.test(x.slice(1, -1).replace(/\([^()]*\)/g, '')) ? x.slice(1, -1) : x; };
-        return { label: 'Zapisujemy inaczej', math: bare(mine) + ' = ' + bare(eng) };
+        // [EN] pięć różnych przekształceń pod jedną etykietą rozbite na prawdziwe nazwy (każda ma własne hasło)
+        var surd = /[√∛]\d+[√∛]/, label = surd.test(eng) && !surd.test(mine) ? 'Wyłączam liczbę spod pierwiastka'
+            : /^−/.test(eng) && !/^−/.test(mine) ? 'Wyłączam minus przed ułamek'
+            : /\d\(/.test(eng) && !/\d\(/.test(mine) ? 'Wyłączam liczbę przed nawias' : 'Zmieniam znak licznika i mianownika';
+        return { label: label, math: bare(mine) + ' = ' + bare(eng) };
     }
     function run(d) {
         C.setVar(d.v); // [EN] przed budowaniem: kolejność wyrazów liczy się od potęgi TEJ zmiennej
@@ -1518,7 +1522,8 @@
         return res;
     }
     // [EN] początek drugiego sposobu: krok 1 i ewentualne „Zapisujemy inaczej” z pierwszego
-    function methodStart(steps) { return steps.slice(0, steps.length - 1).filter(function (s, i) { return i === 0 || s.label === 'Zapisujemy inaczej'; }); }
+    var REWRITE_LABELS = ['Wyłączam liczbę spod pierwiastka', 'Wyłączam minus przed ułamek', 'Wyłączam liczbę przed nawias', 'Zmieniam znak licznika i mianownika'];
+    function methodStart(steps) { return steps.slice(0, steps.length - 1).filter(function (s, i) { return i === 0 || REWRITE_LABELS.indexOf(s.label) >= 0; }); }
     // [EN] nazwy sposobów do przełącznika w krokach (pierwszy ruch silnika)
     var METHOD = { factorCancel: 'Rozkład na czynniki', conjugate: 'Sprzężenie', knownLimits: 'Znana granica', commonDenominator: 'Wspólny mianownik',
         eLimit: 'Dorabianie jedynki', eShortcut: 'Wzór skrócony', dominantPower: 'Najwyższa potęga', lHospital: "de l'Hospital" };

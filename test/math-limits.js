@@ -331,11 +331,11 @@ ok('minor: lim x→−8 ∛x nie daje złego wyniku', ['−2', NOPE].includes(te
     const s9 = steps(byId['9a'].input);
     ok('3b: 9a krok 1 jak wpisano', s9[0] && s9[0].math.startsWith('lim(x→5) (x − 5)/(3 − √(x + 4))'), show(s9));
     // krok 1 jak wpisano, a silnik liczy inną postać → krok pośredni, żeby kroki do siebie pasowały
-    ok('3b: 9a „Zapisujemy inaczej” ze zmianą znaku', s9[1] && s9[1].label === 'Zapisujemy inaczej'
+    ok('3b: 9a „Wyłączam minus przed ułamek”', s9[1] && s9[1].label === 'Wyłączam minus przed ułamek'
         && s9[1].math === '(x − 5)/(3 − √(x + 4)) = −(x − 5)/(√(x + 4) − 3)', show(s9));
     const s4c = steps(byId['4c'].input);
-    ok('3b: 4c pokazuje √(4n² + 2) = …√2…', s4c[1] && s4c[1].label === 'Zapisujemy inaczej', show(s4c));
-    ok('3b: samo przestawienie wyrazów bez kroku pośredniego', !sB.some(x => x.label === 'Zapisujemy inaczej'), show(sB));
+    ok('3b: 4c pokazuje √(4n² + 2) = …√2…', s4c[1] && s4c[1].label === 'Wyłączam liczbę spod pierwiastka', show(s4c));
+    ok('3b: samo przestawienie wyrazów bez kroku pośredniego', !sB.some(x => /^(Wyłączam (liczbę|minus)|Zmieniam znak licznika)/.test(x.label)), show(sB));
     // przegląd kodu: współczynnik przed potęgą nie może dać „e = 5e”
     for (const [q, want] of [['lim n→∞ 5(1+1/n)^n', '5e'], ['lim n→∞ 2(1+1/n)^(3n)', '2e³']]) {
         const st = steps(q);

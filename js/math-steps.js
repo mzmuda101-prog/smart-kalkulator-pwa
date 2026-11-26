@@ -1102,7 +1102,7 @@
             }
             if (moved !== steps[steps.length - 1].math) {
                 steps.push({ label: xR.length && !cL.length ? 'Przenoszę ' + v + ' na lewo' : !xR.length && cL.length ? 'Przenoszę liczby na prawo'
-                    : !xR.length && !cL.length ? 'Liczę prawą stronę' : 'Przenoszę ' + v + ' na lewo, liczby na prawo', math: moved });
+                    : !xR.length && !cL.length ? (nz(rawR) !== Rr.length ? 'Liczę prawą stronę' : 'Zapisuję ułamek przy x jako liczbę razy x') : 'Przenoszę ' + v + ' na lewo, liczby na prawo', math: moved });
             }
             if (!eq(a, ONE) && !isInt(a)) { // [EN] (1/2)x = 2 → mnożę przez 2, nie dzielę przez 1/2 (raport E, R3)
                 var inv = div(ONE, a);

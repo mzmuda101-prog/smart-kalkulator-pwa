@@ -24,60 +24,8 @@ function ok(name, cond, got) {
 const kind = (/** @type {string} */ label) => label.replace(/[−+]?\d+([.,/]\d+)?/g, '#').replace(/\([^)]*\)/g, '(…)')
     .replace(/(?<!\p{L})[b-hj-np-tvx-y](?!\p{L})/gu, 'v').trim();
 
-// Rodzaje kroków-przekształceń, które jeszcze nie mają hasła. Lista ma tylko maleć:
-// bramka pada, gdy wpis nie jest już potrzebny (żaden krok bez dymku go nie używa).
-const PENDING = [
-    "Sprawdzenie", // tylko całki: „(x³/3)′ = x² ✓” (pochodna wyniku; równania i układy → sprawdzenie)
-    "Rozkładamy na czynniki", // 37× „Rozkładamy na czynniki”
-    // [EN] bez hasła z powodu: pięć różnych przekształceń pod jedną etykietą (wyłączenie liczby z sumy, minusa, liczby spod pierwiastka,
-    // przestawienie składników); żadna jedna reguła nie jest prawdziwa dla wszystkich. Do tabeli skoków (osobny podział etykiet w silniku).
-    "Zapisujemy inaczej", // 27× „Zapisujemy inaczej”
-    "Upraszczamy", // 26× „Upraszczamy”
-    "Składamy wynik", // 18× „Składamy wynik”
-    "Granica wykładnika", // 14× „Granica wykładnika”
-    "Szukam pierwiastka wśród dzielników", // 11× „Szukam pierwiastka wśród dzielników”
-    "Kolorowy ułamek dąży do #", // 8× „Kolorowy ułamek dąży do 1”
-    "Stałą wyłączam przed całkę", // 8× „Stałą wyłączam przed całkę”
-    "Mnożę przez wyłączoną stałą", // 8× „Mnożę przez wyłączoną stałą”
-    "Liczę pierwiastek z delty w liczniku", // 5× „Liczę pierwiastek z delty w liczniku”
-    "Wciągam liczbę do nawiasu w liczniku", // 5× „Wciągam liczbę do nawiasu w liczniku”
-    "Stała zostaje przed pochodną", // 5× „Stała zostaje przed pochodną”
-    "Liczę pierwiastek z delty w mianowniku", // 4× „Liczę pierwiastek z delty w mianowniku”
-    "Wciągam liczbę do nawiasu w mianowniku", // 4× „Wciągam liczbę do nawiasu w mianowniku”
-    "Szukam miejsc zerowych", // 4× „Szukam miejsc zerowych”
-    "Skracam (…)", // 4× „Skracam (2x − 1)”
-    "Rozkładam mianownik", // 4× „Rozkładam mianownik”
-    "Zapisuję ułamki proste", // 4× „Zapisuję ułamki proste”
-    "Wyznaczam A i B", // 4× „Wyznaczam A i B”
-    "Rozkład na ułamki proste", // 4× „Rozkład na ułamki proste”
-    "Każdy ułamek daje logarytm", // 4× „Każdy ułamek daje logarytm”
-    "Mnożę przez stałą", // 3× „Mnożę przez stałą”
-    "Całkuję każdą część", // 3× „Całkuję każdą część”
-    "Wracam do zmiennej v", // 3× „Wracam do zmiennej x”
-    "Rozwiązuję podwójną nierówność", // 2× „Rozwiązuję podwójną nierówność”
-    "Mnożę", // 2× „Mnożę”
-    "Upraszczam pierwiastek z delty", // 2× „Upraszczam pierwiastek z delty”
-    "Kwadrat nie może być ujemny", // 2× „Kwadrat nie może być ujemny”
-    "Liczę prawą stronę", // 2× „Liczę prawą stronę”
-    "Porządkuję równania", // 2× „Porządkuję równania”
-    "Podstawienie: v = v²", // 2× „Podstawienie: t = x²”
-    "Dla v → −∞", // 1× „Dla x → −∞”
-    "Szukam pierwiastka wśród dzielników w liczniku", // 1× „Szukam pierwiastka wśród dzielników w liczniku”
-    "Szukam pierwiastka wśród dzielników w mianowniku", // 1× „Szukam pierwiastka wśród dzielników w mianowniku”
-    "Najpierw nawias: dodaję", // 1× „Najpierw nawias: dodaję”
-    "Potęguję", // 1× „Potęguję”
-    "Wyciągam kwadrat spod pierwiastka", // 1× „Wyciągam kwadrat spod pierwiastka”
-    "Wciągam liczbę do nawiasu", // 1× „Wciągam liczbę do nawiasu”
-    "Brak miejsc zerowych", // 1× „Brak miejsc zerowych”
-    "Odczytuję znak z paraboli", // 1× „Odczytuję znak z paraboli”
-    "Wyliczam v", // 1× „Wyliczam x”
-    "Skracam ułamek", // 1× „Skracam ułamek”
-    "Dzielę", // 1× „Dzielę”
-    "Całka sumy to suma całek", // 1× „Całka sumy to suma całek”
-    "Całkuję stałą", // 1× „Całkuję stałą”
-    "Dzielę licznik przez mianownik", // 1× „Dzielę licznik przez mianownik”
-    "Podstawienie: v = #v + #", // 1× „Podstawienie: t = 2x + 1”
-];
+// Rodzaje kroków-przekształceń bez hasła: lista jest pusta (pokrycie 100%). Nowy rodzaj kroku bez dymku zatrzymuje bramkę.
+const PENDING = /** @type {string[]} */ ([]);
 
 // ── attachRule ──
 ok('STEP_RULES: każde id istnieje w słowniku', STEP_RULES.every((/** @type {{id: string}} */ r) => !!FORMULAS[r.id]),
@@ -187,7 +135,43 @@ ok('„Składam całość” → postac-iloczynowa', (attachRule({ label: 'Skła
     ok('„Podstawiamy x = −0,5”: here = a = −0,5', rule('Podstawiamy x = −0,5', 'lim(x→−0,5) x/3 = −1/6').here === 'a = −0,5', rule('Podstawiamy x = −0,5', 'lim(x→−0,5) x/3 = −1/6'));
     ok('„Skracamy (x − 4)”: here = czynnik', rule('Skracamy (x − 4)', 'lim(x→4) (x − 2)/(3x + 2)').here === 'czynnik = (x − 4)');
     ok('„Skracamy (−x)” w −∞ nie jest skracaniem czynnika z punktu', rule('Skracamy (−x)', 'lim(x→−∞) −1/√(3 + 5/x²)').id !== 'skracanie-czynnika-w-granicy');
-    ok('„Zapisujemy inaczej” zostaje bez hasła (pięć różnych przekształceń)', !rule('Zapisujemy inaczej', '(6x + 3)/(4x² − 1) = 3(2x + 1)/(4x² − 1)').id);
+}
+{ // analiza i reszta (zadanie 5): etykieta -> hasło
+    const rule = (/** @type {string} */ label, /** @type {string} */ math) => attachRule({ label: label, math: math }).formula || {};
+    /** @type {Array<[string, string, string]>} */
+    const MAP5 = [
+        ['Stała zostaje przed pochodną', '(5x³)′ = 5 · (x³)′', 'liniowosc-pochodnej'],
+        ['Mnożę przez stałą', '5 · 3x² = 15x²', 'liniowosc-pochodnej'],
+        ['Stałą wyłączam przed całkę', '∫ 2x dx = 2 · ∫ x dx', 'liniowosc-calki'],
+        ['Całka sumy to suma całek', '∫ 2x dx\n+ ∫ 1 dx', 'liniowosc-calki'],
+        ['Całkuję stałą', '∫ 1 dx = x', 'calka-potegi'],
+        ['Podstawienie: t = 2x + 1', 'dt = 2 dx', 'podstawienie-w-calce'],
+        ['Wracam do zmiennej x', '(2x + 1)⁴/8', 'podstawienie-w-calce'],
+        ['Wyznaczam A i B', 'x = 1:  1 = 2B,  B = 1/2', 'ulamki-proste'],
+        ['Każdy ułamek daje logarytm', 'ln|x − 1|/2 − ln|x + 1|/2', 'ulamki-proste'],
+        ['Sprawdzenie', '(x³/3)′ = x² ✓', 'sprawdzenie-calki'],
+        ['Dzielę licznik przez mianownik', 'całość: x', 'dzielenie-z-reszta'],
+        ['Najpierw nawias: dodaję', '2 · 7²', 'kolejnosc-dzialan'],
+        ['Potęguję', '2 · 49', 'kolejnosc-dzialan'],
+        ['Skracam ułamek', '9/6 = 3/2', 'skracanie-ulamka'],
+        ['Skracam (2x − 1)', '(2x − 1)(2x + 1)/(2x − 1) = 2x + 1', 'skracanie-ulamka'],
+        ['Upraszczam pierwiastek z delty', '√Δ = √8 = 2√2', 'pierwiastek-iloczynu'],
+        ['Wciągam liczbę do nawiasu w liczniku', '2(x + 1/2)(x − 3) = (2x + 1)(x − 3)', 'wciaganie-do-nawiasu'],
+        ['Liczę pierwiastek z delty w mianowniku', '√Δ = √196 = 14', 'delta'],
+        ['Szukam pierwiastka wśród dzielników w liczniku', 'W(−1) = 0', 'bezout'],
+        ['Rozwiązuję podwójną nierówność', '−1 < x < 5', 'wartosc-bezwzgledna'],
+        ['Szukam miejsc zerowych', 'x² − 4 = 0', 'nierownosc-kwadratowa'],
+        ['Wyliczam x', 'x = π/12 + kπ lub x = 5π/12 + kπ\nk ∈ ℤ', 'okresowosc'],
+        ['Porządkuję równania', 'x − 2y = 0', 'przenoszenie'],
+        // „Zapisujemy inaczej” rozbite w silniku na cztery prawdziwe etykiety
+        ['Wyłączam liczbę spod pierwiastka', '√(4n² + 2) = √2√(2n² + 1)', 'pierwiastek-iloczynu'],
+        ['Wyłączam minus przed ułamek', 'a = −b', 'znak-ulamka'],
+        ['Zmieniam znak licznika i mianownika', 'a = b', 'znak-ulamka'],
+        ['Wyłączam liczbę przed nawias', '(6x + 3)/(4x² − 1) = 3(2x + 1)/(4x² − 1)', 'wylaczanie-przed-nawias'],
+    ];
+    for (const [label, math, id] of MAP5) ok('„' + label + '” → ' + id, rule(label, math).id === id, rule(label, math));
+    ok('„Sprawdzenie” bez ′ nadal → sprawdzenie', rule('Sprawdzenie', '3 + 2 = 5 ✓').id === 'sprawdzenie');
+    ok('PENDING jest pusta (pokrycie 100%)', PENDING.length === 0);
 }
 { // dymek z tabeli jest oznaczony, dymek od silnika nie
     const r = S.run('rozwiąż x^2 - 5x + 6 = 0'), st = r.explain.steps;

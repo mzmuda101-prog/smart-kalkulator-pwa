@@ -51,6 +51,16 @@ for (const id of ['wyrazy-podobne', 'opuszczanie-nawiasow', 'przenoszenie', 'obi
     ok(id + ': akapit „Skąd nazwa”', (f.more || []).some(t => /^Skąd nazwa:/.test(t)), f.more);
 }
 
+// hasła z analizy i reszty (dymki-podstawy, zadanie 5): każde ma „Skąd wzór” i „Skąd nazwa”
+for (const id of ['sprawdzenie-calki', 'liniowosc-pochodnej', 'liniowosc-calki', 'ulamki-proste', 'podstawienie-w-calce', 'kolejnosc-dzialan',
+    'skracanie-ulamka', 'dzielenie-z-reszta', 'pierwiastek-iloczynu', 'wciaganie-do-nawiasu', 'znak-ulamka', 'liczba-przy-x']) {
+    const f = FORMULAS[id];
+    ok(id + ': hasło istnieje', !!f);
+    if (!f) continue;
+    ok(id + ': akapit „Skąd wzór”', (f.more || []).some(t => /^Skąd wzór:/.test(t)), f.more);
+    ok(id + ': akapit „Skąd nazwa”', (f.more || []).some(t => /^Skąd nazwa:/.test(t)), f.more);
+}
+
 // hasła z podstaw granic (dymki-podstawy, zadanie 4)
 for (const id of ['granica-najwyzsza-potega', 'granice-podstawowe', 'granica-ciaglosc', 'skracanie-czynnika-w-granicy',
     'granica-jednostronna', 'granica-sumy', 'ciaglosc-logarytmu']) {

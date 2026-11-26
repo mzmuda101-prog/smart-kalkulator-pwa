@@ -61,7 +61,10 @@
             // [EN] bez symbolu nie obiecujemy „nic nie przeszkadza” — silnik nie każdy kłopot nazywa (np. 0 · ∞)
             return 'Sprawdzamy, do czego zbliża się wyrażenie, gdy zmienna zbliża się do celu.';
         }],
-        [/^Zapisujemy inaczej$/, 'To samo wyrażenie, tylko ułożone tak, żeby dało się je dalej przekształcać.'],
+        [/^Wyłączam liczbę spod pierwiastka$/, 'Liczbę wyciągam przed pierwiastek, żeby pod nim zostało prostsze wyrażenie z samą zmienną.'],
+        [/^Wyłączam minus przed ułamek$/, 'Chcę, żeby w mianowniku wyrazy stały w tej kolejności, w której łatwiej policzyć granicę.'],
+        [/^Wyłączam liczbę przed nawias$/, 'Wspólną liczbę wyłączam przed nawias, żeby było widać, który czynnik da się potem skrócić.'],
+        [/^Zmieniam znak licznika i mianownika$/, 'Zmieniam znaki na górze i na dole tak, żeby wygodniej było dalej liczyć. Ułamek ma tę samą wartość.'],
         [/^Podstawiamy \w → /, 'Zostały same ułamki ze zmienną na dole, więc od razu wstawiamy 0 za każdy z nich.'],
         [/^Podstawiamy /, (s) => /\//.test(s.math.replace(/^lim\([^)]*\)/, '')) ? 'W mianowniku nie wychodzi zero, więc wystarczy wstawić liczbę.'
             : 'Pozostał zwykły rachunek: za zmienną idzie liczba z granicy.'],
@@ -76,7 +79,7 @@
         [/^Skracamy /, 'Po skróceniu zostają same składniki, w których zmienna stoi na dole.'],
         [/^Wyłączam minus przed nawias$/, 'Wyłączamy minus, żeby nawias wyglądał tak samo jak w drugiej części ułamka. Wtedy da się go skrócić, a minus zostaje przed całością.'],
         [/^Zastrzegam dziedzinę$/, 'Przez zero nie wolno dzielić, więc pierwotny mianownik nie może być zerem. To zastrzeżenie zostaje także po skróceniu.'],
-        [/^Skracam /, (_s, _t, c) => 'Ten sam czynnik stoi w liczniku i w mianowniku, więc wolno go skrócić.'
+        [/^Skracam /, (_s, _t, c) => 'Ten sam nawias jest na górze i na dole, więc zostaje z nich tylko jedynka.'
             + (c.steps.some(x => x.label === 'Zastrzegam dziedzinę') ? ' Wynik dotyczy tylko x z zastrzeżenia.' : '')],
         [/^Mnożymy przez sprzężenie$/, (s, _t, c) => {
             const id = s.formula && s.formula.id;
@@ -109,7 +112,7 @@
             const m = /^(?:(.+?) · )?e(?:\^\((.+?)\)|([⁰¹²³⁴⁵⁶⁷⁸⁹]+))?(?: = |$)/.exec(s.math);
             const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹', raw = m ? (m[2] || (m[3] ? [...m[3]].map(d => SUP.indexOf(d)).join('') : '1')) : null;
             const x = raw && raw.replace(/−/g, '-').replace(/^(-?)(\d+)\/(\d+)$/, '$1\\frac{$2}{$3}'), k = m && m[1] && m[1].replace(/−/g, '-');
-            const OLD = 'Podstawa dąży do $e$, a wykładnik do liczby z poprzedniego kroku, więc całość dąży do $e$ do tej potęgi.';
+            const OLD = 'Znamy już granicę wykładnika, więc składam odpowiedź jako $e$ z tą liczbą w potędze.';
             if (!x) return OLD;
             const ep = x === '1' ? 'e' : 'e^{' + x + '}';
             if (isShortcut(c)) return 'Wykładnik dąży do $' + x + '$, więc granica potęgi to $' + ep + '$.';
@@ -118,7 +121,7 @@
         [/^Potęga e$/, 'Liczba $e$ do coraz większej potęgi rośnie bez końca, a do coraz bardziej ujemnej spada do 0.'],
         [/^Dla \w → −∞$/, 'Tu zmienna jest ujemna, więc wyciągając ją spod pierwiastka, piszemy przed nim minus.'],
         [/^Korzystamy ze znanej granicy$/, 'Dopasowujemy wyrażenie do kształtu ze wzoru, nie zmieniając jego wartości.'],
-        [/^Kolorowy ułamek dąży do 1$/, 'Zastępujemy kolorowy ułamek jedynką i zostaje prostsze wyrażenie.'],
+        [/^Kolorowy ułamek dąży do 1$/, 'Kolorowa część wyrażenia dąży do 1, więc w iloczynie zostaje sama reszta.'],
         [/^Reguła de l'Hospitala$/, (_s, _t, c) => c.prev && /^Reguła de l'Hospitala$/.test(c.prev.label)
             ? 'Po pierwszym razie znowu wychodzi symbol nieoznaczony, więc stosujemy regułę drugi raz.'
             // [EN] zdanie „da się już policzyć” tylko wtedy, gdy następny krok to podstawienie
@@ -148,7 +151,7 @@
             ? 'Dzielę przez liczbę dodatnią, więc znak nierówności zostaje bez zmian.'
             : 'Przy niewiadomej stoi jeszcze liczba, a po tym kroku niewiadoma zostaje sama i widać wynik.'],
         [/^Sprawdzenie$/, (_s, title) => /Całka/.test(title)
-            ? 'Pochodna wyniku musi dać funkcję spod całki. Wtedy wiemy, że całka jest dobra.'
+            ? 'Różniczkuję wynik: jeśli wróci funkcja spod całki, to rachunek jest dobry.'
             : /Układ/.test(title) ? 'Wstawiam obie liczby do obu równań: każde musi wyjść prawdziwe.'
                 : 'Wstawiam wynik do równania: lewa strona (L) i prawa (P) muszą dać to samo.'],
         [/^Odczytuję współczynniki$/, 'Wzory na deltę i rozwiązania potrzebują liczb $a$, $b$, $c$ z postaci $ax^{2}+bx+c=0$.'],
@@ -227,6 +230,7 @@
         [/^Zapisuję część jako ułamek$/, 'Część dzielona przez całość mówi, jaki to kawałek całości.'],
         [/^Zamieniam ułamek na procent$/, 'Ułamek razy 100% daje procent: ile setnych części całości to jest.'],
         [/^Zamieniam strony$/, 'Równość działa w obie strony, a niewiadomą wygodniej mieć po lewej.'],
+        [/^Zapisuję ułamek przy x jako liczbę razy x$/, 'Przy $x$ widać wtedy jedną liczbę, przez którą potem podzielę albo pomnożę obie strony.'],
         [/^Liczę prawą stronę$/, 'Po lewej jest już sama niewiadoma, więc wystarczy policzyć prawą stronę.'],
         [/^Mnożę obie strony przez /, (s) => /przez .*[a-z(]/.test(s.label)
             ? 'Po pomnożeniu niewiadoma wychodzi z dołu ułamka, a liczby spoza dziedziny odrzucę na końcu.'
@@ -263,7 +267,7 @@
         [/^Wyłączam wspólny nawias$/, 'Oba składniki mają ten sam nawias, więc wyciągam go przed nawias jak zwykłą liczbę.'],
         [/^Podstawiam [tu] w miejsce /, 'Tu największa potęga to podwojona środkowa, więc po zamianie zostaje trójmian, który już umiem rozłożyć.'],
         [/^Wracam do [a-z]$/, 'Zamiast litery pomocniczej wpisuję z powrotem potęgę, bo wynik ma być zapisany przez wyjściową zmienną.'],
-        [/^Wciągam liczbę do nawiasu$/, 'Mnożę liczbę sprzed iloczynu przez nawias z ułamkiem, żeby w nawiasie zostały liczby całkowite.'],
+        [/^Wciągam liczbę do nawiasu$/, 'Zamiast ułamka w nawiasie wolę liczby całkowite, bo tak zapisuje się czynniki.'],
         [/^Porządkuję czynniki$/, (s) => {
             const [l, r] = s.math.split(' = '), lead = (/** @type {string} */ t) => (/^[^(a-z]*/.exec(t) || [''])[0];
             return r !== undefined && lead(l) !== lead(r) ? 'Liczby z nawiasów wyjmuję przed iloczyn i ustawiam nawiasy w stałej kolejności.'
@@ -287,8 +291,8 @@
         [/liczniki$/, 'Mianowniki są już równe, więc dodajemy albo odejmujemy tylko liczniki, a mianownik przepisujemy.'],
         [/^(Dodaję|Odejmuję|Mnożę|Dzielę|Potęguję)$|^Najpierw nawias/, (_s, _t, c) => c.prev && /^(Dodaję|Odejmuję|Mnożę|Dzielę|Potęguję)$|^Najpierw nawias/.test(c.prev.label)
             ? 'Dalej według kolejności działań.'
-            : 'Kolejność działań: najpierw nawiasy, potem potęgi, mnożenie i dzielenie, na końcu dodawanie i odejmowanie.'],
-        [/^Dzielę licznik przez mianownik$/, 'Ułamek to dzielenie, więc dzielę licznik przez mianownik.'],
+            : 'Z tego, co zostało w wyrażeniu, najpierw liczę to, co stoi wyżej w kolejności działań.'],
+        [/^Dzielę licznik przez mianownik$/, 'Licznik jest za wysoki na rozkład, więc najpierw wyciągam z niego całość, a zostaje reszta nad tym samym mianownikiem.'],
         [/^Wyciągam kwadrat spod pierwiastka$/, 'Z pełnego kwadratu pierwiastek jest dokładny: $\\sqrt{4\\cdot 2}=\\sqrt{4}\\cdot\\sqrt{2}=2\\sqrt{2}$.'],
         [/^Liczę pierwiastek$/, 'Szukam liczby, która podniesiona do kwadratu da liczbę pod pierwiastkiem.'],
         [/^Wymnażam nawiasy$/, 'Mnożę każdy wyraz z jednego nawiasu przez każdy wyraz z drugiego.'],
@@ -299,9 +303,9 @@
         [/^Wstawiam do wzoru$/, 'Mam już $u$, $v$ i ich pochodne. Wstawiam je do wzoru w tej samej kolejności co we wzorze.'],
         [/^Liczę pochodną złożoną$/, 'W środku nie stoi samo $x$, tylko dłuższe wyrażenie, więc sama tablica nie wystarczy.'],
         [/^Liczę pochodną każdego wyrazu$|^Rozbijam na sumę pochodnych$/, 'Pochodną sumy liczymy wyraz po wyrazie, a pochodna stałej to 0.'],
-        [/^Stała zostaje przed pochodną$/, 'Liczba przed funkcją nie zmienia się przy liczeniu pochodnej, zostaje jako mnożnik.'],
+        [/^Stała zostaje przed pochodną$/, 'Czynnik liczbowy odsuwam na bok, żeby zająć się samym wyrażeniem z $x$.'],
         [/^Mnożę przez pochodną środka$/, 'Kończę wzór na funkcję złożoną: wstawiam policzoną pochodną środka i mnożę.'],
-        [/^Mnożę przez stałą$/, 'Liczba, która została przed pochodną, mnoży teraz wynik.'],
+        [/^Mnożę przez stałą$/, 'Na koniec dokładam odsunięty czynnik do gotowego wyniku.'],
         [/^Liczę pochodną potęgi$/, (s) => {
             const n = powerOf(s.math, POW);
             if (!n) return 'Wykładnik schodzi przed zmienną, a potęga maleje o 1.';
@@ -315,7 +319,7 @@
         [/^Składam wynik$/, 'Wstawiam policzone części do wzoru i zapisuję całość.'],
         // ── całki ──
         [/^Całka sumy/, 'Całkę sumy liczymy jako sumę całek każdego składnika.'],
-        [/^Stałą wyłączam przed całkę$/, 'Liczba przed funkcją nie zmienia się przy całkowaniu, zostaje jako mnożnik.'],
+        [/^Stałą wyłączam przed całkę$/, 'Czynnik liczbowy odsuwam na bok, a całkuję samo wyrażenie z $x$.'],
         [/^Mnożę przez wyłączoną stałą$/, 'Na końcu mnożę wynik przez liczbę, którą wcześniej wyłączyłem przed całkę.'],
         [/^Całkuję stałą$/, 'Całka z liczby $k$ to $k\\cdot x$, bo $(k\\cdot x)^{\\prime}=k$.'],
         [/^Całkuję przez części$/, 'Wybieram $u$ tak, żeby po zróżniczkowaniu się uprościło, a $dv$ tak, żeby łatwo je scałkować.'],
@@ -333,9 +337,9 @@
         [/^Korzystam z tożsamości$/, (s) => s.formula && s.formula.id === 'tg-kwadrat'
             ? 'Po zamianie nie ma już kwadratu tangensa, a obie części umiemy scałkować.'
             : 'Po zamianie zostają dwie łatwe całki: ze stałej i z $\\cos 2x$.'],
-        [/^Rozkładam mianownik$/, 'Mianownik ma dwa miejsca zerowe, więc rozkłada się na dwa nawiasy; każdy da osobny, prostszy ułamek.'],
+        [/^Rozkładam mianownik$/, 'Najpierw rozkładam mianownik na nawiasy, bo od nich zależą ułamki, na które rozbijemy całą całkę.'],
         [/^Zapisuję ułamki proste$/, 'Szukam liczb $A$ i $B$. Mnożę obie strony przez mianownik, żeby pozbyć się ułamków.'],
-        [/^Wyznaczam A i B$/, 'Wstawiam miejsca zerowe mianownika: wtedy jeden nawias jest zerem i zostaje tylko jedna niewiadoma.'],
+        [/^Wyznaczam A i B$/, 'Biorę miejsca zerowe mianownika, bo przy nich w równaniu zostaje tylko jedna niewiadoma.'],
         [/^Rozkład na ułamki proste$/, 'Dzielimy ułamek na prostsze części, z których każdą umiemy scałkować.'],
         [/^Liczę F\(b\) − F\(a\)$/, 'Najpierw górna granica, potem dolna; kolejność jest ważna, bo odejmujemy.'],
     ];
