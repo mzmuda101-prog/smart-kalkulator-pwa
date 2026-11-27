@@ -655,7 +655,10 @@
             // [EN] kolor na tym, co wstawiamy (prawa strona tożsamości)
             line(log, label, id.slice(0, eqAt + 3) + '⟦' + id.slice(eqAt + 3) + '⟧', fid);
             // [EN] potem każda część osobno (raport E, C5): skąd /4 przy sin(2x)
-            var PARTS = { 'sin-kwadrat': '∫ 1/2 d# = #/2\n∫ cos(2#)/2 d# = sin(2#)/4', 'cos-kwadrat': '∫ 1/2 d# = #/2\n∫ cos(2#)/2 d# = sin(2#)/4',
+            // [EN] rozbicie ułamka i ∫ cos(2x) dx = sin(2x)/2 widoczne (S47): skąd /4 i skąd minus
+            var COS2 = '∫ cos(2#) d# = sin(2#)/2\n∫ cos(2#)/2 d# = 1/2 · sin(2#)/2 = sin(2#)/4';
+            var PARTS = { 'sin-kwadrat': '∫ (1 − cos(2#))/2 d# = ∫ 1/2 d# − ∫ cos(2#)/2 d#\n∫ 1/2 d# = #/2\n' + COS2,
+                'cos-kwadrat': '∫ (1 + cos(2#))/2 d# = ∫ 1/2 d# + ∫ cos(2#)/2 d#\n∫ 1/2 d# = #/2\n' + COS2,
                 'tg-kwadrat': '∫ 1/cos²(#) d# = tg(#)\n∫ 1 d# = #' };
             line(log, 'Całkuję każdą część', PARTS[fid].replace(/#/g, v) + '\n' + integralText(e, v) + ' = ' + show(res));
         } else if (fid === 'calka-potegi' && !(isInt(f.e) && f.e.n > 0n)) { // [EN] √x = x^(1/2), 1/x² = x^(−2): najpierw potęga, potem wzór

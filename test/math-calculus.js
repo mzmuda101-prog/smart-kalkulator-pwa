@@ -176,7 +176,9 @@ pass += 2;
     ok('3h: liczba przed zmienną dostaje kropkę (2 · 3)', st('całka 2x+1 od 1 do 3').some(x => x.math.includes('⟦(3² + 3) − (1² + 1)⟧')), show('całka 2x+1 od 1 do 3'));
     ok('3h: przez części — minus razy minus od razu', has('całka x*sin(x)', 'Podstawiam do wzoru', 'u · v − ∫ v du = ⟦−x · cos(x) − ∫ −cos(x) · 1 dx⟧ = −x · cos(x) − ∫ −cos(x) dx = −x · cos(x) + ∫ cos(x) dx') && !has('całka x*sin(x)', 'Stałą wyłączam przed całkę'), show('całka x*sin(x)'));
     ok('3h: przez części — wstawiam policzoną całkę', has('całka x*e^x', 'Wstawiam policzoną całkę', 'x · e^x − e^x'), show('całka x*e^x'));
-    ok('3h: tożsamość, potem każda część osobno', has('całka sin(x)^2', 'Całkuję każdą część', '∫ 1/2 dx = x/2\n∫ cos(2x)/2 dx = sin(2x)/4\n∫ sin²(x) dx = x/2 − sin(2x)/4'), show('całka sin(x)^2'));
+    { const w = require(path.join(__dirname, '..', 'js', 'step-why.js')).whyFor, a = S.run('całka 1/(x^2+4)').explain, i = a.steps.findIndex(x => x.label === 'Korzystam z tablicy całek');
+      ok('2b S46: arctg bez „od razu przepisuję”', !/od razu przepisuję/.test(w(a.steps[i], a.title, a, i)), w(a.steps[i], a.title, a, i)); }
+    ok('3h: tożsamość, potem każda część osobno', has('całka sin(x)^2', 'Całkuję każdą część', '∫ (1 − cos(2x))/2 dx = ∫ 1/2 dx − ∫ cos(2x)/2 dx\n∫ 1/2 dx = x/2\n∫ cos(2x) dx = sin(2x)/2\n∫ cos(2x)/2 dx = 1/2 · sin(2x)/2 = sin(2x)/4\n∫ sin²(x) dx = x/2 − sin(2x)/4'), show('całka sin(x)^2'));
     ok('3h: ułamki proste — A i B wyliczone', has('całka 1/(x^2-1)', 'Rozkładam mianownik', 'x² − 1 = (x + 1)(x − 1)')
         && has('całka 1/(x^2-1)', 'Zapisuję ułamki proste', '1/((x + 1)(x − 1)) = A/(x + 1) + B/(x − 1)\n1 = A(x − 1) + B(x + 1)')
         && has('całka 1/(x^2-1)', 'Wyznaczam A i B', 'x = −1:  1 = A(−1 − 1) + B(−1 + 1) = −2A,  A = −1/2\nx = 1:  1 = A(1 − 1) + B(1 + 1) = 2B,  B = 1/2'), show('całka 1/(x^2-1)'));

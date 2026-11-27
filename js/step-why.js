@@ -356,7 +356,9 @@
             const x = (/⟦∫ ([a-z])/.exec(s.math) || ['', 'x'])[1];
             return 'Tu $n=' + texRat(n[0], n[1]) + '$, więc w wyniku jest $' + x + '^{' + m + '}$ i dzielenie przez $' + m + '$.';
         }],
-        [/^Korzystam z tablicy całek$/, 'Ta funkcja jest w tablicy całek, więc wynik od razu przepisuję.'],
+        [/^Korzystam z tablicy całek$/, (s) => s.formula && s.formula.id === 'calka-arctg'
+            ? 'To nie jest gotowy wynik do przepisania: odczytuję $a$ z mianownika i wstawiam je w dwa miejsca wzoru.'
+            : 'Ta funkcja jest w tablicy całek, więc wynik od razu przepisuję.'],
         [/^Korzystam z tożsamości$/, (s) => s.formula && s.formula.id === 'tg-kwadrat'
             ? 'Po zamianie nie ma już kwadratu tangensa, a obie części umiemy scałkować.'
             : 'Po zamianie zostają dwie łatwe całki: ze stałej i z $\\cos 2x$.'],

@@ -352,7 +352,8 @@
             tex: '\\int\\frac{1}{x^{2}+a^{2}}\\,dx=\\frac{1}{a}\\operatorname{arctg}\\frac{x}{a}',
             why: 'Pod całką jest jedynka przez $x^{2}$ plus liczba. Zapisujemy tę liczbę jako $a^{2}$ i wstawiamy $a$ do wzoru.',
             level: 'Studia: analiza matematyczna',
-            more: ['Przykład: $4=2^{2}$, więc $\\int\\frac{1}{x^{2}+4}\\,dx=\\frac{1}{2}\\operatorname{arctg}\\frac{x}{2}$.'],
+            more: ['Przykład: $4=2^{2}$, więc $\\int\\frac{1}{x^{2}+4}\\,dx=\\frac{1}{2}\\operatorname{arctg}\\frac{x}{2}$.',
+                'Co to jest arctg: $\\operatorname{arctg}y$ to kąt (w radianach), którego tangens wynosi $y$, np. $\\operatorname{arctg}1=\\frac{\\pi}{4}$, bo $\\operatorname{tg}\\frac{\\pi}{4}=1$.'],
         },
         'przez-czesci': {
             name: 'Całkowanie przez części',
