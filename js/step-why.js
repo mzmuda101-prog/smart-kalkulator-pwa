@@ -231,7 +231,9 @@
         [/^Zamieniam ułamek na procent$/, 'Ułamek razy 100% daje procent: ile setnych części całości to jest.'],
         [/^Zamieniam strony$/, 'Równość działa w obie strony, a niewiadomą wygodniej mieć po lewej.'],
         [/^Zapisuję ułamek przy x jako liczbę razy x$/, 'Przy $x$ widać wtedy jedną liczbę, przez którą potem podzielę albo pomnożę obie strony.'],
-        [/^Liczę prawą stronę$/, 'Po lewej jest już sama niewiadoma, więc wystarczy policzyć prawą stronę.'],
+        [/^Liczę prawą stronę$/, 'Lewa strona się nie zmienia, więc liczę tylko prawą stronę.'],
+        [/^Upraszczam lewą stronę$/, 'Prawa strona się nie zmienia, a lewą zapisuję krócej: to ta sama wartość.'],
+        [/^Upraszczam obie strony$/, 'Liczę to, co da się policzyć po obu stronach, żeby zostało krótkie równanie.'],
         [/^Mnożę obie strony przez /, (s) => /przez .*[a-z(]/.test(s.label)
             ? 'Po pomnożeniu niewiadoma wychodzi z dołu ułamka, a liczby spoza dziedziny odrzucę na końcu.'
             : 'Mnożę przez odwrotność liczby stojącej przy niewiadomej, żeby niewiadoma została sama.'],

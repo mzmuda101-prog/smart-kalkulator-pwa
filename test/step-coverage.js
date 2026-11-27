@@ -160,7 +160,7 @@ ok('„Składam całość” → postac-iloczynowa', (attachRule({ label: 'Skła
         ['Liczę pierwiastek z delty w mianowniku', '√Δ = √196 = 14', 'delta'],
         ['Szukam pierwiastka wśród dzielników w liczniku', 'W(−1) = 0', 'bezout'],
         ['Rozwiązuję podwójną nierówność', '−1 < x < 5', 'wartosc-bezwzgledna'],
-        ['Szukam miejsc zerowych', 'x² − 4 = 0', 'nierownosc-kwadratowa'],
+        ['Brak miejsc zerowych', 'Δ < 0', 'znak-trojmianu'],
         ['Wyliczam x', 'x = π/12 + kπ lub x = 5π/12 + kπ\nk ∈ ℤ', 'okresowosc'],
         ['Porządkuję równania', 'x − 2y = 0', 'przenoszenie'],
         // „Zapisujemy inaczej” rozbite w silniku na cztery prawdziwe etykiety

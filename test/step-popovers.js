@@ -80,11 +80,17 @@ for (const [q, id, here] of COVER) {
 
 // przegląd: przy a < 0 dymek paraboli nazywa miejsca zerowe tak jak wcześniejszy krok ze wzorami
 {
-    const st = stepsWith('rozwiąż -x^2 + 7x - 6 > 0', 'nierownosc-kwadratowa').filter(s => !s.formula.fromRule);
+    const st = stepsWith('rozwiąż -x^2 + 7x - 6 > 0', 'nierownosc-kwadratowa').filter(s => s.label === 'Odczytuję znak z paraboli');
     const x12 = stepsWith('rozwiąż -x^2 + 7x - 6 > 0', 'wzory-x12')[0];
     const x1 = x12 && /x₁ = .* = (−?\d+)\n/.exec(x12.math);
     ok('a < 0: x₁ w dymku paraboli jak w kroku ze wzorami', !!(st[0] && x1 && st[0].formula.here.startsWith('x₁ = ' + x1[1] + ',')), [st[0] && st[0].formula.here, x12 && x12.math]);
-    ok('Δ < 0: bez dymku x₁ < x < x₂', stepsWith('rozwiąż x^2 + 1 > 0', 'nierownosc-kwadratowa').filter(s => !s.formula.fromRule).length === 0);
+    ok('Δ < 0: bez dymku x₁ < x < x₂', stepsWith('rozwiąż x^2 + 1 > 0', 'nierownosc-kwadratowa').length === 0);
+    for (const q of ['rozwiąż x^2+1>0', 'rozwiąż -x^2+2x-5<0', 'rozwiąż x^2-4x+4>0']) {
+        ok(q + ': bez dymku x₁ < x < x₂, znak z hasła znak-trojmianu', stepsWith(q, 'nierownosc-kwadratowa').length === 0
+            && stepsWith(q, 'znak-trojmianu').some(s => s.label === 'Odczytuję znak z paraboli'), S.run(q).explain.steps.map(s => s.label + ' ' + (s.formula && s.formula.id)));
+    }
+    ok('rozłóż 6x+3: „Szukam miejsc zerowych” bez dymku nierówności', !stepsWith('rozłóż 6x+3', 'nierownosc-kwadratowa').length
+        && stepsWith('rozłóż 6x+3', 'postac-iloczynowa').some(s => s.label === 'Szukam miejsc zerowych'), S.run('rozłóż 6x+3').explain.steps);
 }
 
 // pokrycie (spec, cel 1): każdy typ zadania z tabeli ma co najmniej jeden dymek od silnika w każdym sposobie (dymki z tabeli się nie liczą)

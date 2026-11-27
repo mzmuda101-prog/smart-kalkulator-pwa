@@ -183,6 +183,13 @@ pass += 3;
 {
     const X = 'rozwiąż x=52+65';
     ok('3g: x = 52 + 65 — liczę prawą stronę, bez sprawdzenia', has(X, 'Liczę prawą stronę', 'x = 117') && !has(X, 'Sprawdzenie') && st(X).length === 3, st(X));
+    // etykieta mówi, która strona się zmieniła: bez ułamka przy x tam, gdzie ułamka nie ma (przegląd końcowy, C1)
+    const noFrac = q => !has(q, 'Zapisuję ułamek przy x jako liczbę razy x');
+    ok('√x = 3: x = 3² → x = 9 to rachunek po prawej', noFrac('rozwiąż sqrt(x)=3') && has('rozwiąż sqrt(x)=3', 'Liczę prawą stronę', 'x = 9'), st('rozwiąż sqrt(x)=3'));
+    ok('√x = 5: bez ułamka przy x', noFrac('rozwiąż sqrt(x)=5') && has('rozwiąż sqrt(x)=5', 'Liczę prawą stronę', 'x = 25'), st('rozwiąż sqrt(x)=5'));
+    ok('x + 0 = 4: upraszczam lewą stronę', noFrac('rozwiąż x+0=4') && has('rozwiąż x+0=4', 'Upraszczam lewą stronę', 'x = 4'), st('rozwiąż x+0=4'));
+    ok('2x = 2³: liczę prawą stronę', noFrac('rozwiąż 2x=2^3') && has('rozwiąż 2x=2^3', 'Liczę prawą stronę', '2x = 8'), st('rozwiąż 2x=2^3'));
+    ok('x/2 = 3: ułamek przy x zostaje', has('rozwiąż x/2=3', 'Zapisuję ułamek przy x jako liczbę razy x', '(1/2)x = 3'), st('rozwiąż x/2=3'));
     const Y = 'rozwiąż 5 = 2x - 7';
     ok('3g: x tylko po prawej — zamieniam strony', has(Y, 'Zamieniam strony', '2x − 7 = 5') && has(Y, 'Przenoszę liczby na prawo', '2x = 5 + 7') && !st(Y).some(x => /−2x/.test(x.math)), st(Y));
     const Z = 'rozwiąż x/2 + 1 = 3';

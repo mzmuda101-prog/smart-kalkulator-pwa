@@ -422,6 +422,17 @@
                 'Gdy $\\Delta<0$, parabola nie przecina osi. Przy dodatnim współczynniku przy $x^{2}$ leży cała nad osią, więc nierówność „mniejsze od zera” nie ma wtedy rozwiązań.',
             ],
         },
+        'znak-trojmianu': {
+            name: 'Znak trójmianu bez dwóch miejsc zerowych',
+            tex: '\\Delta<0:\\ ax^{2}+bx+c\\ \\text{ma znak } a,\\quad \\Delta=0:\\ ax^{2}+bx+c=a(x-x_{0})^{2}',
+            why: 'Trójmian może zmienić znak tylko tam, gdzie jest zerem. Przy $\\Delta<0$ takiego miejsca brak, więc wszędzie ma znak liczby $a$. Przy $\\Delta=0$ jest zerem tylko w $x_{0}$, a poza nim ma znak $a$.',
+            level: 'Liceum, zakres podstawowy: funkcja kwadratowa',
+            more: [
+                'Przykład: $x^{2}+1>0$. Równanie $x^{2}+1=0$ nie ma rozwiązań, a $a=1>0$, więc parabola leży cała nad osią: $x\\in\\mathbb{R}$.',
+                'Przykład: $x^{2}-4x+4>0$. Tu $\\Delta=0$ i $x^{2}-4x+4=(x-2)^{2}$, a kwadrat jest dodatni wszędzie poza $x=2$: $x\\in\\mathbb{R}\\setminus\\{2\\}$.',
+                'Przy $a<0$ jest odwrotnie: parabola leży pod osią, np. $-x^{2}+2x-5<0$ dla każdego $x$.',
+            ],
+        },
         'uklad-podstawianie': {
             name: 'Układ równań: metoda podstawiania',
             tex: '2x+y=7\\;\\Rightarrow\\;y=7-2x',
@@ -1091,6 +1102,7 @@
         tgu: ['granice', 'st', ['tangens', 'granica specjalna', 'tg x przez x'], 'lim x→0 tan(2x)/x', '2', ['sinu', 'arctgu']],
         arcsinu: ['granice', 'st', ['arcus sinus', 'granica specjalna', 'arcsin'], 'lim x→0 arcsin(2x)/x', '2', ['sinu', 'arctgu']],
         arctgu: ['granice', 'st', ['arcus tangens', 'granica specjalna', 'arctg'], 'lim x→0 arctg(3x)/x', '3', ['tgu', 'arcsinu', 'calka-arctg']],
+        'znak-trojmianu': ['rownania', 'lp', ['delta ujemna', 'brak miejsc zerowych', 'znak trójmianu', 'parabola nad osią'], 'rozwiąż x^2 + 1 > 0', 'x ∈ ℝ', ['nierownosc-kwadratowa', 'delta', 'wzor-x0']],
         'nierownosc-kwadratowa': ['rownania', 'lp', ['nierówność kwadratowa', 'parabola', 'znak trójmianu', 'przedział'], 'rozwiąż x^2 - 4 < 0', 'x ∈ (−2, 2)', ['delta', 'wzory-x12', 'wierzcholek', 'odwracanie-znaku']],
         'uklad-podstawianie': ['rownania', 'lp', ['układ równań', 'metoda podstawiania', 'dwie niewiadome'], 'rozwiąż 2x + y = 7, x - y = 2', 'x = 3, y = 1', ['uklad-przeciwne']],
         'uklad-przeciwne': ['rownania', 'lp', ['układ równań', 'przeciwne współczynniki', 'metoda dodawania', 'dodawanie stronami'], 'rozwiąż 2x + y = 7, x - y = 2', 'x = 3, y = 1', ['uklad-podstawianie']],
@@ -1228,9 +1240,10 @@
         // [EN] tylko całki: te etykiety wypisuje wyłącznie js/math-calculus.js
         { re: /^(Podstawienie: [a-z] = .+|Wracam do zmiennej [a-z])$/, id: 'podstawienie-w-calce' },
         { re: /^Sprawdzenie$/, id: 'sprawdzenie-calki', when: s => /′/.test(s.math) },
-        { re: /^(Najpierw nawias: (dodaję|odejmuję|mnożę|dzielę|potęguję)|Dodaję|Odejmuję|Mnożę|Dzielę|Potęguję|Liczę prawą stronę)$/, id: 'kolejnosc-dzialan' },
+        { re: /^(Najpierw nawias: (dodaję|odejmuję|mnożę|dzielę|potęguję)|Dodaję|Odejmuję|Mnożę|Dzielę|Potęguję|Liczę prawą stronę|Upraszczam lewą stronę|Upraszczam obie strony)$/, id: 'kolejnosc-dzialan' },
         { re: /^Skracam (ułamek|\(.+\))$/, id: 'skracanie-ulamka' },
-        { re: /^Szukam miejsc zerowych$|^Brak miejsc zerowych$|^Odczytuję znak z paraboli$/, id: 'nierownosc-kwadratowa' },
+        // [EN] „Szukam miejsc zerowych” i „Odczytuję znak z paraboli” dostają hasło od silnika (zależy od liczby miejsc zerowych)
+        { re: /^Brak miejsc zerowych$/, id: 'znak-trojmianu' },
         { re: /^Rozwiązuję podwójną nierówność$/, id: 'wartosc-bezwzgledna' },
         { re: /^Kwadrat nie może być ujemny$/, id: 'pierwiastkowanie-obu-stron' },
         { re: /^Porządkuję równania$/, id: 'przenoszenie' },

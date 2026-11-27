@@ -1100,9 +1100,16 @@
                     if (moved !== shift) steps.push({ label: 'Redukuję wyrazy podobne', math: moved });
                 }
             }
+            // [EN] nazwa mówi, która strona naprawdę się zmieniła: √x = 3 → x = 3² → x = 9 to rachunek po prawej, nie ułamek przy x
+            var sameSidesLabel = function (prev, next) {
+                var p = prev.replace(/[⟦⟧]/g, '').split(' = '), n = next.split(' = ');
+                var lc = p[0] !== n[0], rc = p[1] !== n[1];
+                if (lc && !rc && /\//.test(p[0])) return 'Zapisuję ułamek przy x jako liczbę razy x';
+                return lc && rc ? 'Upraszczam obie strony' : lc ? 'Upraszczam lewą stronę' : 'Liczę prawą stronę';
+            };
             if (moved !== steps[steps.length - 1].math) {
                 steps.push({ label: xR.length && !cL.length ? 'Przenoszę ' + v + ' na lewo' : !xR.length && cL.length ? 'Przenoszę liczby na prawo'
-                    : !xR.length && !cL.length ? (nz(rawR) !== Rr.length ? 'Liczę prawą stronę' : 'Zapisuję ułamek przy x jako liczbę razy x') : 'Przenoszę ' + v + ' na lewo, liczby na prawo', math: moved });
+                    : !xR.length && !cL.length ? sameSidesLabel(steps[steps.length - 1].math, moved) : 'Przenoszę ' + v + ' na lewo, liczby na prawo', math: moved });
             }
             if (!eq(a, ONE) && !isInt(a)) { // [EN] (1/2)x = 2 → mnożę przez 2, nie dzielę przez 1/2 (raport E, R3)
                 var inv = div(ONE, a);
@@ -1269,7 +1276,8 @@
         }
         if (c.length !== 3) throw new NotSupported();
         if (L.length !== diff.length || Rr.length) steps.push({ label: 'Przenoszę wszystko na lewą stronę', math: polyText(c, v, ctx) + ' ' + rel + ' 0' });
-        steps.push({ label: 'Szukam miejsc zerowych', math: polyText(c, v, ctx) + ' = 0' });
+        var seek = { label: 'Szukam miejsc zerowych', math: polyText(c, v, ctx) + ' = 0' };
+        steps.push(seek);
         var sol = [], mark = steps.length;
         solveQuadratic(c, v, steps, ctx, sol);
         steps.slice(mark).forEach(function (st) { // [EN] w nierówności „brak rozwiązań” równania znaczy tylko: parabola nie przecina osi
@@ -1287,7 +1295,8 @@
         if (roots.length === 2 && named.length === 2) {
             sign.math = 'a = ⟦' + fmt(c[2], ctx) + '⟧' + (up ? ' > 0' : ' < 0');
             sign.formula = { id: 'nierownosc-kwadratowa', here: v + '₁ = ' + named[0] + ', ' + v + '₂ = ' + named[1] + ', a = ' + fmt(c[2], ctx) };
-        }
+        } else sign.formula = { id: 'znak-trojmianu', here: 'a = ' + fmt(c[2], ctx) }; // [EN] Δ ≤ 0: znak wszędzie jak a, bez x₁ < x < x₂
+        seek.formula = { id: sign.formula.id, here: sign.formula.here }; seek.math = '⟦' + polyText(c, v, ctx) + '⟧ = 0';
         steps.push(sign);
         if (roots.length === 2) {
             parts = wantNeg ? [{ lo: roots[0], hi: roots[1], loIn: closed, hiIn: closed }]
@@ -1883,7 +1892,7 @@
                         var quad = [];
                         solveQuadratic(c, v, quad, ctx, []);
                         quad.forEach(function (q) { steps.push(q); });
-                    } else steps.push({ label: 'Szukam miejsc zerowych', math: uniq.map(function (r, i) { return v + (uniq.length > 1 ? sub_(i + 1) : '₀') + ' = ' + fmt(r, ctx); }).join(',  ') });
+                    } else steps.push({ label: 'Szukam miejsc zerowych', math: uniq.map(function (r, i) { return v + (uniq.length > 1 ? sub_(i + 1) : '₀') + ' = ⟦' + fmt(r, ctx) + '⟧'; }).join(',  '), formula: { id: 'postac-iloczynowa' } });
                     steps.push({ label: 'Zapisuję postać iloczynową', math: prefix + leadText + '⟦' + body + '⟧', formula: { id: 'postac-iloczynowa' } });
                 }
             } else {
