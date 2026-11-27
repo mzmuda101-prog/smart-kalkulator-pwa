@@ -1,0 +1,286 @@
+{
+  "^(Całkuję przez części|Wstawiam policzoną całkę)$ → przez-czesci": [
+    "Całkuję przez części",
+    "Wstawiam policzoną całkę"
+  ],
+  "^(Dzielę|Mnożę) obie strony przez [−-]?\\d[\\d,/]*$ → obie-strony": [
+    "Dzielę obie strony przez #",
+    "Mnożę obie strony przez #"
+  ],
+  "^(Lewe strony są proporcjonalne|Prawe strony też — to jedno równanie)$ → obie-strony": [
+    "Lewe strony są proporcjonalne",
+    "Prawe strony też — to jedno równanie"
+  ],
+  "^(Liczę q|Zapisuję postać kanoniczną)$ → wierzcholek": [
+    "Liczę v",
+    "Zapisuję postać kanoniczną"
+  ],
+  "^(Mnożę (pierwsze|drugie) przez .+|Wstawiam [a-z] = \\S+ do (pierwszego|drugiego) równania)$ → uklad-przeciwne": [
+    "Mnożę drugie przez #",
+    "Mnożę pierwsze przez #",
+    "Mnożę pierwsze przez #, drugie przez #",
+    "Wstawiam v = # do pierwszego równania"
+  ],
+  "^(Najpierw nawias: (dodaję|odejmuję|mnożę|dzielę|potęguję)|Dodaję|Odejmuję|Mnożę|Dzielę|Potęguję|Liczę prawą stronę|Upraszczam lewą stronę|Upraszczam obie strony)$ → kolejnosc-dzialan": [
+    "Dzielę",
+    "Liczę prawą stronę",
+    "Mnożę",
+    "Najpierw nawias: dodaję",
+    "Potęguję",
+    "Upraszczam lewą stronę"
+  ],
+  "^(Najpierw nawias: )?(dodaję|odejmuję|Dodaję|Odejmuję) liczniki$ → wspolny-mianownik": [
+    "Dodaję liczniki",
+    "Odejmuję liczniki"
+  ],
+  "^(Odkładam minus|Dzielę przez kolejne liczby pierwsze|Zbieram czynniki pierwsze)$ → czynniki-pierwsze": [
+    "Dzielę przez kolejne liczby pierwsze",
+    "Odkładam minus",
+    "Zbieram czynniki pierwsze"
+  ],
+  "^(Odrzucam fałszywe rozwiązanie|Sprawdzam rozwiązania)$ → rownanie-z-pierwiastkiem": [
+    "Odrzucam fałszywe rozwiązanie",
+    "Sprawdzam rozwiązania"
+  ],
+  "^(Podstawienie: [a-z] = .+|Wracam do zmiennej [a-z])$ → podstawienie-w-calce": [
+    "Podstawienie: v = #v + #",
+    "Podstawienie: v = v²",
+    "Wracam do zmiennej v"
+  ],
+  "^(Redukuję|Porządkuję i redukuję) wyrazy podobne$ → wyrazy-podobne": [
+    "Porządkuję i redukuję wyrazy podobne",
+    "Redukuję wyrazy podobne"
+  ],
+  "^(Rozbijamy na dwie różnice|Dodajemy granice)$ → granica-sumy": [
+    "Dodajemy granice",
+    "Rozbijamy na dwie różnice"
+  ],
+  "^(Stała zostaje przed pochodną|Mnożę przez stałą)$ → liniowosc-pochodnej": [
+    "Mnożę przez stałą",
+    "Stała zostaje przed pochodną"
+  ],
+  "^(Stałą wyłączam przed całkę|Mnożę przez wyłączoną stałą|Całka sumy to suma całek|Całkuję każdą część)$ → liniowosc-calki": [
+    "Całka sumy to suma całek",
+    "Całkuję każdą część",
+    "Mnożę przez wyłączoną stałą",
+    "Stałą wyłączam przed całkę"
+  ],
+  "^(Upraszczam pierwiastek z delty|Wyciągam kwadrat spod pierwiastka|Wyłączam liczbę spod pierwiastka)$ → pierwiastek-iloczynu": [
+    "Upraszczam pierwiastek z delty",
+    "Wyciągam kwadrat spod pierwiastka",
+    "Wyłączam liczbę spod pierwiastka"
+  ],
+  "^(Wyrazy z [a-z] w mianowniku dążą do 0|Podstawiamy [a-z] → ∞)$ → granice-podstawowe": [
+    "Podstawiamy v → ∞",
+    "Wyrazy z v w mianowniku dążą do #"
+  ],
+  "^(Wyznaczam [a-z] z (pierwszego|drugiego) równania|Wstawiam [a-z] = \\S+)$ → uklad-podstawianie": [
+    "Wstawiam v = #",
+    "Wyznaczam v z pierwszego równania"
+  ],
+  "^(Wyznaczam|Sprawdzam|Zastrzegam) dziedzinę$|^Odrzucam rozwiązanie spoza dziedziny$ → dziedzina": [
+    "Odrzucam rozwiązanie spoza dziedziny",
+    "Sprawdzam dziedzinę",
+    "Wyznaczam dziedzinę",
+    "Zastrzegam dziedzinę"
+  ],
+  "^(Wyłączam minus przed ułamek|Zmieniam znak licznika i mianownika)$ → znak-ulamka": [
+    "Wyłączam minus przed ułamek",
+    "Zmieniam znak licznika i mianownika"
+  ],
+  "^(Wyłączamy .+ przed nawias|Skracamy .+)$ → granica-najwyzsza-potega": [
+    "Skracamy (…)",
+    "Skracamy v",
+    "Skracamy v²",
+    "Skracamy v³",
+    "Skracamy v⁵",
+    "Skracamy v⁶",
+    "Skracamy v√v",
+    "Skracamy √(…)",
+    "Skracamy √v",
+    "Wyłączamy (…) przed nawias",
+    "Wyłączamy najwyższe potęgi przed nawias",
+    "Wyłączamy v przed nawias",
+    "Wyłączamy v² przed nawias",
+    "Wyłączamy v³ przed nawias",
+    "Wyłączamy v⁵ przed nawias",
+    "Wyłączamy v⁶ przed nawias",
+    "Wyłączamy v√v przed nawias",
+    "Wyłączamy √(…) przed nawias",
+    "Wyłączamy √v przed nawias"
+  ],
+  "^(Zapisuję część jako ułamek|Mnożę ułamek przez liczbę|Liczę procent z liczby)$ → procent-z-liczby": [
+    "Liczę procent z liczby",
+    "Mnożę ułamek przez liczbę",
+    "Zapisuję część jako ułamek"
+  ],
+  "^(Zapisuję ułamki proste|Wyznaczam A i B|Rozkład na ułamki proste|Każdy ułamek daje logarytm)$ → ulamki-proste": [
+    "Każdy ułamek daje logarytm",
+    "Rozkład na ułamki proste",
+    "Wyznaczam A i B",
+    "Zapisuję ułamki proste"
+  ],
+  "^(Zmieniam znak obu stron|Zamieniam strony)$ → obie-strony": [
+    "Zamieniam strony",
+    "Zmieniam znak obu stron"
+  ],
+  "^Brak miejsc zerowych$ → znak-trojmianu": [
+    "Brak miejsc zerowych"
+  ],
+  "^Całkuję stałą$ → calka-potegi": [
+    "Całkuję stałą"
+  ],
+  "^Delta ujemna: brak rozwiązań$ → delta": [
+    "Delta ujemna: brak rozwiązań"
+  ],
+  "^Dla [a-z] → −∞$ → liczba-przeciwna": [
+    "Dla v → −∞"
+  ],
+  "^Dzielę licznik przez mianownik$ → dzielenie-z-reszta": [
+    "Dzielę licznik przez mianownik"
+  ],
+  "^Granica jednostronna .+[⁺⁻]$ → granica-jednostronna": [
+    "Granica jednostronna #⁺",
+    "Granica jednostronna #⁻"
+  ],
+  "^Granice jednostronne są różne$ → granica-jednostronna": [
+    "Granice jednostronne są różne"
+  ],
+  "^Kwadrat nie może być ujemny$ → pierwiastkowanie-obu-stron": [
+    "Kwadrat nie może być ujemny"
+  ],
+  "^Liczę pierwiastek z delty (w liczniku|w mianowniku)$ → delta": [
+    "Liczę pierwiastek z delty w liczniku",
+    "Liczę pierwiastek z delty w mianowniku"
+  ],
+  "^Liczę pierwiastek z delty$ → delta": [
+    "Liczę pierwiastek z delty"
+  ],
+  "^Logarytm jest ciągły$ → ciaglosc-logarytmu": [
+    "Logarytm jest ciągły"
+  ],
+  "^Mnożę przez pochodną środka$ → pochodna-zlozona": [
+    "Mnożę przez pochodną środka"
+  ],
+  "^Odczytuję współczynniki( w (liczniku|mianowniku))?$ → wspolczynniki-trojmianu": [
+    "Odczytuję współczynniki",
+    "Odczytuję współczynniki w liczniku",
+    "Odczytuję współczynniki w mianowniku"
+  ],
+  "^Opuszczam nawiasy$ → opuszczanie-nawiasow": [
+    "Opuszczam nawiasy"
+  ],
+  "^Pierwiastkuję obie strony → pierwiastkowanie-obu-stron": [
+    "Pierwiastkuję obie strony (…)"
+  ],
+  "^Podstawiamy [a-z] =  → granica-ciaglosc": [
+    "Podstawiamy v = #"
+  ],
+  "^Porządkuję równania$ → przenoszenie": [
+    "Porządkuję równania"
+  ],
+  "^Porównuję argumenty logarytmów$ → rownosc-logarytmow": [
+    "Porównuję argumenty logarytmów"
+  ],
+  "^Przenoszę ([a-z] na lewo(, liczby na prawo)?|liczby na prawo|liczbę na prawo|wszystko na lewą stronę)$ → przenoszenie": [
+    "Przenoszę liczby na prawo",
+    "Przenoszę liczbę na prawo",
+    "Przenoszę v na lewo",
+    "Przenoszę v na lewo, liczby na prawo",
+    "Przenoszę wszystko na lewą stronę"
+  ],
+  "^Przyrównuję każdy czynnik do zera$ → iloczyn-rowny-zero": [
+    "Przyrównuję każdy czynnik do zera"
+  ],
+  "^Rozkładam mianownik$ → skladanie-rozkladu": [
+    "Rozkładam mianownik"
+  ],
+  "^Rozkładam na czynniki pierwsze$ → nwd-nww": [
+    "Rozkładam na czynniki pierwsze"
+  ],
+  "^Rozkładamy na czynniki$ → skladanie-rozkladu": [
+    "Rozkładamy na czynniki"
+  ],
+  "^Rozpoznaję iloczyn$ → pochodna-iloczynu": [
+    "Rozpoznaję iloczyn"
+  ],
+  "^Rozpoznaję iloraz$ → pochodna-ilorazu": [
+    "Rozpoznaję iloraz"
+  ],
+  "^Rozwiązuję oba przypadki$ → wartosc-bezwzgledna": [
+    "Rozwiązuję oba przypadki"
+  ],
+  "^Rozwiązuję podwójną nierówność$ → wartosc-bezwzgledna": [
+    "Rozwiązuję podwójną nierówność"
+  ],
+  "^Skracam (ułamek|\\(.+\\))$ → skracanie-ulamka": [
+    "Skracam (…)",
+    "Skracam ułamek"
+  ],
+  "^Skracamy \\(.+\\)[²³⁴⁵⁶⁷⁸⁹]?$ → skracanie-czynnika-w-granicy": [
+    "Skracamy (…)",
+    "Skracamy (…)²"
+  ],
+  "^Składam całość( w (liczniku|mianowniku))?$ → postac-iloczynowa": [
+    "Składam całość",
+    "Składam całość w liczniku",
+    "Składam całość w mianowniku"
+  ],
+  "^Składam całość( w (liczniku|mianowniku))?$ → skladanie-rozkladu": [
+    "Składam całość",
+    "Składam całość w mianowniku"
+  ],
+  "^Sprawdzenie$ → sprawdzenie": [
+    "Sprawdzenie"
+  ],
+  "^Sprawdzenie$ → sprawdzenie-calki": [
+    "Sprawdzenie"
+  ],
+  "^Sprowadzamy do wspólnego mianownika$ → wspolny-mianownik": [
+    "Sprowadzamy do wspólnego mianownika"
+  ],
+  "^Szukam pierwiastka wśród dzielników( w (liczniku|mianowniku))?$ → bezout": [
+    "Szukam pierwiastka wśród dzielników",
+    "Szukam pierwiastka wśród dzielników w liczniku",
+    "Szukam pierwiastka wśród dzielników w mianowniku"
+  ],
+  "^Wartość bezwzględna jest zerem tylko dla zera$ → wartosc-bezwzgledna": [
+    "Wartość bezwzględna jest zerem tylko dla zera"
+  ],
+  "^Wartość bezwzględna nie jest ujemna$ → wartosc-bezwzgledna": [
+    "Wartość bezwzględna nie jest ujemna"
+  ],
+  "^Wciągam liczbę do nawiasu( w (liczniku|mianowniku))?$ → wciaganie-do-nawiasu": [
+    "Wciągam liczbę do nawiasu",
+    "Wciągam liczbę do nawiasu w liczniku",
+    "Wciągam liczbę do nawiasu w mianowniku"
+  ],
+  "^Wyliczam [a-z]$ → okresowosc": [
+    "Wyliczam v"
+  ],
+  "^Wymnażam nawiasy$ → opuszczanie-nawiasow": [
+    "Wymnażam nawiasy"
+  ],
+  "^Wyłączam [a-z] przed nawias$ → wylaczanie-przed-nawias": [
+    "Wyłączam v przed nawias"
+  ],
+  "^Wyłączam liczbę przed nawias$ → wylaczanie-przed-nawias": [
+    "Wyłączam liczbę przed nawias"
+  ],
+  "^Wyłączam wspólny czynnik przed nawias$ → wylaczanie-przed-nawias": [
+    "Wyłączam wspólny czynnik przed nawias"
+  ],
+  "^Zapisujemy podstawę jako 1 \\+ 1\\/aₙ$ → e": [
+    "Zapisujemy podstawę jako # + #/aₙ"
+  ],
+  "^Zapisuję obie strony jako potęgi  → rownosc-poteg": [
+    "Zapisuję obie strony jako potęgi #"
+  ],
+  "^Zapisuję ułamek przy x jako liczbę razy x$ → liczba-przy-x": [
+    "Zapisuję ułamek przy v jako liczbę razy v"
+  ],
+  "^Zmienna się skróciła, a zostało zdanie (fałszywe|prawdziwe)$ → wyrazy-podobne": [
+    "Zmienna się skróciła, a zostało zdanie fałszywe",
+    "Zmienna się skróciła, a zostało zdanie prawdziwe"
+  ]
+}

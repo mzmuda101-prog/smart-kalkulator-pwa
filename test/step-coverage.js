@@ -189,11 +189,20 @@ const badId = new Set(), used = new Set();
 /** @type {string[]} */
 const allLabels = [];
 let total = 0, covered = 0;
+/** @type {string[]} */
+const threw = [];
+/** @type {Record<string, Set<string>>} reguła → rodzaje etykiet, które złapała */
+const caught = {};
 for (const q of queries) {
-    let r; try { r = S.run(q); } catch { continue; }
+    let r; try { r = S.run(q); } catch (e) { threw.push(q + ': ' + /** @type {Error} */ (e).message); continue; }
     if (!r || !r.explain || !r.explain.steps) continue;
     for (const m of r.explain.methods || [r.explain]) for (const s of m.steps) {
         allLabels.push(s.label);
+        if (s.formula && s.formula.fromRule) {
+            const rule = STEP_RULES.find((/** @type {{re: RegExp, id: string, when?: Function}} */ x) => x.re.test(s.label) && (!x.when || x.when(s)));
+            const key = rule ? rule.re.source + ' → ' + rule.id : '?';
+            (caught[key] = caught[key] || new Set()).add(kind(s.label));
+        }
         if (s.formula) {
             if (!FORMULAS[s.formula.id]) badId.add(s.label + ' → ' + s.formula.id);
             if (!isStatement(s.label)) { total++; covered++; }
@@ -207,6 +216,18 @@ for (const q of queries) {
         e.n++;
         missing.set(k, e);
     }
+}
+ok('żadne zadanie z listy nie rzuca wyjątku', threw.length === 0, threw);
+{ // migawka: szeroki wzorzec, który złapie nową etykietę, pokaże się jako zmiana w pliku (UPDATE=1 zapisuje nową)
+    const fs = require('fs'), file = path.join(__dirname, 'fixtures', 'step-rules-labels.json');
+    /** @type {Record<string, string[]>} */
+    const now = {};
+    for (const k of Object.keys(caught).sort()) now[k] = [...caught[k]].sort();
+    if (process.env.UPDATE) fs.writeFileSync(file, JSON.stringify(now, null, 2) + '\n');
+    const snap = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {};
+    const diff = [...new Set(Object.keys(now).concat(Object.keys(snap)))].filter(k => JSON.stringify(now[k]) !== JSON.stringify(snap[k]))
+        .map(k => k + ': ' + JSON.stringify(snap[k] || []) + ' → ' + JSON.stringify(now[k] || []));
+    ok('etykiety złapane przez reguły = test/fixtures/step-rules-labels.json (UPDATE=1 node test/step-coverage.js)', diff.length === 0, diff);
 }
 ok('każdy formula.id istnieje w słowniku', badId.size === 0, [...badId]);
 ok('każdy krok-przekształcenie ma dymek albo jest w PENDING', missing.size === 0,

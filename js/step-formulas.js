@@ -1256,6 +1256,14 @@
         { re: /^Skracam (ułamek|\(.+\))$/, id: 'skracanie-ulamka' },
         // [EN] „Szukam miejsc zerowych” i „Odczytuję znak z paraboli” dostają hasło od silnika (zależy od liczby miejsc zerowych)
         { re: /^Brak miejsc zerowych$/, id: 'znak-trojmianu' },
+        { re: /^Granice jednostronne są różne$/, id: 'granica-jednostronna' },
+        { re: /^Wyłączam wspólny czynnik przed nawias$/, id: 'wylaczanie-przed-nawias' },
+        { re: /^Delta ujemna: brak rozwiązań$/, id: 'delta' },
+        { re: /^Zmienna się skróciła, a zostało zdanie (fałszywe|prawdziwe)$/, id: 'wyrazy-podobne' },
+        { re: /^Wartość bezwzględna nie jest ujemna$/, id: 'wartosc-bezwzgledna' },
+        // [EN] układ zależny: jedno równanie to drugie pomnożone przez liczbę
+        { re: /^(Lewe strony są proporcjonalne|Prawe strony też — to jedno równanie)$/, id: 'obie-strony' },
+        { re: /^Wymnażam nawiasy$/, id: 'opuszczanie-nawiasow' },
         { re: /^Rozwiązuję podwójną nierówność$/, id: 'wartosc-bezwzgledna' },
         { re: /^Kwadrat nie może być ujemny$/, id: 'pierwiastkowanie-obu-stron' },
         { re: /^Porządkuję równania$/, id: 'przenoszenie' },
