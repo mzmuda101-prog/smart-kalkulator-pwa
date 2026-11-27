@@ -155,11 +155,23 @@
         return null;
     }
 
+    /* a/0 nie ma wyniku, ale przy granicy dąży do ±∞ — dwa chipy otwierają granice z obu stron (z krokami) */
+    function divByZero(n) {
+        var m = n.match(/^(−|-)?\s*(\d+(?:[.,]\d+)?)\s*[\/÷:]\s*0(?:[.,]0+)?$/);
+        if (!m || /^0+(?:[.,]0+)?$/.test(m[2])) return null;
+        var neg = !!m[1], a = (neg ? '-' : '') + m[2], txt = (neg ? '−' : '') + m[2];
+        var right = neg ? '−∞' : '+∞', left = neg ? '+∞' : '−∞';
+        return [
+            { label: '0⁺: ' + right, title: 'Granica z prawej: lim x→0⁺ ' + txt + '/x = ' + right, replace: 'lim x→0+ ' + a + '/x' },
+            { label: '0⁻: ' + left, title: 'Granica z lewej: lim x→0⁻ ' + txt + '/x = ' + left, replace: 'lim x→0- ' + a + '/x' },
+        ];
+    }
+
     function getLiveHints(expr) {
         var raw = String(expr || '').trim();
         if (!raw) return [];
         var n = norm(raw).replace(/\s+/g, ' ');
-        var sw = meaningSwitch(n);
+        var sw = meaningSwitch(n) || divByZero(n);
         if (sw) return sw;
         if (hasCompleteTransform(n)) return [];
         for (var i = 0; i < LIVE_RULES.length; i++) {

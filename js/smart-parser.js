@@ -2497,7 +2497,12 @@
             if (typeof value === 'number' && isNaN(value)) {
                 return { value: null, unit: null, error: 'NaN', text: 'nieokreślone', kind: 'number' };
             }
-            if (!isFinite(value)) return { value: Infinity, unit: unit, error: '∞', kind: 'number' };
+            // [EN] 1/0 nie ma wyniku (nie ∞): napis jak w szkole, granice 0⁺/0⁻ podpowiada chip (js/hint-rules.js).
+            // shortcut: dzielenie poznajemy po znaku / ÷ : w zapisie; 1e400/2 też tu trafi — rzadkie, rozdzielić przy błędzie
+            if (!isFinite(value)) {
+                var _div0 = /[\/÷:]/.test(String(raw));
+                return { value: null, unit: null, error: _div0 ? 'div0' : 'overflow', text: _div0 ? 'Nie dzielimy przez 0' : 'Liczba za duża', kind: 'number' };
+            }
             if (Math.abs(value) < 1e308 && value !== 0 &&
                 !(Number.isInteger(value) && Math.abs(value) <= Number.MAX_SAFE_INTEGER)) {
                 value = parseFloat(value.toPrecision(15));

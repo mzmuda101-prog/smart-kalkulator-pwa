@@ -1813,7 +1813,6 @@
             if (!res) return '';
             if (res.text != null) return res.text; // wynik daty/czasu
             if (res.value === null) return '';
-            if (res.error === '∞') return '∞';
             var money = res.kind === 'money' || _isCurrencyDisplayUnit(res.unit);
             var str = money ? formatMoneyNumber(res.value) : formatLocaleNumber(res.value, 6);
             if (res.unit) str += ' ' + inflectDisplayUnit(res.value, res.unit);
@@ -1822,7 +1821,7 @@
         function _calcEqualsExprText(res) { // [EN] pole po = — sama liczba (+ j.m.), nie 100%= ani daty tekstowe z display
             if (!res || res.pendingFx) return null;
             if (res.big) return res.text || res.bigStr || null;
-            if (res.value === null || res.error === '∞') {
+            if (res.value === null) {
                 if (res.text == null) return null;
                 return String(res.text).replace(/\n/g, ' ').trim();
             }
@@ -1868,7 +1867,7 @@
                     expression: exB ? (exB + ' = ' + bt) : ('= ' + bt),
                 };
             }
-            if (res.value === null || res.error === '∞') return null;
+            if (res.value === null) return null;
             var display = formatCalcResult(res);
             var money = res.kind === 'money' || _isCurrencyDisplayUnit(res.unit);
             var plain = money ? formatMoneyNumber(res.value) : formatLocaleNumber(res.value, 6);
@@ -16368,6 +16367,10 @@
                 { expr: '12 5 zł', value: null },
                 { expr: '100 Mb na MB', value: null },        // bity ≠ bajty (było 100 MB)
                 { expr: '29.02.2026', value: null, text: null }, // nie ma takiej daty (było 1.3.2026)
+                { expr: '1/0', value: null, text: 'Nie dzielimy przez 0' },   // brak wyniku, nie ∞ (granice podpowiada chip)
+                { expr: '-1÷0', value: null, text: 'Nie dzielimy przez 0' },
+                { expr: '1/(2-2)', value: null, text: 'Nie dzielimy przez 0' },
+                { expr: '0/0', value: null, text: 'nieokreślone' },
                 { expr: 'ile dni do 31.04', value: null },
                 { expr: '31.01.2026 + 1 miesiąc', text: '28.2.2026 (sobota)' }, // koniec miesiąca (było 3.3)
                 { expr: '31.03.2026 - 1 miesiąc', text: '28.2.2026 (sobota)' },

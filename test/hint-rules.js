@@ -11,6 +11,13 @@ function ok(name, cond) {
     else { fail++; console.log('  ✗', name); }
 }
 
+// dzielenie przez zero: wynik „Nie dzielimy przez 0”, chipy z granicami z obu stron (znak zależy od licznika)
+{
+    const d = H.getLiveHints('1÷0'), m = H.getLiveHints('-3/0');
+    ok('1÷0 → chipy 0⁺: +∞ i 0⁻: −∞', d.length === 2 && d[0].label === '0⁺: +∞' && d[0].replace === 'lim x→0+ 1/x' && d[1].label === '0⁻: −∞' && d[1].replace === 'lim x→0- 1/x');
+    ok('−3/0 → znaki odwrócone', m.length === 2 && m[0].label === '0⁺: −∞' && m[1].label === '0⁻: +∞' && m[0].replace === 'lim x→0+ -3/x');
+    ok('0/0 i 1/0,5 bez chipów granicy', !H.getLiveHints('0/0').some(c => /0⁺/.test(c.label || '')) && !H.getLiveHints('1/0,5').some(c => /0⁺/.test(c.label || '')));
+}
 var hints = H.getLiveHints('dziś');
 ok('dziś → + 90 dni', hints.some(function (c) { return (c.label || c).indexOf('90 dni') >= 0; }));
 ok('ile dni → do 1.09', H.getLiveHints('ile dni').some(function (c) { return (c.label || c).indexOf('1.09') >= 0; }));
