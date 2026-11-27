@@ -1422,10 +1422,15 @@
             return n.k === 'div' ? { minus: minus, num: n.a, den: n.b } : { minus: minus, num: n, den: { k: 'num', v: K.R(1n) } };
         };
         try {
-            var a = parts(mine), b = parts(eng), env = {};
-            env[v] = rat(K.R(37n, 100n)).add(Math.SQRT2); // [EN] punkt bez przypadkowych zer
+            var a = parts(mine), b = parts(eng), env = {}, rn = NaN, rd = NaN;
             var at = function (n) { return evalAst(n, env).toNumber(); };
-            var rn = at(b.num) / at(a.num), rd = at(b.den) / at(a.den);
+            // [EN] pierwszy punkt próbny w dziedzinie obu zapisów (√(2 − 7x) nie liczy się dla x > 2/7); bez przypadkowych zer
+            for (var pt of [Math.SQRT2 + 0.37, -Math.SQRT2 - 0.37, 0.137]) {
+                env[v] = rat(K.R(BigInt(Math.round(pt * 1e6)), 1000000n));
+                rn = at(b.num) / at(a.num); rd = at(b.den) / at(a.den);
+                if (isFinite(rn) && isFinite(rd) && rn !== 0 && rd !== 0) break;
+            }
+            if (!(isFinite(rn) && isFinite(rd) && rn !== 0 && rd !== 0)) throw new Error('brak punktu próbnego');
             var one = function (r) { return Math.abs(Math.abs(r) - 1) < 1e-9; };
             var factor = /\d\(/.test(eng) && !/\d\(/.test(mine);
             var minusOut = b.minus && !a.minus, cancel = !one(rn) || !one(rd);
