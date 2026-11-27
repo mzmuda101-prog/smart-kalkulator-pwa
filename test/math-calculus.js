@@ -119,7 +119,11 @@ pass += 2;
     ok('3e2: tablica pochodnych z dymkiem', has(P, 'Korzystam z tablicy pochodnych', 'v′ = ⟦(sin(x))′⟧ = cos(x)') && fm(P, 'tablica-pochodnych'), show(P));
     const Q = 'pochodna x/(x+1)';
     ok('3e2: iloraz — wstawiam do wzoru', st(Q).some(x => x.label === 'Wstawiam do wzoru' && x.math.includes('(u′ · v − u · v′)/v² = ⟦(1 · (x + 1) − x · 1)/(x + 1)²⟧')) && fm(Q, 'pochodna-ilorazu'), show(Q));
-    ok('3e2: złożona z dymkiem', has('pochodna sin(x^2)', 'Liczę pochodną złożoną', '(sin(x²))′ = ⟦cos(x²) · (x²)′⟧') && fm('pochodna sin(x^2)', 'pochodna-zlozona'), show('pochodna sin(x^2)'));
+    ok('3e2: złożona z dymkiem', has('pochodna sin(x^2)', 'Liczę pochodną złożoną', 'u = x²,  (sin(u))′ = cos(u)\n(sin(x²))′ = ⟦cos(x²) · (x²)′⟧') && fm('pochodna sin(x^2)', 'pochodna-zlozona'), show('pochodna sin(x^2)'));
+    // partia 2b, S30/S40: funkcja zewnętrzna nazwana, pochodna środka z rachunkiem
+    ok('2b S30: u = 3x + 1, (u⁵)′ = 5u⁴', has('pochodna (3x+1)^5', 'Liczę pochodną złożoną', 'u = 3x + 1,  (u⁵)′ = 5u⁴\n((3x + 1)⁵)′ = ⟦5(3x + 1)⁴ · (3x + 1)′⟧'), show('pochodna (3x+1)^5'));
+    ok('2b S30: sin²: u = sin(x), (u²)′ = 2u', st('pochodna sin(x)^2').some(x => x.math.startsWith('u = sin(x),  (u²)′ = 2u')), show('pochodna sin(x)^2'));
+    ok('2b S40: (3x)′ = 3 · (x)′ = 3 · 1 = 3 i suma', has('pochodna (3x+1)^5', 'Liczę pochodną każdego wyrazu', '⟦(3x)′⟧ = 3 · (x)′ = 3 · 1 = 3\n(1)′ = 0\n(3x + 1)′ = 3 + 0 = 3'), show('pochodna (3x+1)^5'));
     ok('3e2: stała przy samej zmiennej a · t²', has('pochodna a * t^2 po t', 'Stała zostaje przed pochodną'), show('pochodna a * t^2 po t'));
     ok('3e2: całka potęgi z dymkiem', has('całka x^2', 'Całkuję potęgę', '⟦∫ x² dx⟧ = x³/3') && fm('całka x^2', 'calka-potegi'), show('całka x^2'));
     ok('3e2: tablica całek z dymkiem', fm('całka 1/x', 'tablica-calek') && fm('całka e^x', 'tablica-calek'), show('całka 1/x'));

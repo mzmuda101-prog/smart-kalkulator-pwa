@@ -322,7 +322,7 @@
         [/^Rozpoznaję iloczyn$/, 'Nazywam obie części literami $u$ i $v$, żeby potem łatwo wstawić je do wzoru.'],
         [/^Rozpoznaję iloraz$/, 'Funkcja to ułamek: licznik nazywam $u$, mianownik $v$, żeby użyć wzoru na pochodną ilorazu.'],
         [/^Wstawiam do wzoru$/, 'Mam już $u$, $v$ i ich pochodne. Wstawiam je do wzoru w tej samej kolejności co we wzorze.'],
-        [/^Liczę pochodną złożoną$/, 'W środku nie stoi samo $x$, tylko dłuższe wyrażenie, więc sama tablica nie wystarczy.'],
+        [/^Liczę pochodną złożoną$/, (s) => s.outer ? 'Cały nawias zastępuję jedną literą $u$. Wtedy widać, jaki wzór z tablicy pasuje do części zewnętrznej.' : 'W środku nie stoi samo $x$, tylko dłuższe wyrażenie, więc sama tablica nie wystarczy.'],
         [/^Liczę pochodną każdego wyrazu$|^Rozbijam na sumę pochodnych$/, 'Pochodną sumy liczymy wyraz po wyrazie, a pochodna stałej to 0.'],
         [/^Stała zostaje przed pochodną$/, 'Czynnik bez zmiennej, po której liczę pochodną, odsuwam na bok. Inna litera też jest takim czynnikiem.'],
         [/^Mnożę przez pochodną środka$/, 'Kończę wzór na funkcję złożoną: wstawiam policzoną pochodną środka i mnożę.'],

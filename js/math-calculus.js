@@ -392,7 +392,10 @@
             list.forEach(function (t) {
                 var r = dTerm(t, v, null);
                 res = cAdd(res, r);
-                rows.push(hasVar([t], v) ? '⟦(' + show([t]) + ')′⟧ = ' + show(r) : '(' + show([t]) + ')′ = ' + show(r)); // [EN] stała to nie potęga
+                var bare1 = term(ONE, t.fs), inner1 = hasVar([t], v) && !eq(t.c, ONE) && !eq(t.c, neg(ONE)) ? dTerm(bare1, v, null) : null;
+                // [EN] (3x)′ = 3 · (x)′ = 3 · 1 = 3: skąd liczba (S40)
+                var mid1 = inner1 ? ' = ' + fmt(t.c) + ' · (' + show([bare1]) + ')′ = ' + fmt(t.c) + ' · ' + grpN(inner1) : '';
+                rows.push(hasVar([t], v) ? '⟦(' + show([t]) + ')′⟧' + mid1 + ' = ' + show(r) : '(' + show([t]) + ')′ = ' + show(r)); // [EN] stała to nie potęga
             });
             line(log, 'Liczę pochodną każdego wyrazu', rows.join('\n'), 'pochodna-potegi');
             return res;
@@ -451,17 +454,27 @@
                 var rows = st.math.split('\n').map(function (x) { return x.split(' = '); });
                 var sum = function (list) { return list.map(function (x, i) { return !i ? x : x[0] === '−' ? ' − ' + x.slice(1) : ' + ' + x; }).join(''); };
                 st.math = name + '′ = (' + showInner(e) + ')′ = ' + rows.map(function (x) { return x[0]; }).join(' + ') + ' = '
-                    + sum(rows.map(function (x) { return x[1]; })) + ' = ' + show(r);
+                    + sum(rows.map(function (x) { return x[x.length - 1]; })) + ' = ' + show(r);
             } else st.math = name + '′ = ' + st.math;
         }
         if (log) mine.forEach(function (x) { log.push(x); });
         return r;
     }
-    function chain(outer, u, v, log, name) {
+    function chain(outer, u, v, log, name, inU) {
         var plain = u.length === 1 && u[0].fs.length === 1 && u[0].fs[0].b.k === 'var' && eq(u[0].c, ONE) && eq(u[0].fs[0].e, ONE);
         if (plain) { line(log, 'Korzystam z tablicy pochodnych', '⟦(' + name + ')′⟧ = ' + show(outer), 'tablica-pochodnych'); return outer; }
-        line(log, 'Liczę pochodną złożoną', '(' + name + ')′ = ⟦' + show(outer) + ' · (' + showInner(u) + ')′⟧', 'pochodna-zlozona');
-        return timesInner(outer, dExpr(u, v, log), log);
+        // [EN] funkcja zewnętrzna nazwana: u = 3x + 1, (u⁵)′ = 5u⁴ (S30)
+        var U = inU ? inU(v === 'u' ? 't' : 'u') : null;
+        line(log, 'Liczę pochodną złożoną', (U ? U[2] + ' = ' + showInner(u) + ',  (' + U[0] + ')′ = ' + U[1] + '\n' : '')
+            + '(' + name + ')′ = ⟦' + show(outer) + ' · (' + showInner(u) + ')′⟧', 'pochodna-zlozona', U ? U[2] + ' = ' + showInner(u) : null);
+        if (log && U) log[log.length - 1].outer = U[0];
+        var mine = [], d = dExpr(u, v, mine);
+        if (mine.length === 1 && mine[0].label === 'Liczę pochodną każdego wyrazu') { // [EN] (3x + 1)′ = 3 + 0 = 3 jako ostatni wiersz
+            var vals = mine[0].math.split('\n').map(function (x) { var p = x.split(' = '); return p[p.length - 1]; });
+            mine[0].math += '\n(' + showInner(u) + ')′ = ' + vals.map(function (x, i) { return !i ? x : x[0] === '−' ? ' − ' + x.slice(1) : ' + ' + x; }).join('') + ' = ' + show(d);
+        }
+        if (log) mine.forEach(function (x) { log.push(x); });
+        return timesInner(outer, d, log);
     }
     function timesInner(outer, inner, log) { // [EN] 5(3x + 1)⁴ · 3 = 15(3x + 1)⁴ — bez skoku do wyniku
         var out = cMul(outer, inner);
@@ -486,17 +499,23 @@
         if (!eq(e, ONE)) {
             var base = atomExpr(a);
             var outer = cMul(num(e), cPow(base, sub(e, ONE)));
-            line(log, 'Liczę pochodną złożoną', '(' + showFactor(f) + ')′ = ⟦' + show(outer) + ' · (' + showInner(base) + ')′⟧', 'pochodna-zlozona');
-            return timesInner(outer, dFactor({ b: a, e: ONE }, v, log), log);
+            return chain(outer, base, v, log, showFactor(f), function (L) {
+                var uu = variable(L); return [show(cPow(uu, e)), show(cMul(num(e), cPow(uu, sub(e, ONE)))), L];
+            });
         }
         if (a.k === 'sum') return dExpr(a.s, v, log);
         if (a.k === 'exp') {
             if (hasVar(a.b, v)) throw new NotSupported();
             var self = atomExpr(a);
             var outerE = isEuler(a.b) ? self : cMul(self, cFn('ln', a.b));
-            return chain(outerE, a.x, v, log, show(self));
+            return chain(outerE, a.x, v, log, show(self), function (L) {
+                var sa = Object.assign({}, a, { x: variable(L) }), se = atomExpr(sa);
+                return [show(se), show(isEuler(a.b) ? se : cMul(se, cFn('ln', a.b))), L];
+            });
         }
-        if (a.k === 'fn') return chain(fnOuter(a.f, a.a, a.base), a.a, v, log, showAtom(a));
+        if (a.k === 'fn') return chain(fnOuter(a.f, a.a, a.base), a.a, v, log, showAtom(a), function (L) {
+            var uu = variable(L); return [showAtom(Object.assign({}, a, { a: uu })), show(fnOuter(a.f, uu, a.base)), L];
+        });
         throw new NotSupported();
     }
     function isEuler(b) {
