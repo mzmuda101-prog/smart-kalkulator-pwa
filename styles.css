@@ -2159,6 +2159,9 @@
         .steps-rule-btn[aria-expanded="true"] { background: var(--primary-light); }
         .steps-rule-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
         @media (hover: hover) { .steps-rule-btn:hover { background: var(--primary-light); } }
+        /* karta wyniku ma już tło --primary-light, więc tam przycisk otwarty/pod kursorem dostaje tło karty wyniesionej */
+        .steps-item.is-final .steps-rule-btn[aria-expanded="true"] { background: var(--surface); }
+        @media (hover: hover) { .steps-item.is-final .steps-rule-btn:hover { background: var(--surface); } }
         .steps-pop {
             position: relative; margin-top: 12px; padding: 10px 12px;
             border: 1px solid var(--border-focus); border-radius: var(--radius-sm, 10px);
