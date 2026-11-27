@@ -11,6 +11,10 @@
     "Lewe strony są proporcjonalne",
     "Prawe strony też — to jedno równanie"
   ],
+  "^(Liczę W[a-z] i W[a-z]|Dzielę przez W)$ → cramer": [
+    "Dzielę przez W",
+    "Liczę Wx i Wy"
+  ],
   "^(Liczę q|Zapisuję postać kanoniczną)$ → wierzcholek": [
     "Zapisuję postać kanoniczną"
   ],
@@ -79,6 +83,7 @@
   ],
   "^(Wyznaczam [a-z] z (pierwszego|drugiego) równania|Wstawiam [a-z] = \\S+)$ → uklad-podstawianie": [
     "Wstawiam v = #",
+    "Wyznaczam v z drugiego równania",
     "Wyznaczam v z pierwszego równania"
   ],
   "^(Wyznaczam|Sprawdzam|Zastrzegam) dziedzinę$|^Odrzucam rozwiązanie spoza dziedziny$ → dziedzina": [

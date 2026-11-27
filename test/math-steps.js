@@ -248,7 +248,9 @@ pass += 3;
     const R1 = 'rozwiąż x + y = 5, x - y = 1';
     const r = S.run(R1), m = r && r.explain && r.explain.methods;
     ok('4b: x + y = 5, x − y = 1 → x = 3, y = 2', r && r.text === 'x = 3, y = 2', r && r.text);
-    ok('4b: tytuł i dwa sposoby', r && r.explain.title === 'Układ równań' && m && m.map(x => x.label).join('|') === 'Podstawianie|Przeciwne współczynniki', m && m.map(x => x.label));
+    ok('4b: tytuł i trzy sposoby (wyznaczniki jako trzeci)', r && r.explain.title === 'Układ równań' && m && m.map(x => x.label).join('|') === 'Podstawianie|Przeciwne współczynniki|Wyznaczniki', m && m.map(x => x.label));
+    { const cr = m && m.find(x => x.label === 'Wyznaczniki');
+      ok('cramer: W, Wx, Wy z rachunkiem', !!cr && cr.steps.some(x => x.math === 'W = 1 · (−1) − 1 · 1 = −1 − 1 = −2') && cr.steps.some(x => x.math === 'Wx = 5 · (−1) − 1 · 1 = −5 − 1 = −6\nWy = 1 · 1 − 1 · 5 = 1 − 5 = −4'), cr && cr.steps.map(x => x.math)); }
     const sub = m ? m[0].steps : [], el = m ? m[1].steps : [];
     ok('4b: podstawianie — wyznaczam y, podstawiam', sub.some(x => x.label === 'Wyznaczam y z pierwszego równania' && x.math === 'y = 5 − x')
         && sub.some(x => x.label === 'Podstawiam do drugiego równania' && x.math === '⟦x − (5 − x)⟧ = 1')

@@ -104,6 +104,9 @@
         [/^Wyłączamy potęgę \w z każdego nawiasu$/, 'Każdy nawias ma swoją najwyższą potęgę. Wyciągam ją z każdego osobno i dodaję wykładniki, żeby wiedzieć, co skrócić.'],
         [/^Dzielimy potęgi: odejmujemy wykładniki$/, 'Każdy wyraz dzielę przez najwyższą potęgę. Przy dzieleniu potęg tej samej liczby wykładniki się odejmuje, także ułamkowe.'],
         [/^Zapisujemy \w przez \(−\w\)$/, 'Dla ujemnej zmiennej wyłączamy dodatnie $-x$, więc każdy wyraz z nieparzystą potęgą zapisujemy przez $-x$ z minusem.'],
+        [/^Liczę wyznacznik główny W$/, 'Biorę tylko liczby stojące przy niewiadomych. Gdy wynik nie jest zerem, wiem, że rozwiązanie jest jedno.'],
+        [/^Liczę W\w i W\w$/, 'Liczby z prawej strony wstawiam w miejsce liczb przy x (dla Wx) albo przy y (dla Wy).'],
+        [/^Dzielę przez W$/, 'Każdą niewiadomą dostaję, dzieląc jej wyznacznik przez wyznacznik główny: x = Wx : W, y = Wy : W.'],
         [/^Zamieniam iloraz na iloczyn$/, 'Nie mnożę przez mianownik, bo jego znak zależy od $x$. Iloczyn ma ten sam znak co ułamek, a mianownik odpada z dziedziny.'],
         [/^Wyznaczam miejsca zerowe$/, 'Każdy nawias jest zerem w jednym punkcie i tylko tam wielomian może zmienić znak.'],
         [/^Rysuję wężyk i odczytuję znaki$/, (s) => s.snake && s.snake.roots.some(r => r.n % 2 === 0)

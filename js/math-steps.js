@@ -1638,7 +1638,20 @@
         elSteps = elSteps.concat([{ label: 'Wstawiam ' + V + ' = ' + fmt(vVal, ctx) + ' do ' + ord[into] + ' równania', math: withV }], inner(withV), [check, { label: 'Odpowiedź', math: ans, final: true }]);
         var text = X + ' = ' + fmt(xv, ctx) + ', ' + Y + ' = ' + fmt(yv, ctx);
         var res = done('Układ równań', text, null, subSteps);
-        res.explain.methods = [{ label: 'Podstawianie', steps: subSteps }, { label: 'Przeciwne współczynniki', steps: elSteps }];
+        // ── wyznaczniki (wzory Cramera, rozszerzenie/studia): W, Wx, Wy z rachunkiem, potem x = Wx/W, y = Wy/W ──
+        var d2 = function (p, q, r, t) { // [EN] p · t − r · q = … z wartościami częściowymi
+            var pt = mul(p, t), rq = mul(r, q), out = sub(pt, rq);
+            return fmtParen(p, ctx) + ' · ' + fmtParen(t, ctx) + ' − ' + fmtParen(r, ctx) + ' · ' + fmtParen(q, ctx) + ' = ' + fmt(pt, ctx) + ' − ' + fmtParen(rq, ctx) + ' = ' + fmt(out, ctx);
+        };
+        var wx = sub(mul(A.c, B.b), mul(B.c, A.b)), wy = sub(mul(A.a, B.c), mul(B.a, A.c));
+        var frac = function (n, d) { var q0 = fmt(n, ctx) + '/' + fmtParen(d, ctx), q1 = fmt(div(n, d), ctx); return q0 === q1 ? q1 : q0 + ' = ' + q1; };
+        var crSteps = head.concat([
+            { label: 'Liczę wyznacznik główny W', math: 'W = ' + d2(A.a, A.b, B.a, B.b), formula: { id: 'cramer', here: 'a₁ = ' + fmt(A.a, ctx) + ', b₁ = ' + fmt(A.b, ctx) + ', a₂ = ' + fmt(B.a, ctx) + ', b₂ = ' + fmt(B.b, ctx) } },
+            { label: 'Liczę W' + X + ' i W' + Y, math: 'W' + X + ' = ' + d2(A.c, A.b, B.c, B.b) + '\nW' + Y + ' = ' + d2(A.a, A.c, B.a, B.c) },
+            { label: 'Dzielę przez W', math: X + ' = ' + frac(wx, det) + '\n' + Y + ' = ' + frac(wy, det) },
+            check, { label: 'Odpowiedź', math: ans, final: true }
+        ]);
+        res.explain.methods = [{ label: 'Podstawianie', steps: subSteps }, { label: 'Przeciwne współczynniki', steps: elSteps }, { label: 'Wyznaczniki', steps: crSteps }];
         return res;
     }
 

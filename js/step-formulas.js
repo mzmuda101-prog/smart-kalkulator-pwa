@@ -469,6 +469,16 @@
                 'Skąd ta metoda: iloczyn jest dodatni, gdy ujemnych czynników jest parzyście wiele. Przechodząc przez miejsce zerowe w prawo, jeden nawias zmienia znak, więc zmienia się znak całości.',
             ],
         },
+        cramer: {
+            name: 'Układ równań: wyznaczniki (wzory Cramera)',
+            tex: 'W=\\begin{vmatrix}a_{1}&b_{1}\\\\a_{2}&b_{2}\\end{vmatrix}=a_{1}b_{2}-a_{2}b_{1},\\quad x=\\frac{W_{x}}{W},\\quad y=\\frac{W_{y}}{W}',
+            why: 'Wyznacznik to liczba z czterech współczynników: iloczyn po przekątnej minus iloczyn po drugiej przekątnej. W $W_{x}$ kolumnę przy $x$ zastępujemy prawymi stronami, w $W_{y}$ kolumnę przy $y$. Gdy $W\\ne 0$, układ ma jedno rozwiązanie.',
+            level: 'Liceum, zakres rozszerzony, i studia: układy równań',
+            more: [
+                'Przykład: $2x+3y=7$, $x-y=1$. $W=2\\cdot(-1)-1\\cdot 3=-5$, $W_{x}=7\\cdot(-1)-1\\cdot 3=-10$, $W_{y}=2\\cdot 1-1\\cdot 7=-5$, więc $x=2$, $y=1$.',
+                'Gdy $W=0$, lewe strony są proporcjonalne: układ jest sprzeczny albo ma nieskończenie wiele rozwiązań.',
+            ],
+        },
         'iloraz-iloczyn': {
             name: 'Iloraz a iloczyn: ten sam znak',
             tex: '\\frac{f(x)}{g(x)}>0\\iff f(x)\\cdot g(x)>0\\quad(g(x)\\ne 0)',
@@ -1169,6 +1179,7 @@
         'wartosci-trygonometryczne': ['trygonometria', 'lp', ['sinus', 'cosinus', 'tangens', 'wartości z tablicy', 'kąty 30 45 60'], 'rozwiąż sin(x) = 1/2', 'x = π/6 + 2kπ lub x = 5π/6 + 2kπ, k ∈ ℤ', ['okresowosc', 'sin-kwadrat']],
         okresowosc: ['trygonometria', 'lp', ['okres', 'okresowość', 'k całkowite', 'seria rozwiązań', 'równanie trygonometryczne'], 'rozwiąż tg(x) = 1', 'x = π/4 + kπ, k ∈ ℤ', ['wartosci-trygonometryczne']],
         'wezyk': ['rownania', 'lr', ['wężyk', 'siatka znaków', 'nierówność wielomianowa', 'krotność'], 'rozwiąż (x-1)(x-2)(x+3) > 0', 'x ∈ (−3, 1) ∪ (2, +∞)', ['nierownosc-kwadratowa', 'schemat-hornera', 'postac-iloczynowa']],
+        cramer: ['rownania', 'lr', ['wyznaczniki', 'wzory Cramera', 'układ równań', 'wyznacznik główny'], 'rozwiąż 2x + 3y = 7, x - y = 1', 'x = 2, y = 1', ['uklad-podstawianie', 'uklad-przeciwne']],
         'iloraz-iloczyn': ['rownania', 'lr', ['nierówność wymierna', 'iloraz na iloczyn', 'ułamek nierówność', 'mianownik'], 'rozwiąż (x-1)/(x+2) > 0', 'x ∈ (−∞, −2) ∪ (1, +∞)', ['wezyk', 'dziedzina', 'wspolny-mianownik']],
         'jaki-procent': ['liczby', 'lp', ['ile procent', 'jakim procentem', 'część całości', 'ułamek na procent'], 'kroki ile procent 30 z 120', '25%', ['procent-z-liczby']],
         'procent-z-liczby': ['liczby', 'lp', ['procent', 'procent z liczby', 'część całości'], 'kroki 20% z 150', '30', ['zmiana-o-procent']],
@@ -1317,6 +1328,7 @@
         { re: /^(Lewe strony są proporcjonalne|Prawe strony też — to jedno równanie)$/, id: 'obie-strony' },
         { re: /^Wymnażam nawiasy$/, id: 'opuszczanie-nawiasow' },
         { re: /^Wyznaczam miejsca zerowe$/, id: 'iloczyn-rowny-zero' },
+        { re: /^(Liczę W[a-z] i W[a-z]|Dzielę przez W)$/, id: 'cramer' },
         { re: /^Mnożę(, potęguję i redukuję wyrazy podobne| i potęguję)$/, id: 'kolejnosc-dzialan' },
         { re: /^Redukujemy wyrazy podobne w liczniku$/, id: 'wyrazy-podobne' },
         { re: /^Mnożymy ułamki$/, id: 'mnozenie-ulamkow' },
