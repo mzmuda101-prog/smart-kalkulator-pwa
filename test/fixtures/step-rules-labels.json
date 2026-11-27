@@ -138,9 +138,6 @@
   "^Delta ujemna: brak rozwiązań$ → delta": [
     "Delta ujemna: brak rozwiązań"
   ],
-  "^Dla [a-z] → −∞$ → liczba-przeciwna": [
-    "Dla v → −∞"
-  ],
   "^Dzielę licznik przez mianownik$ → dzielenie-z-reszta": [
     "Dzielę licznik przez mianownik"
   ],
@@ -180,6 +177,9 @@
   ],
   "^Pierwiastkuję obie strony → pierwiastkowanie-obu-stron": [
     "Pierwiastkuję obie strony (…)"
+  ],
+  "^Pilnujemy znaku dla [a-z] → −∞$ → liczba-przeciwna": [
+    "Pilnujemy znaku dla v → −∞"
   ],
   "^Podstawiamy [a-z] =  → granica-ciaglosc": [
     "Podstawiamy v = #"

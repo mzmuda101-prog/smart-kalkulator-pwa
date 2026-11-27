@@ -717,7 +717,7 @@
             try { var N = pullExpr(fr.N, v, sign), D = pullExpr(fr.D, v, sign); } finally { var pulls = _pulls; _pulls = null; }
             var head = limHead(v, t);
             // [EN] √(x²) = |x| tylko, gdy wyłączamy całe potęgi; przy √(−x) wystarczy: x < 0, więc −x > 0
-            if (sign < 0 && hasEvenRoot(e, v)) line(log, 'Dla ' + v + ' → −∞', K.isInt(N.p) && K.isInt(D.p)
+            if (sign < 0 && hasEvenRoot(e, v)) line(log, 'Pilnujemy znaku dla ' + v + ' → −∞', K.isInt(N.p) && K.isInt(D.p)
                 ? '⟦√(' + v + '²)⟧ = |' + v + '| = −' + v : v + ' < 0, więc −' + v + ' > 0',
                 K.isInt(N.p) && K.isInt(D.p) ? 'pierwiastek-z-kwadratu' : null);
             var same = K.eq(N.p, D.p), alone = isOne(fr.D);
@@ -734,6 +734,19 @@
             var expRows = sign > 0 ? exponentRows(fr, N, D, v) : [];
                         var rootRows = pulls.filter(function (r) { return /^[√∛∜]/.test(r); }), powRows = pulls.filter(function (r) { return !/^[√∛∜]/.test(r); });
             if (rootRows.length) line(log, 'Wyciągamy ' + v + ' spod pierwiastka', rootRows.join('\n'), 'pierwiastek-iloczynu');
+            if (sign < 0) { // [EN] x = −(−x), 3x = −3(−x): skąd minus przy (−x) w następnym kroku (S32)
+                var negRows = [];
+                [fr.N, fr.D].forEach(function (side) {
+                    var e2 = side.length === 1 && side[0].fs.length === 1 && side[0].fs[0].b.k === 'sum' && K.eq(side[0].fs[0].e, ONE) ? C.expandExpr(side) : side;
+                    e2.forEach(function (t2) {
+                        if (t2.fs.length !== 1 || t2.fs[0].b.k !== 'var' || t2.fs[0].b.v !== v || !K.isInt(t2.fs[0].e) || t2.fs[0].e.n % 2n === 0n) return;
+                        var nc = K.neg(t2.c), ct = K.eq(nc, ONE) ? '' : K.eq(nc, K.neg(ONE)) ? '−' : K.fmt(nc);
+                        var row = C.show([t2]) + ' = ' + ct + '(−' + v + ')' + (K.eq(t2.fs[0].e, ONE) ? '' : K.sup(t2.fs[0].e.n.toString()));
+                        if (negRows.indexOf(row) < 0) negRows.push(row);
+                    });
+                });
+                if (negRows.length) line(log, 'Zapisujemy ' + v + ' przez (−' + v + ')', negRows.join('\n'), 'liczba-przeciwna');
+            }
             if (powRows.length) line(log, 'Wyłączamy potęgę ' + v + ' z każdego nawiasu', powRows.join('\n'), 'potega-iloczynu');
             if (!(C.isNumber(N.rest) && C.isNumber(D.rest))) line(log, label, head + (alone ? pn : pn + '/' + pdWrapped));
             if (expRows.length) line(log, 'Dzielimy potęgi: odejmujemy wykładniki', expRows.join('\n'), 'potega-iloczynu');

@@ -126,8 +126,8 @@ ok('„Składam całość” → postac-iloczynowa', (attachRule({ label: 'Skła
         ['Rozbijamy na dwie różnice', 'lim(n→∞) [(√(n² + 9n) − √(n² + 1)) + (√(n² + 5n) − √(n² + 1))]', 'granica-sumy'],
         ['Dodajemy granice', '→ 9/2 + 5/2 = 7', 'granica-sumy'],
         ['Logarytm jest ciągły', '→ log₂(8) = 3', 'ciaglosc-logarytmu'],
-        ['Dla x → −∞', '⟦√(x²)⟧ = |x| = −x', 'pierwiastek-z-kwadratu'],
-        ['Dla x → −∞', 'x < 0, więc −x > 0', 'liczba-przeciwna'],
+        ['Pilnujemy znaku dla x → −∞', '⟦√(x²)⟧ = |x| = −x', 'pierwiastek-z-kwadratu'],
+        ['Pilnujemy znaku dla x → −∞', 'x < 0, więc −x > 0', 'liczba-przeciwna'],
     ];
     for (const [label, math, id] of LIM) {
         const f = rule(label, math);

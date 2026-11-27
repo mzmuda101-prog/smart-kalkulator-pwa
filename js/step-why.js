@@ -18,8 +18,8 @@
     /** @type {Record<string, string>} */
     const TAG = {
         '0/0': 'Po wstawieniu wychodzi $\\frac{0}{0}$. Tego nie da się policzyć od razu, więc najpierw przekształcamy wyrażenie.',
-        '∞/∞': 'Licznik i mianownik rosną bez końca ($\\frac{\\infty}{\\infty}$). Nie wiadomo, kto wygra, więc przekształcamy.',
-        '∞ − ∞': 'Oba składniki rosną bez końca ($\\infty-\\infty$). Wynik może być jakikolwiek, więc przekształcamy.',
+        '∞/∞': 'Licznik i mianownik uciekają do nieskończoności ($\\frac{\\infty}{\\infty}$). Nie wiadomo, kto wygra, więc przekształcamy.',
+        '∞ − ∞': 'Oba składniki uciekają do nieskończoności ($\\infty-\\infty$). Wynik może być jakikolwiek, więc przekształcamy.',
         '1^∞': 'Podstawa dąży do 1, a wykładnik do nieskończoności ($1^{\\infty}$). Wynik nie musi być 1, liczymy ze wzoru na $e$.',
         '0 · ∞': 'Jedna część dąży do 0, druga rośnie bez końca ($0\\cdot\\infty$). Nie wiadomo, kto wygra, więc przekształcamy.',
     };
@@ -28,8 +28,8 @@
     /** @type {Record<string, string>} */
     const TAG_SHORT = {
         '0/0': 'Licznik i mianownik zbliżają się do 0 ($\\frac{0}{0}$).',
-        '∞/∞': 'Licznik i mianownik rosną bez końca ($\\frac{\\infty}{\\infty}$).',
-        '∞ − ∞': 'Oba składniki rosną bez końca ($\\infty-\\infty$).',
+        '∞/∞': 'Licznik i mianownik uciekają do nieskończoności ($\\frac{\\infty}{\\infty}$).',
+        '∞ − ∞': 'Oba składniki uciekają do nieskończoności ($\\infty-\\infty$).',
         '1^∞': 'Podstawa zbliża się do 1, a wykładnik rośnie bez końca ($1^{\\infty}$).',
         '0 · ∞': 'Jedna część zbliża się do 0, a druga rośnie bez końca ($0\\cdot\\infty$).',
     };
@@ -99,6 +99,7 @@
         [/^Wyciągamy \w spod pierwiastka$/, 'Pod pierwiastkiem wyłączam najwyższą potęgę zmiennej, a jej pierwiastek wychodzi przed znak pierwiastka.'],
         [/^Wyłączamy potęgę \w z każdego nawiasu$/, 'Każdy nawias ma swoją najwyższą potęgę. Wyciągam ją z każdego osobno i dodaję wykładniki, żeby wiedzieć, co skrócić.'],
         [/^Dzielimy potęgi: odejmujemy wykładniki$/, 'Każdy wyraz dzielę przez najwyższą potęgę. Przy dzieleniu potęg tej samej liczby wykładniki się odejmuje, także ułamkowe.'],
+        [/^Zapisujemy \w przez \(−\w\)$/, 'Dla ujemnej zmiennej wyłączamy dodatnie $-x$, więc każdy wyraz z nieparzystą potęgą zapisujemy przez $-x$ z minusem.'],
         [/^Redukujemy wyrazy podobne$/, 'Pierwiastek podniesiony do swojej potęgi znika, więc w liczniku zostaje zwykłe odejmowanie.'],
         [/^Wstawiamy do granicy$/, 'Zamiast różnicy z pierwiastkami wpisuję ułamek z poprzedniego kroku. Wartość jest ta sama.'],
         [/^Dzielimy przez ułamek$/, 'Ułamek stoi w mianowniku, więc odwracam go i mnożę. Tak łatwiej zobaczyć, co się skraca.'],
@@ -136,14 +137,14 @@
             return k ? 'Stały czynnik $' + k + '$ zostaje przed granicą, a potęga daje $' + ep + '$, więc wynik to $' + k + '\\cdot ' + ep + '$.' : OLD;
         }],
         [/^Potęga e$/, 'Liczba $e$ do coraz większej potęgi rośnie bez końca, a do coraz bardziej ujemnej spada do 0.'],
-        [/^Dla \w → −∞$/, (s) => /√\(.²\)/.test(s.math) ? 'Tu zmienna jest ujemna, więc wyciągając ją spod pierwiastka, piszemy przed nim minus.'
+        [/^Pilnujemy znaku dla \w → −∞$/, (s) => /√\(.²\)/.test(s.math) ? 'Tu zmienna jest ujemna, więc wyciągając ją spod pierwiastka, piszemy przed nim minus.'
             : 'To przygotowanie do następnego kroku: tam przed nawias trafi $\\sqrt{-x}$.'],
         [/^Korzystamy ze znanej granicy$/, 'Dopasowujemy wyrażenie do kształtu ze wzoru, nie zmieniając jego wartości.'],
         [/^Kolorowy ułamek dąży do 1$/, 'Kolorowa część wyrażenia dąży do 1, więc w iloczynie zostaje sama reszta.'],
         [/^Reguła de l'Hospitala$/, (_s, _t, c) => c.prev && /^Reguła de l'Hospitala$/.test(c.prev.label)
             ? 'Po pierwszym razie znowu wychodzi symbol nieoznaczony, więc stosujemy regułę drugi raz.'
             // [EN] zdanie „da się już policzyć” tylko wtedy, gdy następny krok to podstawienie
-            : c.next && /^(Wyłączamy|Wyciągamy|Dla \w → )/.test(c.next.label) ? 'Po regule znowu wychodzi $\\frac{\\infty}{\\infty}$, więc dalej liczymy jak przy granicy w nieskończoności: wyłączamy najwyższą potęgę.'
+            : c.next && /^(Wyłączamy|Wyciągamy|Pilnujemy znaku dla \w → )/.test(c.next.label) ? 'Po regule znowu wychodzi $\\frac{\\infty}{\\infty}$, więc dalej liczymy jak przy granicy w nieskończoności: wyłączamy najwyższą potęgę.'
             : c.next && !/^(Podstawiamy|Wynik)/.test(c.next.label) ? 'Po pochodnych ułamek nadal daje symbol nieoznaczony, więc przekształcamy go dalej.'
             : 'Pochodne licznika i mianownika są prostsze od nich samych i ich ułamek da się już policzyć.'],
         [/^Sprowadzamy do wspólnego mianownika$/, 'Ułamki można dodać albo odjąć dopiero wtedy, gdy mają ten sam mianownik.'],

@@ -745,5 +745,14 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     ok('2a-2 S10: bez kroku przy całkowitych potęgach', !S.run('lim n→∞ (2n+1)/(6n+5)').explain.steps.some(x => /odejmujemy wykładniki$/.test(x.label)));
 }
 
+// ── partia 2a-2, zadanie 9: x → −∞ (S32) ──
+{
+    const st = S.run('lim x→-∞ x/sqrt(3x^2+5)').explain.steps, lab = st.map(x => x.label);
+    ok('2a-2 S32: etykieta z czasownikiem, √ i x zapisane przez (−x)', lab.includes('Pilnujemy znaku dla x → −∞')
+        && st.some(x => x.math === '√(3x² + 5) = √((−x)²(3 + 5/x²)) = (−x)√(3 + 5/x²)') && st.some(x => x.label === 'Zapisujemy x przez (−x)' && x.math === 'x = −(−x)'), lab);
+    const w = require(path.join(__dirname, '..', 'js', 'step-why.js')).whyFor(st[0], 'Granica', { steps: st }, 0);
+    ok('2a-2 S32: przy −∞ bez „rosną”', !/rosną/.test(w), w);
+}
+
 console.log(`math-limits: ${pass} OK, ${fail} błędów`);
 process.exit(fail ? 1 : 0);
