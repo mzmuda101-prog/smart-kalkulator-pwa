@@ -16258,7 +16258,7 @@
                 [['ile godzin do ' + dJ, hJ], ['ile godzin do jutra', hJ], ['ile minut do ' + dJ, hJ * 60], ['how many hours until tomorrow', hJ],
                  ['ile godzin do ' + dJ + ' 12:00', hJ + 12]].forEach(function (c) {
                     var r = evalCalcExpression(c[0]), v = r && r.value;
-                    results.push({ expr: c[0] + ' (od teraz)', pass: typeof v === 'number' && Math.abs(v - c[1]) < (c[1] > 100 ? 2 : 0.05), got: r && r.text });
+                    results.push({ expr: c[0] + ' (od teraz)', pass: typeof v === 'number' && Math.abs(v - c[1]) < (c[1] > 100 || /minut/.test(c[0]) ? 2 : 0.05), got: r && r.text }); // minuty zaokrąglone do całych: przed północą „58 min” to nie błąd
                 });
             })();
             // regresja: kompaktowe zapisy i godziny na „dziś" (wcześniej zwracały null)

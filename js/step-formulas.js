@@ -456,6 +456,19 @@
                 'Przy granicy $x\\to-\\infty$: $1-x=(-x)\\left(1-\\frac{1}{x}\\right)$, a oba czynniki są dodatnie, więc pierwiastek z $1-x$ to iloczyn pierwiastków z $-x$ i z $1-\\frac{1}{x}$.',
             ],
         },
+        'wezyk': {
+            name: 'Nierówność wielomianowa: wężyk',
+            tex: 'W(x)=a(x-x_{1})^{k_{1}}(x-x_{2})^{k_{2}}\\cdots',
+            why: 'Wielomian zmienia znak tylko w miejscach zerowych. Wężyk rysujemy od prawej: nad osią, gdy $a>0$, pod osią, gdy $a<0$. W miejscu zerowym przechodzi na drugą stronę osi, a przy krotności parzystej tylko się odbija.',
+            level: 'Liceum, zakres podstawowy i rozszerzony: wielomiany',
+            more: [
+                'Przykład: $(x-1)(x-2)(x+3)>0$. Miejsca zerowe $-3$, $1$, $2$, a $a=1>0$. Od prawej: $(2,+\\infty)$ nad osią, $(1,2)$ pod, $(-3,1)$ nad, $(-\\infty,-3)$ pod. Odpowiedź: $x\\in(-3,1)\\cup(2,+\\infty)$.',
+                'Krotność parzysta: w $(x-1)^{2}(x+2)$ nawias $(x-1)^{2}$ nigdy nie jest ujemny, więc przy $x=1$ znak się nie zmienia i wężyk tylko dotyka osi.',
+                'Nawias bez miejsc zerowych, np. $x^{2}+4$, jest zawsze dodatni i nie zmienia wężyka.',
+                'Przy znaku $\\le$ albo $\\ge$ miejsca zerowe też należą do odpowiedzi, więc końce przedziałów są domknięte.',
+                'Skąd ta metoda: iloczyn jest dodatni, gdy ujemnych czynników jest parzyście wiele. Przechodząc przez miejsce zerowe w prawo, jeden nawias zmienia znak, więc zmienia się znak całości.',
+            ],
+        },
         'jaki-procent': {
             name: 'Jakim procentem liczby B jest liczba A',
             tex: '\\frac{A}{B}\\cdot 100\\%',
@@ -1144,6 +1157,7 @@
         'wartosc-bezwzgledna': ['rownania', 'lp', ['wartość bezwzględna', 'moduł', 'odległość na osi'], 'rozwiąż |x-2| < 3', 'x ∈ (−1, 5)', ['pierwiastek-z-kwadratu', 'nierownosc-kwadratowa']],
         'wartosci-trygonometryczne': ['trygonometria', 'lp', ['sinus', 'cosinus', 'tangens', 'wartości z tablicy', 'kąty 30 45 60'], 'rozwiąż sin(x) = 1/2', 'x = π/6 + 2kπ lub x = 5π/6 + 2kπ, k ∈ ℤ', ['okresowosc', 'sin-kwadrat']],
         okresowosc: ['trygonometria', 'lp', ['okres', 'okresowość', 'k całkowite', 'seria rozwiązań', 'równanie trygonometryczne'], 'rozwiąż tg(x) = 1', 'x = π/4 + kπ, k ∈ ℤ', ['wartosci-trygonometryczne']],
+        'wezyk': ['rownania', 'lr', ['wężyk', 'siatka znaków', 'nierówność wielomianowa', 'krotność'], 'rozwiąż (x-1)(x-2)(x+3) > 0', 'x ∈ (−3, 1) ∪ (2, +∞)', ['nierownosc-kwadratowa', 'schemat-hornera', 'postac-iloczynowa']],
         'jaki-procent': ['liczby', 'lp', ['ile procent', 'jakim procentem', 'część całości', 'ułamek na procent'], 'kroki ile procent 30 z 120', '25%', ['procent-z-liczby']],
         'procent-z-liczby': ['liczby', 'lp', ['procent', 'procent z liczby', 'część całości'], 'kroki 20% z 150', '30', ['zmiana-o-procent']],
         'zmiana-o-procent': ['liczby', 'lp', ['podwyżka', 'obniżka', 'zmiana o procent', 'rabat', 'VAT'], 'kroki 150 + 20%', '180', ['procent-z-liczby']],
@@ -1290,6 +1304,7 @@
         // [EN] układ zależny: jedno równanie to drugie pomnożone przez liczbę
         { re: /^(Lewe strony są proporcjonalne|Prawe strony też — to jedno równanie)$/, id: 'obie-strony' },
         { re: /^Wymnażam nawiasy$/, id: 'opuszczanie-nawiasow' },
+        { re: /^Wyznaczam miejsca zerowe$/, id: 'iloczyn-rowny-zero' },
         { re: /^Mnożę(, potęguję i redukuję wyrazy podobne| i potęguję)$/, id: 'kolejnosc-dzialan' },
         { re: /^Redukujemy wyrazy podobne w liczniku$/, id: 'wyrazy-podobne' },
         { re: /^Mnożymy ułamki$/, id: 'mnozenie-ulamkow' },

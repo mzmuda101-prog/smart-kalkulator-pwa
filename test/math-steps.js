@@ -275,6 +275,18 @@ pass += 3;
     ok('4c: tytuł Równanie wymierne', S.run('rozwiąż 1/x = 2').explain.title === 'Równanie');
 }
 
+// ── paczka B: nierówności wielomianowe wężykiem ──
+{
+    ok('wężyk: (x−1)(x−2)(x+3) > 0', text('rozwiąż (x-1)(x-2)(x+3) > 0') === 'x ∈ (−3, 1) ∪ (2, +∞)' && has('rozwiąż (x-1)(x-2)(x+3) > 0', 'Wyznaczam miejsca zerowe', 'x = −3,  x = 1,  x = 2')
+        && !has('rozwiąż (x-1)(x-2)(x+3) > 0', 'Dzielę schematem Hornera'), st('rozwiąż (x-1)(x-2)(x+3) > 0'));
+    ok('wężyk: x³ − 6x² + 11x − 6 > 0 przez rozkład', text('rozwiąż x^3-6x^2+11x-6 > 0') === 'x ∈ (1, 2) ∪ (3, +∞)', text('rozwiąż x^3-6x^2+11x-6 > 0'));
+    ok('wężyk: pierwiastek podwójny, ≥', text('rozwiąż (x-1)^2(x+2) ≥ 0') === 'x ∈ ⟨−2, +∞)' && has('rozwiąż (x-1)^2(x+2) ≥ 0', 'Wyznaczam miejsca zerowe', 'x = −2,  x = 1 (podwójne)'), st('rozwiąż (x-1)^2(x+2) ≥ 0'));
+    ok('wężyk: podwójny przy < 0 daje lukę', text('rozwiąż (x-1)^2(x+2) < 0') === 'x ∈ (−∞, −2)', text('rozwiąż (x-1)^2(x+2) < 0'));
+    ok('wężyk: (x−1)²(x+2) ≤ 0 — punkt 1 osobno', text('rozwiąż (x-1)^2(x+2) ≤ 0') === 'x ∈ (−∞, −2⟩ ∪ {1}', text('rozwiąż (x-1)^2(x+2) ≤ 0'));
+    ok('wężyk: a < 0 zaczyna pod osią', text('rozwiąż -2(x-1)(x+3)(x-5) ≥ 0') === 'x ∈ (−∞, −3⟩ ∪ ⟨1, 5⟩', text('rozwiąż -2(x-1)(x+3)(x-5) ≥ 0'));
+    ok('wężyk: czynnik bez miejsc zerowych', text('rozwiąż (x^2+4)(x-1) ≤ 0') === 'x ∈ (−∞, 1⟩' && st('rozwiąż (x^2+4)(x-1) ≤ 0').some(x => /x² \+ 4 > 0 dla każdego x/.test(x.math)), st('rozwiąż (x^2+4)(x-1) ≤ 0'));
+}
+
 // ── 4d: równania wykładnicze i logarytmiczne (plan „jak Photomath”, pkt 4) ──
 {
     const T = q => { const r = S.run(q); return r && r.text; };

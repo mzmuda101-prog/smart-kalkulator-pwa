@@ -273,6 +273,9 @@
   "^Wymnażam nawiasy$ → opuszczanie-nawiasow": [
     "Wymnażam nawiasy"
   ],
+  "^Wyznaczam miejsca zerowe$ → iloczyn-rowny-zero": [
+    "Wyznaczam miejsca zerowe"
+  ],
   "^Wyłączam [a-z] przed nawias$ → wylaczanie-przed-nawias": [
     "Wyłączam v przed nawias"
   ],

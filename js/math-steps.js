@@ -612,7 +612,7 @@
         var r1 = surdRoot(p, q, s.t, -1), r2 = surdRoot(p, q, s.t, 1);
         // [EN] skąd 2√2 (S41): największy kwadrat dzielący deltę, √8 = √(4 · 2) = √4 · √2 = 2√2
         var sqMid = isInt(delta) && isInt(s.q) && s.q.n > 1n ? ' = √(' + (s.q.n * s.q.n) + ' · ' + s.t + ') = √' + (s.q.n * s.q.n) + ' · √' + s.t : '';
-        steps.push({ label: 'Upraszczam pierwiastek z delty', math: '√Δ = √' + fmt(delta, ctx) + sqMid + ' = ' + surdText(s.q, s.t) });
+        if (!eq(s.q, ONE)) steps.push({ label: 'Upraszczam pierwiastek z delty', math: '√Δ = √' + fmt(delta, ctx) + sqMid + ' = ' + surdText(s.q, s.t) }); // [EN] √21 się nie upraszcza — bez pustego kroku
         steps.push({
             label: 'Liczę dwa rozwiązania', formula: { id: 'wzory-x12', here: abD },
             // [EN] podkreślone podstawienie do wzoru, potem wynik (nie sam gotowy wynik)
@@ -1312,6 +1312,71 @@
         }
         return finish('');
     }
+    // [EN] nierówność wielomianowa: rozkład na czynniki, miejsca zerowe z krotnością, wężyk od prawej (znak a),
+    // przy krotności parzystej wężyk się odbija; zwraca przedziały do odpowiedzi
+    // [EN] (x − 1)²(x + 2): lista czynników {c (unormowane), n} albo null, gdy to nie iloczyn wielomianów stopnia ≤ 2
+    function productFactors(ast, v) {
+        var items = [], walk = function (n) { if (n.k === 'mul') { walk(n.a); walk(n.b); } else if (n.k === 'neg') walk(n.a); else items.push(n); }; // [EN] −2(x − 1)…: minus to stała
+        walk(ast);
+        if (items.length < 2) return null;
+        var out = [];
+        for (var i = 0; i < items.length; i++) {
+            var n = items[i], k = 1;
+            if (n.k === 'pow' && n.b.k === 'num' && isInt(n.b.v) && n.b.v.n > 0n) { k = Number(n.b.v.n); n = n.a; }
+            var cc = coefs(collect(termsOf(n)), v);
+            if (cc.length < 2) { if (cc.length === 1) continue; return null; } // [EN] stała przed iloczynem nie zmienia miejsc zerowych
+            if (cc.length > 3) return null;
+            var lc = cc[cc.length - 1];
+            out.push({ c: cc.map(function (x) { return div(x, lc); }), n: k });
+        }
+        return out.length ? { factors: out } : null;
+    }
+    function snakeInequality(c, v, rel, steps, ctx, moved, given) {
+        if (moved && !given) steps.push({ label: 'Przenoszę wszystko na lewą stronę', math: polyText(c, v, ctx) + ' ' + rel + ' 0' });
+        var sf = given || schoolFactor(c, v, ctx);
+        if (!sf) throw new NotSupported();
+        (sf.steps || []).forEach(function (st) { steps.push(st); });
+        var roots = [], always = [];
+        sf.factors.forEach(function (f) {
+            if (f.c.length === 2) { roots.push({ r: neg(f.c[0]), n: f.n }); return; }
+            // [EN] czynnik kwadratowy bez miejsc zerowych (Δ < 0) ma stały znak — nie zmienia wężyka
+            if (f.c.length === 3 && sub(mul(f.c[1], f.c[1]), mul(R(4n), mul(f.c[2], f.c[0]))).n < 0n) { always.push(f); return; }
+            throw new NotSupported(); // shortcut: czynnik kwadratowy z niewymiernymi miejscami zerowymi, dopisać, gdy ktoś poda takie zadanie
+        });
+        if (!roots.length) throw new NotSupported();
+        roots.sort(function (a, b) { return toNum(a.r) - toNum(b.r); });
+        var rootTxt = function (q) { return v + ' = ' + fmt(q.r, ctx) + (q.n === 2 ? ' (podwójne)' : q.n === 3 ? ' (potrójne)' : q.n > 3 ? ' (krotność ' + q.n + ')' : ''); };
+        var alwaysTxt = always.map(function (f) { return polyText(f.c, v, ctx) + ' > 0 dla każdego ' + v; });
+        steps.push({ label: 'Wyznaczam miejsca zerowe', math: roots.map(rootTxt).join(',  ') + (alwaysTxt.length ? '\n' + alwaysTxt.join('\n') : '') });
+        // [EN] znak w każdym przedziale (punkt próbny), zapis jak siatka znaków
+        var val = function (x) { return c.reduce(function (acc, k, i) { return acc + toNum(k) * Math.pow(x, i); }, 0); };
+        var xs = roots.map(function (q) { return toNum(q.r); }), cells = [];
+        for (var i = 0; i <= roots.length; i++) {
+            var lo = i ? roots[i - 1] : null, hi = i < roots.length ? roots[i] : null;
+            var probe = lo === null ? xs[0] - 1 : hi === null ? xs[xs.length - 1] + 1 : (xs[i - 1] + xs[i]) / 2;
+            cells.push({ lo: lo, hi: hi, sign: val(probe) > 0 ? 1 : -1 });
+        }
+        var lead = c[c.length - 1], iv = function (cl) { return (cl.lo === null ? '(−∞' : '(' + fmt(cl.lo.r, ctx)) + ', ' + (cl.hi === null ? '+∞)' : fmt(cl.hi.r, ctx) + ')'); };
+        steps.push({ label: 'Rysuję wężyk i odczytuję znaki',
+            math: 'a = ' + fmt(lead, ctx) + (lead.n > 0n ? ' > 0' : ' < 0') + '\n' + cells.map(function (cl) { return iv(cl) + ': ' + (cl.sign > 0 ? '+' : '−'); }).join(',  '),
+            formula: { id: 'wezyk', here: 'a = ' + fmt(lead, ctx) + ', miejsca zerowe: ' + roots.map(function (q) { return fmt(q.r, ctx) + (q.n > 1 ? ' (' + q.n + '×)' : ''); }).join(', ') },
+            snake: { up: lead.n > 0n, roots: roots.map(function (q) { return { text: fmt(q.r, ctx), value: toNum(q.r), n: q.n }; }) } });
+        // [EN] przedziały spełniające nierówność; przy ≤, ≥ końce domknięte, odosobnione miejsca zerowe jako punkty
+        var want = rel === '>' || rel === '≥' ? 1 : -1, closed = !strict(rel), parts = [];
+        var E = function (q) { return q ? { text: fmt(q.r, ctx), value: toNum(q.r) } : null; };
+        cells.forEach(function (cl) {
+            if (cl.sign !== want) return;
+            var prev = parts[parts.length - 1];
+            if (prev && closed && prev.hi && cl.lo && prev.hi.value === toNum(cl.lo.r)) { prev.hi = E(cl.hi); prev.hiIn = closed && !!cl.hi; return; }
+            parts.push({ lo: E(cl.lo), hi: E(cl.hi), loIn: closed && !!cl.lo, hiIn: closed && !!cl.hi });
+        });
+        if (closed) roots.forEach(function (q) { // [EN] miejsce zerowe spełnia ≤/≥, nawet gdy obok znak się nie zgadza
+            var x = toNum(q.r);
+            if (!inSet(parts, x)) parts.push({ point: true, lo: E(q) });
+        });
+        parts.sort(function (a, b) { return (a.lo ? a.lo.value : -Infinity) - (b.lo ? b.lo.value : -Infinity); });
+        return parts;
+    }
     function solveInequality(lhs, rel, rhs) {
         var ctx = { dec: hasDecimal(lhs) || hasDecimal(rhs) };
         if (rhs.k === 'abs' && lhs.k !== 'abs') return solveInequality(rhs, FLIP[rel], lhs); // [EN] 3 > |x − 2| → |x − 2| < 3
@@ -1364,6 +1429,12 @@
             var end = { text: fmt(r, ctx), value: toNum(r) };
             parts = relX === '<' || relX === '≤' ? [{ lo: null, hi: end, hiIn: !strict(relX) }] : [{ lo: end, hi: null, loIn: !strict(relX) }];
             return answer(v + ' ' + relX + ' ' + end.text);
+        }
+        if (c.length >= 4) { // [EN] stopień ≥ 3: rozkład szkolny i wężyk (siatka znaków), jak w szkole (paczka B sposobów)
+            // [EN] postać już rozłożona po lewej i 0 po prawej: miejsca zerowe od razu, bez wymnażania i Hornera
+            var given = !rawR.some(function (t) { return !isZero(t.c); }) ? productFactors(lhs, v) : null;
+            parts = snakeInequality(c, v, rel, steps, ctx, L.length !== diff.length || Rr.length > 0, given);
+            return answer('');
         }
         if (c.length !== 3) throw new NotSupported();
         if (L.length !== diff.length || Rr.length) steps.push({ label: 'Przenoszę wszystko na lewą stronę', math: polyText(c, v, ctx) + ' ' + rel + ' 0' });

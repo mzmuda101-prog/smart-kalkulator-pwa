@@ -207,6 +207,7 @@
                     { syntax: 'wierzchołek paraboli', syntaxAlt: 'vertex', command: 'wierzchołek x^2 - 4x + 3', yields: 'W = (2, −1)', description: 'p, q i postać kanoniczna' },
                     { syntax: 'rozwiąż układ równań', syntaxAlt: 'solve system', command: 'rozwiąż x + y = 5, x - y = 1', yields: 'x = 3, y = 2', description: 'dwa sposoby: podstawianie i przeciwne współczynniki; równania rozdziela przecinek ze spacją albo średnik' },
                     { syntax: 'rozwiąż nierówność', syntaxAlt: 'solve inequality', command: 'rozwiąż x^2 - 5x + 6 >= 0', yields: 'x ∈ (−∞, 2⟩ ∪ ⟨3, +∞)', description: 'liniowe i kwadratowe; znaki < > <= >=' },
+                    { syntax: 'rozwiąż nierówność wielomianową', syntaxAlt: 'solve polynomial inequality', command: 'rozwiąż (x - 1)(x - 2)(x + 3) > 0', yields: 'x ∈ (−3, 1) ∪ (2, +∞)', description: 'stopień 3 i wyżej: rozkład, miejsca zerowe i wężyk' },
                     { syntax: 'uprość wyrażenie', syntaxAlt: ['rozwiń', 'simplify', 'expand'], command: 'uprość (x + 1)^2 + 2x', yields: 'x² + 4x + 1', description: 'nawiasy i wyrazy podobne' },
                     { syntax: 'rozłóż wyrażenie', syntaxAlt: 'factor', command: 'rozłóż x^2 - 5x + 6', yields: '(x − 2)(x − 3)', description: 'rozkład na czynniki' },
                     { syntax: 'kroki działanie', syntaxAlt: 'steps', command: 'kroki 1/2 + 1/3', yields: '5/6', description: 'kolejność działań i ułamki' },
