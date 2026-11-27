@@ -299,13 +299,13 @@ test('historia: lewa połowa wraca do działania, prawa użyje wyniku', async ({
     }));
 
     // data — najbardziej newralgiczny rodzaj wyniku (opisowy nawias z dniem tygodnia)
-    await calc('30.1');
+    await calc('30.1.2026'); // [EN] pełna data: samo „30.1” jest teraz liczbą 30,1 (sens wyników, v1.05.56)
     await page.waitForTimeout(400);
 
     expect(await clickHalf('.expr'), 'brak lewej połowy wiersza historii').toBeTruthy();
     await page.waitForTimeout(400);
     let st = await state();
-    expect(st.field, 'lewa połowa ma wrócić do WPISANEGO działania').toBe('30.1');
+    expect(st.field, 'lewa połowa ma wrócić do WPISANEGO działania').toBe('30.1.2026');
     expect(st.result, 'przywrócone działanie musi się liczyć').not.toBe('—');
 
     expect(await clickHalf('.result')).toBeTruthy();

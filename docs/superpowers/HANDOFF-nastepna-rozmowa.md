@@ -1,4 +1,4 @@
-# Zacznij tutaj — przekazanie do nowej rozmowy (2026-11-24, v1.05.60)
+# Zacznij tutaj — przekazanie do nowej rozmowy (2026-11-27, v1.05.65)
 
 Na start przywitaj się krótko, powiedz, co przeczytałeś, i zaproponuj następny krok (lista niżej). Kod zaczynaj dopiero po decyzji Mateusza.
 
@@ -13,12 +13,15 @@ Na start przywitaj się krótko, powiedz, co przeczytałeś, i zaproponuj nastę
 - Granice: podstawienie pokazuje rachunek poziomami (bramka w testach: każde „Podstawiamy” z rachunkiem, bez gołych liczb ujemnych); krok „Dzielimy schematem Hornera” z tabelkami przed rozkładem (bramka: każdy rozkład ma Hornera).
 - Przegląd całego silnika: 224 zadania, 4 działy + stare raporty C, D, E → 91 uwag (10 krytycznych), 14 wzorców lekkiej interaktywności.
 
-## W TOKU (2026-11-27): etap „dymki przy podstawach”
-- Gałąź `dymki-podstawy`, kopia robocza `.worktrees/dymki-podstawy` (HEAD 6bdb2f0, na origin/main v1.05.63). Zrobione: tabela reguł
-  `STEP_RULES` + bramka `test/step-coverage.js` (100% kroków w `queries.js`), przycisk z książką, 31 nowych haseł.
-- Zostało: tura poprawek z końcowego przeglądu i ucznia — lista 9 punktów w
-  `.worktrees/dymki-podstawy/.superpowers/sdd/2026-11-24-dymki-podstawy/final-fixes.md` (dziennik: `progress.md` obok),
-  potem krótki przegląd, rebase na origin/main, wydanie v1.05.65 (lub wyżej, jeśli main poszedł dalej).
+## Zrobione (2026-11-27, v1.05.65): etap „dymki przy podstawach”
+- Tabela reguł `STEP_RULES` + bramka `test/step-coverage.js` (100% kroków, także zadania rzucające wyjątek
+  i migawka `test/fixtures/step-rules-labels.json` — szeroki wzorzec, który złapie nową etykietę, widać w teście;
+  odświeżenie: `UPDATE=1 node test/step-coverage.js`), przycisk z książką, nowe hasła (m.in. znak-trojmianu, liczba-przeciwna).
+- Tura poprawek po przeglądzie: prawdziwe nazwy kroków (liczone, nie zgadywane), uwagi słabego ucznia o skokach
+  w `skoki-tabela.md` (S118, S119 i uzupełnione S5, S17, S43, S47).
+- Pomysł Mateusza na później (2026-11-27): „naukowy/smart” bez osobnego trybu: przełącznik albo rozpoznawanie
+  poleceń wpisanych na klawiaturze kalkulatora (albo jedno i drugie). Najpierw przeanalizować najlepsze kalkulatory
+  naukowe (funkcje, zapis i format wyników), potem projekt (brainstorming) i decyzja Mateusza.
 - Pomysł Mateusza na później: „rozumienie zdań” (np. `100m w 5 min to ile km/h`; silnik liczy `100 m / 5 min to km/h`) — osobny etap, uzgodnić z sesją od parsera.
 
 ## Następny krok (do decyzji Mateusza)
