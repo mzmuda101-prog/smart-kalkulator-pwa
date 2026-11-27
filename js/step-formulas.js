@@ -469,6 +469,17 @@
                 'Skąd ta metoda: iloczyn jest dodatni, gdy ujemnych czynników jest parzyście wiele. Przechodząc przez miejsce zerowe w prawo, jeden nawias zmienia znak, więc zmienia się znak całości.',
             ],
         },
+        'iloraz-iloczyn': {
+            name: 'Iloraz a iloczyn: ten sam znak',
+            tex: '\\frac{f(x)}{g(x)}>0\\iff f(x)\\cdot g(x)>0\\quad(g(x)\\ne 0)',
+            why: 'Iloraz i iloczyn tych samych dwóch liczb mają ten sam znak, bo przy dzieleniu i mnożeniu znaki łączą się tak samo. Zamiana na iloczyn pozwala użyć wężyka, a mianownik i tak wykluczamy z dziedziny.',
+            level: 'Liceum, zakres rozszerzony: nierówności wymierne',
+            more: [
+                'Przykład: $\\frac{x-1}{x+2}>0$ ma te same rozwiązania co $(x-1)(x+2)>0$, poza $x=-2$, którego nie ma w dziedzinie.',
+                'Przy $\\le$ i $\\ge$ miejsca zerowe licznika należą do odpowiedzi, a miejsca zerowe mianownika nigdy.',
+                'Nie mnożymy obu stron przez mianownik: jego znak zależy od $x$, więc nie wiadomo, czy odwracać znak nierówności.',
+            ],
+        },
         'jaki-procent': {
             name: 'Jakim procentem liczby B jest liczba A',
             tex: '\\frac{A}{B}\\cdot 100\\%',
@@ -1158,6 +1169,7 @@
         'wartosci-trygonometryczne': ['trygonometria', 'lp', ['sinus', 'cosinus', 'tangens', 'wartości z tablicy', 'kąty 30 45 60'], 'rozwiąż sin(x) = 1/2', 'x = π/6 + 2kπ lub x = 5π/6 + 2kπ, k ∈ ℤ', ['okresowosc', 'sin-kwadrat']],
         okresowosc: ['trygonometria', 'lp', ['okres', 'okresowość', 'k całkowite', 'seria rozwiązań', 'równanie trygonometryczne'], 'rozwiąż tg(x) = 1', 'x = π/4 + kπ, k ∈ ℤ', ['wartosci-trygonometryczne']],
         'wezyk': ['rownania', 'lr', ['wężyk', 'siatka znaków', 'nierówność wielomianowa', 'krotność'], 'rozwiąż (x-1)(x-2)(x+3) > 0', 'x ∈ (−3, 1) ∪ (2, +∞)', ['nierownosc-kwadratowa', 'schemat-hornera', 'postac-iloczynowa']],
+        'iloraz-iloczyn': ['rownania', 'lr', ['nierówność wymierna', 'iloraz na iloczyn', 'ułamek nierówność', 'mianownik'], 'rozwiąż (x-1)/(x+2) > 0', 'x ∈ (−∞, −2) ∪ (1, +∞)', ['wezyk', 'dziedzina', 'wspolny-mianownik']],
         'jaki-procent': ['liczby', 'lp', ['ile procent', 'jakim procentem', 'część całości', 'ułamek na procent'], 'kroki ile procent 30 z 120', '25%', ['procent-z-liczby']],
         'procent-z-liczby': ['liczby', 'lp', ['procent', 'procent z liczby', 'część całości'], 'kroki 20% z 150', '30', ['zmiana-o-procent']],
         'zmiana-o-procent': ['liczby', 'lp', ['podwyżka', 'obniżka', 'zmiana o procent', 'rabat', 'VAT'], 'kroki 150 + 20%', '180', ['procent-z-liczby']],

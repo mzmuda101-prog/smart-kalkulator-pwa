@@ -1331,7 +1331,9 @@
         }
         return out.length ? { factors: out } : null;
     }
-    function snakeInequality(c, v, rel, steps, ctx, moved, given) {
+    function snakeInequality(c, v, rel, steps, ctx, moved, given, excl) {
+        excl = excl || []; // [EN] miejsca zerowe mianownika: zawsze poza odpowiedzią (dziedzina)
+        var isEx = function (q) { return excl.some(function (e) { return eq(e, q.r); }); };
         if (moved && !given) steps.push({ label: 'Przenoszę wszystko na lewą stronę', math: polyText(c, v, ctx) + ' ' + rel + ' 0' });
         var sf = given || schoolFactor(c, v, ctx);
         if (!sf) throw new NotSupported();
@@ -1345,7 +1347,7 @@
         });
         if (!roots.length) throw new NotSupported();
         roots.sort(function (a, b) { return toNum(a.r) - toNum(b.r); });
-        var rootTxt = function (q) { return v + ' = ' + fmt(q.r, ctx) + (q.n === 2 ? ' (podwójne)' : q.n === 3 ? ' (potrójne)' : q.n > 3 ? ' (krotność ' + q.n + ')' : ''); };
+        var rootTxt = function (q) { return v + ' = ' + fmt(q.r, ctx) + (q.n === 2 ? ' (podwójne)' : q.n === 3 ? ' (potrójne)' : q.n > 3 ? ' (krotność ' + q.n + ')' : '') + (isEx(q) ? ' (z mianownika, ∉ D)' : ''); };
         var alwaysTxt = always.map(function (f) { return polyText(f.c, v, ctx) + ' > 0 dla każdego ' + v; });
         steps.push({ label: 'Wyznaczam miejsca zerowe', math: roots.map(rootTxt).join(',  ') + (alwaysTxt.length ? '\n' + alwaysTxt.join('\n') : '') });
         // [EN] znak w każdym przedziale (punkt próbny), zapis jak siatka znaków
@@ -1364,24 +1366,90 @@
         // [EN] przedziały spełniające nierówność; przy ≤, ≥ końce domknięte, odosobnione miejsca zerowe jako punkty
         var want = rel === '>' || rel === '≥' ? 1 : -1, closed = !strict(rel), parts = [];
         var E = function (q) { return q ? { text: fmt(q.r, ctx), value: toNum(q.r) } : null; };
+        var inc = function (q) { return closed && !!q && !isEx(q); };
         cells.forEach(function (cl) {
             if (cl.sign !== want) return;
             var prev = parts[parts.length - 1];
-            if (prev && closed && prev.hi && cl.lo && prev.hi.value === toNum(cl.lo.r)) { prev.hi = E(cl.hi); prev.hiIn = closed && !!cl.hi; return; }
-            parts.push({ lo: E(cl.lo), hi: E(cl.hi), loIn: closed && !!cl.lo, hiIn: closed && !!cl.hi });
+            if (prev && inc(cl.lo) && prev.hi && prev.hi.value === toNum(cl.lo.r)) { prev.hi = E(cl.hi); prev.hiIn = inc(cl.hi); return; }
+            parts.push({ lo: E(cl.lo), hi: E(cl.hi), loIn: inc(cl.lo), hiIn: inc(cl.hi) });
         });
         if (closed) roots.forEach(function (q) { // [EN] miejsce zerowe spełnia ≤/≥, nawet gdy obok znak się nie zgadza
             var x = toNum(q.r);
-            if (!inSet(parts, x)) parts.push({ point: true, lo: E(q) });
+            if (!isEx(q) && !inSet(parts, x)) parts.push({ point: true, lo: E(q) });
         });
         parts.sort(function (a, b) { return (a.lo ? a.lo.value : -Infinity) - (b.lo ? b.lo.value : -Infinity); });
         return parts;
+    }
+    function polyMulCoefs(a, b) {
+        var out = [];
+        for (var i = 0; i < a.length; i++) for (var j = 0; j < b.length; j++) out[i + j] = add(out[i + j] || ZERO, mul(a[i], b[j]));
+        return out;
+    }
+    // [EN] czynniki wielomianu stopnia ≤ 2 do wężyka: liniowy wprost, kwadratowy rozkładem szkolnym albo stałym znakiem (Δ < 0)
+    function smallFactors(cc, v, ctx, steps) {
+        while (cc.length > 1 && isZero(cc[cc.length - 1])) cc.pop();
+        if (cc.length === 1) return [];
+        var lc = cc[cc.length - 1];
+        if (cc.length === 2) return [{ c: cc.map(function (x) { return div(x, lc); }), n: 1 }];
+        if (cc.length === 3) {
+            var d = sub(mul(cc[1], cc[1]), mul(R(4n), mul(cc[2], cc[0])));
+            if (d.n < 0n) return [{ c: cc.map(function (x) { return div(x, lc); }), n: 1 }];
+            var sf = schoolFactor(cc, v, ctx);
+            if (!sf) throw new NotSupported();
+            sf.steps.forEach(function (st) { steps.push(st); });
+            return sf.factors;
+        }
+        throw new NotSupported(); // shortcut: licznik i mianownik do stopnia 2, rozszerzyć, gdy zadania będą wyższe
+    }
+    // [EN] nierówność wymierna f/g ⋛ c (szkoła): dziedzina, wszystko na lewą, wspólny mianownik,
+    // iloraz → iloczyn (ten sam znak), wężyk; miejsca zerowe mianownika zawsze odpadają
+    function rationalInequality(lhs, rel, rhs, ctx, steps) {
+        if (lhs.k !== 'div' || hasVars(rhs) || !hasVars(lhs.b)) throw new NotSupported();
+        var v = firstVar(lhs), N = coefs(collect(termsOf(lhs.a)), v), D = coefs(collect(termsOf(lhs.b)), v), k = evalExact(rhs, {});
+        if (N.length > 3 || D.length > 3) throw new NotSupported();
+        var nT = plain(lhs.a, ctx), dT = plain(lhs.b, ctx), par = function (t) { return /[+−]/.test(t.replace(/^−/, '')) ? '(' + t + ')' : t; };
+        var dSteps = [], dF = smallFactors(D.slice(), v, ctx, dSteps), bad = [];
+        dF.forEach(function (f) { if (f.c.length === 2) bad.push(neg(f.c[0])); else if (f.c.length === 3 && sub(mul(f.c[1], f.c[1]), mul(R(4n), mul(f.c[2], f.c[0]))).n >= 0n) throw new NotSupported(); });
+        bad.sort(function (a, b) { return toNum(a) - toNum(b); });
+        var badT = bad.map(function (r) { return v + ' ≠ ' + fmt(r, ctx); }).join(',  ');
+        steps.push({ label: 'Wyznaczam dziedzinę', math: (dT + ' ≠ 0' === badT ? '' : dT + ' ≠ 0' + (bad.length ? '\n' : '')) + (bad.length ? badT + '\nD = ℝ \\ {' + bad.map(function (r) { return fmt(r, ctx); }).join(', ') + '}' : '') });
+        var top = N, topT = nT;
+        if (!isZero(k)) { // [EN] f/g − k ⋛ 0 → (f − k·g)/g ⋛ 0
+            top = N.slice(); D.forEach(function (x, i) { top[i] = sub(top[i] || ZERO, mul(k, x)); });
+            while (top.length > 1 && isZero(top[top.length - 1])) top.pop();
+            topT = polyText(top, v, ctx);
+            var kT = fmtParen(k, ctx);
+            steps.push({ label: 'Przenoszę wszystko na lewą stronę', math: show(lhs, ctx) + ' − ' + kT + ' ' + rel + ' 0' });
+            steps.push({ label: 'Sprowadzam do wspólnego mianownika', formula: { id: 'wspolny-mianownik' }, math: '(' + nT + ' − ' + (eq(k, ONE) ? '' : kT + (/^[a-z]$/.test(dT) ? '' : ' · ')) + par(dT) + ')/' + par(dT) + ' ' + rel + ' 0\n' + par(topT) + '/' + par(dT) + ' ' + rel + ' 0' });
+        }
+        var prod = polyMulCoefs(top, D);
+        steps.push({ label: 'Zamieniam iloraz na iloczyn', math: par(topT) + par(dT) + ' ' + rel + ' 0', formula: { id: 'iloraz-iloczyn' } });
+        var nF = smallFactors(top.slice(), v, ctx, steps);
+        // [EN] ten sam czynnik w liczniku i mianowniku zostaje jako potęga (wężyk się odbija), ale i tak odpada z dziedziny
+        var all = [];
+        nF.concat(dF.map(function (f) { return { c: f.c, n: f.n }; })).forEach(function (f) {
+            var same = all.filter(function (g) { return g.c.length === f.c.length && g.c.every(function (x, i) { return eq(x, f.c[i]); }); })[0];
+            if (same) same.n += f.n; else all.push({ c: f.c, n: f.n });
+        });
+        var parts = snakeInequality(prod, v, rel, steps, ctx, false, { factors: all }, bad);
+        return { parts: parts, v: v, N: top, D: D };
     }
     function solveInequality(lhs, rel, rhs) {
         var ctx = { dec: hasDecimal(lhs) || hasDecimal(rhs) };
         if (rhs.k === 'abs' && lhs.k !== 'abs') return solveInequality(rhs, FLIP[rel], lhs); // [EN] 3 > |x − 2| → |x − 2| < 3
         var steps = [{ label: 'Nierówność', math: show(lhs, ctx) + ' ' + rel + ' ' + show(rhs, ctx) }];
         if (lhs.k === 'abs') return absInequality(lhs, rel, rhs, ctx, steps);
+        if (lhs.k === 'div' && hasVars(lhs.b)) { // [EN] zmienna w mianowniku: nierówność wymierna
+            var ri = rationalInequality(lhs, rel, rhs, ctx, steps);
+            var rText = ri.v + ' ∈ ' + setText(ri.parts, function (e) { return e.text; });
+            var rv = function (x) { var n0 = ri.N.reduce(function (a, k2, i) { return a + toNum(k2) * Math.pow(x, i); }, 0), d0 = ri.D.reduce(function (a, k2, i) { return a + toNum(k2) * Math.pow(x, i); }, 0); return d0 === 0 ? NaN : n0 / d0; };
+            var cutsR = [0]; ri.parts.forEach(function (pp) { [pp.lo, pp.hi].forEach(function (e2) { if (e2) cutsR.push(e2.value); }); });
+            [-1000, 1000].concat(cutsR.reduce(function (acc, c2) { return acc.concat([c2 - 0.5, c2 + 0.5, c2 - 1e-4, c2 + 1e-4]); }, [])).forEach(function (x) { // [EN] bezpiecznik
+                var y = rv(x); if (isFinite(y) && holds(y, rel) !== inSet(ri.parts, x)) throw new NotSupported();
+            });
+            steps.push({ label: 'Odpowiedź', math: rText });
+            return done('Nierówność', rText, null, steps);
+        }
         var rawL = termsOf(lhs), rawR = termsOf(rhs), L = collect(rawL), Rr = collect(rawR);
         var diff = collect(rawL.concat(negTerms(rawR))), vars = varsOf(diff);
         var parts, v = vars.indexOf('x') >= 0 ? 'x' : vars[0];

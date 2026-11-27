@@ -104,6 +104,7 @@
         [/^Wyłączamy potęgę \w z każdego nawiasu$/, 'Każdy nawias ma swoją najwyższą potęgę. Wyciągam ją z każdego osobno i dodaję wykładniki, żeby wiedzieć, co skrócić.'],
         [/^Dzielimy potęgi: odejmujemy wykładniki$/, 'Każdy wyraz dzielę przez najwyższą potęgę. Przy dzieleniu potęg tej samej liczby wykładniki się odejmuje, także ułamkowe.'],
         [/^Zapisujemy \w przez \(−\w\)$/, 'Dla ujemnej zmiennej wyłączamy dodatnie $-x$, więc każdy wyraz z nieparzystą potęgą zapisujemy przez $-x$ z minusem.'],
+        [/^Zamieniam iloraz na iloczyn$/, 'Nie mnożę przez mianownik, bo jego znak zależy od $x$. Iloczyn ma ten sam znak co ułamek, a mianownik odpada z dziedziny.'],
         [/^Wyznaczam miejsca zerowe$/, 'Każdy nawias jest zerem w jednym punkcie i tylko tam wielomian może zmienić znak.'],
         [/^Rysuję wężyk i odczytuję znaki$/, (s) => s.snake && s.snake.roots.some(r => r.n % 2 === 0)
             ? 'Nawias do kwadratu nigdy nie jest ujemny, więc przy podwójnym zerze znak całości zostaje, a przy pojedynczym się zmienia.'

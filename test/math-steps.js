@@ -287,6 +287,14 @@ pass += 3;
     ok('wężyk: czynnik bez miejsc zerowych', text('rozwiąż (x^2+4)(x-1) ≤ 0') === 'x ∈ (−∞, 1⟩' && st('rozwiąż (x^2+4)(x-1) ≤ 0').some(x => /x² \+ 4 > 0 dla każdego x/.test(x.math)), st('rozwiąż (x^2+4)(x-1) ≤ 0'));
 }
 
+// ── paczka B: nierówności wymierne ──
+{
+    ok('wymierna: (x−1)/(x+2) > 0', text('rozwiąż (x-1)/(x+2) > 0') === 'x ∈ (−∞, −2) ∪ (1, +∞)' && has('rozwiąż (x-1)/(x+2) > 0', 'Zamieniam iloraz na iloczyn', '(x − 1)(x + 2) > 0'), st('rozwiąż (x-1)/(x+2) > 0'));
+    ok('wymierna: 1/x < 2 przez wspólny mianownik', text('rozwiąż 1/x < 2') === 'x ∈ (−∞, 0) ∪ (1/2, +∞)' && has('rozwiąż 1/x < 2', 'Sprowadzam do wspólnego mianownika', '(1 − 2x)/x < 0\n(−2x + 1)/x < 0'), st('rozwiąż 1/x < 2'));
+    ok('wymierna: ≤ — miejsce zerowe mianownika odpada', text('rozwiąż (x+3)/(x-1) ≤ 1') === 'x ∈ (−∞, 1)', text('rozwiąż (x+3)/(x-1) ≤ 1'));
+    ok('wymierna: ≥ — licznik domknięty, mianownik otwarty', text('rozwiąż (x^2-4)/(x-3) ≥ 0') === 'x ∈ ⟨−2, 2⟩ ∪ (3, +∞)', text('rozwiąż (x^2-4)/(x-3) ≥ 0'));
+}
+
 // ── 4d: równania wykładnicze i logarytmiczne (plan „jak Photomath”, pkt 4) ──
 {
     const T = q => { const r = S.run(q); return r && r.text; };

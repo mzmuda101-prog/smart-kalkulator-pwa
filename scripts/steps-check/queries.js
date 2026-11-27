@@ -12,6 +12,7 @@ const defs = fs.readFileSync(path.join(root, 'command-definitions.js'), 'utf8');
 const decode = (/** @type {string} */ t) => t.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 // przykłady z testów kroków (dopisuj tu nowe zadania, które mają kroki)
 const EXTRA = [// [EN] paczka B: wężyk
+    'rozwiąż (x-1)/(x+2) > 0', 'rozwiąż 1/x < 2', 'rozwiąż (x+3)/(x-1) ≤ 1', 'rozwiąż (x^2-4)/(x-3) ≥ 0',
     'rozwiąż (x-1)(x-2)(x+3) > 0', 'rozwiąż x^3-6x^2+11x-6 > 0', 'rozwiąż (x-1)^2(x+2) ≥ 0', 'rozwiąż x^3 - x < 0', 'rozwiąż (x^2+4)(x-1) ≤ 0', 'rozwiąż -2(x-1)(x+3)(x-5) ≥ 0',
     // [EN] przegląd końcowy dymków: etykiety, których nie było w zadaniach
     'lim x→0 1/x', 'lim x→3 x/(x-3)', 'rozłóż 6x+3', 'rozwiąż x^3=8', 'rozwiąż 2x+1=2x+3', 'rozwiąż 2x+1=2x+1', 'rozwiąż |x|=-1',
