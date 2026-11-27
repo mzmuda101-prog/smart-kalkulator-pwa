@@ -666,5 +666,23 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     ok('FX6/7: w zadaniach granic bez a/b/c i bez „)4”', glue.length === 0, glue);
 }
 
+// ── partia 2a-2, zadanie 1: sprzężenie bez skoków (S12, S13, S23, S28) ──
+{
+    const st = q => S.run(q).explain.steps, sh = x => x.map(y => y.label + ': ' + y.math);
+    const at = (q, label) => st(q).find(x => x.label === label);
+    const a = at('lim n→∞ (sqrt(2n+5)-sqrt(2n+1))', 'Mnożymy przez sprzężenie');
+    ok('2a-2 S12: linia środkowa (a − b)(a + b)/(a + b)', !!a && a.math.includes('(√(2n + 5) − √(2n + 1))(√(2n + 5) + √(2n + 1))/(√(2n + 5) + √(2n + 1))'), a);
+    const r = at('lim n→∞ (sqrt(2n+5)-sqrt(2n+1))', 'Redukujemy wyrazy podobne w liczniku');
+    ok('2a-2 S13: licznik policzony osobno', !!r && r.math === '2n + 5 − (2n + 1) = 4', r);
+    const c = at('lim x→3 (x^2-5x+6)/(sqrt(x+6)-x)', 'Mnożymy przez sprzężenie');
+    ok('2a-2 S23: a = x jak w zapisie, kolor a² − b²', !!c && c.math.includes('(⟦x² − (x + 6)⟧)/(x + √(x + 6))'), c);
+    const five = st('lim x→5 (x-5)/(3-sqrt(x+4))');
+    ok('2a-2 S28: dzielenie przez ułamek i skrócenie (x − 5)', five.some(x => x.label === 'Dzielimy przez ułamek' && x.math.endsWith('−(x − 5)(√(x + 4) + 3)/(x − 5)'))
+        && five.some(x => x.label === 'Skracamy (x − 5)' && x.math.endsWith('−(√(x + 4) + 3)')), sh(five));
+    const q16 = st('lim n→∞ (sqrt(n+5)-sqrt(n+3))/(sqrt(4n+9)-sqrt(4n-7))');
+    ok('2a-2 S28: 2/16 = 1/8 jako „Mnożymy ułamki”', q16.some(x => x.label === 'Mnożymy ułamki' && x.math.includes('8(')), sh(q16));
+    ok('2a-2: bez „Upraszczamy” po sprzężeniu', !['lim x→5 (x-5)/(3-sqrt(x+4))', 'lim n→∞ 1/(sqrt(n+sqrt(n))-sqrt(n-1))'].some(q => st(q).some(x => x.label === 'Upraszczamy')));
+}
+
 console.log(`math-limits: ${pass} OK, ${fail} błędów`);
 process.exit(fail ? 1 : 0);

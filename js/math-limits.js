@@ -836,25 +836,44 @@
         test: function (e, v, t) { return !!findDifference(e, v, t); },
         apply: function (e, v, t, log, depth) {
             var hit = findDifference(e, v, t), pair = conjPair(hit.D, v), k = pair.k;
+            // [EN] a i b w kolejności z zapisu (x − √(x + 6): a = x), żeby kolor a² − b² zgadzał się ze wzorem w dymku
+            if (!rootDegree(hit.D[0], v)) pair = { A: C.cNeg(pair.B), B: C.cNeg(pair.A), k: k };
             var Ak = fold(C.cPow(pair.A, K.R(k))), Bk = fold(C.cPow(pair.B, K.R(k)));
             var top = fold(C.expandExpr(fold(C.expandExpr(C.cSub(Ak, Bk))))); // [EN] (√a + √b)² → a + 2√(ab) + b
             var S = [];
             for (var i = 0; i < k; i++) S = C.cAdd(S, fold(C.cMul(C.cPow(pair.A, K.R(k - 1 - i)), C.cPow(pair.B, K.R(i)))));
-            var bShown = Bk.length > 1 || (Bk[0] && Bk[0].c.n < 0n) ? '(' + C.show(Bk) + ')' : C.show(Bk);
-            var raw = C.showInner(Ak) + ' − ' + bShown;
-            line(log, 'Mnożymy przez sprzężenie', C.show(hit.D) + ' = (⟦' + raw + '⟧)/' + grp(S), CONJ_FORMULA[k]);
+            var shownB = function (x) { return x.length > 1 || (x[0] && x[0].c.n < 0n) ? '(' + C.show(x) + ')' : C.show(x); };
+            var raw = C.showInner(Ak) + ' − ' + shownB(Bk), dText = C.show(hit.D);
+            // [EN] linia środkowa (a − b)(a + b)/(a + b): widać, skąd nowy mianownik (S12)
+            line(log, 'Mnożymy przez sprzężenie', dText + ' = ' + (k === 2 ? '(' + dText + ')' + grp(S) + '/' + grp(S) + ' = ' : '') + '(⟦' + raw + '⟧)/' + grp(S), CONJ_FORMULA[k]);
+            var topText = C.show(top);
+            if (topText !== raw) { // [EN] licznik osobno: 2n + 5 − (2n + 1) = 4, (x + 1)² rozpisane
+                var eA = fold(C.expandExpr(Ak)), eB = fold(C.expandExpr(Bk)), mid = C.showInner(eA) + ' − ' + shownB(eB);
+                line(log, 'Redukujemy wyrazy podobne w liczniku', raw + (mid !== raw && mid !== topText ? ' = ' + mid : '') + ' = ' + topText);
+            }
             var frac = C.cMul(top, C.cPow(S, K.neg(ONE)));
-            var out;
+            var head = limHead(v, t), out, rest = null;
             if (hit.whole) out = frac;
             else {
-                out = C.num(e[0].c);
-                e[0].fs.forEach(function (f, j) {
-                    if (j === hit.idx) out = C.cMul(out, hit.up ? frac : C.cPow(frac, K.neg(ONE)));
-                    else out = C.cMul(out, C.cPow(C.atomExpr(f.b), f.e));
-                });
+                rest = C.num(e[0].c);
+                e[0].fs.forEach(function (f, j) { if (j !== hit.idx) rest = C.cMul(rest, C.cPow(C.atomExpr(f.b), f.e)); });
+                out = C.cMul(rest, hit.up ? frac : C.cPow(frac, K.neg(ONE)));
             }
             out = fold(out);
-            line(log, 'Upraszczamy', limOf(v, t, out), CONJ_FORMULA[k]);
+            var outText = C.show(out), isSum = !C.isNumber(top);
+            var plainRest = rest && rest.every(function (x) { return x.fs.every(function (f) { return f.e.n > 0n; }); });
+            if (rest && !hit.up && plainRest) { // [EN] różnica była w mianowniku: R/(top/S) = R · S/top (S28)
+                var rText = C.show(rest);
+                line(log, 'Wstawiamy do granicy', head + rText + '/(' + (isSum ? '(' + topText + ')' : topText) + '/' + grp(S) + ')', CONJ_FORMULA[k]);
+                var flipped = (rText === '1' ? grp(S) : rText === '−1' ? '−' + grp(S) : rText + grp(S)) + '/' + (isSum ? '(' + topText + ')' : topText);
+                line(log, 'Dzielimy przez ułamek', head + flipped, 'dzielenie-ulamkow');
+                if (!sameButOrder(flipped, outText) && flipped !== outText)
+                    line(log, isSum && rText.indexOf(topText) >= 0 ? 'Skracamy (' + topText + ')' : rewriteLabel(flipped, outText, v), head + outText);
+            } else if (rest && !C.isNumber(rest) || (rest && !K.eq(C.numberOf(rest), ONE))) { // [EN] R · top/S, potem skrócone liczby (2/16 = 1/8)
+                var naive = C.show(rest) + ' · ' + (isSum ? '(' + topText + ')' : topText) + '/' + grp(S);
+                line(log, 'Wstawiamy do granicy', head + naive, CONJ_FORMULA[k]);
+                if (!sameButOrder(naive, outText)) line(log, isSum && outText.indexOf(topText) < 0 ? 'Upraszczamy' : 'Mnożymy ułamki', head + outText);
+            } else line(log, isSum && outText.indexOf(topText) < 0 ? 'Upraszczamy' : 'Wstawiamy do granicy', limOf(v, t, out), CONJ_FORMULA[k]);
             return limitOf(out, v, t, log, depth);
         }
     };
@@ -1424,8 +1443,8 @@
         try {
             var a = parts(mine), b = parts(eng), env = {}, rn = NaN, rd = NaN;
             var at = function (n) { return evalAst(n, env).toNumber(); };
-            // [EN] pierwszy punkt próbny w dziedzinie obu zapisów (√(2 − 7x) nie liczy się dla x > 2/7); bez przypadkowych zer
-            for (var pt of [Math.SQRT2 + 0.37, -Math.SQRT2 - 0.37, 0.137]) {
+            // [EN] pierwszy punkt próbny w dziedzinie obu zapisów (√(2 − 7x) nie liczy się dla x > 2/7, √(x⁴ − 12) dla małych x)
+            for (var pt of [Math.SQRT2 + 0.37, -Math.SQRT2 - 0.37, 0.137, 3.37, -3.37, 7.13]) {
                 env[v] = rat(K.R(BigInt(Math.round(pt * 1e6)), 1000000n));
                 rn = at(b.num) / at(a.num); rd = at(b.den) / at(a.den);
                 if (isFinite(rn) && isFinite(rd) && rn !== 0 && rd !== 0) break;

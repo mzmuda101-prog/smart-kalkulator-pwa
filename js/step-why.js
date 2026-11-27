@@ -12,7 +12,7 @@
     // [EN] przy kroku z dymkiem: zdanie mówi o tym zadaniu, dymek o regule (test/step-why.js pilnuje dubli)
     const SAME = 'Licznik i mianownik mnożymy przez to samo, więc wartość ułamka się nie zmienia.';
     const SPRZ_INF = 'Tu wychodzi $\\infty-\\infty$. ' + SAME;
-    const SPRZ_NUM = 'Wstawienie liczby daje zero w mianowniku. ' + SAME;
+    const SPRZ_NUM = 'Ta różnica z pierwiastkiem daje zero po wstawieniu liczby. ' + SAME;
     /** czy rozwiązanie idzie sposobem „Wzór skrócony” (krok z wzorem e-skrocony) @param {Ctx} c */
     const isShortcut = (c) => c.steps.some(x => !!x.formula && x.formula.id === 'e-skrocony');
     /** @type {Record<string, string>} */
@@ -63,14 +63,14 @@
         }],
         [/^Wyłączam liczbę spod pierwiastka$/, 'Wyrazy pod pierwiastkiem mają wspólny dzielnik, więc rozbijam pierwiastek na dwa, nawet gdy ten dzielnik nie jest kwadratem.'],
         // [EN] kolejność w mianowniku pod sprzężenie: (a − b)(a + b) = a² − b²
-        [/^Wyłączam minus przed ułamek$/, (s) => /[√∛]/.test(s.math)
+        [/^Wyłączam minus przed ułamek$/, (_s, _t, c) => c.next && /sprzężenie/.test(c.next.label)
             ? 'Odwracam kolejność w mianowniku, bo zaraz pomnożę przez sprzężenie: $(a-b)(a+b)=a^{2}-b^{2}$. Stąd minus z przodu.'
-            : 'Minus z mianownika przenoszę przed cały ułamek.'],
+            : 'Zmieniam znak na dole, żeby pierwszy wyraz stał tam z plusem. Minus idzie na przód.'],
         [/^Wyłączam minus przed ułamek i skracam$/, 'Minus z mianownika idzie przed ułamek, a wspólny czynnik z góry i z dołu się skraca.'],
         [/^Wyłączam liczbę przed nawias$/, 'Wspólną liczbę wyłączam przed nawias, żeby było widać, który czynnik da się potem skrócić.'],
         [/^Wyłączam liczbę ujemną przed nawias$/, 'Wyłączam liczbę z minusem, żeby w nawiasie $x$ stał na początku, tak jak na dole. Wtedy ten nawias da się skrócić.'],
         [/^Wyłączam liczbę przed nawias i zmieniam znaki$/, 'Wyłączam liczbę i zmieniam znak na górze i na dole, żeby w obu miejscach $x$ stał na początku. Wtedy widać wspólny czynnik.'],
-        [/^Zmieniam znak licznika i mianownika$/, (s) => /[√∛]/.test(s.math)
+        [/^Zmieniam znak licznika i mianownika$/, (_s, _t, c) => c.next && /sprzężenie/.test(c.next.label)
             ? 'Zmieniam znak na górze i na dole, bo zaraz pomnożę przez sprzężenie: $(a-b)(a+b)=a^{2}-b^{2}$. Dwa minusy się znoszą.'
             : 'Zmieniam znak na górze i na dole. Dwa minusy się znoszą, więc ułamek ma tę samą wartość.'],
         [/^Zapisuję to samo inaczej$/, 'Zapisuję ułamek w postaci, od której liczą kolejne kroki. Wartość się nie zmienia.'],
@@ -95,6 +95,10 @@
             if (id === 'roznica-szescianow' || id === 'roznica-czwartych') return (id === 'roznica-szescianow' ? 'Tu stoją pierwiastki $\\sqrt[3]{\\ }$. ' : 'Tu stoją pierwiastki $\\sqrt[4]{\\ }$. ') + SAME;
             return c.atInf ? SPRZ_INF : SPRZ_NUM;
         }],
+        [/^Redukujemy wyrazy podobne$/, 'Pierwiastek podniesiony do swojej potęgi znika, więc w liczniku zostaje zwykłe odejmowanie.'],
+        [/^Wstawiamy do granicy$/, 'Zamiast różnicy z pierwiastkami wpisuję ułamek z poprzedniego kroku. Wartość jest ta sama.'],
+        [/^Dzielimy przez ułamek$/, 'Ułamek stoi w mianowniku, więc odwracam go i mnożę. Tak łatwiej zobaczyć, co się skraca.'],
+        [/^Mnożymy ułamki$/, 'Łączę dwa ułamki w jeden, a liczby od razu skracam.'],
         [/^Upraszczamy( licznik)?$/, (_s, _t, c) => c.prev && /sprzężenie/.test(c.prev.label)
             ? 'Wymnażamy: tam, gdzie była różnica z pierwiastkiem, pierwiastki się skasowały.'
             : 'Wymnażamy i zbieramy podobne wyrazy, żeby wyrażenie było krótsze.'],

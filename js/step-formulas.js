@@ -1267,6 +1267,8 @@
         // [EN] układ zależny: jedno równanie to drugie pomnożone przez liczbę
         { re: /^(Lewe strony są proporcjonalne|Prawe strony też — to jedno równanie)$/, id: 'obie-strony' },
         { re: /^Wymnażam nawiasy$/, id: 'opuszczanie-nawiasow' },
+        { re: /^Redukujemy wyrazy podobne w liczniku$/, id: 'wyrazy-podobne' },
+        { re: /^Mnożymy ułamki$/, id: 'mnozenie-ulamkow' },
         { re: /^Rozwiązuję podwójną nierówność$/, id: 'wartosc-bezwzgledna' },
         { re: /^Kwadrat nie może być ujemny$/, id: 'pierwiastkowanie-obu-stron' },
         { re: /^Porządkuję równania$/, id: 'przenoszenie' },

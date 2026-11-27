@@ -162,6 +162,9 @@
   "^Logarytm jest ciągły$ → ciaglosc-logarytmu": [
     "Logarytm jest ciągły"
   ],
+  "^Mnożymy ułamki$ → mnozenie-ulamkow": [
+    "Mnożymy ułamki"
+  ],
   "^Mnożę przez pochodną środka$ → pochodna-zlozona": [
     "Mnożę przez pochodną środka"
   ],
@@ -194,6 +197,9 @@
   ],
   "^Przyrównuję każdy czynnik do zera$ → iloczyn-rowny-zero": [
     "Przyrównuję każdy czynnik do zera"
+  ],
+  "^Redukujemy wyrazy podobne w liczniku$ → wyrazy-podobne": [
+    "Redukujemy wyrazy podobne w liczniku"
   ],
   "^Rozkładam mianownik$ → skladanie-rozkladu": [
     "Rozkładam mianownik"
