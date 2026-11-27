@@ -411,6 +411,41 @@
         }
         throw new NotSupported();
     }
+    // [EN] rachunek poziomami (S2): w każdej rundzie liczę działania, których oba argumenty są już liczbami,
+    // np. ((7/2) + 1)/((7/2) − 2) → (9/2)/(3/2) → 3. Zwraca zapisy pośrednie (bez pierwszego i bez wyniku).
+    function exactLevels(n, ctx) {
+        var once = function (x) {
+            if (x.k === 'num' || !x.a) return x;
+            var kids = [x.a].concat(x.b ? [x.b] : []);
+            if (kids.every(function (y) { return y.k === 'num'; })) {
+                var r = evalExact(x, {});
+                return { k: 'num', v: r, paren: r.n < 0n, frac: !isInt(r) }; // [EN] nawias tylko przy minusie: 6/5 − 1, nie (6/5) − 1
+            }
+            var out = {};
+            Object.keys(x).forEach(function (key) { out[key] = x[key]; });
+            out.a = once(x.a);
+            if (x.b) out.b = once(x.b);
+            // [EN] ułamek pod kreską ułamkową albo w podstawie potęgi w nawiasie: (9/2)/(3/2), nie 9/2/3/2
+            if (x.k === 'div' || x.k === 'pow') ['a', 'b'].forEach(function (key) {
+                var y = out[key];
+                if (y && y.k === 'num' && y.frac && !y.paren) out[key] = Object.assign({}, y, { paren: true });
+            });
+            return out;
+        };
+        var rows = [], cur = n, guard = 0;
+        while (cur.k !== 'num' && guard++ < 12) {
+            cur = once(cur);
+            if (cur.k !== 'num') rows.push(show(cur, ctx));
+        }
+        return rows;
+    }
+    // [EN] strona równania w sprawdzeniu: zapis z wstawioną liczbą, przy ułamku poziomy rachunku, wynik
+    function levelSide(plugged, w, levels, ctx) {
+        var t = show(plugged, ctx), rows = [t];
+        if (levels) { try { exactLevels(plugged, ctx).forEach(function (r) { if (r !== rows[rows.length - 1]) rows.push(r); }); } catch (e) { if (!(e instanceof NotSupported)) throw e; } }
+        if (rows[rows.length - 1] !== w) rows.push(w);
+        return rows.join(' = ');
+    }
     function evalNum(n, env) {
         switch (n.k) {
             case 'num': return toNum(n.v);
@@ -856,7 +891,7 @@
             var l = evalNum(lhs, env), r = evalNum(rhs, env);
             if (!isFinite(l) || !isFinite(r) || Math.abs(l - r) > 1e-9 * (1 + Math.abs(l) + Math.abs(r))) throw new NotSupported();
             if (val) {
-                var side = function (n) { var t = show(plugIn(n, v, val), ctx), w = fmt(evalExact(n, env2), ctx); return t === w ? t : t + ' = ' + w; };
+                var side = function (n) { return levelSide(plugIn(n, v, val), fmt(evalExact(n, env2), ctx), !isInt(val), ctx); };
                 var env2 = {}; env2[v] = val;
                 try { steps.push({ label: 'Sprawdzenie', math: v + ' = ' + fmt(val, ctx) + ':  L = ' + side(lhs) + ',  P = ' + side(rhs) + ' ✓' }); }
                 catch (e) { if (!(e instanceof NotSupported)) throw e; } // [EN] logarytmu nie liczymy dokładnie — sprawdzenie liczbowe wystarcza
@@ -1032,7 +1067,7 @@
         if (exact.length) steps.push({ label: 'Sprawdzenie', math: exact.map(function (s) {
             var q = parseTokens(tokenize(s.text.replace(/−/g, '-'), {})), val = evalExact(q, {});
             var env = {}; env[v] = val;
-            var side = function (n) { var t = show(plugIn(n, v, val), ctx), w = fmt(evalExact(n, env), ctx); return t === w ? t : t + ' = ' + w; };
+            var side = function (n) { return levelSide(plugIn(n, v, val), fmt(evalExact(n, env), ctx), !isInt(val), ctx); };
             return v + ' = ' + s.text + ':  L = ' + side(lhs) + ',  P = ' + side(rhs) + ' ✓';
         }).join('\n') });
         var text = !kept.length ? 'Brak rozwiązań' : kept.length === 1 ? v + ' = ' + kept[0].text
@@ -1464,7 +1499,7 @@
             var a = evalExact(lhs, env), b = evalExact(rhs, env);
             if (!eq(a, b)) throw new NotSupported();
             // [EN] widać podstawienie: L = 3(5 − 2) = 9, nie samo L = 9
-            var side = function (n, val) { var t = show(plugIn(n, v, s.r), ctx); return t === fmt(val, ctx) ? t : t + ' = ' + fmt(val, ctx); };
+            var side = function (n, val) { return levelSide(plugIn(n, v, s.r), fmt(val, ctx), !isInt(s.r), ctx); };
             return v + ' = ' + s.text + ':  L = ' + side(lhs, a) + ',  P = ' + side(rhs, b) + ' ✓';
         });
         if (check.length && !ctx.noCheck) steps.push({ label: 'Sprawdzenie', math: check.join('\n') });
@@ -1992,6 +2027,33 @@
             return BigInt(x) < BigInt(y) ? -1 : 1;
         });
     }
+    // [EN] wartość wielomianu w punkcie ułamkowym poziomami (S2): 2 · 9/16 + 3 · (−3/4) − 2 = 9/8 − 9/4 − 2 = 9/8 − 18/8 − 16/8
+    // zwraca „ = … = …” bez wyniku końcowego; pusto, gdy punkt jest liczbą całkowitą (wtedy nie ma czego rozpisywać)
+    function polyAtLevels(c, p, q, ctx) {
+        if (p.d === 1n) return '';
+        var terms = [];
+        for (var i = c.length - 1; i >= 0; i--) {
+            if (isZero(c[i])) continue;
+            var pw = ONE;
+            for (var j = 0; j < i; j++) pw = mul(pw, p);
+            terms.push({ c: c[i], pw: pw, val: mul(c[i], pw), i: i });
+        }
+        var signed = function (list) { return list.map(function (t, k) { var neg = t.n < 0n, a = fmt(neg ? R(-t.n, t.d) : t, ctx); return (k ? (neg ? ' − ' : ' + ') : (neg ? '−' : '')) + a; }).join(''); };
+        var rows = [];
+        rows.push(terms.map(function (t, k) {
+            var body = t.i === 0 ? fmt(t.c, ctx).replace(/^−/, '') : (eq(t.c, ONE) || eq(t.c, R(-1n, 1n)) ? '' : fmt(t.c, ctx).replace(/^−/, '') + ' · ') + fmtParen(t.pw, ctx);
+            var neg = t.c.n < 0n;
+            return (k ? (neg ? ' − ' : ' + ') : (neg ? '−' : '')) + body;
+        }).join(''));
+        rows.push(signed(terms.map(function (t) { return t.val; })));
+        var L = 1n, gcd = function (a, b) { a = a < 0n ? -a : a; b = b < 0n ? -b : b; while (b) { var r = a % b; a = b; b = r; } return a; };
+        terms.forEach(function (t) { L = L / gcd(L, t.val.d) * t.val.d; });
+        if (terms.some(function (t) { return t.val.d !== L; })) // [EN] wspólny mianownik zapisany bez skracania: 18/8, 16/8
+            rows.push(terms.map(function (t, k) { var n = t.val.n * (L / t.val.d), neg = n < 0n; return (k ? (neg ? ' − ' : ' + ') : (neg ? '−' : '')) + (neg ? -n : n) + '/' + L; }).join(''));
+        var out = '';
+        rows.forEach(function (r, k) { if (r !== (k ? rows[k - 1] : '') && r !== fmt(q, ctx)) out += ' = ' + r; });
+        return out;
+    }
     function sText(a) { // [EN] wspólny mianownik: (√3 + 1)/2
         var keys = sKeys(a);
         if (!keys.length) return '0';
@@ -2237,7 +2299,7 @@
         var mb = b.n < 0n ? '−(' + fmt(b, ctx) + ')' : '−' + fmt(b, ctx);
         var raw = fmt(neg(b), ctx) + '/' + fmtDen(twoA, ctx);
         steps.push({ label: 'Liczę p', math: 'p = ⟦' + mb + '/(2 · ' + fmtParen(a, ctx) + ')⟧ = ' + (raw === fmt(p, ctx) || eq(twoA, ONE) ? '' : raw + ' = ') + fmt(p, ctx), formula: { id: 'wierzcholek', here: 'a = ' + fmt(a, ctx) + ', b = ' + fmt(b, ctx) } });
-        steps.push({ label: 'Liczę q', math: 'q = f(' + fmt(p, ctx) + ') = ' + show(plugIn(ast, v, p), ctx) + ' = ' + fmt(q, ctx) });
+        steps.push({ label: 'Liczę q', math: 'q = f(' + fmt(p, ctx) + ') = ' + show(plugIn(ast, v, p), ctx) + polyAtLevels(c, p, q, ctx) + ' = ' + fmt(q, ctx) });
         var inner = isZero(p) ? v : '(' + v + (p.n < 0n ? ' + ' + fmt(neg(p), ctx) : ' − ' + fmt(p, ctx)) + ')';
         var lead = eq(a, ONE) ? '' : eq(a, neg(ONE)) ? '−' : fmt(a, ctx);
         var canon = lead + inner + '²' + (isZero(q) ? '' : q.n < 0n ? ' − ' + fmt(neg(q), ctx) : ' + ' + fmt(q, ctx));

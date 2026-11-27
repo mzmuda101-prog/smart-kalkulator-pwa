@@ -190,6 +190,10 @@ pass += 3;
     ok('x + 0 = 4: upraszczam lewą stronę', noFrac('rozwiąż x+0=4') && has('rozwiąż x+0=4', 'Upraszczam lewą stronę', 'x = 4'), st('rozwiąż x+0=4'));
     ok('2x = 2³: liczę prawą stronę', noFrac('rozwiąż 2x=2^3') && has('rozwiąż 2x=2^3', 'Liczę prawą stronę', '2x = 8'), st('rozwiąż 2x=2^3'));
     ok('x/2 = 3: ułamek przy x zostaje', has('rozwiąż x/2=3', 'Zapisuję ułamek przy x jako liczbę razy x', '(1/2)x = 3'), st('rozwiąż x/2=3'));
+    // partia 2c, S2: rachunki na ułamkach poziomami (wierzchołek, sprawdzenie)
+    ok('2c S2: q = f(−3/4) przez wspólny mianownik', has('wierzchołek 2x^2 + 3x - 2', 'Liczę q', 'q = f(−3/4) = 2 · (−3/4)² + 3 · (−3/4) − 2 = 2 · 9/16 + 3 · (−3/4) − 2 = 9/8 − 9/4 − 2 = 9/8 − 18/8 − 16/8 = −25/8'), st('wierzchołek 2x^2 + 3x - 2'));
+    ok('2c S2: sprawdzenie (9/2)/(3/2) = 3', st('rozwiąż (x+1)/(x-2) = 3').some(x => x.label === 'Sprawdzenie' && x.math.includes('L = ((7/2) + 1)/((7/2) − 2) = (9/2)/(3/2) = 3')), st('rozwiąż (x+1)/(x-2) = 3'));
+    ok('2c S2: 3 · (2/5) − 1 = 6/5 − 1 = 1/5', st('rozwiąż 3x - 1 = x/2').some(x => x.label === 'Sprawdzenie' && x.math.includes('= 6/5 − 1 = 1/5')), st('rozwiąż 3x - 1 = x/2'));
     const Y = 'rozwiąż 5 = 2x - 7';
     ok('3g: x tylko po prawej — zamieniam strony', has(Y, 'Zamieniam strony', '2x − 7 = 5') && has(Y, 'Przenoszę liczby na prawo', '2x = 5 + 7') && !st(Y).some(x => /−2x/.test(x.math)), st(Y));
     const Z = 'rozwiąż x/2 + 1 = 3';
