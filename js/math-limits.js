@@ -687,6 +687,27 @@
         return u + C.paren(x.rest);
     }
 
+    // [EN] wykładniki ułamkowe: każdy wyraz przez najwyższą potęgę, z odejmowaniem wykładników (S10)
+    function exponentRows(fr, N, D, v) {
+        var pe = function (p) { return K.isInt(p) ? (K.eq(p, ONE) ? v : v + K.sup(p.n.toString())) : v + '^(' + K.fmt(p) + ')'; };
+        var rows = [], frac = false;
+        [[fr.N, N.p], [fr.D, D.p]].forEach(function (side) {
+            var e = side[0], P = side[1];
+            if (e.length === 1 && e[0].fs.length === 1 && e[0].fs[0].b.k === 'sum' && K.eq(e[0].fs[0].e, ONE)) e = C.expandExpr(e); // [EN] (sum)/(sum): wyrazy z nawiasu
+            e.forEach(function (t) {
+                var x; try { x = pullTerm(t, v, 1); } catch (err) { return; }
+                if (!C.isNumber(x.rest) || K.eq(x.p, P) || K.isZero(x.p)) return; // [EN] sama liczba: c/nᵖ nie ma czego odejmować
+                if (!K.isInt(x.p) || !K.isInt(P)) frac = true;
+                var c = C.show(x.rest), q = K.sub(P, x.p);
+                rows.push((c === '1' ? '' : c) + pe(x.p) + '/' + pe(P) + ' = ' + c + '/' + v + '^(' + K.fmt(P) + ' − ' + K.fmt(x.p) + ') = ' + c + '/' + pe(q));
+            });
+        });
+        if (!K.eq(N.p, D.p) && !isOne(fr.D) && (!K.isInt(N.p) || !K.isInt(D.p))) {
+            var d = K.sub(N.p, D.p);
+            rows.push(pe(N.p) + '/' + pe(D.p) + ' = ' + v + '^(' + K.fmt(N.p) + ' − ' + K.fmt(D.p) + ') = ' + pe(d));
+        }
+        return frac ? rows : [];
+    }
     var dominantPower = {
         name: 'dominantPower',
         test: function (e, v, t) { return !isFiniteTarget(t) && C.hasVar(e, v); },
@@ -710,10 +731,12 @@
             var pn = pulledText(v, sign, N), pd = pulledText(v, sign, D);
             var pdWrapped = K.isZero(D.p) ? grp(D.rest) : '(' + pd + ')';
             // [EN] same liczby w nawiasach (−1/n) — nie ma czego wyłączać, krok byłby pusty (6e)
-            var rootRows = pulls.filter(function (r) { return /^[√∛∜]/.test(r); }), powRows = pulls.filter(function (r) { return !/^[√∛∜]/.test(r); });
+            var expRows = sign > 0 ? exponentRows(fr, N, D, v) : [];
+                        var rootRows = pulls.filter(function (r) { return /^[√∛∜]/.test(r); }), powRows = pulls.filter(function (r) { return !/^[√∛∜]/.test(r); });
             if (rootRows.length) line(log, 'Wyciągamy ' + v + ' spod pierwiastka', rootRows.join('\n'), 'pierwiastek-iloczynu');
             if (powRows.length) line(log, 'Wyłączamy potęgę ' + v + ' z każdego nawiasu', powRows.join('\n'), 'potega-iloczynu');
             if (!(C.isNumber(N.rest) && C.isNumber(D.rest))) line(log, label, head + (alone ? pn : pn + '/' + pdWrapped));
+            if (expRows.length) line(log, 'Dzielimy potęgi: odejmujemy wykładniki', expRows.join('\n'), 'potega-iloczynu');
             var q = K.sub(N.p, D.p);
             if (same && !K.isZero(N.p)) line(log, 'Skracamy ' + uText(v, sign, N.p), head + quotientText(N.rest, D.rest));
             var cval = C.cMul(N.c, C.cPow(D.c, K.neg(ONE)));

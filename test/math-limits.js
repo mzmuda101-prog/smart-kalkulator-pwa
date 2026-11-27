@@ -737,5 +737,13 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     ok('2a-2 S3: ∛4∛16 = ∛64 i 4^(2/3) · 2^(2/3) = 8^(2/3) policzone', last.includes('= 9/(4 + ∛64 + 8^(2/3)) = 9/(4 + 4 + 4) = 9/12 = 3/4'), last);
 }
 
+// ── partia 2a-2, zadanie 8: wykładniki ułamkowe (S10) ──
+{
+    const st = S.run('lim n→∞ (5n+∛(n^4+1)+3∜(n)+2)/(3sqrt(2n^2+7)+2n+6∜(n^5+3)+3sqrt(n)+6)').explain.steps.find(x => /odejmujemy wykładniki$/.test(x.label)) || {};
+    const rows = (st.math || '').split('\n');
+    ok('2a-2 S10: 3∜n/n^(4/3) = 3/n^(13/12) i n^(4/3)/n^(5/4) = n^(1/12)', rows.includes('3n^(1/4)/n^(4/3) = 3/n^(4/3 − 1/4) = 3/n^(13/12)') && rows.includes('n^(4/3)/n^(5/4) = n^(4/3 − 5/4) = n^(1/12)'), rows);
+    ok('2a-2 S10: bez kroku przy całkowitych potęgach', !S.run('lim n→∞ (2n+1)/(6n+5)').explain.steps.some(x => /odejmujemy wykładniki$/.test(x.label)));
+}
+
 console.log(`math-limits: ${pass} OK, ${fail} błędów`);
 process.exit(fail ? 1 : 0);

@@ -93,13 +93,14 @@
             more: ['Czasem trzeba najpierw zapisać wykładnik inaczej, np. $(n+3)^{2g}=\\left((n+3)^{2}\\right)^{g}$.'],
         },
         'potega-iloczynu': {
-            name: 'Potęga iloczynu i mnożenie potęg',
-            tex: '(ab)^{k}=a^{k}b^{k},\\qquad n^{p}\\cdot n^{q}=n^{p+q}',
+            name: 'Potęga iloczynu, mnożenie i dzielenie potęg',
+            tex: '(ab)^{k}=a^{k}b^{k},\\qquad n^{p}\\cdot n^{q}=n^{p+q},\\qquad \\frac{n^{p}}{n^{q}}=n^{p-q}',
             why: 'Iloczyn podnosimy do potęgi, podnosząc każdy czynnik osobno. Potęgi tej samej liczby mnożymy, dodając wykładniki.',
             level: 'Szkoła podstawowa i liceum: potęgi',
             more: [
                 'Przykład: $(2n^{2}+3)^{2}=\\left(n^{2}\\left(2+\\frac{3}{n^{2}}\\right)\\right)^{2}=n^{4}\\left(2+\\frac{3}{n^{2}}\\right)^{2}$, bo $(n^{2})^{2}=n^{4}$.',
                 'Przykład: $n^{4}\\cdot n^{5}\\cdot n=n^{4+5+1}=n^{10}$.',
+                'Dzielenie: $\\frac{3n^{1/4}}{n^{4/3}}=\\frac{3}{n^{4/3-1/4}}=\\frac{3}{n^{13/12}}$, bo $\\frac{4}{3}-\\frac{1}{4}=\\frac{16-3}{12}$.',
                 'Skąd wzór: $(ab)^{2}=ab\\cdot ab=a\\cdot a\\cdot b\\cdot b=a^{2}b^{2}$; kolejność mnożenia nie ma znaczenia.',
             ],
         },
