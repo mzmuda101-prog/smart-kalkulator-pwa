@@ -450,6 +450,25 @@
         out.push(C.show(at));
         return out.filter(function (s, i) { return !i || bare(s) !== bare(out[i - 1]); });
     }
+    function numberSteps(text, final) { // [EN] zapis z samymi liczbami → kolejne poziomy rachunku aż do wyniku (√4 = 2, potem sumy)
+        var out = [text];
+        try {
+            var cur = K.parse(text);
+            [plugRadicands, plugValues, plugSumVals, function (x) { return x.k === 'add' || x.k === 'sub' ? plugValues(x) : x; }, plugSums].forEach(function (f) {
+                cur = f(cur);
+                var s = astText(cur);
+                if (bare(out[out.length - 1]) !== bare(s)) out.push(s);
+            });
+        } catch (x) { /* [EN] nie umiemy wypisać — zostaje sam wynik */ }
+        var twice = out[out.length - 1].replace(/√(\d+) \+ √\1(?!\d)/g, '2√$1'); // [EN] √2 + √2 = 2√2
+        if (twice !== out[out.length - 1]) out.push(twice);
+        var q2 = /^(−?)(\d+)\/\((\d+)√(\d+)\)$/.exec(out[out.length - 1]); // [EN] 12/(2√3) = 6/√3
+        if (q2 && Number(q2[2]) % Number(q2[3]) === 0) out.push(q2[1] + (Number(q2[2]) / Number(q2[3])) + '/√' + q2[4]);
+        var m = /^(−?)(\d*)\/√(\d+)$/.exec(out[out.length - 1]); // [EN] 1/√3 = √3/(√3 · √3) = √3/3: skąd √3 na górze
+        if (m && /√/.test(final)) out.push(m[1] + (m[2] === '1' ? '' : m[2]) + '√' + m[3] + '/(√' + m[3] + ' · √' + m[3] + ')');
+        if (bare(out[out.length - 1]) !== bare(final)) out.push(final);
+        return out;
+    }
     var RULES = [
         { // [EN] bez zmiennej: granica stałej to ta stała
             name: 'constant',
@@ -667,12 +686,25 @@
             var cv = numVal(cval), cText = C.show(rationalize(cval));
             if (K.isZero(q)) { // [EN] pokazujemy podstawienie: (2 + 0)/(6 + 0) = 1/3, nie sam wynik
                 var plugged = plugText(quotientText(N.rest, D.rest), v, t);
-                line(log, 'Wyrazy z ' + v + ' w mianowniku dążą do 0', '→ ' + (plugged ? plugged + ' = ' : '') + cText);
+                line(log, 'Wyrazy z ' + v + ' w mianowniku dążą do 0', '→ ' + (plugged ? numberSteps(plugged, cText).join(' = ') : cText));
                 return { kind: 'num', e: cval };
             }
             var neg = K.toNum(q) < 0, infSign = cv > 0 ? 1 : -1;
             var tail = neg ? ' → 0' : ' → ' + (infSign > 0 ? '+∞' : '−∞');
-            line(log, 'Wyrazy z ' + v + ' w mianowniku dążą do 0', '→ ' + (cText === '1' ? '' : cText + ' · ') + (neg ? '1/' : '') + uText(v, sign, neg ? K.neg(q) : q) + tail);
+            var uq = (neg ? '1/' : '') + uText(v, sign, neg ? K.neg(q) : q);
+            // [EN] skąd 1/n i stała: n³/n⁴ · (1 + 0)/(1 + 0) = 1/n · 1 (S27); 1/√n · 4/(√2 + √2) = 1/√n · 4/(2√2) = √2 · 1/√n
+            var restP = plugText(quotientText(N.rest, D.rest), v, t);
+            var wrap = function (x) {
+                var top = x; while (/\([^()]*\)/.test(top)) top = top.replace(/\([^()]*\)/g, '');
+                return /[+−]/.test(top.replace(/^−/, '')) ? '(' + x + ')' : x;
+            };
+            var chain = [];
+            if (restP) {
+                var lv = numberSteps(restP, cText), pw = !same && !alone && !K.isZero(N.p) && !K.isZero(D.p) ? uText(v, sign, N.p) + '/' + uText(v, sign, D.p) : uq;
+                chain = lv.slice(0, -1).map(function (x, i) { return (i ? uq : pw) + ' · ' + wrap(x); });
+            }
+            chain.push((cText === '1' ? '' : cText + ' · ') + uq);
+            line(log, 'Wyrazy z ' + v + ' w mianowniku dążą do 0', '→ ' + chain.join(' = ') + tail);
             return neg ? { kind: 'num', e: [] } : { kind: 'inf', sign: infSign };
         }
     };

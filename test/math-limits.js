@@ -357,7 +357,7 @@ ok('minor: lim x→−8 ∛x nie daje złego wyniku', ['−2', NOPE].includes(te
     ok('3b: praca bez podwojenia', L._test.lastWork() < 50, L._test.lastWork());
     // podstawienie zamiast samego „→ wynik”
     const s1 = steps(byId['1a'].input);
-    ok('3b: 1a pokazuje (2 + 0)/(6 + 0)', s1.some(x => x.math.includes('(2 + 0)/(6 + 0) = 1/3')), show(s1));
+    ok('3b: 1a pokazuje (2 + 0)/(6 + 0)', s1.some(x => x.math.includes('(2 + 0)/(6 + 0) = 2/6 = 1/3')), show(s1));
     // bez powtórzonego wykładnika; wynik złożony z e
     const s6 = steps(byId['6d'].input);
     ok('3b: 6d bez dwóch takich samych kroków pod rząd', !s6.some((x, i) => i && x.math === s6[i - 1].math), show(s6));
@@ -682,6 +682,17 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     const q16 = st('lim n→∞ (sqrt(n+5)-sqrt(n+3))/(sqrt(4n+9)-sqrt(4n-7))');
     ok('2a-2 S28: 2/16 = 1/8 jako „Mnożymy ułamki”', q16.some(x => x.label === 'Mnożymy ułamki' && x.math.includes('8(')), sh(q16));
     ok('2a-2: bez „Upraszczamy” po sprzężeniu', !['lim x→5 (x-5)/(3-sqrt(x+4))', 'lim n→∞ 1/(sqrt(n+sqrt(n))-sqrt(n-1))'].some(q => st(q).some(x => x.label === 'Upraszczamy')));
+}
+
+// ── partia 2a-2, zadanie 2: wartości częściowe na końcu (S15, S27) ──
+{
+    const last = q => S.run(q).explain.steps.filter(x => /dążą do 0$/.test(x.label)).pop();
+    const m = q => (last(q) || {}).math || '';
+    ok('2a-2 S15: √4 = 2 i 4/16 przed 1/4', m('lim n→∞ (sqrt(n+5)-sqrt(n+3))/(sqrt(4n+9)-sqrt(4n-7))').includes('= (2 + 2)/(8(1 + 1)) = 4/(8 · 2) = 4/16 = 1/4'), m('lim n→∞ (sqrt(n+5)-sqrt(n+3))/(sqrt(4n+9)-sqrt(4n-7))'));
+    ok('2a-2 S15: 12/(2√3) = 6/√3 = … = 2√3', m('lim n→∞ (sqrt(3n^2+17n)-sqrt(3n^2+5n))').includes('12/(2√3) = 6/√3 = 6√3/(√3 · √3) = 2√3'), m('lim n→∞ (sqrt(3n^2+17n)-sqrt(3n^2+5n))'));
+    ok('2a-2 S15: 1/√3 = √3/(√3 · √3) = √3/3', m('lim x→∞ x/sqrt(3x^2+5)').endsWith('1/√3 = √3/(√3 · √3) = √3/3'), m('lim x→∞ x/sqrt(3x^2+5)'));
+    ok('2a-2 S27: n³/n⁴ = 1/n pokazane', m('lim n→∞ (n^3+4n^2+n+6)/(n^4+3n^3+2n+7)').startsWith('→ n³/n⁴ · (1 + 0 + 0 + 0)/(1 + 0 + 0 + 0)'), m('lim n→∞ (n^3+4n^2+n+6)/(n^4+3n^3+2n+7)'));
+    ok('2a-2 S27: 4/(2√2) = √2 przed 1/√n', m('lim n→∞ (sqrt(2n+5)-sqrt(2n+1))').includes('1/√n · 4/(2√2) = 1/√n · 2/√2') && m('lim n→∞ (sqrt(2n+5)-sqrt(2n+1))').endsWith('= √2 · 1/√n → 0'), m('lim n→∞ (sqrt(2n+5)-sqrt(2n+1))'));
 }
 
 console.log(`math-limits: ${pass} OK, ${fail} błędów`);
