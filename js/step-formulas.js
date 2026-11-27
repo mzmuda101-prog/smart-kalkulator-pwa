@@ -440,7 +440,7 @@
             level: 'Szkoła podstawowa: liczby ujemne; liceum: granice',
             more: [
                 'Przykład: $x=-9$, wtedy $-x=9>0$ i $\\sqrt{-x}=3$.',
-                'Przy granicy $x\\to-\\infty$: $1-x=(-x)\\left(1-\\frac{1}{x}\\right)$, więc $\\sqrt{1-x}=\\sqrt{-x}\\cdot\\sqrt{1-\\frac{1}{x}}$.',
+                'Przy granicy $x\\to-\\infty$: $1-x=(-x)\\left(1-\\frac{1}{x}\\right)$, a oba czynniki są dodatnie, więc pierwiastek z $1-x$ to iloczyn pierwiastków z $-x$ i z $1-\\frac{1}{x}$.',
             ],
         },
         'uklad-podstawianie': {

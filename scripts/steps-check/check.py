@@ -20,7 +20,7 @@ from pathlib import Path
 
 from sympy import (Abs, Derivative, E, Expr, Integral, Limit, S, Symbol, solveset, diff, limit, nsimplify, oo, pi, sympify, zoo, nan)
 from sympy.parsing.latex import parse_latex
-from sympy import Function
+from sympy import Function, simplify
 from sympy.core.function import AppliedUndef
 
 warnings.filterwarnings("ignore")
@@ -359,6 +359,8 @@ def run(data) -> list:
         dead = set()  # wielomiany gałęzi „lub” bez pierwiastków rzeczywistych (ich późniejsze rozwiązywanie też pomijamy)
         for si, st in enumerate(prob["steps"]):
             prev = None
+            if "zdanie fałszywe" in st["label"]:
+                continue  # krok z założenia pokazuje fałsz (2x + 1 = 2x + 3 → −2 = 0), stąd „brak rozwiązań”
             for line in st["lines"]:
                 if not (line and line[0].startswith("=")):
                     prev = None  # linia zaczynająca się od „=” ciągnie łańcuch z poprzedniej (de l'Hospital: postać pod postacią)
@@ -381,8 +383,8 @@ def run(data) -> list:
                     if rel == "=" and prev is not None and sols and (prev.free_symbols or cur.free_symbols):
                         checked += 1  # równanie w krokach: odpowiedź musi je spełniać (przekształcenia równoważne)
                         diff_ = prev - cur
-                        if satisfied(prev, cur, sols):
-                            pass
+                        if satisfied(prev, cur, sols) or simplify(diff_) == 0:
+                            pass  # tożsamość (np. dzielenie Hornera) jest prawdziwa nawet tam, gdzie odpowiedź zeruje mianownik
                         elif dead_ok and (diff_.expand() in dead or (-diff_).expand() in dead):
                             skipped += 1
                         elif dead_ok and any("lub" in q for q in line) and no_real_solution(diff_, var):
