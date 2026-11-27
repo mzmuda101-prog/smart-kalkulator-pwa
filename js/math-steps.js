@@ -1651,7 +1651,7 @@
             { label: 'Dzielę przez W', math: X + ' = ' + frac(wx, det) + '\n' + Y + ' = ' + frac(wy, det) },
             check, { label: 'Odpowiedź', math: ans, final: true }
         ]);
-        res.explain.methods = [{ label: 'Podstawianie', steps: subSteps }, { label: 'Przeciwne współczynniki', steps: elSteps }, { label: 'Wyznaczniki', steps: crSteps }];
+        res.explain.methods = [{ label: 'Podstawianie', steps: subSteps }, { label: 'Przeciwne współczynniki', steps: elSteps }, { label: 'Wyznaczniki', steps: crSteps, extra: true }];
         return res;
     }
 

@@ -6382,7 +6382,7 @@
             if (!stepsView || !commandHelpDrawer) return;
             if (explain.methods && explain.methods.length > 1 && !explain.picked) { // [EN] domyślnie najkrótszy sposób (remis → kolejność silnika)
                 explain.picked = true;
-                explain.steps = explain.methods.reduce(function (best, m) { return m.steps.length < best.steps.length ? m : best; }).steps;
+                explain.steps = explain.methods.filter(function (m) { return !m.extra; }).reduce(function (best, m) { return m.steps.length < best.steps.length ? m : best; }).steps; // [EN] sposób dodatkowy (studencki, np. wyznaczniki) nigdy domyślny
             }
             renderStepsView(explain);
             _showStepsDrawer(explain.title + ' krok po kroku');
