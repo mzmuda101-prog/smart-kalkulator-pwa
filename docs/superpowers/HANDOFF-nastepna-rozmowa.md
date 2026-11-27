@@ -13,6 +13,13 @@ Na start przywitaj się krótko, powiedz, co przeczytałeś, i zaproponuj nastę
 - Granice: podstawienie pokazuje rachunek poziomami (bramka w testach: każde „Podstawiamy” z rachunkiem, bez gołych liczb ujemnych); krok „Dzielimy schematem Hornera” z tabelkami przed rozkładem (bramka: każdy rozkład ma Hornera).
 - Przegląd całego silnika: 224 zadania, 4 działy + stare raporty C, D, E → 91 uwag (10 krytycznych), 14 wzorców lekkiej interaktywności.
 
+## Zrobione (2026-11-27, v1.05.76–77): wnioski ze zrzutów Mateusza
+- 1/0: „Nie dzielimy przez 0” + chipy 0⁺: +∞ / 0⁻: −∞ (granice z krokami); 0/0 zostaje „nieokreślone”.
+- Granice ∞/∞: nowy sposób „Dzielenie przez najwyższą potęgę” (szkolny, z zeszytu: [1/0⁺] = +∞) jako dodatkowa opcja,
+  krok 1 pokazuje granice licznika i mianownika, ostatni krok ma n⁴/n³ = n.
+- Na później (etap „interaktywność”): odtwarzacz kroków jak w innej aplikacji (jeden krok naraz, „Dalej”, zmiana
+  podświetlona względem poprzedniego kroku). Do decyzji: znak dzielenia w ładnym zapisie (pole „1÷0”, zapis „1:0”).
+
 ## Zrobione (2026-11-27, v1.05.75): partia 2b (pochodne i całki)
 - 12 wierszy (S4, S5, S17, S30, S34, S36, S37, S40, S45, S46, S47, S55), plan: `docs/superpowers/plans/2026-11-27-partia-2b.md`.
 - Reguła łańcuchowa z nazwanym u, wykładniki ułamkowe policzone, sprawdzenie całki z rachunkiem pochodnej,

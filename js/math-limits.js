@@ -784,6 +784,7 @@
             if (restP) {
                 var lv = numberSteps(restP, cText), pw = !same && !alone && !K.isZero(N.p) && !K.isZero(D.p) ? uText(v, sign, N.p) + '/' + uText(v, sign, D.p) : uq;
                 chain = lv.slice(0, -1).map(function (x, i) { return (i ? uq : pw) + ' · ' + wrap(x); });
+                if (pw !== uq && chain.length) chain.splice(1, 0, uq + ' · ' + wrap(lv[0])); // [EN] n⁴/n³ = n osobno, przed liczbami
             }
             chain.push((cText === '1' ? '' : cText + ' · ') + uq);
             line(log, 'Wyrazy z ' + v + ' w mianowniku dążą do 0', '→ ' + chain.join(' = ') + tail);
@@ -1633,6 +1634,16 @@
             }
             // [EN] symbol nieoznaczony do stuknięcia: dymek „co to znaczy” (słownik: nieoznaczone)
             steps = [ind ? { label: 'Granica', math: userLim(d, e) + '  [⟦' + ind + '⟧]', formula: { id: 'nieoznaczone' } } : { label: 'Granica', math: userLim(d, e) }];
+            if (ind === '∞/∞' && ast.k === 'div') { // [EN] skąd ∞/∞: granica licznika i mianownika osobno (jak przy 0/0 rachunek)
+                var infRows = [ast.a, ast.b].map(function (x) {
+                    var r = numericLimitAst(x, d.v, d.target);
+                    if (!r || r.kind !== 'inf') return null;
+                    var t = astText(x, 2);
+                    var top = t; while (/\([^()]*\)/.test(top)) top = top.replace(/\([^()]*\)/g, ''); // [EN] nawias tylko przy sumie na wierzchu
+                    return limHead(d.v, d.target) + (/[+−]/.test(top.replace(/^−/, '')) ? '(' + t + ')' : t) + ' = ' + (r.sign > 0 ? '+∞' : '−∞');
+                });
+                if (infRows[0] && infRows[1]) steps[0].math += '\n' + infRows.join('\n');
+            }
             if (ind === '0/0' && ast.k === 'div' && isFiniteTarget(d.target)) { // [EN] skąd 0/0: licznik i mianownik osobno, każdy kończy się zerem
                 // [EN] ułamek w ułamku (sin(x)/x w liczniku) nie daje się podstawić — wtedy bez dodatkowych linii
                 var sub = null;
@@ -1712,7 +1723,57 @@
             } catch (err) { if (!(err instanceof NotSupported) && !(err instanceof RangeError)) throw err; }
             finally { _prefer = null; _budget = Infinity; }
         }
+        // [EN] sposób szkolny jako dodatkowa opcja w przełączniku (domyślny zostaje pierwszy, najkrótszy)
+        if (ind === '∞/∞' && first === 'dominantPower') {
+            var sch = null;
+            try { sch = schoolDivide(d, ast, steps, out.text); } catch (err) { if (!(err instanceof NotSupported)) throw err; }
+            if (sch) res.explain.methods = (res.explain.methods || [{ label: METHOD[first], steps: steps }]).concat([{ label: 'Dzielenie przez najwyższą potęgę', steps: sch }]);
+        }
         return res;
+    }
+    // [EN] sposób szkolny (Mateusz, zeszyt 2026-11-27): dzielimy licznik i mianownik przez najwyższą potęgę CAŁEGO ułamka;
+    // gdy wyższa jest na górze, wychodzi [c/0⁺] = ±∞ („bo n jest zawsze dodatnie”), gdy na dole — 0/c = 0
+    function schoolDivide(d, ast, steps, outText) {
+        if (d.target.at !== 'inf' || ast.k !== 'div') return null;
+        // [EN] licznik i mianownik jak w zapisie użytkownika (bez wyciągania minusa przed ułamek, które robi pierwszy sposób)
+        var fr = { N: C.fromAst(ast.a), D: C.fromAst(ast.b) }, v = d.v;
+        var flat = function (x) { return x.length === 1 && x[0].fs.length === 1 && x[0].fs[0].b.k === 'sum' && K.eq(x[0].fs[0].e, ONE) ? C.expandExpr(x) : x; };
+        var parts = function (x) {
+            return flat(x).map(function (t) {
+                var r = pullTerm(t, v, 1);
+                if (!C.isNumber(r.rest)) throw new NotSupported();
+                return { c: C.numberOf(r.rest), p: r.p };
+            });
+        };
+        var nP, dP;
+        try { nP = parts(fr.N); dP = parts(fr.D); } catch (x) { return null; }
+        var top = function (ps) { return ps.reduce(function (m, x) { return K.toNum(x.p) > K.toNum(m) ? x.p : m; }, ps[0].p); };
+        var pN = top(nP), pD = top(dP);
+        if (K.eq(pN, pD)) return null; // [EN] równe potęgi: to ten sam rachunek co „Najwyższa potęga”
+        var P = K.toNum(pN) > K.toNum(pD) ? pN : pD, U = uText(v, 1, P), head = limHead(v, d.target);
+        var join = function (ps, f) {
+            return ps.map(function (x, i) { var neg = x.c.n < 0n, a = f(neg ? K.neg(x.c) : x.c, K.sub(P, x.p)); return (i ? (neg ? ' − ' : ' + ') : (neg ? '−' : '')) + a; }).join('');
+        };
+        var piece = function (c, q) { return K.isZero(q) ? K.fmt(c) : K.fmt(c) + '/' + uText(v, 1, q); };
+        var zero = function (c, q) { return K.isZero(q) ? K.fmt(c) : '0'; };
+        var orig = function (a) { var t = astText(a, 2); return /^\(.*\)$/.test(t) || !/[+−]/.test(t) ? t : '(' + t + ')'; };
+        var alt = [steps[0]];
+        alt.push({ label: 'Dzielę licznik i mianownik przez ' + U, math: head + '(' + orig(ast.a) + '/' + U + ')/(' + orig(ast.b) + '/' + U + ') = '
+            + head + '(' + join(nP, piece) + ')/(' + join(dP, piece) + ')', formula: { id: 'granica-najwyzsza-potega' } });
+        var lead = function (ps, p) { return ps.filter(function (x) { return K.eq(x.p, p); })[0].c; };
+        var last;
+        if (K.toNum(pN) > K.toNum(pD)) {
+            var cN = lead(nP, pN), cD = lead(dP, pD), posD = cD.n > 0n, sgn = (cN.n > 0n) === posD;
+            last = '→ (' + join(nP, zero) + ')/(' + join(dP, zero) + ') = [' + K.fmt(cN) + '/0' + (posD ? '⁺' : '⁻') + '] = ' + (sgn ? '+∞' : '−∞');
+            if ((sgn ? '+∞' : '−∞') !== outText) return null;
+        } else {
+            var cD2 = lead(dP, pD);
+            last = '→ (' + join(nP, zero) + ')/(' + join(dP, zero) + ') = 0/' + (cD2.n < 0n ? '(' + K.fmt(cD2) + ')' : K.fmt(cD2)) + ' = 0';
+            if (outText !== '0') return null;
+        }
+        alt.push({ label: 'Wyrazy z ' + v + ' w mianowniku dążą do 0', math: last });
+        alt.push({ label: 'Wynik', math: steps[steps.length - 1].math, final: true });
+        return alt;
     }
     // [EN] początek drugiego sposobu: krok 1 i ewentualne „Zapisujemy inaczej” z pierwszego
     var REWRITE_LABELS = ['Wyłączam liczbę spod pierwiastka', 'Wyłączam minus przed ułamek', 'Wyłączam liczbę przed nawias', 'Zmieniam znak licznika i mianownika'];

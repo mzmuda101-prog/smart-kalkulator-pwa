@@ -130,7 +130,7 @@ const WANT_TEXT = { '1a': '1/3', '1d': '0', '1e': '+∞', '7a': '√3/3', '7b': 
 });
 {
     const r = S.run(byId['1b'].input), st = r && r.explain ? r.explain.steps : [];
-    ok('1b: pierwszy krok kończy się [∞/∞]', st.length && /\[⟦∞\/∞⟧\]$/.test(st[0].math), st[0]);
+    ok('1b: pierwsza linia kroku 1 kończy się [∞/∞]', st.length && /\[⟦∞\/∞⟧\]$/.test(st[0].math.split('\n')[0]), st[0]);
     ok('1b: krok „Wyłączamy n² przed nawias”', st.some(x => x.label === 'Wyłączamy n² przed nawias'), st.map(x => x.label));
     const b = S.run(byId['7b'].input), sb = b && b.explain ? b.explain.steps : [];
     ok('7b: krok √(x²) = |x| = −x', sb.some(x => /⟦√\(x²\)⟧ = \|x\| = −x/.test(x.math)), sb.map(x => x.math));
@@ -630,7 +630,8 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     ok('S11: mianownik podstawiony', l2.includes('3 · 4² − 10 · 4 − 8') , s1.math);
     ok('S11: here niepusty', !!(s1.formula && s1.formula.here && /0\/0|licznik/.test(s1.formula.here)), s1.formula);
     ok('S11: symbol nadal w pierwszej linii', /\[⟦0\/0⟧\]/.test(s1.math.split('\n')[0]), s1.math);
-    ok('S11: przy ∞ bez drugiej linii', !/\n/.test(st('lim n→∞ (2n+1)/(6n+5)')[0].math), st('lim n→∞ (2n+1)/(6n+5)')[0].math);
+    { const m = st('lim n→∞ (2n+1)/(6n+5)')[0].math; // przy ∞ nie wstawiamy ∞ jak liczby — tylko granice licznika i mianownika
+      ok('S11: przy ∞ granice licznika i mianownika, bez wstawiania ∞', m.split('\n').slice(1).join('|') === 'lim(n→∞) (2n + 1) = +∞|lim(n→∞) (6n + 5) = +∞' && !/2 · ∞|∞ \+/.test(m), m); }
 }
 
 // ── Poprawki końcowe (final-fixes 1, 4) ──
@@ -752,6 +753,20 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
         && st.some(x => x.math === '√(3x² + 5) = √((−x)²(3 + 5/x²)) = (−x)√(3 + 5/x²)') && st.some(x => x.label === 'Zapisujemy x przez (−x)' && x.math === 'x = −(−x)'), lab);
     const w = require(path.join(__dirname, '..', 'js', 'step-why.js')).whyFor(st[0], 'Granica', { steps: st }, 0);
     ok('2a-2 S32: przy −∞ bez „rosną”', !/rosną/.test(w), w);
+}
+
+// ── sposób szkolny (zeszyt Mateusza 2026-11-27): dzielenie przez najwyższą potęgę całego ułamka, [1/0⁺] ──
+{
+    const m = q => (S.run(q).explain.methods || []).find(x => x.label === 'Dzielenie przez najwyższą potęgę');
+    const a = m('lim n→∞ (n^4+2n^3+n^2+2)/(3n^3+5n^2+7n+3)');
+    ok('szkolny: dodatkowa opcja, domyślny bez zmian', !!a && S.run('lim n→∞ (n^4+2n^3+n^2+2)/(3n^3+5n^2+7n+3)').explain.methods[0].label === 'Najwyższa potęga');
+    ok('szkolny: dzielenie przez n⁴ i [1/0⁺] = +∞', !!a && a.steps.some(x => x.label === 'Dzielę licznik i mianownik przez n⁴' && x.math.endsWith('(1 + 2/n + 1/n² + 2/n⁴)/(3/n + 5/n² + 7/n³ + 3/n⁴)'))
+        && a.steps.some(x => x.math === '→ (1 + 0 + 0 + 0)/(0 + 0 + 0 + 0) = [1/0⁺] = +∞'), a && a.steps.map(x => x.math));
+    const b = m('lim x→∞ (x^3-x)/(2-x^2)');
+    ok('szkolny: mianownik ujemny → [1/0⁻] = −∞, zapis jak wpisano', !!b && b.steps.some(x => x.math === '→ (1 − 0)/(0 − 0) = [1/0⁻] = −∞') && b.steps.some(x => x.math.includes('((x³ − x)/x³)/((2 − x²)/x³)')), b && b.steps.map(x => x.math));
+    const c = m('lim n→∞ (n^3+4n^2+n+6)/(n^4+3n^3+2n+7)');
+    ok('szkolny: wyższa potęga na dole → 0/1 = 0', !!c && c.steps.some(x => x.math === '→ (0 + 0 + 0 + 0)/(1 + 0 + 0 + 0) = 0/1 = 0'));
+    ok('szkolny: przy równych potęgach brak (to ten sam rachunek)', !m('lim n→∞ (2n+1)/(6n+5)'));
 }
 
 console.log(`math-limits: ${pass} OK, ${fail} błędów`);

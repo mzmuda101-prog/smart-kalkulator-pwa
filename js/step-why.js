@@ -78,7 +78,11 @@
         [/^Podstawiamy \w → /, 'Zostały same ułamki ze zmienną na dole, więc od razu wstawiamy 0 za każdy z nich.'],
         [/^Podstawiamy /, (s) => /\//.test(s.math.replace(/^lim\([^)]*\)/, '')) ? 'W mianowniku nie wychodzi zero, więc wystarczy wstawić liczbę.'
             : 'Pozostał zwykły rachunek: za zmienną idzie liczba z granicy.'],
-        [/^Wyrazy z \w w mianowniku dążą do 0$/, s => /[+−]∞$/.test(s.math)
+        [/^Dzielę licznik i mianownik przez /, 'Dzielę przez najwyższą potęgę z całego ułamka. Ułamek ma tę samą wartość, a w każdym wyrazie zmienna trafia na dół.'],
+        [/^Wyrazy z \w w mianowniku dążą do 0$/, s => /0⁺\]/.test(s.math)
+            ? 'Mianownik dąży do 0, ale dla dużej zmiennej jest dodatni, stąd $0^{+}$. Dzielenie przez coraz mniejszą liczbę daje wynik rosnący bez końca.'
+            : /0⁻\]/.test(s.math) ? 'Mianownik dąży do 0, ale dla dużej zmiennej jest ujemny, stąd $0^{-}$. Ten minus odwraca znak nieskończoności.'
+            : /[+−]∞$/.test(s.math)
             ? 'Ułamki znikają, ale zostaje potęga zmiennej, która rośnie bez końca, więc wynik to nieskończoność.'
             : /1\/.*→ 0$/.test(s.math) ? 'Z całości zostaje jedynka dzielona przez zmienną, czyli coś bliskiego zeru.'
                 : 'Każdy taki ułamek ma już granicę 0, więc zostają same liczby.'],
