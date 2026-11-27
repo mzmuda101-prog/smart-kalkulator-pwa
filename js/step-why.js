@@ -119,7 +119,8 @@
             return k ? 'Stały czynnik $' + k + '$ zostaje przed granicą, a potęga daje $' + ep + '$, więc wynik to $' + k + '\\cdot ' + ep + '$.' : OLD;
         }],
         [/^Potęga e$/, 'Liczba $e$ do coraz większej potęgi rośnie bez końca, a do coraz bardziej ujemnej spada do 0.'],
-        [/^Dla \w → −∞$/, 'Tu zmienna jest ujemna, więc wyciągając ją spod pierwiastka, piszemy przed nim minus.'],
+        [/^Dla \w → −∞$/, (s) => /√\(.²\)/.test(s.math) ? 'Tu zmienna jest ujemna, więc wyciągając ją spod pierwiastka, piszemy przed nim minus.'
+            : 'To przygotowanie do następnego kroku: tam przed nawias trafi $\\sqrt{-x}$.'],
         [/^Korzystamy ze znanej granicy$/, 'Dopasowujemy wyrażenie do kształtu ze wzoru, nie zmieniając jego wartości.'],
         [/^Kolorowy ułamek dąży do 1$/, 'Kolorowa część wyrażenia dąży do 1, więc w iloczynie zostaje sama reszta.'],
         [/^Reguła de l'Hospitala$/, (_s, _t, c) => c.prev && /^Reguła de l'Hospitala$/.test(c.prev.label)
