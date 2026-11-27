@@ -13,6 +13,14 @@ Na start przywitaj się krótko, powiedz, co przeczytałeś, i zaproponuj nastę
 - Granice: podstawienie pokazuje rachunek poziomami (bramka w testach: każde „Podstawiamy” z rachunkiem, bez gołych liczb ujemnych); krok „Dzielimy schematem Hornera” z tabelkami przed rozkładem (bramka: każdy rozkład ma Hornera).
 - Przegląd całego silnika: 224 zadania, 4 działy + stare raporty C, D, E → 91 uwag (10 krytycznych), 14 wzorców lekkiej interaktywności.
 
+## Zrobione (2026-11-27, v1.05.70): partia 2a-2 (granice algebraiczne)
+- 15 wierszy tabeli skoków (S3, S6–S10, S12–S15, S23, S24, S27, S28, S32), plan: `docs/superpowers/plans/2026-11-27-partia-2a-2.md`.
+- Sprzężenie krok po kroku (linia środkowa, licznik osobno, dzielenie przez ułamek, skracanie), wartości częściowe
+  na końcu (√4 = 2, 4/16, usuwanie niewymierności), wyciąganie spod pierwiastka, wspólny mianownik z wymnożeniem,
+  potęgi z każdego nawiasu, wykładniki ułamkowe, x → −∞ ze znakiem. Nowe hasło potega-iloczynu.
+- S9: rozbicie na dwie różnice odrzucone (części osobno → ±∞), zostaje sprzężenie z nazwanym −2.
+- Nie zrobione: przegląd „słabego ucznia” na nowych krokach (warto przy następnej partii granic).
+
 ## Zrobione (2026-11-27, v1.05.65): etap „dymki przy podstawach”
 - Tabela reguł `STEP_RULES` + bramka `test/step-coverage.js` (100% kroków, także zadania rzucające wyjątek
   i migawka `test/fixtures/step-rules-labels.json` — szeroki wzorzec, który złapie nową etykietę, widać w teście;
@@ -25,10 +33,9 @@ Na start przywitaj się krótko, powiedz, co przeczytałeś, i zaproponuj nastę
 - Pomysł Mateusza na później: „rozumienie zdań” (np. `100m w 5 min to ile km/h`; silnik liczy `100 m / 5 min to km/h`) — osobny etap, uzgodnić z sesją od parsera.
 
 ## Następny krok (do decyzji Mateusza)
-- Zrobione: partia 2a-1 (v1.05.55), rozkład jak w szkole = paczka A sposobów (v1.05.60).
-- Do wyboru: **paczka B sposobów** z `docs/superpowers/research/sposoby-katalog.md` (nierówności „wężykiem”, Cramer/Gauss,
-  podstawienie t w wykładniczych/trygonometrycznych) albo **partia 2a-2** z `docs/superpowers/research/skoki-tabela.md`
-  (granice algebraiczne: sprzężenie, wspólny mianownik, wykładniki ułamkowe). Potem 2b, 2c, paczki C–E, etap 4, „interaktywność”.
+- Zrobione: partia 2a-1 (v1.05.55), rozkład jak w szkole = paczka A sposobów (v1.05.60), partia 2a-2 (v1.05.70).
+- Do wyboru: **partia 2b** (analiza: S4, S5 krytyczne, sprawdzenia całek S17, reguła łańcuchowa S40…) albo
+  **paczka B sposobów** z `docs/superpowers/research/sposoby-katalog.md`. Potem 2c, paczki C–E, etap 4, „interaktywność”.
 - Zasady: domyślnie najkrótszy sposób, w przełączniku drugi szkolny (pamięć: methods-order).
 
 ## Jak pracowaliśmy (sprawdziło się)

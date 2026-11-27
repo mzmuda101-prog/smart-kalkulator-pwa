@@ -57,8 +57,9 @@ test('„dlaczego” zależy od kroku obok: po sprzężeniu mówi o pierwiastkac
   await page.locator('#calcExpr').fill('lim x→5 (x-5)/(3-sqrt(x+4))');
   await page.locator('#calcExplainTip').click();
   await page.locator('#stepsView .steps-methods').getByRole('button', { name: 'Sprzężenie' }).click(); // domyślnie najkrótszy: de l'Hospital
-  const item = page.locator('#stepsView .steps-item', { has: page.locator('.steps-label', { hasText: 'Upraszczamy' }) });
-  await expect(item.locator('.steps-why')).toContainText('pierwiastki się skasowały');
+  // [EN] po sprzężeniu licznik liczony osobno (partia 2a-2, S13): zdanie o pierwiastku, który znika
+  const item = page.locator('#stepsView .steps-item', { has: page.locator('.steps-label', { hasText: 'Redukujemy wyrazy podobne w liczniku' }) });
+  await expect(item.locator('.steps-why')).toContainText('Pierwiastek podniesiony do swojej potęgi znika');
 });
 
 test('klawiatura: Tab do wzoru, Enter otwiera dymek', async ({ page }) => {
