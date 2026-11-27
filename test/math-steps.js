@@ -143,7 +143,8 @@ ok('3e: wielomian W(1) = 0', st('rozwiąż x^3 - 6x^2 + 11x - 6 = 0').some(x => 
 ok('3e: 4/6 + 5/6 → 9/6 → skracam do 3/2', has('kroki 2/3 + 5/6', 'Dodaję liczniki', '4/6 + 5/6 = (4 + 5)/6 = 9/6') && has('kroki 2/3 + 5/6', 'Skracam ułamek', '9/6 = 3/2'), st('kroki 2/3 + 5/6'));
 ok('3e: bez (5 · 1)/(6 · 1)', !st('kroki 2/3 + 5/6').some(x => x.math.includes('· 1)')), st('kroki 2/3 + 5/6'));
 ok('3e: rozwiązania z pierwiastkiem — podstawienie podkreślone', st('rozwiąż x^2 - 2x - 1 = 0').some(x => x.math.includes('x₁ = ⟦(2 − 2√2) / (2 · 1)⟧ = 1 − √2')), st('rozwiąż x^2 - 2x - 1 = 0'));
-ok('3e: kwadrat sumy podkreślony bez + 2x', has('uprość (x + 1)^2 + 2x', 'Rozpisuję kwadrat sumy', '⟦x² + x + x + 1⟧ + 2x'), st('uprość (x + 1)^2 + 2x'));
+ok('2c S50: kwadrat sumy ze wzoru, kolor bez + 2x, dymek z a i b', has('uprość (x + 1)^2 + 2x', 'Rozpisuję kwadrat sumy', '(x + 1)² = ⟦x² + 2 · x · 1 + 1²⟧\n(x + 1)² + 2x = x² + 2 · x · 1 + 1² + 2x')
+    && st('uprość (x + 1)^2 + 2x').some(x => x.formula && x.formula.here === 'a = x, b = 1'), st('uprość (x + 1)^2 + 2x'));
 ok('3e: x² + 1 = 0 — przeniesienie nazwane', has('rozwiąż x^2 + 1 = 0', 'Przenoszę liczbę na prawo', 'x² = −1'), st('rozwiąż x^2 + 1 = 0'));
 ok('3e: W(x) zdefiniowane i W(1) policzone', st('rozwiąż x^3 - 6x^2 + 11x - 6 = 0').some(x => x.math.startsWith('W(x) = x³ − 6x² + 11x − 6\ndzielniki −6: ±1, ±2, ±3, ±6\nW(1) = 1 − 6 + 11 − 6 = 0')), st('rozwiąż x^3 - 6x^2 + 11x - 6 = 0'));
 // żadna etykieta równań/ułamków nie zawiera wzoru
@@ -191,7 +192,7 @@ pass += 3;
     ok('2x = 2³: liczę prawą stronę', noFrac('rozwiąż 2x=2^3') && has('rozwiąż 2x=2^3', 'Liczę prawą stronę', '2x = 8'), st('rozwiąż 2x=2^3'));
     ok('x/2 = 3: ułamek przy x zostaje', has('rozwiąż x/2=3', 'Zapisuję ułamek przy x jako liczbę razy x', '(1/2)x = 3'), st('rozwiąż x/2=3'));
     // partia 2c, S2: rachunki na ułamkach poziomami (wierzchołek, sprawdzenie)
-    ok('2c S2: q = f(−3/4) przez wspólny mianownik', has('wierzchołek 2x^2 + 3x - 2', 'Liczę q', 'q = f(−3/4) = 2 · (−3/4)² + 3 · (−3/4) − 2 = 2 · 9/16 + 3 · (−3/4) − 2 = 9/8 − 9/4 − 2 = 9/8 − 18/8 − 16/8 = −25/8'), st('wierzchołek 2x^2 + 3x - 2'));
+    ok('2c S2: q = f(−3/4) przez wspólny mianownik', has('wierzchołek 2x^2 + 3x - 2', 'Liczę q', 'q = ⟦f(−3/4)⟧ = 2 · (−3/4)² + 3 · (−3/4) − 2 = 2 · 9/16 + 3 · (−3/4) − 2 = 9/8 − 9/4 − 2 = 9/8 − 18/8 − 16/8 = −25/8'), st('wierzchołek 2x^2 + 3x - 2'));
     ok('2c S2: sprawdzenie (9/2)/(3/2) = 3', st('rozwiąż (x+1)/(x-2) = 3').some(x => x.label === 'Sprawdzenie' && x.math.includes('L = ((7/2) + 1)/((7/2) − 2) = (9/2)/(3/2) = 3')), st('rozwiąż (x+1)/(x-2) = 3'));
     ok('2c S2: 3 · (2/5) − 1 = 6/5 − 1 = 1/5', st('rozwiąż 3x - 1 = x/2').some(x => x.label === 'Sprawdzenie' && x.math.includes('= 6/5 − 1 = 1/5')), st('rozwiąż 3x - 1 = x/2'));
     const Y = 'rozwiąż 5 = 2x - 7';
@@ -340,7 +341,7 @@ pass += 3;
     ok('4g: względnie pierwsze', T('nwd(8, 15)') === '1' && T('nww(8, 15)') === '120', [T('nwd(8, 15)'), T('nww(8, 15)')]);
     ok('4g: trzy liczby', T('nwd(12, 18, 30)') === '6' && T('nww(2, 3, 4)') === '12', [T('nwd(12, 18, 30)'), T('nww(2, 3, 4)')]);
     ok('4g: wierzchołek x² − 4x + 3', T('wierzchołek x^2 - 4x + 3') === 'W = (2, −1)'
-        && has('wierzchołek x^2 - 4x + 3', 'Liczę q', 'q = f(2) = 2² − 4 · 2 + 3 = −1')
+        && has('wierzchołek x^2 - 4x + 3', 'Liczę q', 'q = ⟦f(2)⟧ = 2² − 4 · 2 + 3 = −1')
         && has('wierzchołek x^2 - 4x + 3', 'Zapisuję postać kanoniczną', 'f(x) = (x − 2)² − 1'), st('wierzchołek x^2 - 4x + 3'));
     ok('4g: wierzchołek z ułamkiem i a ≠ 1', T('wierzchołek 2x^2 + 3x - 2') === 'W = (−3/4, −25/8)', T('wierzchołek 2x^2 + 3x - 2'));
     ok('4g: wierzchołek y = …', T('wierzchołek y = -x^2 + 2x') === 'W = (1, 1)', T('wierzchołek y = -x^2 + 2x'));

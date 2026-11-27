@@ -190,7 +190,8 @@
         [/^Brak miejsc zerowych$/, 'Wyrażenie nigdy nie jest zerem, więc wykres nie przecina osi.'],
         [/^Zapisuję postać iloczynową$/, 'Mam już rozwiązania z poprzedniego kroku, więc składam z nich wynik.'],
         [/^Rozkładam różnicę kwadratów$/, 'Oba wyrazy są kwadratami, więc od razu widać, co wstawić do wzoru.'],
-        [/^Rozpisuję kwadrat sumy$/, 'Po rozpisaniu nawiasu można zredukować wyrazy podobne.'],
+        [/^Rozpisuję kwadrat (sumy|różnicy)$/, (s) => s.formula && s.formula.here ? 'Nawias do kwadratu pasuje do wzoru, a tu ' + s.formula.here.replace(/([ab]) = ([^,]+)/g, '$$$1=$2$$') + '. Wstawiam je do wzoru.' : 'Po rozpisaniu nawiasu można zredukować wyrazy podobne.'],
+        [/^Mnożę(, potęguję i redukuję wyrazy podobne| i potęguję)$/, 'Liczę iloczyn $2ab$ i kwadraty, a wyrazy z tą samą potęgą zbieram razem.'],
         [/^Δ < 0, więc dopełniam/, 'Delta jest ujemna, więc wyrażenia nie da się rozłożyć. Zapisujemy je jako kwadrat plus liczba.'],
         [/^Δ = /, (s) => s.formula ? 'Wstawiam $a$, $b$, $c$ do wzoru na deltę.' : 'Delta mówi, ile jest rozwiązań: dodatnia daje dwa, zero jedno, ujemna żadnego.'],
         [/^Kwadrat nie może być ujemny$/, 'Każda liczba podniesiona do kwadratu daje wynik dodatni albo zero.'],
@@ -261,7 +262,8 @@
         [/^Upraszczam obie strony$/, 'Liczę to, co da się policzyć po obu stronach, żeby zostało krótkie równanie.'],
         [/^Mnożę obie strony przez /, (s) => /przez .*[a-z(]/.test(s.label)
             ? 'Po pomnożeniu niewiadoma wychodzi z dołu ułamka, a liczby spoza dziedziny odrzucę na końcu.'
-            : 'Mnożę przez odwrotność liczby stojącej przy niewiadomej, żeby niewiadoma została sama.'],
+            : /przez \d+$/.test(s.label) ? 'Niewiadoma jest podzielona przez ' + /przez (\d+)$/.exec(s.label)[1] + ', więc mnożenie przez tę liczbę cofa dzielenie i niewiadoma zostaje sama.'
+            : 'Przy niewiadomej stoi ułamek. Mnożę przez ten ułamek odwrócony, bo ich iloczyn to 1 i niewiadoma zostaje sama.'],
         [/^Wyznaczam dziedzinę$/, (s) => / ≥ 0/.test(s.math) ? ((s.math.match(/ ≥ 0/g) || []).length > 1 ? 'Pod pierwiastkiem i po drugiej stronie nie może być liczby ujemnej. Oba warunki muszą zachodzić naraz, więc biorę ich część wspólną.' : 'Pierwiastek kwadratowy liczymy tylko z liczb nieujemnych i sam nie jest ujemny.')
             : / > 0/.test(s.math) ? 'Logarytm istnieje tylko dla liczb dodatnich, więc argument musi być większy od zera.'
             : 'Przez zero dzielić nie wolno, więc wykluczam liczby, które zerują mianownik.'],

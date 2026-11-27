@@ -60,7 +60,7 @@ const COVER = [
     ['nww(4, 6)', 'nwd-nww', undefined],
     ['kroki 20% z 150', 'procent-z-liczby', 'p = 20, B = 150'],
     ['kroki 150 + 20%', 'zmiana-o-procent', 'p = 20, B = 150'],
-    ['kroki ile procent 30 z 120', 'procent-z-liczby', undefined],
+    ['kroki ile procent 30 z 120', 'jaki-procent', 'A = 30, B = 120'],
     ['kroki 3/4 - 1/6', 'wspolny-mianownik', undefined],
     ['kroki 2/3 * 9/4', 'mnozenie-ulamkow', undefined],
     ['kroki 3/5 : 9/10', 'dzielenie-ulamkow', undefined],

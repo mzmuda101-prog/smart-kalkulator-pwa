@@ -12,7 +12,6 @@
     "Prawe strony też — to jedno równanie"
   ],
   "^(Liczę q|Zapisuję postać kanoniczną)$ → wierzcholek": [
-    "Liczę v",
     "Zapisuję postać kanoniczną"
   ],
   "^(Mnożę (pierwsze|drugie) przez .+|Wstawiam [a-z] = \\S+ do (pierwszego|drugiego) równania)$ → uklad-przeciwne": [
@@ -20,6 +19,10 @@
     "Mnożę pierwsze przez #",
     "Mnożę pierwsze przez #, drugie przez #",
     "Wstawiam v = # do pierwszego równania"
+  ],
+  "^(Mnożę ułamek przez liczbę|Liczę procent z liczby)$ → procent-z-liczby": [
+    "Liczę procent z liczby",
+    "Mnożę ułamek przez liczbę"
   ],
   "^(Najpierw nawias: (dodaję|odejmuję|mnożę|dzielę|potęguję)|Dodaję|Odejmuję|Mnożę|Dzielę|Potęguję|Liczę prawą stronę|Upraszczam lewą stronę|Upraszczam obie strony)$ → kolejnosc-dzialan": [
     "Dzielę",
@@ -114,11 +117,6 @@
     "Wyłączamy √(…) przed nawias",
     "Wyłączamy √v przed nawias"
   ],
-  "^(Zapisuję część jako ułamek|Mnożę ułamek przez liczbę|Liczę procent z liczby)$ → procent-z-liczby": [
-    "Liczę procent z liczby",
-    "Mnożę ułamek przez liczbę",
-    "Zapisuję część jako ułamek"
-  ],
   "^(Zapisuję ułamki proste|Wyznaczam A i B|Wstawiam A i B|Rozkład na ułamki proste|Każdy ułamek daje logarytm)$ → ulamki-proste": [
     "Wstawiam A i B",
     "Wyznaczam A i B",
@@ -165,6 +163,10 @@
   ],
   "^Mnożę przez pochodną środka$ → pochodna-zlozona": [
     "Mnożę przez pochodną środka"
+  ],
+  "^Mnożę(, potęguję i redukuję wyrazy podobne| i potęguję)$ → kolejnosc-dzialan": [
+    "Mnożę i potęguję",
+    "Mnożę, potęguję i redukuję wyrazy podobne"
   ],
   "^Odczytuję współczynniki( w (liczniku|mianowniku))?$ → wspolczynniki-trojmianu": [
     "Odczytuję współczynniki",
@@ -279,6 +281,9 @@
   ],
   "^Zapisujemy podstawę jako 1 \\+ 1\\/aₙ$ → e": [
     "Zapisujemy podstawę jako # + #/aₙ"
+  ],
+  "^Zapisuję część jako ułamek$ → jaki-procent": [
+    "Zapisuję część jako ułamek"
   ],
   "^Zapisuję obie strony jako potęgi  → rownosc-poteg": [
     "Zapisuję obie strony jako potęgi #"

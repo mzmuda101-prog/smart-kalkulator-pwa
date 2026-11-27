@@ -13,6 +13,12 @@ Na start przywitaj się krótko, powiedz, co przeczytałeś, i zaproponuj nastę
 - Granice: podstawienie pokazuje rachunek poziomami (bramka w testach: każde „Podstawiamy” z rachunkiem, bez gołych liczb ujemnych); krok „Dzielimy schematem Hornera” z tabelkami przed rozkładem (bramka: każdy rozkład ma Hornera).
 - Przegląd całego silnika: 224 zadania, 4 działy + stare raporty C, D, E → 91 uwag (10 krytycznych), 14 wzorców lekkiej interaktywności.
 
+## Zrobione (2026-11-27, v1.05.80): partia 2c (równania i reszta)
+- 12 wierszy (S2, S19, S33, S35, S41, S42, S48–S51, S56, S57), plan: `docs/superpowers/plans/2026-11-27-partia-2c.md`.
+- Rachunek na ułamkach poziomami (wierzchołek, sprawdzenia), dziedzina do końca, potęgi i log₁₀ jawnie, drugi kąt sinusa,
+  pary w „sumie i iloczynie”, kwadrat sumy ze wzoru z a i b w dymku, przeniesienie na lewą ze zmianą znaków.
+- Nowe hasło jaki-procent. Partia 2 (2a-1, 2a-2, 2b, 2c) zamknięta.
+
 ## Zrobione (2026-11-27, v1.05.76–77): wnioski ze zrzutów Mateusza
 - 1/0: „Nie dzielimy przez 0” + chipy 0⁺: +∞ / 0⁻: −∞ (granice z krokami); 0/0 zostaje „nieokreślone”.
 - Granice ∞/∞: nowy sposób „Dzielenie przez najwyższą potęgę” (szkolny, z zeszytu: [1/0⁺] = +∞) jako dodatkowa opcja,
@@ -48,8 +54,9 @@ Na start przywitaj się krótko, powiedz, co przeczytałeś, i zaproponuj nastę
 
 ## Następny krok (do decyzji Mateusza)
 - Zrobione: partia 2a-1 (v1.05.55), paczka A sposobów (v1.05.60), partia 2a-2 (v1.05.70), partia 2b (v1.05.75).
-- Do wyboru: **partia 2c** (równania i reszta: S2 krytyczne, S19, S33…) albo **paczka B sposobów**
-  z `docs/superpowers/research/sposoby-katalog.md`. Potem paczki C–E, etap 4, „interaktywność”.
+- Partia 2 zamknięta (v1.05.80). Do wyboru: **paczka B sposobów** z `docs/superpowers/research/sposoby-katalog.md`
+  (nierówności „wężykiem”, Cramer/Gauss, podstawienie t) albo **partia 3** (pozostałe poważne i drobne z tabeli skoków).
+  Warto też puścić „słabego ucznia” na kroki zmienione w partiach 2a-2, 2b, 2c. Potem etap „interaktywność”.
 - Zasady: domyślnie najkrótszy sposób, w przełączniku drugi szkolny (pamięć: methods-order).
 
 ## Jak pracowaliśmy (sprawdziło się)

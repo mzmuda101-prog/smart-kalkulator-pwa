@@ -1158,7 +1158,10 @@
                 var xs = L.filter(hasV).concat(negTerms(xR)), cs = Rr.filter(function (t) { return !hasV(t); }).concat(negTerms(cL));
                 var shift = (xs.length ? showTerms(xs, ctx, true) : '0') + ' = ' + (cs.length ? showTerms(cs, ctx, true) : '0');
                 if (shift !== moved && shift !== steps[steps.length - 1].math) {
-                    steps.push({ label: xR.length && cL.length ? 'Przenoszę ' + v + ' na lewo, liczby na prawo' : xR.length ? 'Przenoszę ' + v + ' na lewo' : 'Przenoszę liczby na prawo', math: shift });
+                    // [EN] x/2 = (1/2)x zapisane, a nie po cichu (S48)
+                    var fm = /(^|[\s(])(\d*)([a-z])\/(\d+)(?![\d.,])/.exec(steps[0].math.split(' = ')[0]), cm = /\((\d+\/\d+)\)([a-z])/.exec(shift);
+                    var note = fm && cm && fm[3] === cm[2] ? fm[2] + fm[3] + '/' + fm[4] + ' = (' + cm[1] + ')' + cm[2] + '\n' : '';
+                    steps.push({ label: xR.length && cL.length ? 'Przenoszę ' + v + ' na lewo, liczby na prawo' : xR.length ? 'Przenoszę ' + v + ' na lewo' : 'Przenoszę liczby na prawo', math: note + shift });
                     if (moved !== shift) steps.push({ label: 'Redukuję wyrazy podobne', math: moved });
                 }
             }
@@ -1187,7 +1190,13 @@
             var zero = polyText(c, v, ctx) + ' = 0';
             var pureSquare = c.length === 3 && isZero(c[1]);
             if (!pureSquare && zero !== steps[steps.length - 1].math) {
-                steps.push({ label: 'Przenoszę wszystko na lewą stronę', math: zero });
+                // [EN] zmiana znaków widoczna (S51): x + 3 − (x² − 6x + 9) = x + 3 − x² + 6x − 9 = 0, potem uporządkowane
+                var nzR = Rr.filter(function (t) { return !isZero(t.c); }), moveTxt = '';
+                if (nzR.length > 1) {
+                    var lT = showTerms(L, ctx, true), rT = showTerms(nzR, ctx, true), opened0 = showTerms(L.concat(negTerms(nzR)), ctx, true);
+                    moveTxt = lT + ' − (' + rT + ') = 0\n' + (opened0 + ' = 0' !== zero ? opened0 + ' = 0\n' : '');
+                }
+                steps.push({ label: 'Przenoszę wszystko na lewą stronę', math: moveTxt + zero });
             }
             if (c.length >= 4) return solveHigher(c, v, steps, ctx, lhs, rhs);
             solveDegree(c, v, steps, ctx, sol);
@@ -1574,6 +1583,12 @@
         var final = showTerms(collect(raw), ctx);
         if (hasParenGroup(ast) && opened !== start && opened !== final) {
             // [EN] (a + b)² → wzór skróconego mnożenia w dymku (słownik: kwadrat-sumy)
+            var sq = squareByFormula(ast, ctx);
+            if (sq) { // [EN] (x + 3)² = ⟦x² + 2 · x · 3 + 3²⟧: kolor na tym, co mówi wzór z dymku (S50)
+                steps.push({ label: sq.minus ? 'Rozpisuję kwadrat różnicy' : 'Rozpisuję kwadrat sumy', math: sq.text, formula: { id: sq.minus ? 'kwadrat-roznicy' : 'kwadrat-sumy', here: sq.here } });
+                if (final !== sq.plain) steps.push({ label: /\n/.test(sq.text) ? 'Mnożę, potęguję i redukuję wyrazy podobne' : 'Mnożę i potęguję', math: final });
+                return done('Upraszczanie', final, null, steps);
+            }
             steps.push(hasSquaredSum(ast) ? { label: 'Rozpisuję kwadrat sumy', math: underlineSquare(ast, opened, ctx), formula: { id: 'kwadrat-sumy' } } : { label: 'Opuszczam nawiasy', math: opened });
         }
         if (final !== steps[steps.length - 1].math.replace(/[⟦⟧]/g, '')) {
@@ -1676,6 +1691,20 @@
             if (opened.indexOf(pre) === 0) return '⟦' + pre + '⟧' + opened.slice(pre.length);
         }
         return '⟦' + opened + '⟧';
+    }
+    // [EN] (a ± b)² samo albo z resztą (+ 2x): zapis ze wzoru a² ± 2 · a · b + b²; null, gdy a, b nie są prostymi wyrazami
+    function squareByFormula(ast, ctx) {
+        var sqNode = function (n) { return n.k === 'pow' && (n.a.k === 'add' || n.a.k === 'sub') && n.b.k === 'num' && eq(n.b.v, R(2)) ? n : null; };
+        var whole = sqNode(ast), lead = !whole && (ast.k === 'add' || ast.k === 'sub') && sqNode(ast.a) && !hasSquaredSum(ast.b) ? sqNode(ast.a) : null;
+        var n = whole || lead;
+        if (!n) return null;
+        var simple = function (x) { return x.k === 'num' || x.k === 'var' || (x.k === 'mul' && (x.a.k === 'num' || x.a.k === 'var') && x.b.k === 'var'); };
+        if (!simple(n.a.a) || !simple(n.a.b) || (n.a.b.k === 'num' && n.a.b.v.n < 0n)) return null;
+        var A = show(n.a.a, ctx), B = show(n.a.b, ctx), minus = n.a.k === 'sub';
+        var sqr = function (x, t) { return x.k === 'num' || x.k === 'var' ? t + '²' : '(' + t + ')²'; };
+        var body = sqr(n.a.a, A) + (minus ? ' − ' : ' + ') + '2 · ' + A + ' · ' + B + ' + ' + sqr(n.a.b, B);
+        var rest = lead ? show(ast, ctx).slice(show(n, ctx).length) : '';
+        return { text: show(n, ctx) + ' = ⟦' + body + '⟧' + (rest ? '\n' + show(ast, ctx) + ' = ' + body + rest : ''), plain: body + rest, here: 'a = ' + A + ', b = ' + B, minus: minus };
     }
     function hasSquaredSum(n) {
         if (n.k === 'pow' && (n.a.k === 'add' || n.a.k === 'sub') && n.b.k === 'num' && eq(n.b.v, R(2))) return true;
@@ -2345,7 +2374,7 @@
         var mb = b.n < 0n ? '−(' + fmt(b, ctx) + ')' : '−' + fmt(b, ctx);
         var raw = fmt(neg(b), ctx) + '/' + fmtDen(twoA, ctx);
         steps.push({ label: 'Liczę p', math: 'p = ⟦' + mb + '/(2 · ' + fmtParen(a, ctx) + ')⟧ = ' + (raw === fmt(p, ctx) || eq(twoA, ONE) ? '' : raw + ' = ') + fmt(p, ctx), formula: { id: 'wierzcholek', here: 'a = ' + fmt(a, ctx) + ', b = ' + fmt(b, ctx) } });
-        steps.push({ label: 'Liczę q', math: 'q = f(' + fmt(p, ctx) + ') = ' + show(plugIn(ast, v, p), ctx) + polyAtLevels(c, p, q, ctx) + ' = ' + fmt(q, ctx) });
+        steps.push({ label: 'Liczę q', math: 'q = ⟦f(' + fmt(p, ctx) + ')⟧ = ' + show(plugIn(ast, v, p), ctx) + polyAtLevels(c, p, q, ctx) + ' = ' + fmt(q, ctx), formula: { id: 'wierzcholek', here: 'p = ' + fmt(p, ctx) } });
         var inner = isZero(p) ? v : '(' + v + (p.n < 0n ? ' + ' + fmt(neg(p), ctx) : ' − ' + fmt(p, ctx)) + ')';
         var lead = eq(a, ONE) ? '' : eq(a, neg(ONE)) ? '−' : fmt(a, ctx);
         var canon = lead + inner + '²' + (isZero(q) ? '' : q.n < 0n ? ' − ' + fmt(neg(q), ctx) : ' + ' + fmt(q, ctx));
@@ -2389,7 +2418,7 @@
             var q = div(A, B3), pc = mul(q, R(100n)), raw3 = fmt(A, ctx) + '/' + fmt(B3, ctx);
             steps = [{ label: 'Działanie', math: 'ile procent ' + fmt(A, ctx) + ' z ' + fmt(B3, ctx) },
                 { label: 'Zapisuję część jako ułamek', math: raw3 + (fmt(q, ctx) === raw3 ? '' : ' = ' + fmt(q, ctx)) },
-                { label: 'Zamieniam ułamek na procent', math: '⟦' + fmt(q, ctx) + ' · 100%⟧ = ' + fmt(pc, ctx) + '%', formula: { id: 'procent-z-liczby' } }];
+                { label: 'Zamieniam ułamek na procent', math: '⟦' + fmt(q, ctx) + ' · 100%⟧ = ' + fmt(pc, ctx) + '%', formula: { id: 'jaki-procent', here: 'A = ' + fmt(A, ctx) + ', B = ' + fmt(B3, ctx) } }];
             steps.push({ label: 'Wynik', math: fmt(pc, ctx) + '%' });
             return done('Procenty', fmt(pc, ctx) + '%', toNum(pc), steps);
         }

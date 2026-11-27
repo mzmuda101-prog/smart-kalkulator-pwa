@@ -456,6 +456,13 @@
                 'Przy granicy $x\\to-\\infty$: $1-x=(-x)\\left(1-\\frac{1}{x}\\right)$, a oba czynniki są dodatnie, więc pierwiastek z $1-x$ to iloczyn pierwiastków z $-x$ i z $1-\\frac{1}{x}$.',
             ],
         },
+        'jaki-procent': {
+            name: 'Jakim procentem liczby B jest liczba A',
+            tex: '\\frac{A}{B}\\cdot 100\\%',
+            why: 'Najpierw zapisuję część jako ułamek całości, potem mnożę ten ułamek przez 100%, bo 100% to cała liczba.',
+            level: 'Szkoła podstawowa: procenty',
+            more: ['Przykład: 30 z 120 to $\\frac{30}{120}=\\frac{1}{4}$, a $\\frac{1}{4}\\cdot 100\\%=25\\%$.'],
+        },
         'uklad-podstawianie': {
             name: 'Układ równań: metoda podstawiania',
             tex: '2x+y=7\\;\\Rightarrow\\;y=7-2x',
@@ -480,7 +487,7 @@
         },
         'wartosc-bezwzgledna': {
             name: 'Wartość bezwzględna',
-            tex: '\\left|x-a\\right|<r\\iff a-r<x<a+r',
+            tex: '\\left|x-a\\right|=r\\iff x-a=r\\ \\text{lub}\\ x-a=-r,\\qquad \\left|x-a\\right|<r\\iff a-r<x<a+r',
             why: '$\\left|x-a\\right|$ to odległość liczby $x$ od liczby $a$ na osi. Nierówność $\\left|x-a\\right|<r$ (dla dodatniego $r$) mówi więc, że $x$ leży bliżej niż $r$ od punktu $a$. Równanie $\\left|x-a\\right|=r$ daje dwa punkty, $a-r$ i $a+r$, a $\\left|x-a\\right|>r$ to dwa kawałki osi: dalej niż $r$ w lewo albo w prawo.',
             level: 'Liceum, zakres podstawowy: liczby rzeczywiste',
             more: [
@@ -651,7 +658,7 @@
         },
         'nwd-nww': {
             name: 'NWD i NWW',
-            tex: '\\operatorname{NWD}(a,b)\\cdot\\operatorname{NWW}(a,b)=a\\cdot b',
+            tex: '\\operatorname{NWD}=\\text{iloczyn wspólnych czynników},\\quad\\operatorname{NWW}=\\text{iloczyn czynników w najwyższych potęgach}',
             why: 'NWD to największa liczba, która dzieli obie liczby, a NWW to najmniejsza liczba, którą obie dzielą. Obie odczytujemy z rozkładu na czynniki pierwsze.',
             level: 'Szkoła podstawowa i liceum: podzielność',
             more: [
@@ -1137,7 +1144,8 @@
         'wartosc-bezwzgledna': ['rownania', 'lp', ['wartość bezwzględna', 'moduł', 'odległość na osi'], 'rozwiąż |x-2| < 3', 'x ∈ (−1, 5)', ['pierwiastek-z-kwadratu', 'nierownosc-kwadratowa']],
         'wartosci-trygonometryczne': ['trygonometria', 'lp', ['sinus', 'cosinus', 'tangens', 'wartości z tablicy', 'kąty 30 45 60'], 'rozwiąż sin(x) = 1/2', 'x = π/6 + 2kπ lub x = 5π/6 + 2kπ, k ∈ ℤ', ['okresowosc', 'sin-kwadrat']],
         okresowosc: ['trygonometria', 'lp', ['okres', 'okresowość', 'k całkowite', 'seria rozwiązań', 'równanie trygonometryczne'], 'rozwiąż tg(x) = 1', 'x = π/4 + kπ, k ∈ ℤ', ['wartosci-trygonometryczne']],
-        'procent-z-liczby': ['liczby', 'lp', ['procent', 'procent z liczby', 'ile procent', 'część całości'], 'kroki 20% z 150', '30', ['zmiana-o-procent']],
+        'jaki-procent': ['liczby', 'lp', ['ile procent', 'jakim procentem', 'część całości', 'ułamek na procent'], 'kroki ile procent 30 z 120', '25%', ['procent-z-liczby']],
+        'procent-z-liczby': ['liczby', 'lp', ['procent', 'procent z liczby', 'część całości'], 'kroki 20% z 150', '30', ['zmiana-o-procent']],
         'zmiana-o-procent': ['liczby', 'lp', ['podwyżka', 'obniżka', 'zmiana o procent', 'rabat', 'VAT'], 'kroki 150 + 20%', '180', ['procent-z-liczby']],
         'e-skrocony': ['granice', 'st', ['wzór skrócony', 'jeden do nieskończoności', 'liczba e', 'granica potęgi'], 'lim n→∞ (1+2/n)^n', 'e²', ['e', 'nieoznaczone']],
         'wzory-viete': ['rownania', 'lr', ['wzory Viète\'a', 'Viete', 'suma i iloczyn', 'odgadywanie rozwiązań'], 'rozwiąż x^2 - 5x + 6 = 0', 'x₁ = 2, x₂ = 3', ['delta', 'postac-iloczynowa']],
@@ -1209,7 +1217,8 @@
         { re: /^Składam całość( w (liczniku|mianowniku))?$/, id: 'postac-iloczynowa', when: allLinear }, // [EN] z czynnikiem kwadratowym (x² + 1) hasło by kłamało
         { re: /^Składam całość( w (liczniku|mianowniku))?$/, id: 'skladanie-rozkladu' }, // [EN] reszta: czynnik kwadratowy zostaje
         { re: /^Wyłączam [a-z] przed nawias$/, id: 'wylaczanie-przed-nawias' },
-        { re: /^(Zapisuję część jako ułamek|Mnożę ułamek przez liczbę|Liczę procent z liczby)$/, id: 'procent-z-liczby' },
+        { re: /^Zapisuję część jako ułamek$/, id: 'jaki-procent' },
+        { re: /^(Mnożę ułamek przez liczbę|Liczę procent z liczby)$/, id: 'procent-z-liczby' },
         { re: /^(Najpierw nawias: )?(dodaję|odejmuję|Dodaję|Odejmuję) liczniki$/, id: 'wspolny-mianownik' },
         { re: /^Sprowadzamy do wspólnego mianownika$/, id: 'wspolny-mianownik' },
         { re: /^Rozkładam na czynniki pierwsze$/, id: 'nwd-nww' }, // [EN] tylko w NWD/NWW (rozkład liczby ma inne etykiety)
@@ -1281,6 +1290,7 @@
         // [EN] układ zależny: jedno równanie to drugie pomnożone przez liczbę
         { re: /^(Lewe strony są proporcjonalne|Prawe strony też — to jedno równanie)$/, id: 'obie-strony' },
         { re: /^Wymnażam nawiasy$/, id: 'opuszczanie-nawiasow' },
+        { re: /^Mnożę(, potęguję i redukuję wyrazy podobne| i potęguję)$/, id: 'kolejnosc-dzialan' },
         { re: /^Redukujemy wyrazy podobne w liczniku$/, id: 'wyrazy-podobne' },
         { re: /^Mnożymy ułamki$/, id: 'mnozenie-ulamkow' },
         { re: /^Rozwiązuję podwójną nierówność$/, id: 'wartosc-bezwzgledna' },
