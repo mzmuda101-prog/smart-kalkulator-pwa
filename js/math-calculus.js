@@ -745,9 +745,15 @@
         var flip = next.length === 1 && next[0].c.n < 0n, small = flip ? cNeg(next) : next;
         var rest = integ(small, v, depth + 1, inner);
         var uv = show(cMul(u, bigV)), sign = flip ? ' + ' : ' − ';
+        // [EN] du i v policzone w osobnych wierszach (S36): du = (u)′ dx, v = ∫ dv
+        var dvT = show(dv), vInt = '∫ ' + (dv.length > 1 ? '(' + dvT + ')' : dvT) + ' d' + v;
         line(log, 'Całkuję przez części',
-            'u = ' + show(u) + ', dv = ' + show(dv) + ' d' + v + '\ndu = ' + paren(du) + ' d' + v + ', v = ' + show(bigV));
-        line(log, 'Podstawiam do wzoru', 'u · v − ∫ v du = ⟦' + uv + ' − ' + integralText(next, v) + '⟧' + (flip ? ' = ' + uv + sign + integralText(small, v) : ''), 'przez-czesci', 'u = ' + show(u) + ', dv = ' + show(dv) + ' d' + v);
+            'u = ' + show(u) + ', dv = ' + dvT + ' d' + v + '\ndu = (' + show(u) + ')′ d' + v + ' = ' + paren(du) + ' d' + v + '\nv = ' + vInt + ' = ' + show(bigV));
+        if (log) log[log.length - 1].partsU = show(u);
+        // [EN] v · du przed uproszczeniem: x²/2 · 1/x = x/2 (S45)
+        var vdu = grpT(bigV) + ' · ' + grpN(du), raw = vdu === show(next) ? '' : ' − ∫ ' + vdu + ' d' + v;
+        line(log, 'Podstawiam do wzoru', 'u · v − ∫ v du = ⟦' + uv + (raw || ' − ' + integralText(next, v)) + '⟧' + (raw ? ' = ' + uv + ' − ' + integralText(next, v) : '')
+            + (flip ? ' = ' + uv + sign + integralText(small, v) : ''), 'przez-czesci', 'u = ' + show(u) + ', dv = ' + show(dv) + ' d' + v);
         inner.forEach(function (s) { log.push(s); });
         var out = flip ? cAdd(cMul(u, bigV), rest) : cSub(cMul(u, bigV), rest);
         line(log, 'Wstawiam policzoną całkę', uv + sign + (rest.length > 1 ? '(' + show(rest) + ')' : show(rest)) + (sameText(uv + sign + show(rest), show(out)) ? '' : ' = ' + show(out)));

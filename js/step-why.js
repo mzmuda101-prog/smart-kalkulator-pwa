@@ -343,7 +343,9 @@
         [/^Stałą wyłączam przed całkę$/, 'Czynnik liczbowy odsuwam na bok, a całkuję samo wyrażenie z $x$.'],
         [/^Mnożę przez wyłączoną stałą$/, 'Na końcu mnożę wynik przez liczbę, którą wcześniej wyłączyłem przed całkę.'],
         [/^Całkuję stałą$/, 'Całka z liczby $k$ to $k\\cdot x$, bo $(k\\cdot x)^{\\prime}=k$.'],
-        [/^Całkuję przez części$/, 'Wybieram $u$ tak, żeby po zróżniczkowaniu się uprościło, a $dv$ tak, żeby łatwo je scałkować.'],
+        [/^Całkuję przez części$/, (s) => /^(ln|log|arctg|arcsin)/.test(s.partsU || '')
+            ? 'Za $u$ biorę logarytm albo funkcję odwrotną: jej całki nie znam, a pochodna jest prostym ułamkiem.'
+            : 'Za $u$ biorę wielomian, bo po zróżniczkowaniu jego potęga maleje. Druga część łatwo się całkuje i nie robi się trudniejsza.'],
         [/^Podstawiam do wzoru$/, 'Wstawiamy $u$, $v$ i $du$ do wzoru na całkowanie przez części.'],
         [/^Podstawienie: /, 'Zastępujemy wnętrze jedną literą, żeby całka wyglądała jak wzór z tablicy.'],
         [/^Wracam do zmiennej /, 'Na końcu zamieniamy literę pomocniczą z powrotem na wyrażenie z początku.'],

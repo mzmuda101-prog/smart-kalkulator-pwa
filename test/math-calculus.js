@@ -153,6 +153,9 @@ pass += 2;
           && !st('pochodna -2x*e^x').some(x => x.math.includes('x · e^x = −2x')), show('pochodna -2x*e^x')); }
     // błąd zapisu: (√3)² trzymane jako czynnik 3¹ wypisywało się jako √3 (pochodna arctg(x/√3) pokazywała x²/√3)
     ok('(x/√3)² zapisane jako x²/3', st('pochodna arctg(x/sqrt(3))').some(x => x.math.includes('3/(x² + 3) · (x/√3)′')) && !st('pochodna arctg(x/sqrt(3))').some(x => x.math.includes('x²/√3')), show('pochodna arctg(x/sqrt(3))'));
+    // partia 2b, S36/S45: du i v policzone, v · du przed uproszczeniem
+    ok('2b S36: du = (ln(x))′ dx, v = ∫ x dx', has('całka x*ln(x)', 'Całkuję przez części', 'u = ln(x), dv = x dx\ndu = (ln(x))′ dx = 1/x dx\nv = ∫ x dx = x²/2'), show('całka x*ln(x)'));
+    ok('2b S45: x²/2 · 1/x przed x/2', st('całka x*ln(x)').some(x => x.label === 'Podstawiam do wzoru' && x.math.includes('∫ x²/2 · 1/x dx⟧ = x² · ln(x)/2 − ∫ x/2 dx')), show('całka x*ln(x)'));
     ok('3g: √x zapisane jako potęga', has('pochodna √x', 'Liczę pochodną potęgi', '√x = x^(1/2)\n⟦(x^(1/2))′⟧ = 1/2 · x^(1/2 − 1) = 1/2 · x^(−1/2) = 1/2 · 1/x^(1/2) = 1/(2√x)'), show('pochodna √x'));
     ok('3g: 1/x zapisane jako potęga', has('pochodna 1/x', 'Liczę pochodną potęgi', '1/x = x^(−1)\n⟦(x^(−1))′⟧ = −1 · x^(−1 − 1) = −1 · x^(−2) = −1 · 1/x² = −1/x²'), show('pochodna 1/x'));
     ok('3g: x³ bez zbędnej linii', has('pochodna x^3', 'Liczę pochodną potęgi', '⟦(x³)′⟧ = 3x²'), show('pochodna x^3'));
@@ -171,7 +174,7 @@ pass += 2;
     ok('3h: F(π) − F(0) z wstawieniem', has('całka sin(x) od 0 do π', 'Liczę F(b) − F(a)', 'F(x) = −cos(x)\nF(π) − F(0) = ⟦(−cos(π)) − (−cos(0))⟧ = 1 − (−1) = 2'), show('całka sin(x) od 0 do π'));
     ok('3h: F(1) − F(0) z wstawieniem', has('całka x^2 od 0 do 1', 'Liczę F(b) − F(a)', 'F(x) = x³/3\nF(1) − F(0) = ⟦1³/3 − 0³/3⟧ = 1/3 − 0 = 1/3'), show('całka x^2 od 0 do 1'));
     ok('3h: liczba przed zmienną dostaje kropkę (2 · 3)', st('całka 2x+1 od 1 do 3').some(x => x.math.includes('⟦(3² + 3) − (1² + 1)⟧')), show('całka 2x+1 od 1 do 3'));
-    ok('3h: przez części — minus razy minus od razu', has('całka x*sin(x)', 'Podstawiam do wzoru', 'u · v − ∫ v du = ⟦−x · cos(x) − ∫ −cos(x) dx⟧ = −x · cos(x) + ∫ cos(x) dx') && !has('całka x*sin(x)', 'Stałą wyłączam przed całkę'), show('całka x*sin(x)'));
+    ok('3h: przez części — minus razy minus od razu', has('całka x*sin(x)', 'Podstawiam do wzoru', 'u · v − ∫ v du = ⟦−x · cos(x) − ∫ −cos(x) · 1 dx⟧ = −x · cos(x) − ∫ −cos(x) dx = −x · cos(x) + ∫ cos(x) dx') && !has('całka x*sin(x)', 'Stałą wyłączam przed całkę'), show('całka x*sin(x)'));
     ok('3h: przez części — wstawiam policzoną całkę', has('całka x*e^x', 'Wstawiam policzoną całkę', 'x · e^x − e^x'), show('całka x*e^x'));
     ok('3h: tożsamość, potem każda część osobno', has('całka sin(x)^2', 'Całkuję każdą część', '∫ 1/2 dx = x/2\n∫ cos(2x)/2 dx = sin(2x)/4\n∫ sin²(x) dx = x/2 − sin(2x)/4'), show('całka sin(x)^2'));
     ok('3h: ułamki proste — A i B wyliczone', has('całka 1/(x^2-1)', 'Rozkładam mianownik', 'x² − 1 = (x + 1)(x − 1)')
