@@ -460,6 +460,8 @@
                 if (bare(out[out.length - 1]) !== bare(s)) out.push(s);
             });
         } catch (x) { /* [EN] nie umiemy wypisać — zostaje sam wynik */ }
+        var sq = out[out.length - 1].replace(/√(\d+)√\1(?!\d)/g, '$1'); // [EN] √2√2 = 2 (S6: liczba wyciągnięta spod pierwiastka wraca)
+        if (sq !== out[out.length - 1]) { out.push(sq); try { var c2 = plugSums(plugValues(K.parse(sq))), s2 = astText(c2); if (bare(s2) !== bare(sq)) out.push(s2); } catch (x) { /* zostaje */ } }
         var twice = out[out.length - 1].replace(/√(\d+) \+ √\1(?!\d)/g, '2√$1'); // [EN] √2 + √2 = 2√2
         if (twice !== out[out.length - 1]) out.push(twice);
         var q2 = /^(−?)(\d+)\/\((\d+)√(\d+)\)$/.exec(out[out.length - 1]); // [EN] 12/(2√3) = 6/√3
@@ -585,6 +587,13 @@
             }
             if (a.k === 'sum' && C.hasVar(a.s, v)) {
                 var inner = pullExpr(a.s, v, sign);
+                var rootSym = { 2: '√', 3: '∛', 4: '∜' }[Number(r.d)];
+                // [EN] zapis wyciągania spod pierwiastka: √(4n² + 3) = √(n²(4 + 3/n²)) = n√(4 + 3/n²) (S14)
+                if (_pulls && rootSym && r.n === 1n && !K.isZero(inner.p) && a.s.length > 1) {
+                    var under = rootSym + '(' + pulledText(v, sign, inner) + ')', uo = uText(v, sign, K.mul(inner.p, r)), out = uo + (/[√∛∜]/.test(uo) ? ' · ' : '') + rootSym + C.paren(inner.rest).replace(/^(?!\()(.*)$/, '($1)');
+                    var row = C.show(C.cPow([C.term(ONE, [{ b: a, e: ONE }])], r)) + ' = ' + under + ' = ' + out;
+                    if (_pulls.indexOf(row) < 0) _pulls.push(row);
+                }
                 p = K.add(p, K.mul(inner.p, r));
                 rest = C.cMul(rest, C.cPow(inner.rest, r));
                 c = fold(C.cMul(c, C.cPow(inner.c, r)));
@@ -596,6 +605,7 @@
         });
         return { p: p, rest: rest, c: c };
     }
+    var _pulls = null; // [EN] zbierane przez pullTerm w dominantPower: wiersze kroku „Wyciągamy … spod pierwiastka”
     function atomHasVar(a, v) { return C.hasVar(C.atomExpr(a), v); }
     function pullExpr(e, v, sign) {
         if (e.length === 1) return pullTerm(e[0], v, sign);
@@ -662,7 +672,8 @@
         test: function (e, v, t) { return !isFiniteTarget(t) && C.hasVar(e, v); },
         apply: function (e, v, t, log) {
             var sign = t.at === 'inf' ? 1 : -1, fr = splitFraction(e);
-            var N = pullExpr(fr.N, v, sign), D = pullExpr(fr.D, v, sign);
+            _pulls = [];
+            try { var N = pullExpr(fr.N, v, sign), D = pullExpr(fr.D, v, sign); } finally { var pulls = _pulls; _pulls = null; }
             var head = limHead(v, t);
             // [EN] √(x²) = |x| tylko, gdy wyłączamy całe potęgi; przy √(−x) wystarczy: x < 0, więc −x > 0
             if (sign < 0 && hasEvenRoot(e, v)) line(log, 'Dla ' + v + ' → −∞', K.isInt(N.p) && K.isInt(D.p)
@@ -679,6 +690,7 @@
             var pn = pulledText(v, sign, N), pd = pulledText(v, sign, D);
             var pdWrapped = K.isZero(D.p) ? grp(D.rest) : '(' + pd + ')';
             // [EN] same liczby w nawiasach (−1/n) — nie ma czego wyłączać, krok byłby pusty (6e)
+            if (pulls.length) line(log, 'Wyciągamy ' + v + ' spod pierwiastka', pulls.join('\n'), 'pierwiastek-iloczynu');
             if (!(C.isNumber(N.rest) && C.isNumber(D.rest))) line(log, label, head + (alone ? pn : pn + '/' + pdWrapped));
             var q = K.sub(N.p, D.p);
             if (same && !K.isZero(N.p)) line(log, 'Skracamy ' + uText(v, sign, N.p), head + quotientText(N.rest, D.rest));

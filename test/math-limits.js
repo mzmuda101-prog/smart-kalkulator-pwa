@@ -695,5 +695,14 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     ok('2a-2 S27: 4/(2√2) = √2 przed 1/√n', m('lim n→∞ (sqrt(2n+5)-sqrt(2n+1))').includes('1/√n · 4/(2√2) = 1/√n · 2/√2') && m('lim n→∞ (sqrt(2n+5)-sqrt(2n+1))').endsWith('= √2 · 1/√n → 0'), m('lim n→∞ (sqrt(2n+5)-sqrt(2n+1))'));
 }
 
+// ── partia 2a-2, zadanie 3: spod pierwiastka (S14, S6) ──
+{
+    const at = (q, re) => S.run(q).explain.steps.find(x => re.test(x.label)) || {};
+    ok('2a-2 S14: √(4n² + 3) = √(n²(4 + 3/n²)) = n√(4 + 3/n²)', at('lim n→∞ (4n+1)/(3n+sqrt(4n^2+3)+5)', /^Wyciągamy n spod pierwiastka$/).math === '√(4n² + 3) = √(n²(4 + 3/n²)) = n√(4 + 3/n²)', at('lim n→∞ (4n+1)/(3n+sqrt(4n^2+3)+5)', /^Wyciągamy/));
+    ok('2a-2 S14: n√n · √(9 + 7/n³)', (at('lim n→∞ (sqrt(9n^3+7)+2n+3sqrt(n)+1)/(n sqrt(n)+5n+6sqrt(n)+3)', /^Wyciągamy/).math || '').endsWith('= n√n · √(9 + 7/n³)'));
+    const m = at('lim n→∞ n(sqrt(4n^2+7)-sqrt(4n^2+2))', /dążą do 0$/).math || '';
+    ok('2a-2 S6: √2√2 = 2 policzone przed 5/4', m.includes('√2√2') && m.includes('5/(2 + 2) = 5/4'), m);
+}
+
 console.log(`math-limits: ${pass} OK, ${fail} błędów`);
 process.exit(fail ? 1 : 0);

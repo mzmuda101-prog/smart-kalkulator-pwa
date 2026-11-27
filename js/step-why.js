@@ -95,6 +95,7 @@
             if (id === 'roznica-szescianow' || id === 'roznica-czwartych') return (id === 'roznica-szescianow' ? 'Tu stoją pierwiastki $\\sqrt[3]{\\ }$. ' : 'Tu stoją pierwiastki $\\sqrt[4]{\\ }$. ') + SAME;
             return c.atInf ? SPRZ_INF : SPRZ_NUM;
         }],
+        [/^Wyciągamy \w spod pierwiastka$/, 'Pod pierwiastkiem wyłączam najwyższą potęgę zmiennej, a jej pierwiastek wychodzi przed znak pierwiastka.'],
         [/^Redukujemy wyrazy podobne$/, 'Pierwiastek podniesiony do swojej potęgi znika, więc w liczniku zostaje zwykłe odejmowanie.'],
         [/^Wstawiamy do granicy$/, 'Zamiast różnicy z pierwiastkami wpisuję ułamek z poprzedniego kroku. Wartość jest ta sama.'],
         [/^Dzielimy przez ułamek$/, 'Ułamek stoi w mianowniku, więc odwracam go i mnożę. Tak łatwiej zobaczyć, co się skraca.'],
@@ -139,7 +140,7 @@
         [/^Reguła de l'Hospitala$/, (_s, _t, c) => c.prev && /^Reguła de l'Hospitala$/.test(c.prev.label)
             ? 'Po pierwszym razie znowu wychodzi symbol nieoznaczony, więc stosujemy regułę drugi raz.'
             // [EN] zdanie „da się już policzyć” tylko wtedy, gdy następny krok to podstawienie
-            : c.next && /^(Wyłączamy|Dla \w → )/.test(c.next.label) ? 'Po regule znowu wychodzi $\\frac{\\infty}{\\infty}$, więc dalej liczymy jak przy granicy w nieskończoności: wyłączamy najwyższą potęgę.'
+            : c.next && /^(Wyłączamy|Wyciągamy|Dla \w → )/.test(c.next.label) ? 'Po regule znowu wychodzi $\\frac{\\infty}{\\infty}$, więc dalej liczymy jak przy granicy w nieskończoności: wyłączamy najwyższą potęgę.'
             : c.next && !/^(Podstawiamy|Wynik)/.test(c.next.label) ? 'Po pochodnych ułamek nadal daje symbol nieoznaczony, więc przekształcamy go dalej.'
             : 'Pochodne licznika i mianownika są prostsze od nich samych i ich ułamek da się już policzyć.'],
         [/^Sprowadzamy do wspólnego mianownika$/, 'Ułamki można dodać albo odjąć dopiero wtedy, gdy mają ten sam mianownik.'],
