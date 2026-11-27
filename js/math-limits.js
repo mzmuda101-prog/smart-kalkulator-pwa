@@ -743,6 +743,27 @@
         sumE.forEach(function (t) { top = C.cAdd(top, C.expandExpr(C.cMul([t], D))); });
         return { top: top, D: D };
     }
+    // [EN] (n² + 5)(4n + 5) − (2n² + 1)(2n + 1) nad wspólnym mianownikiem, potem wymnożone, potem zredukowane (S7)
+    function combineText(sumE, cb, v) {
+        var parts = [];
+        try {
+            sumE.forEach(function (t) {
+                var up = t.fs.filter(function (f) { return !(f.e.n < 0n && atomHasVar(f.b, v)); });
+                var dn = t.fs.filter(function (f) { return f.e.n < 0n && atomHasVar(f.b, v); });
+                var minus = t.c.n < 0n, num = [C.term(minus ? K.neg(t.c) : t.c, up)];
+                var den = C.num(ONE);
+                dn.forEach(function (f) { den = C.cMul(den, C.cPow(C.atomExpr(f.b), K.neg(f.e))); });
+                var mult = fold(C.cMul(cb.D, C.cPow(den, K.neg(ONE))));
+                var prod = (C.isNumber(num) && K.eq(C.numberOf(num), ONE)) ? grp(mult) : isOne(mult) ? grp(num) : grp(num) + grp(mult);
+                parts.push({ minus: minus, prod: prod, ex: fold(C.expandExpr(C.cMul(num, mult))) });
+            });
+        } catch (x) { return C.paren(cb.top) + '/' + grp(cb.D); }
+        var join = function (f) { return parts.map(function (q, i) { return (i ? (q.minus ? ' − ' : ' + ') : (q.minus ? '−' : '')) + f(q, i); }).join(''); };
+        var dText = grp(cb.D), rows = ['(' + join(function (q) { return q.prod; }) + ')/' + dText];
+        rows.push('(' + join(function (q, i) { return i && (q.minus || q.ex.length > 1) ? '(' + C.show(q.ex) + ')' : C.show(q.ex); }) + ')/' + dText);
+        rows.push(C.paren(cb.top) + '/' + dText);
+        return rows.filter(function (r, i) { return !i || bare(r) !== bare(rows[i - 1]); }).join(' = ');
+    }
     var _curVar = 'x';
     var commonDenominator = {
         name: 'commonDenominator',
@@ -757,7 +778,7 @@
             if (hasFracTerm(e, v)) {
                 var cb = combine(e);
                 out = C.cMul(cb.top, C.cPow(cb.D, K.neg(ONE)));
-                line(log, 'Sprowadzamy do wspólnego mianownika', limHead(v, t) + C.paren(cb.top) + '/' + grp(cb.D));
+                line(log, 'Sprowadzamy do wspólnego mianownika', C.show(e) + ' = ' + combineText(e, cb, v));
             } else {
                 var only = e[0], rest = C.num(only.c), shown = '';
                 only.fs.forEach(function (f) {

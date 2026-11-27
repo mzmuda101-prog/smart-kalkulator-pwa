@@ -704,5 +704,12 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     ok('2a-2 S6: √2√2 = 2 policzone przed 5/4', m.includes('√2√2') && m.includes('5/(2 + 2) = 5/4'), m);
 }
 
+// ── partia 2a-2, zadanie 4: wspólny mianownik (S7) ──
+{
+    const st = S.run('lim n→∞ ((n^2+5)/(2n+1)-(2n^2+1)/(4n+5))').explain.steps.find(x => x.label === 'Sprowadzamy do wspólnego mianownika') || {};
+    ok('2a-2 S7: iloczyny, wymnożenie i redukcja jako linie', (st.math || '').includes('= ((n² + 5)(4n + 5) − (2n² + 1)(2n + 1))/')
+        && st.math.includes('(4n³ + 5n² + 20n + 25 − (4n³ + 2n² + 2n + 1))/') && st.math.endsWith('= (3n² + 18n + 24)/((2n + 1) · (4n + 5))'), st.math);
+}
+
 console.log(`math-limits: ${pass} OK, ${fail} błędów`);
 process.exit(fail ? 1 : 0);
