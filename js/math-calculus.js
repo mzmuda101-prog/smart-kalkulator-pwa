@@ -20,6 +20,17 @@
 
     // ── Budowanie wyrażeń ────────────────────────────────────
     function term(c, fs) { return { c: c, fs: fs }; }
+    // [EN] liczba z wykładnikiem całkowitym (√3 · √3 = 3¹) wraca do współczynnika; inaczej show() pisze ją jako √3
+    function absorbNums(t) {
+        if (!t.fs.some(function (f) { return f.b.k === 'num' && isInt(f.e); })) return t;
+        var c = t.c, fs = [];
+        t.fs.forEach(function (f) {
+            if (f.b.k !== 'num' || !isInt(f.e)) { fs.push(f); return; }
+            var p = powR(f.b.v, Number(f.e.n < 0n ? -f.e.n : f.e.n));
+            c = f.e.n < 0n ? div(c, p) : mul(c, p);
+        });
+        return term(c, fs);
+    }
     function num(r) { return isZero(r) ? [] : [term(r, [])]; }
     function atomExpr(b, e) { return [term(ONE, [{ b: b, e: e || ONE }])]; }
     function variable(v) { return atomExpr({ k: 'var', v: v }); }
@@ -52,7 +63,7 @@
     }
     function cNeg(a) { return a.map(function (t) { return term(neg(t.c), t.fs); }); }
     function cSub(a, b) { return cAdd(a, cNeg(b)); }
-    function mulTerm(x, y) { return term(mul(x.c, y.c), normFactors(x.fs.concat(y.fs))); }
+    function mulTerm(x, y) { return absorbNums(term(mul(x.c, y.c), normFactors(x.fs.concat(y.fs)))); }
     function cMul(a, b) {
         if (!a.length || !b.length) return [];
         if (a.length === 1 && !a[0].fs.length) return b.map(function (t) { return term(mul(a[0].c, t.c), t.fs); });
@@ -81,12 +92,12 @@
             if (root) c = powR(root, Number(r.n));
             else extra.push({ b: { k: 'num', v: t.c }, e: r });
         }
-        return [term(c, normFactors(extra.concat(t.fs.map(function (f) {
+        return [absorbNums(term(c, normFactors(extra.concat(t.fs.map(function (f) {
             var ne = mul(f.e, r);
             // [EN] (x²)^(1/2) = |x|, nie x: parzysta potęga pod parzystym pierwiastkiem traci znak — nie upraszczamy
             if (f.b.k !== 'num' && f.b.k !== 'const' && f.e.n % 2n === 0n && ne.n % 2n !== 0n) throw new NotSupported();
             return { b: f.b, e: ne };
-        }))))];
+        })))))];
     }
     function isNumber(e) { return !e.length || (e.length === 1 && !e[0].fs.length); }
     function numberOf(e) { return e.length ? e[0].c : ZERO; }
@@ -431,18 +442,21 @@
             // [EN] licznik wymnożony, ale jeszcze nie zredukowany: (2x² − 2x − x² − 1), potem wynik
             var left = expandExpr(cMul(dt, bottom)), right = sortedTerms(expandExpr(cMul(top, db)));
             var opened = '(' + show(left) + right.map(function (t) { return (t.c.n < 0n ? ' + ' : ' − ') + showTerm(t); }).join('') + ')/' + grpT(bottom) + '²';
-            var done = show(cMul(constant, res));
+            var done = show(res);
             line(log, 'Wstawiam do wzoru', U + '′ = ' + show(dt) + ',  ' + V + '′ = ' + show(db) + '\n(' + U + '′ · ' + V + ' − ' + U + ' · ' + V + '′)/' + V + '² = ⟦(' + grpT(dt) + ' · ' + grpT(bottom) + ' − ' + grpT(top) + ' · ' + grpT(db) + ')/' + grpT(bottom) + '²⟧'
                 + (opened !== done ? ' = ' + opened : '') + ' = ' + done, 'pochodna-ilorazu', U + ' = ' + showInner(top) + ', ' + V + ' = ' + showInner(bottom));
+            if (!one) line(log, 'Mnożę przez stałą', paren(constant) + ' · ' + grpT(res) + ' = ' + show(cMul(constant, res)));
             return cMul(constant, res);
         } else {
             var head = [term(ONE, [moving[0]])], tail = [term(ONE, moving.slice(1))];
             line(log, 'Rozpoznaję iloczyn', U + ' = ' + showInner(head) + ',  ' + V + ' = ' + showInner(tail));
             var df = dPart(head, v, log, U), dg = dPart(tail, v, log, V);
             res = cAdd(cMul(df, tail), cMul(head, dg));
-            var put = grpT(df) + ' · ' + grpT(tail) + ' + ' + grpT(head) + ' · ' + grpT(dg); // [EN] kolejność jak we wzorze
+            var put = grpT(df) + ' · ' + grpN(tail) + ' + ' + grpT(head) + ' · ' + grpN(dg); // [EN] kolejność jak we wzorze; x · (−sin(x)), nie x · −sin(x)
             var out1 = cMul(constant, res);
-            line(log, 'Wstawiam do wzoru', U + '′ = ' + show(df) + ',  ' + V + '′ = ' + show(dg) + '\n' + U + '′ · ' + V + ' + ' + U + ' · ' + V + '′ = ⟦' + put + '⟧' + (sameText(show(out1), put) ? '' : ' = ' + show(out1)), 'pochodna-iloczynu', U + ' = ' + showInner(head) + ', ' + V + ' = ' + showInner(tail));
+            // [EN] stała przed iloczynem mnożona osobnym krokiem: −2 · (x · eˣ)′, nie „1 · eˣ + x · eˣ = −2x · eˣ − 2eˣ”
+            line(log, 'Wstawiam do wzoru', U + '′ = ' + show(df) + ',  ' + V + '′ = ' + show(dg) + '\n' + U + '′ · ' + V + ' + ' + U + ' · ' + V + '′ = ⟦' + put + '⟧' + (sameText(show(res), put) ? '' : ' = ' + show(res)), 'pochodna-iloczynu', U + ' = ' + showInner(head) + ', ' + V + ' = ' + showInner(tail));
+            if (!one) line(log, 'Mnożę przez stałą', paren(constant) + ' · ' + grpT(res) + ' = ' + show(out1));
             return out1;
         }
     }
@@ -897,7 +911,28 @@
         var steps = [{ label: 'Całka', math: d && d.from != null ? '∫(' + pi(d.from) + '→' + pi(d.to) + ') ' + (e.length > 1 ? '(' + show(e) + ')' : show(e)) + ' d' + v : integralText(e, v) }];
         var F = integ(e, v, 0, steps);
         if (!sameAsDerivative(F, e, v)) throw new NotSupported();
-        steps.push({ label: 'Sprawdzenie', math: '(' + show(F) + ')′ = ' + show(e) + ' ✓' });
+        // [EN] sprawdzenie z rachunkiem pochodnej (S5, S17): wiersze z silnika pochodnych, potem zgodność z funkcją pod całką
+        var rowsD = [], dl = [];
+        try {
+            var dF = dExpr(F, v, dl);
+            dl.forEach(function (st) {
+                st.math.split('\n').forEach(function (r) {
+                    r = r.replace(/[⟦⟧]/g, '');
+                    if (r.indexOf(' = ') < 0 && /\)′ [+−] /.test(r)) r = '(' + show(F) + ')′ = ' + r; // [EN] rozbicie na sumę pochodnych
+                    var sides = r.split(' = ');
+                    if (sides.length === 2 && sides[0] === sides[1]) return; // [EN] 2 · eˣ = 2 · eˣ nic nie mówi
+                    if (rowsD.indexOf(r) >= 0 || r.split(',  ').length > 1 && r.split(',  ').every(function (q) { return rowsD.indexOf(q) >= 0 || rowsD.some(function (x) { return x.indexOf(q.split(' = ')[0] + ' = ') === 0; }); })) return;
+                    rowsD.push(r);
+                });
+            });
+            if (F.length > 1 && rowsD.length) { // [EN] na końcu suma pochodnych składników, która się redukuje do funkcji spod całki
+                var partsD = sortedTerms(F).map(function (t) { return grpT(dTerm(t, v, null)); });
+                rowsD.push(partsD.map(function (x, i) { return !i ? x : x[0] === '−' ? ' − ' + x.slice(1) : ' + ' + x; }).join('') + ' = ' + show(dF));
+            }
+            if (rowsD.length && show(dF) !== show(e)) rowsD.push(show(dF) + ' = ' + show(e));
+        } catch (x) { rowsD = []; }
+        if (rowsD.length > 99) rowsD = []; // shortcut: bardzo długie sprawdzenie zostaje jednym wierszem, rozwinąć przy przeglądzie ucznia
+        steps.push({ label: 'Sprawdzenie', math: (rowsD.length ? rowsD.join('\n') + '\n' : '') + '(' + show(F) + ')′ = ' + show(e) + ' ✓' });
         if (d.from == null) {
             var text = show(F) + ' + C';
             steps.push({ label: 'Wynik', math: text });

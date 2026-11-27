@@ -144,6 +144,15 @@ pass += 2;
     // 3g: pochodne bez skoków (raport C): u i v, √x jako potęga, ostatnie mnożenie, licznik ilorazu krok po kroku
     // partia 2b, S34: wykładnik policzony osobno (x^(1/2 − 1)), potem ułamek
     ok('2b S34: (3/x²)′ = 3 · (1/x²)′ przed zamianą na potęgę', has('pochodna 3/x^2', 'Stała zostaje przed pochodną', '(3/x²)′ = 3 · (1/x²)′'), show('pochodna 3/x^2'));
+    // partia 2b, S5/S17: sprawdzenie całki z rachunkiem pochodnej; stała przed iloczynem osobno
+    { const ch = q => (st(q).find(x => x.label === 'Sprawdzenie') || {}).math || '';
+      ok('2b S17: x · eˣ − eˣ: iloczyn i suma w sprawdzeniu', ch('całka x*e^x').includes('u′ · v + u · v′ = 1 · e^x + x · e^x = x · e^x + e^x') && ch('całka x*e^x').includes('(x · e^x + e^x) − e^x = x · e^x'), ch('całka x*e^x'));
+      ok('2b S5: arctg(x/2)/2: pochodna złożona w sprawdzeniu', ch('całka 1/(x^2+4)').includes('u = x/2,  (arctg(u))′ = 1/(u² + 1)'), ch('całka 1/(x^2+4)'));
+      ok('2b S5: x√x: potęga 3/2 w sprawdzeniu', ch('całka √x').includes('(x^(3/2))′ = 3/2 · x^(3/2 − 1)'), ch('całka √x'));
+      ok('2b: −2x · eˣ: stała mnożona osobnym krokiem, bez fałszywej równości', has('pochodna -2x*e^x', 'Mnożę przez stałą', '−2 · (x · e^x + e^x) = −2x · e^x − 2 · e^x')
+          && !st('pochodna -2x*e^x').some(x => x.math.includes('x · e^x = −2x')), show('pochodna -2x*e^x')); }
+    // błąd zapisu: (√3)² trzymane jako czynnik 3¹ wypisywało się jako √3 (pochodna arctg(x/√3) pokazywała x²/√3)
+    ok('(x/√3)² zapisane jako x²/3', st('pochodna arctg(x/sqrt(3))').some(x => x.math.includes('3/(x² + 3) · (x/√3)′')) && !st('pochodna arctg(x/sqrt(3))').some(x => x.math.includes('x²/√3')), show('pochodna arctg(x/sqrt(3))'));
     ok('3g: √x zapisane jako potęga', has('pochodna √x', 'Liczę pochodną potęgi', '√x = x^(1/2)\n⟦(x^(1/2))′⟧ = 1/2 · x^(1/2 − 1) = 1/2 · x^(−1/2) = 1/2 · 1/x^(1/2) = 1/(2√x)'), show('pochodna √x'));
     ok('3g: 1/x zapisane jako potęga', has('pochodna 1/x', 'Liczę pochodną potęgi', '1/x = x^(−1)\n⟦(x^(−1))′⟧ = −1 · x^(−1 − 1) = −1 · x^(−2) = −1 · 1/x² = −1/x²'), show('pochodna 1/x'));
     ok('3g: x³ bez zbędnej linii', has('pochodna x^3', 'Liczę pochodną potęgi', '⟦(x³)′⟧ = 3x²'), show('pochodna x^3'));

@@ -111,6 +111,8 @@ def to_expr(tex: str, var: Symbol, extra: dict) -> Expr:
          .replace(r"\operatorname{tg}", r"\tan").replace(r"\operatorname{ctg}", r"\cot")
          .replace(r"\operatorname{arctg}", r"\arctan").replace(r"\tg", r"\tan").replace(r"\ctg", r"\cot").replace(r"\arctg", r"\arctan"))
     t = re.sub(r"\\pi(?![a-z])", r" \\omega ", t)
+    # \sin x = sinus jednej litery (tak rysuje ekran): (\sin x)-(\cos x), bo lark czyta \sin(x)-\cos(x) dwojako
+    t = re.sub(r"\\(sin|cos|tan|cot|arctan|ln)\s*([a-zA-Z])(?![a-zA-Z{(^_])", r"(\\\1 \2)", t)
     t = re.sub(r"\\log(?!_)", r"\\log_{10}", t)  # w polskiej szkole „log” bez podstawy to log₁₀ (SymPy: ln)
     if t.startswith("[") and t.endswith("]"):
         raise Skip("symbol [ ]")  # [0/0], [∞/∞]: znacznik, nie wartość
