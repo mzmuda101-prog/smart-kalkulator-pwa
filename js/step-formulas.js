@@ -492,7 +492,7 @@
         },
         'wartosci-trygonometryczne': {
             name: 'Wartości funkcji trygonometrycznych z tablicy',
-            tex: '\\sin\\frac{\\pi}{6}=\\frac{1}{2},\\quad\\cos\\frac{\\pi}{3}=\\frac{1}{2},\\quad\\operatorname{tg}\\frac{\\pi}{4}=1',
+            tex: '\\sin\\frac{\\pi}{6}=\\frac{1}{2},\\quad\\sin\\frac{\\pi}{4}=\\cos\\frac{\\pi}{4}=\\frac{\\sqrt{2}}{2},\\quad\\cos\\frac{\\pi}{3}=\\frac{1}{2},\\quad\\operatorname{tg}\\frac{\\pi}{4}=1',
             why: 'Dla kątów $\\frac{\\pi}{6}$, $\\frac{\\pi}{4}$ i $\\frac{\\pi}{3}$ wartości sinusa, cosinusa i tangensa są dokładne i warto je znać. Równanie takie jak $\\sin x=\\frac{1}{2}$ zaczynamy od znalezienia takiego kąta.',
             level: 'Liceum, zakres podstawowy: trygonometria',
             more: [

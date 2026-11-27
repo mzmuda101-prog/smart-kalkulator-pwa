@@ -610,7 +610,9 @@
         var s = simplifiedRoot(delta);
         var p = div(minusB, twoA), q = div(s.q, twoA);
         var r1 = surdRoot(p, q, s.t, -1), r2 = surdRoot(p, q, s.t, 1);
-        steps.push({ label: 'Upraszczam pierwiastek z delty', math: '√Δ = √' + fmt(delta, ctx) + ' = ' + surdText(s.q, s.t) });
+        // [EN] skąd 2√2 (S41): największy kwadrat dzielący deltę, √8 = √(4 · 2) = √4 · √2 = 2√2
+        var sqMid = isInt(delta) && isInt(s.q) && s.q.n > 1n ? ' = √(' + (s.q.n * s.q.n) + ' · ' + s.t + ') = √' + (s.q.n * s.q.n) + ' · √' + s.t : '';
+        steps.push({ label: 'Upraszczam pierwiastek z delty', math: '√Δ = √' + fmt(delta, ctx) + sqMid + ' = ' + surdText(s.q, s.t) });
         steps.push({
             label: 'Liczę dwa rozwiązania', formula: { id: 'wzory-x12', here: abD },
             // [EN] podkreślone podstawienie do wzoru, potem wynik (nie sam gotowy wynik)
@@ -748,7 +750,11 @@
         }
         var series = function (f, scale, mark) { var b = div(f.b, scale), k = div(f.k, scale), kt = mark ? '⟦' + kText(k) + '⟧' : kText(k); return isZero(b) ? kt : piText(b) + ' + ' + kt; };
         var line = function (lhsT, scale, mark) { return fams.map(function (f) { return lhsT + ' = ' + series(f, scale, mark); }).join(' lub '); };
-        steps.push({ label: 'Zapisuję wszystkie rozwiązania', math: line(u, ONE, true) + '\nk ∈ ℤ', formula: { id: 'okresowosc' } }); // [EN] kolor na okresie
+        // [EN] skąd drugi kąt (S42): sin α = sin(π − α), cos α = cos(−α)
+        var second = fams.length === 2 && T.f === 'sin' ? 'π − ' + piText(alpha) + ' = ' + piText(fams[1].b) + '\n' : '';
+        var st2 = { label: 'Zapisuję wszystkie rozwiązania', math: second + line(u, ONE, true) + '\nk ∈ ℤ', formula: { id: 'okresowosc' } }; // [EN] kolor na okresie
+        if (fams.length === 2) st2.trig = T.f;
+        steps.push(st2);
         if (!eq(p, ONE)) steps.push({ label: 'Wyliczam ' + v, math: line(v, p) + '\nk ∈ ℤ' });
         fams.forEach(function (f) { // [EN] bezpiecznik: każda seria spełnia równanie dla kilku k
             for (var k = -2; k <= 2; k++) {
@@ -824,7 +830,21 @@
             steps.push({ label: 'Pierwiastek nie jest ujemny', math: '√(' + A + ') ≥ 0,  ' + B + ' < 0' });
             return listAnswer(v, [], steps, lhs, rhs);
         }
-        steps.push({ label: 'Wyznaczam dziedzinę', math: A + ' ≥ 0' + (hasVars(other) ? '\n' + B + ' ≥ 0' : '') });
+        // [EN] dziedzina rozwiązana do końca (S33): x + 3 ≥ 0 → x ≥ −3, x − 3 ≥ 0 → x ≥ 3, część wspólna D = ⟨3, +∞)
+        var domRows = [], lo = null, hi = null, domText = null;
+        try {
+            [root.a].concat(hasVars(other) ? [other] : []).forEach(function (n) {
+                var t = linearIn(n, v), pc = ZERO, qc = ZERO;
+                t.forEach(function (x) { if (Object.keys(x.e).length) pc = x.c; else qc = x.c; });
+                if (isZero(pc)) throw new NotSupported();
+                var edge = neg(div(qc, pc));
+                domRows.push(plain(n, ctx) + ' ≥ 0', v + (pc.n > 0n ? ' ≥ ' : ' ≤ ') + fmt(edge, ctx));
+                if (pc.n > 0n) { if (lo === null || toNum(edge) > toNum(lo)) lo = edge; } else if (hi === null || toNum(edge) < toNum(hi)) hi = edge;
+            });
+            domText = lo !== null && hi !== null && toNum(lo) > toNum(hi) ? '∅'
+                : (lo === null ? '(−∞' : '⟨' + fmt(lo, ctx)) + ', ' + (hi === null ? '+∞)' : fmt(hi, ctx) + '⟩');
+        } catch (e) { if (!(e instanceof NotSupported)) throw e; domText = null; }
+        steps.push({ label: 'Wyznaczam dziedzinę', math: domText ? domRows.join('\n') + '\nD = ' + domText : A + ' ≥ 0' + (hasVars(other) ? '\n' + B + ' ≥ 0' : '') });
         var sq = A + ' = ' + (hasVars(other) || evalExact(other, {}).n < 0n || !isInt(evalExact(other, {})) ? '(' + B + ')²' : B + '²');
         steps.push({ label: 'Podnoszę obie strony do kwadratu', math: sq.replace(/ = (.*)$/, ' = ⟦$1⟧'), formula: { id: 'rownanie-z-pierwiastkiem' } });
         var inn = innerSolve(sq.replace(/²/g, '^2'));
@@ -841,7 +861,7 @@
             var isGood = good.indexOf(s) >= 0, rv = evalNum(other, env), lv = evalNum(root, env), q = null;
             try { q = evalExact(parseTokens(tokenize(s.text.replace(/−/g, '-'), {})), {}); } catch (e) { if (!(e instanceof NotSupported)) throw e; }
             var put = function (n, val) { return q ? show(plugIn(n, v, q), ctx) + ' = ' + fmtApprox(val) : fmtApprox(val); };
-            return v + ' = ' + s.text + ':  ' + (isGood ? put(root, lv) + (hasVars(other) ? ',  ' + put(other, rv) : '') + ' ✓' : put(other, rv) + ' < 0');
+            return v + ' = ' + s.text + ':  ' + (isGood ? put(root, lv) + (hasVars(other) ? ',  ' + put(other, rv) : '') + ' ✓' : put(other, rv) + ' < 0' + (domText && domText !== '∅' ? ',  ' + v + ' = ' + s.text + ' ∉ D' : ''));
         });
         if (inn.sols.length) steps.push({ label: bad.length ? 'Odrzucam fałszywe rozwiązanie' : 'Sprawdzam rozwiązania', math: lines.join('\n') });
         return listAnswer(v, good, steps, lhs, rhs);
@@ -1175,6 +1195,26 @@
         var res = finishSolutions(sol, v, lhs, rhs, steps, ctx);
         return c.length === 3 ? withVieta(res, c, v, sol, ctx) : res;
     }
+    // [EN] „suma i iloczyn” z rachunkiem (S56): x₁ + x₂ = −b/a, x₁ · x₂ = c/a (a = 1), potem pary dzielników aż do pasującej;
+    // fallback = stary wiersz z gotową parą, gdy pary nie da się wypisać
+    function vietaMath(bCoef, sum, prod, v, ctx, fallback) {
+        var bTxt = bCoef.n < 0n ? '−(' + fmt(bCoef, ctx) + ')' : '−' + fmt(bCoef, ctx);
+        var num = function (z) { return z < 0n ? '−' + (-z) : String(z); }, par = function (z) { return z < 0n ? '(' + num(z) + ')' : String(z); };
+        var tries = [], P = prod.n < 0n ? -prod.n : prod.n, found = false;
+        if (isInt(sum) && isInt(prod)) {
+            for (var dd = 1n; dd * dd <= P && !found && tries.length < 8; dd++) {
+                if (P % dd) continue;
+                var pairs = prod.n > 0n ? (sum.n > 0n ? [[dd, P / dd]] : [[-dd, -(P / dd)]]) : [[dd, -(P / dd)], [-dd, P / dd]];
+                for (var k = 0; k < pairs.length && !found; k++) {
+                    var x1 = pairs[k][0], x2 = pairs[k][1], sm = x1 + x2;
+                    found = sm === sum.n;
+                    tries.push(num(x1) + ' · ' + par(x2) + ' = ' + fmt(prod, ctx) + ', ' + num(x1) + ' + ' + par(x2) + ' = ' + num(sm) + (found ? '' : ' ≠ ' + fmt(sum, ctx)));
+                }
+            }
+        }
+        return '⟦' + v + '₁ + ' + v + '₂⟧ = −b/a = ' + bTxt + '/1 = ' + fmt(sum, ctx) + ', ⟦' + v + '₁ · ' + v + '₂⟧ = c/a = ' + fmt(prod, ctx) + '/1 = ' + fmt(prod, ctx)
+            + '\n' + (found ? tries.join('\n') : fallback);
+    }
     // [EN] drugi sposób dla x² + bx + c = 0 z całkowitymi różnymi pierwiastkami: „suma i iloczyn” (wzory Viète'a)
     function withVieta(res, c, v, sol, ctx) {
         var main = res && res.explain && res.explain.steps;
@@ -1189,7 +1229,7 @@
         var lin = function (x) { return v + (x.n < 0n ? ' + ' + fmt(neg(x), ctx) : ' − ' + fmt(x, ctx)); };
         var vieta = [
             { label: 'Szukam dwóch liczb o sumie ' + fmt(sum, ctx) + ' i iloczynie ' + fmt(prod, ctx),
-                math: '⟦' + v + '₁ + ' + v + '₂⟧ = ' + fmt(sum, ctx) + ', ⟦' + v + '₁ · ' + v + '₂⟧ = ' + fmt(prod, ctx) + '\n' + A + ' + ' + B + ' = ' + fmt(sum, ctx) + ', ' + A + ' · ' + B + ' = ' + fmt(prod, ctx),
+                math: vietaMath(c[1], sum, prod, v, ctx, A + ' + ' + B + ' = ' + fmt(sum, ctx) + ', ' + A + ' · ' + B + ' = ' + fmt(prod, ctx)),
                 formula: { id: 'wzory-viete', here: 'a = 1, b = ' + fmt(c[1], ctx) + ', c = ' + fmt(c[0], ctx) } },
             { label: 'Zapisuję postać iloczynową', math: polyText(c, v, ctx) + ' = ⟦(' + lin(rs[0]) + ')(' + lin(rs[1]) + ')⟧', formula: { id: 'postac-iloczynowa' } },
             { label: 'Przyrównuję każdy czynnik do zera', math: lin(rs[0]) + ' = 0 lub ' + lin(rs[1]) + ' = 0\n' + v + ' = ' + fmt(rs[0], ctx) + ' lub ' + v + ' = ' + fmt(rs[1], ctx) }
@@ -1739,8 +1779,7 @@
                 return {
                     steps: [
                         { label: 'Szukam dwóch liczb o sumie ' + fmt(S1, ctx) + ' i iloczynie ' + fmt(c0, ctx),
-                            math: '⟦' + sub1 + ' + ' + sub2 + '⟧ = ' + fmt(S1, ctx) + ', ⟦' + sub1 + ' · ' + sub2 + '⟧ = ' + fmt(c0, ctx) + '\n'
-                                + fmt(r1, ctx) + ' + ' + sfNum(r2, ctx) + ' = ' + fmt(S1, ctx) + ', ' + fmt(r1, ctx) + ' · ' + sfNum(r2, ctx) + ' = ' + fmt(c0, ctx),
+                            math: vietaMath(b, S1, c0, v, ctx, fmt(r1, ctx) + ' + ' + sfNum(r2, ctx) + ' = ' + fmt(S1, ctx) + ', ' + fmt(r1, ctx) + ' · ' + sfNum(r2, ctx) + ' = ' + fmt(c0, ctx)),
                             formula: { id: 'wzory-viete', here: 'a = 1, b = ' + fmt(b, ctx) + ', c = ' + fmt(c0, ctx) } },
                         { label: 'Zapisuję postać iloczynową', math: P + ' = ⟦' + fac + '⟧', formula: { id: 'postac-iloczynowa' } }
                     ],
@@ -2120,7 +2159,7 @@
                     var plain = '√' + r.n.toString();
                     steps.push({
                         label: 'Wyciągam kwadrat spod pierwiastka',
-                        math: (n.a.k === 'num' ? '' : show(n, ctx) + ' = ') + plain + ' = √(' + (s * s).toString() + '·' + sr.t.toString() + ') = ' + sText(res)
+                        math: (n.a.k === 'num' ? '' : show(n, ctx) + ' = ') + plain + ' = √(' + (s * s).toString() + ' · ' + sr.t.toString() + ') = √' + (s * s).toString() + ' · √' + sr.t.toString() + ' = ' + sText(res)
                     });
                 }
                 return res;

@@ -234,7 +234,9 @@
         [/^(Sinus|Cosinus) przyjmuje wartości od −1 do 1$/, 'Ta liczba leży poza przedziałem od −1 do 1, więc żaden kąt jej nie daje.'],
         [/^Odczytuję kąt z tablicy$/, 'Szukam kąta, dla którego funkcja daje tę wartość. Takie kąty warto znać na pamięć.'],
         [/^Zapisuję wszystkie rozwiązania$/, (s) => / lub /.test(s.math)
-            ? 'Wykres powtarza się co $2\\pi$, a w każdym okresie ta wartość pojawia się dwa razy.'
+            ? (s.trig === 'sin' ? 'Sinus ma tę samą wartość dla kąta $\\alpha$ i $\\pi-\\alpha$, a potem powtarza się co $2\\pi$. Litera $k$ to dowolna liczba całkowita.'
+                : s.trig === 'cos' ? 'Cosinus ma tę samą wartość dla kąta $\\alpha$ i $-\\alpha$, a potem powtarza się co $2\\pi$. Litera $k$ to dowolna liczba całkowita.'
+                : 'Wykres powtarza się co $2\\pi$, a w każdym okresie ta wartość pojawia się dwa razy.')
             : /[+=] ⟦?kπ/.test(s.math) ? 'Ta wartość powtarza się co $\\pi$, więc do kąta dodaję dowolną wielokrotność $\\pi$.'
                 : 'Wykres powtarza się co $2\\pi$, więc do kąta dodaję dowolną wielokrotność $2\\pi$.'],
         [/^Wyliczam \w$/, 'Dzielę każdą serię przez liczbę przy niewiadomej; okres też się dzieli.'],
@@ -260,7 +262,7 @@
         [/^Mnożę obie strony przez /, (s) => /przez .*[a-z(]/.test(s.label)
             ? 'Po pomnożeniu niewiadoma wychodzi z dołu ułamka, a liczby spoza dziedziny odrzucę na końcu.'
             : 'Mnożę przez odwrotność liczby stojącej przy niewiadomej, żeby niewiadoma została sama.'],
-        [/^Wyznaczam dziedzinę$/, (s) => / ≥ 0/.test(s.math) ? 'Pierwiastek kwadratowy liczymy tylko z liczb nieujemnych i sam nie jest ujemny.'
+        [/^Wyznaczam dziedzinę$/, (s) => / ≥ 0/.test(s.math) ? ((s.math.match(/ ≥ 0/g) || []).length > 1 ? 'Pod pierwiastkiem i po drugiej stronie nie może być liczby ujemnej. Oba warunki muszą zachodzić naraz, więc biorę ich część wspólną.' : 'Pierwiastek kwadratowy liczymy tylko z liczb nieujemnych i sam nie jest ujemny.')
             : / > 0/.test(s.math) ? 'Logarytm istnieje tylko dla liczb dodatnich, więc argument musi być większy od zera.'
             : 'Przez zero dzielić nie wolno, więc wykluczam liczby, które zerują mianownik.'],
         [/^Zapisuję obie strony jako potęgi /, (s) => /= 1\//.test(s.math) ? 'Chcę tę samą podstawę po obu stronach. Ułamek z jedynką w liczniku to potęga z minusem: $\\frac{1}{a^{n}}=a^{-n}$.'

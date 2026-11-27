@@ -282,6 +282,12 @@ pass += 3;
     ok('4d: 3^(x+1) = 27', T('rozwiąż 3^(x+1) = 27') === 'x = 2' && has('rozwiąż 3^(x+1) = 27', 'Porównuję wykładniki', '⟦x + 1⟧ = ⟦3⟧'), st('rozwiąż 3^(x+1) = 27'));
     ok('4d: 4^x = 2^(x+3) — wspólna podstawa 2', T('rozwiąż 4^x = 2^(x+3)') === 'x = 3' && has('rozwiąż 4^x = 2^(x+3)', 'Zapisuję obie strony jako potęgi 2', '(2²)^x = 2^(x + 3)\n2^(2x) = 2^(x + 3)'), st('rozwiąż 4^x = 2^(x+3)'));
     ok('4d: 2^x = 1/8 — ujemny wykładnik', T('rozwiąż 2^x = 1/8') === 'x = −3', T('rozwiąż 2^x = 1/8'));
+    ok('2c S42: drugi kąt sinusa π − π/6 = 5π/6', st('rozwiąż sin(x) = 1/2').some(x => x.label === 'Zapisuję wszystkie rozwiązania' && x.math.startsWith('π − π/6 = 5π/6\n')), st('rozwiąż sin(x) = 1/2'));
+    ok('2c S33: dziedzina do końca i odrzucenie przez D', st('rozwiąż √(x+3) = x - 3').some(x => x.label === 'Wyznaczam dziedzinę' && x.math === 'x + 3 ≥ 0\nx ≥ −3\nx − 3 ≥ 0\nx ≥ 3\nD = ⟨3, +∞)')
+        && st('rozwiąż √(x+3) = x - 3').some(x => /x = 1 ∉ D/.test(x.math)), st('rozwiąż √(x+3) = x - 3'));
+    ok('2c S41: √8 = √(4 · 2) = √4 · √2 = 2√2', has('rozwiąż x^2 - 2x - 1 = 0', 'Upraszczam pierwiastek z delty', '√Δ = √8 = √(4 · 2) = √4 · √2 = 2√2'), st('rozwiąż x^2 - 2x - 1 = 0'));
+    { const m = (S.run('rozwiąż x^2-5x+6=0').explain.methods || []).find(x => x.label === 'Suma i iloczyn'), v = m && m.steps.find(x => /^Szukam dwóch liczb/.test(x.label));
+      ok('2c S56: −b/a i sprawdzane pary', !!v && v.math === '⟦x₁ + x₂⟧ = −b/a = −(−5)/1 = 5, ⟦x₁ · x₂⟧ = c/a = 6/1 = 6\n1 · 6 = 6, 1 + 6 = 7 ≠ 5\n2 · 3 = 6, 2 + 3 = 5', v); }
     ok('2c S35: 1/8 = 1/2³ = 2^(−3) jako linia', has('rozwiąż 2^x = 1/8', 'Zapisuję obie strony jako potęgi 2', '1/8 = 1/2³ = 2^(−3)\n2^x = 2^(−3)'), st('rozwiąż 2^x = 1/8'));
     ok('2c S57: log bez podstawy to log₁₀', st('rozwiąż log(x) = 2').some(x => x.label === 'Korzystam z definicji logarytmu' && x.math.startsWith('log(x) = log₁₀(x)\n')), st('rozwiąż log(x) = 2'));
     ok('4d: 2^x = 5 — logarytm', T('rozwiąż 2^x = 5') === 'x = log₂(5) ≈ 2,32193' && st('rozwiąż 2^x = 5').some(x => x.label === 'Zapisuję wykładnik jako logarytm'), [T('rozwiąż 2^x = 5'), st('rozwiąż 2^x = 5')]);
