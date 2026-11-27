@@ -726,5 +726,16 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
         && st.some(x => x.label === 'Wyłączam liczbę ujemną przed nawias' && x.math.includes('−2(n⁴ − √(n⁸ − n⁶))')) && !st.some(x => x.label === 'Upraszczamy'), st.map(x => x.label));
 }
 
+// ── partia 2a-2, zadanie 7: pierwiastki 3. i 4. stopnia (S3, S24) ──
+{
+    const st = q => S.run(q).explain.steps;
+    const c4 = st('lim x→1 (∜(x+15)-2)/(x-1)').find(x => x.label === 'Mnożymy przez sprzężenie') || {};
+    ok('2a-2 S24: a, b i składniki nawiasu nazwane, dymek z a i b', (c4.math || '').startsWith('a = ∜(x + 15),  b = 2\na³ = (x + 15)^(3/4),  a²b = 2√(x + 15),  ab² = 4∜(x + 15),  b³ = 8')
+        && !!c4.formula && c4.formula.here === 'a = ∜(x + 15), b = 2', c4);
+    ok('2a-2 S24: skrócenie (x − 1) nazwane', st('lim x→1 (∜(x+15)-2)/(x-1)').some(x => x.label === 'Skracamy (x − 1)'));
+    const last = (st('lim n→∞ (∛(8n^3+5n^2)-∛(8n^3-4n^2))').filter(x => /dążą do 0$/.test(x.label)).pop() || {}).math || '';
+    ok('2a-2 S3: ∛4∛16 = ∛64 i 4^(2/3) · 2^(2/3) = 8^(2/3) policzone', last.includes('= 9/(4 + ∛64 + 8^(2/3)) = 9/(4 + 4 + 4) = 9/12 = 3/4'), last);
+}
+
 console.log(`math-limits: ${pass} OK, ${fail} błędów`);
 process.exit(fail ? 1 : 0);

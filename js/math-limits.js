@@ -460,6 +460,17 @@
                 if (bare(out[out.length - 1]) !== bare(s)) out.push(s);
             });
         } catch (x) { /* [EN] nie umiemy wypisać — zostaje sam wynik */ }
+        // [EN] ∛4∛16 = ∛64, 4^(2/3) · 2^(2/3) = 8^(2/3): jeden pierwiastek, który da się policzyć (S3)
+        var merged = out[out.length - 1].replace(/([∛∜])(\d+)\1(\d+)(?!\d)/g, function (_m, r, a, b) { return r + (Number(a) * Number(b)); })
+            .replace(/(\d+)\^\((\d+\/\d+)\) · (\d+)\^\(\2\)/g, function (_m, a, e, b) { return (Number(a) * Number(b)) + '^(' + e + ')'; });
+        if (merged !== out[out.length - 1]) {
+            out.push(merged);
+            try {
+                var mAst = plugValues(K.parse(merged)), mv = astText(mAst), ms = astText(plugSums(mAst));
+                if (bare(mv) !== bare(merged)) out.push(mv);
+                if (bare(ms) !== bare(out[out.length - 1])) out.push(ms);
+            } catch (x) { /* zostaje */ }
+        }
         var sq = out[out.length - 1].replace(/√(\d+)√\1(?!\d)/g, '$1'); // [EN] √2√2 = 2 (S6: liczba wyciągnięta spod pierwiastka wraca)
         if (sq !== out[out.length - 1]) { out.push(sq); try { var c2 = plugSums(plugValues(K.parse(sq))), s2 = astText(c2); if (bare(s2) !== bare(sq)) out.push(s2); } catch (x) { /* zostaje */ } }
         var twice = out[out.length - 1].replace(/√(\d+) \+ √\1(?!\d)/g, '2√$1'); // [EN] √2 + √2 = 2√2
@@ -921,7 +932,14 @@
             var shownB = function (x) { return x.length > 1 || (x[0] && x[0].c.n < 0n) ? '(' + C.show(x) + ')' : C.show(x); };
             var raw = C.showInner(Ak) + ' − ' + shownB(Bk), dText = C.show(hit.D);
             // [EN] linia środkowa (a − b)(a + b)/(a + b): widać, skąd nowy mianownik (S12)
-            line(log, 'Mnożymy przez sprzężenie', dText + ' = ' + (k === 2 ? '(' + dText + ')' + grp(S) + '/' + grp(S) + ' = ' : '') + '(⟦' + raw + '⟧)/' + grp(S), CONJ_FORMULA[k]);
+            if (k === 2) line(log, 'Mnożymy przez sprzężenie', dText + ' = (' + dText + ')' + grp(S) + '/' + grp(S) + ' = (⟦' + raw + '⟧)/' + grp(S), CONJ_FORMULA[k]);
+            else { // [EN] a, b i składniki długiego nawiasu nazwane (S24): a² + ab + b² dla ∛, a³ + a²b + ab² + b³ dla ∜
+                var aT = C.show(pair.A), bT = C.show(pair.B), names = k === 3 ? ['a²', 'ab', 'b²'] : ['a³', 'a²b', 'ab²', 'b³'];
+                var vals = [];
+                for (var j = 0; j < k; j++) vals.push(names[j] + ' = ' + C.show(fold(C.cMul(C.cPow(pair.A, K.R(k - 1 - j)), C.cPow(pair.B, K.R(j))))));
+                log && log.push({ label: 'Mnożymy przez sprzężenie', math: 'a = ' + aT + ',  b = ' + bT + '\n' + vals.join(',  ') + '\n' + dText + ' = (⟦' + raw + '⟧)/' + grp(S),
+                    formula: { id: CONJ_FORMULA[k], here: 'a = ' + aT + ', b = ' + bT } });
+            }
             var topText = C.show(top);
             if (topText !== raw) { // [EN] licznik osobno: 2n + 5 − (2n + 1) = 4, (x + 1)² rozpisane
                 var eA = fold(C.expandExpr(Ak)), eB = fold(C.expandExpr(Bk)), mid = C.showInner(eA) + ' − ' + shownB(eB);
@@ -948,7 +966,8 @@
             } else if (rest && !C.isNumber(rest) || (rest && !K.eq(C.numberOf(rest), ONE))) { // [EN] R · top/S, potem skrócone liczby (2/16 = 1/8)
                 var naive = C.show(rest) + ' · ' + (top.length > 1 ? '(' + topText + ')' : topText) + '/' + grp(S);
                 line(log, 'Wstawiamy do granicy', head + naive, CONJ_FORMULA[k]);
-                if (!sameButOrder(naive, outText)) line(log, isSum && outText.indexOf(topText) < 0 ? 'Upraszczamy' : 'Mnożymy ułamki', head + outText);
+                if (!sameButOrder(naive, outText)) line(log, isSum && outText.indexOf(topText) < 0
+                    ? (C.show(rest).indexOf(topText) >= 0 ? 'Skracamy (' + topText + ')' : 'Upraszczamy') : 'Mnożymy ułamki', head + outText);
             } else {
                 var naiveW = (top.length > 1 ? '(' + topText + ')' : topText) + '/' + grp(S);
                 if (!rest && !sameButOrder(naiveW, outText) && naiveW !== outText) { // [EN] 2√(…) − 2n⁴ → −2(n⁴ − √(…)): znak i liczba nazwane (S9)
