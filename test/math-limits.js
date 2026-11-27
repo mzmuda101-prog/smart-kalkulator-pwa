@@ -719,5 +719,12 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
         && rows.includes('n⁴ · n⁵ · n = n¹⁰') && rows.includes('n² · n⁹ = n¹¹'), rows);
 }
 
+// ── partia 2a-2, zadanie 6: trzy pierwiastki (S9) ──
+{
+    const st = S.run('lim n→∞ (sqrt(n^4+n^3)+sqrt(n^4-n^3)-2n^2)').explain.steps;
+    ok('2a-2 S9: (A + B)² rozpisane i −2 wyłączone nazwanym krokiem', st.some(x => x.label === 'Redukujemy wyrazy podobne w liczniku' && x.math.includes('= (n⁴ + n³) + 2√(n⁸ − n⁶) + (n⁴ − n³) − 4n⁴ = '))
+        && st.some(x => x.label === 'Wyłączam liczbę ujemną przed nawias' && x.math.includes('−2(n⁴ − √(n⁸ − n⁶))')) && !st.some(x => x.label === 'Upraszczamy'), st.map(x => x.label));
+}
+
 console.log(`math-limits: ${pass} OK, ${fail} błędów`);
 process.exit(fail ? 1 : 0);

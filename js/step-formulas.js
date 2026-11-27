@@ -1253,7 +1253,7 @@
         { re: /^(Upraszczam pierwiastek z delty|Wyciągam kwadrat spod pierwiastka|Wyłączam liczbę spod pierwiastka)$/, id: 'pierwiastek-iloczynu' },
         { re: /^Wciągam liczbę do nawiasu( w (liczniku|mianowniku))?$/, id: 'wciaganie-do-nawiasu' },
         { re: /^(Wyłączam liczbę przed nawias( i zmieniam znaki)?|Wyłączam liczbę ujemną przed nawias)$/, id: 'wylaczanie-przed-nawias' },
-        { re: /^(Wyłączam minus przed ułamek( i skracam)?|Zmieniam znak licznika i mianownika)$/, id: 'znak-ulamka' },
+        { re: /^(Wyłączam minus przed ułamek( i skracam)?|Zmieniam znak licznika i mianownika|Przenoszę minus do (mianownika|licznika))$/, id: 'znak-ulamka' },
         { re: /^Rozkładamy na czynniki$/, id: 'skladanie-rozkladu' },
         { re: /^Rozkładam mianownik$/, id: 'skladanie-rozkladu' },
         { re: /^Szukam pierwiastka wśród dzielników( w (liczniku|mianowniku))?$/, id: 'bezout' },

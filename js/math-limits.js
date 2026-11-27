@@ -940,16 +940,22 @@
             var plainRest = rest && rest.every(function (x) { return x.fs.every(function (f) { return f.e.n > 0n; }); });
             if (rest && !hit.up && plainRest) { // [EN] różnica była w mianowniku: R/(top/S) = R · S/top (S28)
                 var rText = C.show(rest);
-                line(log, 'Wstawiamy do granicy', head + rText + '/(' + (isSum ? '(' + topText + ')' : topText) + '/' + grp(S) + ')', CONJ_FORMULA[k]);
-                var flipped = (rText === '1' ? grp(S) : rText === '−1' ? '−' + grp(S) : rText + grp(S)) + '/' + (isSum ? '(' + topText + ')' : topText);
+                line(log, 'Wstawiamy do granicy', head + rText + '/(' + (top.length > 1 ? '(' + topText + ')' : topText) + '/' + grp(S) + ')', CONJ_FORMULA[k]);
+                var flipped = (rText === '1' ? grp(S) : rText === '−1' ? '−' + grp(S) : rText + grp(S)) + '/' + (top.length > 1 ? '(' + topText + ')' : topText);
                 line(log, 'Dzielimy przez ułamek', head + flipped, 'dzielenie-ulamkow');
                 if (!sameButOrder(flipped, outText) && flipped !== outText)
                     line(log, isSum && rText.indexOf(topText) >= 0 ? 'Skracamy (' + topText + ')' : rewriteLabel(flipped, outText, v), head + outText);
             } else if (rest && !C.isNumber(rest) || (rest && !K.eq(C.numberOf(rest), ONE))) { // [EN] R · top/S, potem skrócone liczby (2/16 = 1/8)
-                var naive = C.show(rest) + ' · ' + (isSum ? '(' + topText + ')' : topText) + '/' + grp(S);
+                var naive = C.show(rest) + ' · ' + (top.length > 1 ? '(' + topText + ')' : topText) + '/' + grp(S);
                 line(log, 'Wstawiamy do granicy', head + naive, CONJ_FORMULA[k]);
                 if (!sameButOrder(naive, outText)) line(log, isSum && outText.indexOf(topText) < 0 ? 'Upraszczamy' : 'Mnożymy ułamki', head + outText);
-            } else line(log, isSum && outText.indexOf(topText) < 0 ? 'Upraszczamy' : 'Wstawiamy do granicy', limOf(v, t, out), CONJ_FORMULA[k]);
+            } else {
+                var naiveW = (top.length > 1 ? '(' + topText + ')' : topText) + '/' + grp(S);
+                if (!rest && !sameButOrder(naiveW, outText) && naiveW !== outText) { // [EN] 2√(…) − 2n⁴ → −2(n⁴ − √(…)): znak i liczba nazwane (S9)
+                    line(log, 'Wstawiamy do granicy', head + naiveW, CONJ_FORMULA[k]);
+                    line(log, rewriteLabel(naiveW, outText, v), head + outText);
+                } else line(log, isSum && outText.indexOf(topText) < 0 ? 'Upraszczamy' : 'Wstawiamy do granicy', limOf(v, t, out), CONJ_FORMULA[k]);
+            }
             return limitOf(out, v, t, log, depth);
         }
     };
@@ -1532,6 +1538,7 @@
             if (factor) return minusOut ? 'Wyłączam liczbę ujemną przed nawias' : rn < 0 && rd < 0 ? 'Wyłączam liczbę przed nawias i zmieniam znaki' : 'Wyłączam liczbę przed nawias';
             if (minusOut) return cancel ? 'Wyłączam minus przed ułamek i skracam' : 'Wyłączam minus przed ułamek';
             if (!cancel && rn < 0 && rd < 0) return 'Zmieniam znak licznika i mianownika';
+            if (!cancel && a.minus && !b.minus && (rn < 0) !== (rd < 0)) return rd < 0 ? 'Przenoszę minus do mianownika' : 'Przenoszę minus do licznika';
         } catch (x) { /* [EN] nie da się sprawdzić — neutralna nazwa niżej */ }
         return 'Zapisuję to samo inaczej';
     }

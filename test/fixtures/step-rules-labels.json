@@ -85,9 +85,11 @@
     "Zastrzegam dziedzinę"
   ],
   "^(Wyłączam liczbę przed nawias( i zmieniam znaki)?|Wyłączam liczbę ujemną przed nawias)$ → wylaczanie-przed-nawias": [
-    "Wyłączam liczbę przed nawias"
+    "Wyłączam liczbę przed nawias",
+    "Wyłączam liczbę ujemną przed nawias"
   ],
-  "^(Wyłączam minus przed ułamek( i skracam)?|Zmieniam znak licznika i mianownika)$ → znak-ulamka": [
+  "^(Wyłączam minus przed ułamek( i skracam)?|Zmieniam znak licznika i mianownika|Przenoszę minus do (mianownika|licznika))$ → znak-ulamka": [
+    "Przenoszę minus do mianownika",
     "Wyłączam minus przed ułamek",
     "Zmieniam znak licznika i mianownika"
   ],

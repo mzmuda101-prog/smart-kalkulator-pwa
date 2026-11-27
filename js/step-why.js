@@ -73,6 +73,7 @@
         [/^Zmieniam znak licznika i mianownika$/, (_s, _t, c) => c.next && /sprzężenie/.test(c.next.label)
             ? 'Zmieniam znak na górze i na dole, bo zaraz pomnożę przez sprzężenie: $(a-b)(a+b)=a^{2}-b^{2}$. Dwa minusy się znoszą.'
             : 'Zmieniam znak na górze i na dole. Dwa minusy się znoszą, więc ułamek ma tę samą wartość.'],
+        [/^Przenoszę minus do (mianownika|licznika)$/, 'Minus sprzed ułamka chowam w jednej jego części, żeby dalej liczyć bez minusa z przodu.'],
         [/^Zapisuję to samo inaczej$/, 'Zapisuję ułamek w postaci, od której liczą kolejne kroki. Wartość się nie zmienia.'],
         [/^Podstawiamy \w → /, 'Zostały same ułamki ze zmienną na dole, więc od razu wstawiamy 0 za każdy z nich.'],
         [/^Podstawiamy /, (s) => /\//.test(s.math.replace(/^lim\([^)]*\)/, '')) ? 'W mianowniku nie wychodzi zero, więc wystarczy wstawić liczbę.'
