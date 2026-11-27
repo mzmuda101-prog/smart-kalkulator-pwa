@@ -948,7 +948,7 @@
         },
         'ulamki-proste': {
             name: 'Rozkład na ułamki proste',
-            tex: '\\frac{px+q}{(x-a)(x-b)}=\\frac{A}{x-a}+\\frac{B}{x-b}',
+            tex: '\\frac{px+q}{(x-a)(x-b)}=\\frac{A}{x-a}+\\frac{B}{x-b},\\qquad \\int\\frac{c}{x-a}\\,dx=c\\ln|x-a|',
             why: 'Ułamek z rozłożonym mianownikiem zapisujemy jako sumę prostych ułamków. Każdy prosty ułamek całkujemy osobno i daje logarytm. Liczby $A$ i $B$ wyznaczamy, wstawiając miejsca zerowe mianownika.',
             level: 'Liceum (rozszerzenie) i studia: całki',
             more: [
@@ -1263,7 +1263,7 @@
         { re: /^(Stała zostaje przed pochodną|Mnożę przez stałą)$/, id: 'liniowosc-pochodnej' },
         { re: /^(Stałą wyłączam przed całkę|Mnożę przez wyłączoną stałą|Całka sumy to suma całek|Całkuję każdą część)$/, id: 'liniowosc-calki' },
         { re: /^Całkuję stałą$/, id: 'calka-potegi' },
-        { re: /^(Zapisuję ułamki proste|Wyznaczam A i B|Rozkład na ułamki proste|Każdy ułamek daje logarytm)$/, id: 'ulamki-proste' },
+        { re: /^(Zapisuję ułamki proste|Wyznaczam A i B|Wstawiam A i B|Rozkład na ułamki proste|Każdy ułamek daje logarytm)$/, id: 'ulamki-proste' },
         { re: /^Dzielę licznik przez mianownik$/, id: 'dzielenie-z-reszta' },
         // [EN] tylko całki: te etykiety wypisuje wyłącznie js/math-calculus.js
         { re: /^(Podstawienie: [a-z] = .+|Wracam do zmiennej [a-z])$/, id: 'podstawienie-w-calce' },

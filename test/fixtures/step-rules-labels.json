@@ -119,9 +119,8 @@
     "Mnożę ułamek przez liczbę",
     "Zapisuję część jako ułamek"
   ],
-  "^(Zapisuję ułamki proste|Wyznaczam A i B|Rozkład na ułamki proste|Każdy ułamek daje logarytm)$ → ulamki-proste": [
-    "Każdy ułamek daje logarytm",
-    "Rozkład na ułamki proste",
+  "^(Zapisuję ułamki proste|Wyznaczam A i B|Wstawiam A i B|Rozkład na ułamki proste|Każdy ułamek daje logarytm)$ → ulamki-proste": [
+    "Wstawiam A i B",
     "Wyznaczam A i B",
     "Zapisuję ułamki proste"
   ],

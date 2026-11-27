@@ -176,10 +176,12 @@ pass += 2;
     ok('3h: tożsamość, potem każda część osobno', has('całka sin(x)^2', 'Całkuję każdą część', '∫ 1/2 dx = x/2\n∫ cos(2x)/2 dx = sin(2x)/4\n∫ sin²(x) dx = x/2 − sin(2x)/4'), show('całka sin(x)^2'));
     ok('3h: ułamki proste — A i B wyliczone', has('całka 1/(x^2-1)', 'Rozkładam mianownik', 'x² − 1 = (x + 1)(x − 1)')
         && has('całka 1/(x^2-1)', 'Zapisuję ułamki proste', '1/((x + 1)(x − 1)) = A/(x + 1) + B/(x − 1)\n1 = A(x − 1) + B(x + 1)')
-        && has('całka 1/(x^2-1)', 'Wyznaczam A i B', 'x = −1:  1 = −2A,  A = −1/2\nx = 1:  1 = 2B,  B = 1/2'), show('całka 1/(x^2-1)'));
+        && has('całka 1/(x^2-1)', 'Wyznaczam A i B', 'x = −1:  1 = A(−1 − 1) + B(−1 + 1) = −2A,  A = −1/2\nx = 1:  1 = A(1 − 1) + B(1 + 1) = 2B,  B = 1/2'), show('całka 1/(x^2-1)'));
     ok('3h: podstawienie — dx = dt/2', st('całka (2x+1)^3').some(x => x.math.startsWith('dt = 2 dx, więc dx = dt/2')), show('całka (2x+1)^3'));
     ok('3h: arctg w kształcie wzoru 1/a · arctg(x/a)', st('całka 1/(x^2+4)').some(x => x.math.includes('= ⟦1/2 · arctg(x/2)⟧ = arctg(x/2)/2')), show('całka 1/(x^2+4)'));
-    ok('3h: reszta z dzielenia w nawiasach', st('całka x^3/(x^2-1)').some(x => x.math.includes('reszta: x/(x² − 1)')), show('całka x^3/(x^2-1)'));
+    ok('2b S55: dzielenie pokazane: x³ = x · (x² − 1) + x', has('całka x^3/(x^2-1)', 'Dzielę licznik przez mianownik', 'x³ = x · (x² − 1) + x\nx³/(x² − 1) = x + x/(x² − 1)'), show('całka x^3/(x^2-1)'));
+    ok('2b S4: każdy ułamek osobno, kolejność z rozkładu', has('całka 1/(x^2-1)', 'Każdy ułamek daje logarytm', '∫ (−1/2)/(x + 1) dx = −ln|x + 1|/2\n∫ (1/2)/(x − 1) dx = ln|x − 1|/2'), show('całka 1/(x^2-1)'));
+    ok('2b S4: A i B wstawione zamiast powtórzonego „Rozkład na ułamki proste”', has('całka 1/(x^2-1)', 'Wstawiam A i B') && !has('całka 1/(x^2-1)', 'Rozkład na ułamki proste'), show('całka 1/(x^2-1)'));
     ok('3e2: etykiety bez wzorów', bad.length === 0, [...new Set(bad)]);
 }
 

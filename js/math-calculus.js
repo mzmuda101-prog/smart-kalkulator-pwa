@@ -776,7 +776,10 @@
         if (quotient.length) {
             for (var j = 0; j < quotient.length; j++) if (!quotient[j]) quotient[j] = ZERO;
             whole = polyExpr(quotient, v);
-            line(log, 'Dzielę licznik przez mianownik', 'całość: ' + show(whole) + '\nreszta: ' + paren(polyExpr(n, v)) + '/' + paren(polyExpr(q, v)));
+            // [EN] x³ = x · (x² − 1) + x, czyli x³/(x² − 1) = x + x/(x² − 1) (S55)
+            var restP = polyExpr(n, v), restT = restP.length ? (restP[0].c.n < 0n && restP.length === 1 ? ' − ' + show(cNeg(restP)) : ' + ' + show(restP)) : '';
+            line(log, 'Dzielę licznik przez mianownik', show(polyExpr(top, v)) + ' = ' + grpT(whole) + ' · ' + paren(polyExpr(q, v)) + restT
+                + '\n' + paren(polyExpr(top, v)) + '/' + paren(polyExpr(q, v)) + ' = ' + show(whole) + (restP.length ? ' + ' + paren(restP) + '/' + paren(polyExpr(q, v)) : ''));
         }
         var n0 = n[0] || ZERO, n1 = n[1] || ZERO, a = q[2], b = q[1], c = q[0];
         var delta = sub(mul(b, b), mul(R(4), mul(a, c)));
@@ -795,11 +798,15 @@
             line(log, 'Zapisuję ułamki proste', paren(numE) + '/(' + den + ') = A/' + (aPre ? '(' + aPre + paren(f1) + ')' : paren(f1)) + ' + B/' + paren(f2)
                 + '\n' + numText + ' = ' + aPre + 'A' + paren(f2) + ' + ' + aPre + 'B' + paren(f1));
             var atR = function (r) { return fmt(add(n0, mul(n1, r))); };
-            line(log, 'Wyznaczam A i B', v + ' = ' + fmt(r1) + ':  ' + atR(r1) + ' = ' + times(mul(a, sub(r1, r2)), 'A') + ',  A = ' + fmt(A)
-                + '\n' + v + ' = ' + fmt(r2) + ':  ' + atR(r2) + ' = ' + times(mul(a, sub(r2, r1)), 'B') + ',  B = ' + fmt(B));
-            line(log, 'Rozkład na ułamki proste', overText(A, f1) + (B.n < 0n ? ' − ' + overText(neg(B), f2) : ' + ' + overText(B, f2)));
+            // [EN] wstawienie miejsca zerowego widoczne: 1 = A(−1 − 1) + B(−1 + 1) = −2A (S37)
+            var at = function (r, root) { return '(' + fmt(r) + (root.n < 0n ? ' + ' + fmt(neg(root)) : ' − ' + fmt(root)) + ')'; };
+            line(log, 'Wyznaczam A i B', v + ' = ' + fmt(r1) + ':  ' + atR(r1) + ' = ' + aPre + 'A' + at(r1, r2) + ' + ' + aPre + 'B' + at(r1, r1) + ' = ' + times(mul(a, sub(r1, r2)), 'A') + ',  A = ' + fmt(A)
+                + '\n' + v + ' = ' + fmt(r2) + ':  ' + atR(r2) + ' = ' + aPre + 'A' + at(r2, r2) + ' + ' + aPre + 'B' + at(r2, r1) + ' = ' + times(mul(a, sub(r2, r1)), 'B') + ',  B = ' + fmt(B));
+            line(log, 'Wstawiam A i B', paren(numE) + '/(' + den + ') = ' + overText(A, f1) + (B.n < 0n ? ' − ' + overText(neg(B), f2) : ' + ' + overText(B, f2)));
             res = cAdd(cMul(num(A), cFn('lnabs', f1)), cMul(num(B), cFn('lnabs', f2)));
-            line(log, 'Każdy ułamek daje logarytm', show(res));
+            // [EN] każdy ułamek osobno: ∫ c/(x − a) dx = c · ln|x − a|, w kolejności z rozkładu (S4)
+            var lnRow = function (k, f) { return '∫ ' + overText(k, f) + ' d' + v + ' = ' + show(cMul(num(k), cFn('lnabs', f))); };
+            log && log.push({ label: 'Każdy ułamek daje logarytm', math: lnRow(A, f1) + '\n' + lnRow(B, f2), formula: { id: 'ulamki-proste', here: 'c = ' + fmt(A) + ', a = ' + fmt(r1) + ';  c = ' + fmt(B) + ', a = ' + fmt(r2) } });
         } else if (isZero(delta)) {
             var r = div(neg(b), mul(R(2), a));
             var fr = cSub(x, num(r));

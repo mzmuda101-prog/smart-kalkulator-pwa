@@ -152,7 +152,7 @@
         [/^Rozbijamy na dwie różnice$/, 'Dzielimy wyrażenie na dwie części, z których każda jest zwykłą różnicą pierwiastków.'],
         [/^Dodajemy granice$/, 'Obie granice już mamy, zostaje działanie na dwóch liczbach.'],
         [/^Łączymy logarytmy/, 'Zamiast dwóch logarytmów zostaje jeden, z ułamkiem w środku.'],
-        [/^Każdy ułamek daje logarytm$/, 'Każdą część liczymy osobno, a potem dodajemy logarytmy.'],
+        [/^Każdy ułamek daje logarytm$/, 'Liczba nad nawiasem zostaje przed logarytmem, a w środku logarytmu stoi ten sam nawias co na dole.'],
         [/^Logarytm jest ciągły$/, 'Ułamek pod logarytmem ma już granicę, więc liczymy samą wartość logarytmu.'],
         [/^Logarytm rośnie bez ograniczeń$/, 'To, co jest w logarytmie, rośnie bez końca, więc logarytm też rośnie bez końca.'],
         [/^Granica jednostronna/, 'Mianownik dąży do 0, a licznik nie. Dzielimy przez coraz mniejszą liczbę, więc wynik rośnie bez końca; znak zależy od strony.'],
@@ -313,7 +313,7 @@
         [/^(Dodaję|Odejmuję|Mnożę|Dzielę|Potęguję)$|^Najpierw nawias/, (_s, _t, c) => c.prev && /^(Dodaję|Odejmuję|Mnożę|Dzielę|Potęguję)$|^Najpierw nawias/.test(c.prev.label)
             ? 'Dalej według kolejności działań.'
             : 'Z tego, co zostało w wyrażeniu, najpierw liczę to, co stoi wyżej w kolejności działań.'],
-        [/^Dzielę licznik przez mianownik$/, 'Licznik jest za wysoki na rozkład, więc najpierw wyciągam z niego całość, a zostaje reszta nad tym samym mianownikiem.'],
+        [/^Dzielę licznik przez mianownik$/, 'Licznik ma za wysoką potęgę na rozkład. Dzielę go przez mianownik: zostaje całość i ułamek z niższym licznikiem.'],
         [/^Wyciągam kwadrat spod pierwiastka$/, 'Z pełnego kwadratu pierwiastek jest dokładny: $\\sqrt{4\\cdot 2}=\\sqrt{4}\\cdot\\sqrt{2}=2\\sqrt{2}$.'],
         [/^Liczę pierwiastek$/, 'Szukam liczby, która podniesiona do kwadratu da liczbę pod pierwiastkiem.'],
         [/^Wymnażam nawiasy$/, 'Mnożę każdy wyraz z jednego nawiasu przez każdy wyraz z drugiego.'],
@@ -361,6 +361,7 @@
         [/^Rozkładam mianownik$/, 'Najpierw rozkładam mianownik na nawiasy, bo od nich zależą ułamki, na które rozbijemy całą całkę.'],
         [/^Zapisuję ułamki proste$/, 'Szukam liczb $A$ i $B$. Mnożę obie strony przez mianownik, żeby pozbyć się ułamków.'],
         [/^Wyznaczam A i B$/, 'Biorę miejsca zerowe mianownika, bo przy nich w równaniu zostaje tylko jedna niewiadoma.'],
+        [/^Wstawiam A i B$/, 'Z policzonymi A i B ułamek rozpada się na dwa proste, z których każdy umiem scałkować.'],
         [/^Rozkład na ułamki proste$/, 'Dzielimy ułamek na prostsze części, z których każdą umiemy scałkować.'],
         [/^Liczę F\(b\) − F\(a\)$/, 'Najpierw górna granica, potem dolna; kolejność jest ważna, bo odejmujemy.'],
     ];
