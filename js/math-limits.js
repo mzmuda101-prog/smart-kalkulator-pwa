@@ -1414,6 +1414,27 @@
         var norm = function (x) { return x.replace(/([a-z])\^\(3\/2\)/g, '$1√$1').replace(/[\s+·]/g, '').split('').sort().join(''); };
         return norm(a) === norm(b);
     }
+    // [EN] nazwa z tego, co naprawdę się zmieniło (liczone w punkcie próbnym), a nie zgadywana z wyglądu zapisu
+    function rewriteLabel(mine, eng, v) {
+        var parts = function (t) {
+            var n = K.parse(t), minus = false;
+            if (n.k === 'neg') { minus = true; n = n.a; }
+            return n.k === 'div' ? { minus: minus, num: n.a, den: n.b } : { minus: minus, num: n, den: { k: 'num', v: K.R(1n) } };
+        };
+        try {
+            var a = parts(mine), b = parts(eng), env = {};
+            env[v] = rat(K.R(37n, 100n)).add(Math.SQRT2); // [EN] punkt bez przypadkowych zer
+            var at = function (n) { return evalAst(n, env).toNumber(); };
+            var rn = at(b.num) / at(a.num), rd = at(b.den) / at(a.den);
+            var one = function (r) { return Math.abs(Math.abs(r) - 1) < 1e-9; };
+            var factor = /\d\(/.test(eng) && !/\d\(/.test(mine);
+            var minusOut = b.minus && !a.minus, cancel = !one(rn) || !one(rd);
+            if (factor) return minusOut ? 'Wyłączam liczbę ujemną przed nawias' : rn < 0 && rd < 0 ? 'Wyłączam liczbę przed nawias i zmieniam znaki' : 'Wyłączam liczbę przed nawias';
+            if (minusOut) return cancel ? 'Wyłączam minus przed ułamek i skracam' : 'Wyłączam minus przed ułamek';
+            if (!cancel && rn < 0 && rd < 0) return 'Zmieniam znak licznika i mianownika';
+        } catch (x) { /* [EN] nie da się sprawdzić — neutralna nazwa niżej */ }
+        return 'Zapisuję to samo inaczej';
+    }
     function rewriteStep(ast, d, e) {
         var head = limHead(d.v, d.target), mine;
         try { mine = astText(ast, 2); } catch (x) { return null; }
@@ -1421,9 +1442,7 @@
         if (mine === eng || sameButOrder(mine, eng)) return null;
         var bare = function (x) { return /^\(.*\)$/.test(x) && !/\)\s*[^\s)]/.test(x.slice(1, -1).replace(/\([^()]*\)/g, '')) ? x.slice(1, -1) : x; };
         // [EN] pięć różnych przekształceń pod jedną etykietą rozbite na prawdziwe nazwy (każda ma własne hasło)
-        var surd = /[√∛]\d+[√∛]/, label = surd.test(eng) && !surd.test(mine) ? 'Wyłączam liczbę spod pierwiastka'
-            : /^−/.test(eng) && !/^−/.test(mine) ? 'Wyłączam minus przed ułamek'
-            : /\d\(/.test(eng) && !/\d\(/.test(mine) ? 'Wyłączam liczbę przed nawias' : 'Zmieniam znak licznika i mianownika';
+        var surd = /[√∛]\d+[√∛]/, label = surd.test(eng) && !surd.test(mine) ? 'Wyłączam liczbę spod pierwiastka' : rewriteLabel(mine, eng, d.v);
         return { label: label, math: bare(mine) + ' = ' + bare(eng) };
     }
     function run(d) {

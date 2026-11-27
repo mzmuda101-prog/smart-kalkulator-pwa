@@ -62,9 +62,18 @@
             return 'Sprawdzamy, do czego zbliża się wyrażenie, gdy zmienna zbliża się do celu.';
         }],
         [/^Wyłączam liczbę spod pierwiastka$/, 'Liczbę wyciągam przed pierwiastek, żeby pod nim zostało prostsze wyrażenie z samą zmienną.'],
-        [/^Wyłączam minus przed ułamek$/, 'Chcę, żeby w mianowniku wyrazy stały w tej kolejności, w której łatwiej policzyć granicę.'],
+        // [EN] kolejność w mianowniku pod sprzężenie: (a − b)(a + b) = a² − b²
+        [/^Wyłączam minus przed ułamek$/, (s) => /[√∛]/.test(s.math)
+            ? 'Odwracam kolejność w mianowniku, bo zaraz pomnożę przez sprzężenie: $(a-b)(a+b)=a^{2}-b^{2}$. Stąd minus z przodu.'
+            : 'Minus z mianownika przenoszę przed cały ułamek.'],
+        [/^Wyłączam minus przed ułamek i skracam$/, 'Minus z mianownika idzie przed ułamek, a wspólny czynnik z góry i z dołu się skraca.'],
         [/^Wyłączam liczbę przed nawias$/, 'Wspólną liczbę wyłączam przed nawias, żeby było widać, który czynnik da się potem skrócić.'],
-        [/^Zmieniam znak licznika i mianownika$/, 'Zmieniam znaki na górze i na dole tak, żeby wygodniej było dalej liczyć. Ułamek ma tę samą wartość.'],
+        [/^Wyłączam liczbę ujemną przed nawias$/, 'Wyłączam liczbę z minusem, żeby w nawiasie $x$ stał na początku, tak jak na dole. Wtedy ten nawias da się skrócić.'],
+        [/^Wyłączam liczbę przed nawias i zmieniam znaki$/, 'Wyłączam liczbę i zmieniam znak na górze i na dole, żeby w obu miejscach $x$ stał na początku. Wtedy widać wspólny czynnik.'],
+        [/^Zmieniam znak licznika i mianownika$/, (s) => /[√∛]/.test(s.math)
+            ? 'Zmieniam znak na górze i na dole, bo zaraz pomnożę przez sprzężenie: $(a-b)(a+b)=a^{2}-b^{2}$. Dwa minusy się znoszą.'
+            : 'Zmieniam znak na górze i na dole. Dwa minusy się znoszą, więc ułamek ma tę samą wartość.'],
+        [/^Zapisuję to samo inaczej$/, 'Zapisuję ułamek w postaci, od której liczą kolejne kroki. Wartość się nie zmienia.'],
         [/^Podstawiamy \w → /, 'Zostały same ułamki ze zmienną na dole, więc od razu wstawiamy 0 za każdy z nich.'],
         [/^Podstawiamy /, (s) => /\//.test(s.math.replace(/^lim\([^)]*\)/, '')) ? 'W mianowniku nie wychodzi zero, więc wystarczy wstawić liczbę.'
             : 'Pozostał zwykły rachunek: za zmienną idzie liczba z granicy.'],

@@ -1024,7 +1024,7 @@
         'znak-ulamka': {
             name: 'Znak minus w ułamku',
             tex: '\\frac{a}{b}=-\\frac{a}{-b}=\\frac{-a}{-b}=-\\frac{-a}{b}',
-            why: 'Zmiana znaku licznika i mianownika naraz nie zmienia wartości ułamka, a zmiana znaku tylko jednego z nich daje minus przed ułamkiem. Dzięki temu w mianowniku stawiamy wygodniejszy wyraz.',
+            why: 'Zmiana znaku licznika i mianownika naraz nie zmienia wartości ułamka, a zmiana znaku tylko jednego z nich daje minus przed ułamkiem. Dzięki temu w mianowniku stawiamy wyrazy w kolejności, której potrzebuje następny krok, np. mnożenie przez sprzężenie: $(a-b)(a+b)=a^{2}-b^{2}$.',
             level: 'Liceum: ułamki i granice',
             more: [
                 'Przykład: $\\frac{3}{-2}=-\\frac{3}{2}$ oraz $\\frac{-3}{-2}=\\frac{3}{2}$.',
@@ -1237,8 +1237,8 @@
         { re: /^Liczę pierwiastek z delty (w liczniku|w mianowniku)$/, id: 'delta' },
         { re: /^(Upraszczam pierwiastek z delty|Wyciągam kwadrat spod pierwiastka|Wyłączam liczbę spod pierwiastka)$/, id: 'pierwiastek-iloczynu' },
         { re: /^Wciągam liczbę do nawiasu( w (liczniku|mianowniku))?$/, id: 'wciaganie-do-nawiasu' },
-        { re: /^Wyłączam liczbę przed nawias$/, id: 'wylaczanie-przed-nawias' },
-        { re: /^(Wyłączam minus przed ułamek|Zmieniam znak licznika i mianownika)$/, id: 'znak-ulamka' },
+        { re: /^(Wyłączam liczbę przed nawias( i zmieniam znaki)?|Wyłączam liczbę ujemną przed nawias)$/, id: 'wylaczanie-przed-nawias' },
+        { re: /^(Wyłączam minus przed ułamek( i skracam)?|Zmieniam znak licznika i mianownika)$/, id: 'znak-ulamka' },
         { re: /^Rozkładamy na czynniki$/, id: 'skladanie-rozkladu' },
         { re: /^Rozkładam mianownik$/, id: 'skladanie-rozkladu' },
         { re: /^Szukam pierwiastka wśród dzielników( w (liczniku|mianowniku))?$/, id: 'bezout' },

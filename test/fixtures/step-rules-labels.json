@@ -84,7 +84,10 @@
     "Wyznaczam dziedzinę",
     "Zastrzegam dziedzinę"
   ],
-  "^(Wyłączam minus przed ułamek|Zmieniam znak licznika i mianownika)$ → znak-ulamka": [
+  "^(Wyłączam liczbę przed nawias( i zmieniam znaki)?|Wyłączam liczbę ujemną przed nawias)$ → wylaczanie-przed-nawias": [
+    "Wyłączam liczbę przed nawias"
+  ],
+  "^(Wyłączam minus przed ułamek( i skracam)?|Zmieniam znak licznika i mianownika)$ → znak-ulamka": [
     "Wyłączam minus przed ułamek",
     "Zmieniam znak licznika i mianownika"
   ],
@@ -263,9 +266,6 @@
   ],
   "^Wyłączam [a-z] przed nawias$ → wylaczanie-przed-nawias": [
     "Wyłączam v przed nawias"
-  ],
-  "^Wyłączam liczbę przed nawias$ → wylaczanie-przed-nawias": [
-    "Wyłączam liczbę przed nawias"
   ],
   "^Wyłączam wspólny czynnik przed nawias$ → wylaczanie-przed-nawias": [
     "Wyłączam wspólny czynnik przed nawias"

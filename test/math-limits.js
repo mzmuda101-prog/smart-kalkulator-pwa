@@ -333,6 +333,14 @@ ok('minor: lim x→−8 ∛x nie daje złego wyniku', ['−2', NOPE].includes(te
     // krok 1 jak wpisano, a silnik liczy inną postać → krok pośredni, żeby kroki do siebie pasowały
     ok('3b: 9a „Wyłączam minus przed ułamek”', s9[1] && s9[1].label === 'Wyłączam minus przed ułamek'
         && s9[1].math === '(x − 5)/(3 − √(x + 4)) = −(x − 5)/(√(x + 4) − 3)', show(s9));
+    // nazwa mówi wszystko, co się stało (sprawdzone liczbowo), a nie tylko część (przegląd końcowy, I5)
+    for (const [q, want] of [['lim x→0 (2x)/(-x)', 'Wyłączam minus przed ułamek i skracam'],
+        ['lim x→1 (2-2x)/(1-x^2)', 'Wyłączam liczbę przed nawias i zmieniam znaki'],
+        ['lim x→2 (6-3x)/(x^2-4)', 'Wyłączam liczbę ujemną przed nawias'],
+        ['lim x→2 (2-sqrt(x+2))/(sqrt(x+7)-x-1)', 'Zmieniam znak licznika i mianownika']]) {
+        const st = steps(q);
+        ok('3b: ' + q + ' → „' + want + '”', st[1] && st[1].label === want, show(st));
+    }
     const s4c = steps(byId['4c'].input);
     ok('3b: 4c pokazuje √(4n² + 2) = …√2…', s4c[1] && s4c[1].label === 'Wyłączam liczbę spod pierwiastka', show(s4c));
     ok('3b: samo przestawienie wyrazów bez kroku pośredniego', !sB.some(x => /^(Wyłączam (liczbę|minus)|Zmieniam znak licznika)/.test(x.label)), show(sB));
