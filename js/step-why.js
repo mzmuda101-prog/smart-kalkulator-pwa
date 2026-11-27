@@ -61,7 +61,7 @@
             // [EN] bez symbolu nie obiecujemy „nic nie przeszkadza” — silnik nie każdy kłopot nazywa (np. 0 · ∞)
             return 'Sprawdzamy, do czego zbliża się wyrażenie, gdy zmienna zbliża się do celu.';
         }],
-        [/^Wyłączam liczbę spod pierwiastka$/, 'Liczbę wyciągam przed pierwiastek, żeby pod nim zostało prostsze wyrażenie z samą zmienną.'],
+        [/^Wyłączam liczbę spod pierwiastka$/, 'Wyrazy pod pierwiastkiem mają wspólny dzielnik, więc rozbijam pierwiastek na dwa, nawet gdy ten dzielnik nie jest kwadratem.'],
         // [EN] kolejność w mianowniku pod sprzężenie: (a − b)(a + b) = a² − b²
         [/^Wyłączam minus przed ułamek$/, (s) => /[√∛]/.test(s.math)
             ? 'Odwracam kolejność w mianowniku, bo zaraz pomnożę przez sprzężenie: $(a-b)(a+b)=a^{2}-b^{2}$. Stąd minus z przodu.'
@@ -315,7 +315,7 @@
         [/^Wstawiam do wzoru$/, 'Mam już $u$, $v$ i ich pochodne. Wstawiam je do wzoru w tej samej kolejności co we wzorze.'],
         [/^Liczę pochodną złożoną$/, 'W środku nie stoi samo $x$, tylko dłuższe wyrażenie, więc sama tablica nie wystarczy.'],
         [/^Liczę pochodną każdego wyrazu$|^Rozbijam na sumę pochodnych$/, 'Pochodną sumy liczymy wyraz po wyrazie, a pochodna stałej to 0.'],
-        [/^Stała zostaje przed pochodną$/, 'Czynnik liczbowy odsuwam na bok, żeby zająć się samym wyrażeniem z $x$.'],
+        [/^Stała zostaje przed pochodną$/, 'Czynnik bez zmiennej, po której liczę pochodną, odsuwam na bok. Inna litera też jest takim czynnikiem.'],
         [/^Mnożę przez pochodną środka$/, 'Kończę wzór na funkcję złożoną: wstawiam policzoną pochodną środka i mnożę.'],
         [/^Mnożę przez stałą$/, 'Na koniec dokładam odsunięty czynnik do gotowego wyniku.'],
         [/^Liczę pochodną potęgi$/, (s) => {
