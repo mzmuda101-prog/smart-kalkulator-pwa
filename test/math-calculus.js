@@ -142,8 +142,10 @@ pass += 2;
     const bad = [P, Q, 'pochodna sin(x^2)', 'pochodna (3x+1)^5', 'pochodna 3x^2 + 2x - 5', 'całka x * e^x', 'całka x^2 od 0 do 1', 'całka 1/(x^2+4)',
         'całka sin(x)^2', 'całka 1/x', 'całka e^x', 'całka tan(x)', 'całka 5'].flatMap(q => st(q).map(x => x.label)).filter(l => /[=′∫]|ⁿ/.test(l) && !/^Podstawienie|^Liczę F\(b\)/.test(l));
     // 3g: pochodne bez skoków (raport C): u i v, √x jako potęga, ostatnie mnożenie, licznik ilorazu krok po kroku
-    ok('3g: √x zapisane jako potęga', has('pochodna √x', 'Liczę pochodną potęgi', '√x = x^(1/2)\n⟦(x^(1/2))′⟧ = 1/2 · x^(−1/2) = 1/(2√x)'), show('pochodna √x'));
-    ok('3g: 1/x zapisane jako potęga', has('pochodna 1/x', 'Liczę pochodną potęgi', '1/x = x^(−1)\n⟦(x^(−1))′⟧ = −1 · x^(−2) = −1/x²'), show('pochodna 1/x'));
+    // partia 2b, S34: wykładnik policzony osobno (x^(1/2 − 1)), potem ułamek
+    ok('2b S34: (3/x²)′ = 3 · (1/x²)′ przed zamianą na potęgę', has('pochodna 3/x^2', 'Stała zostaje przed pochodną', '(3/x²)′ = 3 · (1/x²)′'), show('pochodna 3/x^2'));
+    ok('3g: √x zapisane jako potęga', has('pochodna √x', 'Liczę pochodną potęgi', '√x = x^(1/2)\n⟦(x^(1/2))′⟧ = 1/2 · x^(1/2 − 1) = 1/2 · x^(−1/2) = 1/2 · 1/x^(1/2) = 1/(2√x)'), show('pochodna √x'));
+    ok('3g: 1/x zapisane jako potęga', has('pochodna 1/x', 'Liczę pochodną potęgi', '1/x = x^(−1)\n⟦(x^(−1))′⟧ = −1 · x^(−1 − 1) = −1 · x^(−2) = −1 · 1/x² = −1/x²'), show('pochodna 1/x'));
     ok('3g: x³ bez zbędnej linii', has('pochodna x^3', 'Liczę pochodną potęgi', '⟦(x³)′⟧ = 3x²'), show('pochodna x^3'));
     ok('3g: złożona — mnożę przez pochodną środka (5 · 3)', has('pochodna (3x+1)^5', 'Mnożę przez pochodną środka', '5(3x + 1)⁴ · 3 = 15(3x + 1)⁴'), show('pochodna (3x+1)^5'));
     ok('3g: złożona — sin(x²)', has('pochodna sin(x^2)', 'Mnożę przez pochodną środka', 'cos(x²) · 2x'), show('pochodna sin(x^2)'));
@@ -152,8 +154,8 @@ pass += 2;
     ok('3g: stała — a · 2t', has('pochodna a * t^2 po t', 'Mnożę przez stałą', 'a · 2t = 2at'), show('pochodna a * t^2 po t'));
     ok('3g: iloraz — licznik wymnożony przed uproszczeniem', st('pochodna (x^2+1)/(x-1)').some(x => x.label === 'Wstawiam do wzoru' && x.math.includes(' = (2x² − 2x − x² − 1)/(x − 1)² = (x² − 2x − 1)/(x − 1)²')), show('pochodna (x^2+1)/(x-1)'));
     ok('3g: iloraz — x/(x+1) z wymnożonym licznikiem', st(Q).some(x => x.label === 'Wstawiam do wzoru' && x.math.endsWith(' = (x + 1 − x)/(x + 1)² = 1/(x + 1)²')), show(Q));
-    ok('3g: całka √x przez x^(1/2)', has('całka √x', 'Całkuję potęgę', '√x = x^(1/2)\n⟦∫ x^(1/2) dx⟧ = x^(3/2)/(3/2) = 2x√x/3'), show('całka √x'));
-    ok('3g: całka 1/x² przez x^(−2)', has('całka 1/x^2', 'Całkuję potęgę', '1/x² = x^(−2)\n⟦∫ x^(−2) dx⟧ = x^(−1)/(−1) = −1/x'), show('całka 1/x^2'));
+    ok('3g: całka √x przez x^(1/2)', has('całka √x', 'Całkuję potęgę', '√x = x^(1/2)\n⟦∫ x^(1/2) dx⟧ = x^(1/2 + 1)/(1/2 + 1) = x^(3/2)/(3/2) = 2/3 · x^(3/2) = 2x√x/3'), show('całka √x'));
+    ok('3g: całka 1/x² przez x^(−2)', has('całka 1/x^2', 'Całkuję potęgę', '1/x² = x^(−2)\n⟦∫ x^(−2) dx⟧ = x^(−2 + 1)/(−2 + 1) = x^(−1)/(−1) = −1 · x^(−1) = −1/x'), show('całka 1/x^2'));
     ok('3g: ujemny czynnik w nawiasie przy stałej całki', has('całka 3/x^3', 'Mnożę przez wyłączoną stałą', '3 · (−1/(2x²)) = −3/(2x²)'), show('całka 3/x^3'));
     ok('3g: tożsamość — kolor na tym, co wstawiamy', st('całka sin(x)^2').some(x => x.math.startsWith('sin²(x) = ⟦(1 − cos(2x))/2⟧')), show('całka sin(x)^2'));
     // 3h: całki bez skoków (raport E, C1): granice wstawione do F i policzone

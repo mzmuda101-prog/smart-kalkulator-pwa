@@ -412,7 +412,7 @@
         var one = eq(t.c, ONE) && !fixed.length;
         if (moving.length === 1) {
             if (!one) { // [EN] także a · t²: stała zostaje, liczymy pochodną samej potęgi
-                line(log, 'Stała zostaje przed pochodną', '(' + show([t]) + ')′ = ' + paren(constant) + ' · (' + showFactor(moving[0]) + ')′');
+                line(log, 'Stała zostaje przed pochodną', '(' + show([t]) + ')′ = ' + paren(constant) + ' · (' + show([term(ONE, [moving[0]])]) + ')′');
             }
             var d1 = dFactor(moving[0], v, log), r1 = cMul(constant, d1);
             if (!one && show(d1) !== '1') line(log, 'Mnożę przez stałą', paren(constant) + ' · ' + grpN(d1) + ' = ' + show(r1));
@@ -491,8 +491,10 @@
                 var signed = function (x) { return (x.n < 0n ? '−' : '') + fmt(x.n < 0n ? neg(x) : x); };
                 var pw = function (x) { return a.v + '^(' + signed(x) + ')'; };
                 var asWritten = show([term(ONE, [f])]);
+                // [EN] 2/3 · x^(2/3 − 1) = 2/3 · x^(−1/3) = 2/3 · 1/x^(1/3): wykładnik policzony, potem ułamek (S34)
+                var e1 = sub(e, ONE), back = e1.n < 0n ? ' = ' + signed(e) + ' · 1/' + (isInt(e1) ? show(cPow(variable(a.v), neg(e1))) : pw(neg(e1))) : '';
                 line(log, 'Liczę pochodną potęgi', (asWritten !== pw(e) ? asWritten + ' = ' + pw(e) + '\n' : '') + '⟦(' + pw(e) + ')′⟧ = '
-                    + signed(e) + ' · ' + pw(sub(e, ONE)) + ' = ' + show(res), 'pochodna-potegi');
+                    + signed(e) + ' · ' + a.v + '^(' + signed(e) + ' − 1) = ' + signed(e) + ' · ' + pw(e1) + back + ' = ' + show(res), 'pochodna-potegi');
             }
             return res;
         }
@@ -646,8 +648,11 @@
             var signed = function (r) { return (r.n < 0n ? '−' : '') + fmt(r.n < 0n ? neg(r) : r); };
             var pw = function (r) { return v + '^(' + signed(r) + ')'; }, n1t = signed(add(f.e, ONE));
             var asWritten = show(e);
-            line(log, label, (asWritten !== pw(f.e) ? asWritten + ' = ' + pw(f.e) + '\n' : '') + '⟦∫ ' + pw(f.e) + ' d' + v + '⟧ = '
-                + pw(add(f.e, ONE)) + '/' + (isInt(add(f.e, ONE)) && add(f.e, ONE).n > 0n ? n1t : '(' + n1t + ')') + ' = ' + show(res), fid);
+            // [EN] x^(1/2 + 1)/(1/2 + 1) = x^(3/2)/(3/2) = 2/3 · x^(3/2): wykładnik i dzielenie policzone osobno (S34)
+            var n1 = add(f.e, ONE), plus = v + '^(' + signed(f.e) + ' + 1)/(' + signed(f.e) + ' + 1)', inv = div(ONE, n1);
+            var coefT = (inv.n < 0n ? '−' : '') + fmt(inv.n < 0n ? neg(inv) : inv) + ' · ' + pw(n1);
+            line(log, label, (asWritten !== pw(f.e) ? asWritten + ' = ' + pw(f.e) + '\n' : '') + '⟦∫ ' + pw(f.e) + ' d' + v + '⟧ = ' + plus + ' = '
+                + pw(n1) + '/' + (isInt(n1) && n1.n > 0n ? n1t : '(' + n1t + ')') + ' = ' + coefT + (coefT === show(res) ? '' : ' = ' + show(res)), fid);
         } else line(log, label, '⟦' + integralText(e, v) + '⟧ = ' + show(res), fid);
         return res;
     }
