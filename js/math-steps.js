@@ -942,8 +942,9 @@
                 var val = powR(R(b), Number(c.n));
                 var arg = bare(Lg.a);
                 // [EN] kolor na potędze, która powstała z definicji (dymek: definicja-logarytmu)
-                if (arg === v) { steps.push({ label: 'Korzystam z definicji logarytmu', math: v + ' = ⟦' + pw + '⟧ = ' + fmt(val, ctx), formula: { id: 'definicja-logarytmu' } }); res = null; }
-                else { steps.push({ label: 'Korzystam z definicji logarytmu', math: arg + ' = ⟦' + pw + '⟧' + (fmt(val, ctx) === pw ? '' : '\n' + arg + ' = ' + fmt(val, ctx)), formula: { id: 'definicja-logarytmu' } }); res = inner(arg + ' = ' + fmt(val, ctx)); }
+                var ten = Lg.f === 'log' ? 'log(' + arg + ') = log₁₀(' + arg + ')\n' : ''; // [EN] log bez podstawy to log₁₀ (S57)
+                if (arg === v) { steps.push({ label: 'Korzystam z definicji logarytmu', math: ten + v + ' = ⟦' + pw + '⟧ = ' + fmt(val, ctx), formula: { id: 'definicja-logarytmu' } }); res = null; }
+                else { steps.push({ label: 'Korzystam z definicji logarytmu', math: ten + arg + ' = ⟦' + pw + '⟧' + (fmt(val, ctx) === pw ? '' : '\n' + arg + ' = ' + fmt(val, ctx)), formula: { id: 'definicja-logarytmu' } }); res = inner(arg + ' = ' + fmt(val, ctx)); }
                 if (!res) {
                     var x0 = val;
                     steps.push({ label: 'Sprawdzam dziedzinę', math: v + ' = ' + fmt(x0, ctx) + ' ∈ D' });
@@ -986,7 +987,13 @@
         var sideTxt = function (s, k) { return s.exp ? (eq(s.base, R(g)) ? powTxt(expText(1, s.exp)) : '(' + gs + sup(String(k)) + ')' + '^' + (expText(1, s.exp).length > 1 ? '(' + expText(1, s.exp) + ')' : expText(1, s.exp))) : powTxt(String(k)); };
         var raw = sideTxt(P, kP) + ' = ' + sideTxt(Q, kQ);
         var flat = (P.exp ? powTxt(expText(kP, P.exp)) : powTxt(String(kP))) + ' = ' + (Q.exp ? powTxt(expText(kQ, Q.exp)) : powTxt(String(kQ)));
-        steps.push({ label: 'Zapisuję obie strony jako potęgi ' + gs, math: raw === flat ? raw : raw + '\n' + flat });
+        // [EN] liczba jako potęga z rachunkiem: 8 = 2³, 1/8 = 1/2³ = 2^(−3) (S35)
+        var numRows = [P, Q].filter(function (sd) { return !sd.exp && sd.num; }).map(function (sd) {
+            var k = kOf(sd);
+            if (k === null || (k === 1 && eq(sd.num, R(g)))) return null;
+            return k < 0 ? fmt(sd.num, ctx) + ' = 1/' + gs + sup(String(-k)) + ' = ' + powTxt(String(k)) : fmt(sd.num, ctx) + ' = ' + powTxt(String(k));
+        }).filter(Boolean);
+        steps.push({ label: 'Zapisuję obie strony jako potęgi ' + gs, math: (numRows.length ? numRows.join('\n') + '\n' : '') + (raw === flat ? raw : raw + '\n' + flat) });
         var eqE = (P.exp ? expText(kP, P.exp) : String(kP)) + ' = ' + (Q.exp ? expText(kQ, Q.exp) : String(kQ));
         eqE = eqE.replace(/(^| )-(\d)/g, '$1−$2');
         steps.push({ label: 'Porównuję wykładniki', math: eqE.split(' = ').map(function (x) { return '⟦' + x + '⟧'; }).join(' = '), formula: { id: 'rownosc-poteg', here: 'a = ' + gs } });

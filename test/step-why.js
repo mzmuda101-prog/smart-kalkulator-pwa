@@ -75,6 +75,7 @@ ok('sprzężenie przy n → ∞ mówi o ∞ − ∞', /infty-\\infty/.test(whyOf
 ok('„Skracamy (−x)” przy −∞ bez „nawias nie jest zerem”', !/nie jest zerem/.test(whyOf('lim x→-∞ x/sqrt(3x^2+5)', 'Skracamy (') || 'nie jest zerem'));
 ok('„dążą do 0” z wynikiem +∞ mówi o nieskończoności', /bez końca/.test(whyOf(ZESTAW.find(z => z.id === '1e').input, 'Wyrazy z') || ''));
 ok('krok 1 przed „Zapisujemy podstawę jako 1 + 1/aₙ” mówi o 1^∞', /1\^\{\\infty\}/.test(whyOf('lim n→∞ ((2n+sqrt(n))/(2n+7sqrt(n)))^(2+sqrt(n))', 'Granica') || ''));
+ok('2c S49: 6 : 2 · 3 — od lewej do prawej', /od lewej do prawej/.test(whyOf('kroki 6 : 2 * 3', 'Dzielę') || ''));
 ok('A i B: zdanie o wstawianiu miejsc zerowych', /miejsca zerowe/.test(whyOf('całka 1/(x^2-1)', 'Wyznaczam A i B') || ''));
 // przegląd dymków: znacznik koloru ⟦kπ⟧ nie może zmienić zdania o okresie (tg ma okres π, nie 2π)
 ok('tg x = 1: okres π', /\$\\pi\$/.test(whyOf('rozwiąż tg(x) = 1', 'Zapisuję wszystkie rozwiązania') || '') && !/2\\pi/.test(whyOf('rozwiąż tg(x) = 1', 'Zapisuję wszystkie rozwiązania') || '2\\pi'), whyOf('rozwiąż tg(x) = 1', 'Zapisuję wszystkie rozwiązania'));

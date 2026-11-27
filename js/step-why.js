@@ -263,7 +263,9 @@
         [/^Wyznaczam dziedzinę$/, (s) => / ≥ 0/.test(s.math) ? 'Pierwiastek kwadratowy liczymy tylko z liczb nieujemnych i sam nie jest ujemny.'
             : / > 0/.test(s.math) ? 'Logarytm istnieje tylko dla liczb dodatnich, więc argument musi być większy od zera.'
             : 'Przez zero dzielić nie wolno, więc wykluczam liczby, które zerują mianownik.'],
-        [/^Zapisuję obie strony jako potęgi /, 'Szukam jednej liczby, której potęgami da się zapisać obie liczby z tego zadania.'],
+        [/^Zapisuję obie strony jako potęgi /, (s) => /= 1\//.test(s.math) ? 'Chcę tę samą podstawę po obu stronach. Ułamek z jedynką w liczniku to potęga z minusem: $\\frac{1}{a^{n}}=a^{-n}$.'
+            : /\)\^/.test(s.math) ? 'Jedna strona to potęga podniesiona do potęgi. Zamieniam ją na zwykłą potęgę, mnożąc oba wykładniki.'
+            : 'Chcę tę samą podstawę po obu stronach, bo wtedy wystarczy porównać wykładniki.'],
         [/^Liczę wykładnik ze wzoru skróconego$/, 'Podstawa $f$ jest prawie jedynką, więc o wyniku decyduje $g$ razy $(f-1)$, a nie sam wykładnik.'],
         [/^Porównuję wykładniki$/, 'Na dole po obu stronach stoi teraz ta sama liczba, więc wystarczy przyrównać to, co na górze.'],
         [/^Zapisuję wykładnik jako logarytm$/, 'Prawej strony nie zamienię na potęgę z prostym wykładnikiem, więc wynik zostaje w postaci logarytmu.'],
@@ -314,6 +316,10 @@
         [/^Mnożę ułamki$/, 'Licznik mnożę przez licznik, a mianownik przez mianownik.'],
         [/^Dzielę ułamki$/, 'Dzielenie przez ułamek to mnożenie przez jego odwrotność: licznik i mianownik zamieniają się miejscami.'],
         [/liczniki$/, 'Mianowniki są już równe, więc dodajemy albo odejmujemy tylko liczniki, a mianownik przepisujemy.'],
+        // [EN] mnożenie i dzielenie obok siebie: od lewej do prawej (S49), np. 6 : 2 · 3 = 3 · 3
+        [/^(Mnożę|Dzielę)$/, (_s, _t, c) => c.prev && /[:·]/.test(c.prev.math.replace(/^.*= /, '')) && /:/.test(c.prev.math) && /·/.test(c.prev.math)
+            ? 'Mnożenie i dzielenie mają równą rangę, więc liczę od lewej do prawej.'
+            : 'Z tego, co zostało w wyrażeniu, najpierw liczę to, co stoi wyżej w kolejności działań.'],
         [/^(Dodaję|Odejmuję|Mnożę|Dzielę|Potęguję)$|^Najpierw nawias/, (_s, _t, c) => c.prev && /^(Dodaję|Odejmuję|Mnożę|Dzielę|Potęguję)$|^Najpierw nawias/.test(c.prev.label)
             ? 'Dalej według kolejności działań.'
             : 'Z tego, co zostało w wyrażeniu, najpierw liczę to, co stoi wyżej w kolejności działań.'],

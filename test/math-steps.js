@@ -277,11 +277,13 @@ pass += 3;
 // ── 4d: równania wykładnicze i logarytmiczne (plan „jak Photomath”, pkt 4) ──
 {
     const T = q => { const r = S.run(q); return r && r.text; };
-    ok('4d: 2^x = 8', T('rozwiąż 2^x = 8') === 'x = 3' && has('rozwiąż 2^x = 8', 'Zapisuję obie strony jako potęgi 2', '2^x = 2³')
+    ok('4d: 2^x = 8', T('rozwiąż 2^x = 8') === 'x = 3' && has('rozwiąż 2^x = 8', 'Zapisuję obie strony jako potęgi 2', '8 = 2³\n2^x = 2³')
         && has('rozwiąż 2^x = 8', 'Porównuję wykładniki', '⟦x⟧ = ⟦3⟧'), st('rozwiąż 2^x = 8'));
     ok('4d: 3^(x+1) = 27', T('rozwiąż 3^(x+1) = 27') === 'x = 2' && has('rozwiąż 3^(x+1) = 27', 'Porównuję wykładniki', '⟦x + 1⟧ = ⟦3⟧'), st('rozwiąż 3^(x+1) = 27'));
     ok('4d: 4^x = 2^(x+3) — wspólna podstawa 2', T('rozwiąż 4^x = 2^(x+3)') === 'x = 3' && has('rozwiąż 4^x = 2^(x+3)', 'Zapisuję obie strony jako potęgi 2', '(2²)^x = 2^(x + 3)\n2^(2x) = 2^(x + 3)'), st('rozwiąż 4^x = 2^(x+3)'));
     ok('4d: 2^x = 1/8 — ujemny wykładnik', T('rozwiąż 2^x = 1/8') === 'x = −3', T('rozwiąż 2^x = 1/8'));
+    ok('2c S35: 1/8 = 1/2³ = 2^(−3) jako linia', has('rozwiąż 2^x = 1/8', 'Zapisuję obie strony jako potęgi 2', '1/8 = 1/2³ = 2^(−3)\n2^x = 2^(−3)'), st('rozwiąż 2^x = 1/8'));
+    ok('2c S57: log bez podstawy to log₁₀', st('rozwiąż log(x) = 2').some(x => x.label === 'Korzystam z definicji logarytmu' && x.math.startsWith('log(x) = log₁₀(x)\n')), st('rozwiąż log(x) = 2'));
     ok('4d: 2^x = 5 — logarytm', T('rozwiąż 2^x = 5') === 'x = log₂(5) ≈ 2,32193' && st('rozwiąż 2^x = 5').some(x => x.label === 'Zapisuję wykładnik jako logarytm'), [T('rozwiąż 2^x = 5'), st('rozwiąż 2^x = 5')]);
     ok('4d: log_2(x) = 3', T('rozwiąż log_2(x) = 3') === 'x = 8' && has('rozwiąż log_2(x) = 3', 'Korzystam z definicji logarytmu', 'x = ⟦2³⟧ = 8'), st('rozwiąż log_2(x) = 3'));
     ok('4d: log_3(2x-1) = 2 — dziedzina', T('rozwiąż log_3(2x-1) = 2') === 'x = 5' && has('rozwiąż log_3(2x-1) = 2', 'Wyznaczam dziedzinę', '2x − 1 > 0\nx > 1/2\nD = (1/2, +∞)'), st('rozwiąż log_3(2x-1) = 2'));
