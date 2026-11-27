@@ -575,6 +575,8 @@
     }
     function pullTerm(t, v, sign) {
         var p = K.ZERO, rest = C.num(t.c), c = C.num(t.c);
+        // [EN] iloczyn kilku nawiasów: każdy czynnik osobno, potem suma wykładników (S8)
+        var many = t.fs.filter(function (f) { return f.b.k === 'sum' && C.hasVar(f.b.s, v) && K.isInt(f.e) && f.e.n > 0n; }).length > 1, pows = [];
         t.fs.forEach(function (f) {
             var a = f.b, r = f.e;
             if (a.k === 'var' && a.v === v) {
@@ -594,6 +596,12 @@
                     var row = C.show(C.cPow([C.term(ONE, [{ b: a, e: ONE }])], r)) + ' = ' + under + ' = ' + out;
                     if (_pulls.indexOf(row) < 0) _pulls.push(row);
                 }
+                if (_pulls && many && K.isInt(r) && r.n > 0n && !K.isZero(inner.p)) {
+                    var pw = K.mul(inner.p, r), one = K.eq(r, ONE), bracket = C.paren(inner.rest);
+                    _pulls.push((one ? C.show(a.s) : C.show(C.cPow([C.term(ONE, [{ b: a, e: ONE }])], r))) + ' = '
+                        + (one ? '' : '(' + pulledText(v, sign, inner) + ')' + K.sup(r.n.toString()) + ' = ') + uText(v, sign, pw) + bracket + (one ? '' : K.sup(r.n.toString())));
+                    pows.push(pw);
+                }
                 p = K.add(p, K.mul(inner.p, r));
                 rest = C.cMul(rest, C.cPow(inner.rest, r));
                 c = fold(C.cMul(c, C.cPow(inner.c, r)));
@@ -603,6 +611,7 @@
             var self = C.cPow(C.atomExpr(a), r);
             rest = C.cMul(rest, self); c = C.cMul(c, self);
         });
+        if (_pulls && pows.length > 1) _pulls.push(pows.map(function (q) { return uText(v, sign, q); }).join(' · ') + ' = ' + uText(v, sign, p));
         return { p: p, rest: rest, c: c };
     }
     var _pulls = null; // [EN] zbierane przez pullTerm w dominantPower: wiersze kroku „Wyciągamy … spod pierwiastka”
@@ -690,7 +699,9 @@
             var pn = pulledText(v, sign, N), pd = pulledText(v, sign, D);
             var pdWrapped = K.isZero(D.p) ? grp(D.rest) : '(' + pd + ')';
             // [EN] same liczby w nawiasach (−1/n) — nie ma czego wyłączać, krok byłby pusty (6e)
-            if (pulls.length) line(log, 'Wyciągamy ' + v + ' spod pierwiastka', pulls.join('\n'), 'pierwiastek-iloczynu');
+            var rootRows = pulls.filter(function (r) { return /^[√∛∜]/.test(r); }), powRows = pulls.filter(function (r) { return !/^[√∛∜]/.test(r); });
+            if (rootRows.length) line(log, 'Wyciągamy ' + v + ' spod pierwiastka', rootRows.join('\n'), 'pierwiastek-iloczynu');
+            if (powRows.length) line(log, 'Wyłączamy potęgę ' + v + ' z każdego nawiasu', powRows.join('\n'), 'potega-iloczynu');
             if (!(C.isNumber(N.rest) && C.isNumber(D.rest))) line(log, label, head + (alone ? pn : pn + '/' + pdWrapped));
             var q = K.sub(N.p, D.p);
             if (same && !K.isZero(N.p)) line(log, 'Skracamy ' + uText(v, sign, N.p), head + quotientText(N.rest, D.rest));

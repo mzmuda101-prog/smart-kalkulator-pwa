@@ -96,6 +96,7 @@
             return c.atInf ? SPRZ_INF : SPRZ_NUM;
         }],
         [/^Wyciągamy \w spod pierwiastka$/, 'Pod pierwiastkiem wyłączam najwyższą potęgę zmiennej, a jej pierwiastek wychodzi przed znak pierwiastka.'],
+        [/^Wyłączamy potęgę \w z każdego nawiasu$/, 'Każdy nawias ma swoją najwyższą potęgę. Wyciągam ją z każdego osobno i dodaję wykładniki, żeby wiedzieć, co skrócić.'],
         [/^Redukujemy wyrazy podobne$/, 'Pierwiastek podniesiony do swojej potęgi znika, więc w liczniku zostaje zwykłe odejmowanie.'],
         [/^Wstawiamy do granicy$/, 'Zamiast różnicy z pierwiastkami wpisuję ułamek z poprzedniego kroku. Wartość jest ta sama.'],
         [/^Dzielimy przez ułamek$/, 'Ułamek stoi w mianowniku, więc odwracam go i mnożę. Tak łatwiej zobaczyć, co się skraca.'],

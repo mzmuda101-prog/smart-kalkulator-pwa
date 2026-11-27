@@ -92,6 +92,17 @@
             level: 'Szkoła podstawowa i liceum: potęgi',
             more: ['Czasem trzeba najpierw zapisać wykładnik inaczej, np. $(n+3)^{2g}=\\left((n+3)^{2}\\right)^{g}$.'],
         },
+        'potega-iloczynu': {
+            name: 'Potęga iloczynu i mnożenie potęg',
+            tex: '(ab)^{k}=a^{k}b^{k},\\qquad n^{p}\\cdot n^{q}=n^{p+q}',
+            why: 'Iloczyn podnosimy do potęgi, podnosząc każdy czynnik osobno. Potęgi tej samej liczby mnożymy, dodając wykładniki.',
+            level: 'Szkoła podstawowa i liceum: potęgi',
+            more: [
+                'Przykład: $(2n^{2}+3)^{2}=\\left(n^{2}\\left(2+\\frac{3}{n^{2}}\\right)\\right)^{2}=n^{4}\\left(2+\\frac{3}{n^{2}}\\right)^{2}$, bo $(n^{2})^{2}=n^{4}$.',
+                'Przykład: $n^{4}\\cdot n^{5}\\cdot n=n^{4+5+1}=n^{10}$.',
+                'Skąd wzór: $(ab)^{2}=ab\\cdot ab=a\\cdot a\\cdot b\\cdot b=a^{2}b^{2}$; kolejność mnożenia nie ma znaczenia.',
+            ],
+        },
         sinu: {
             name: 'Granica sin u przez u',
             tex: '\\frac{\\sin u}{u}\\to 1\\quad\\text{gdy } u\\to 0',
@@ -1080,6 +1091,7 @@
         'roznica-czwartych': ['wyrazenia', 'st', ['czwarte potęgi', 'pierwiastek czwartego stopnia'], 'lim n→∞ (∜(n^4+7n^3)-∜(n^4-n^3))', '2', ['roznica-szescianow', 'sprzezenie']],
         'pierwiastek-z-kwadratu': ['wyrazenia', 'lp', ['wartość bezwzględna', 'moduł', 'pierwiastek z kwadratu'], 'lim x→-∞ x/sqrt(3x^2+5)', '−√3/3', ['sprzezenie', 'wartosc-bezwzgledna']],
         'log-iloraz': ['potegi-log', 'lp', ['logarytm ilorazu', 'różnica logarytmów', 'log'], 'lim n→∞ (log_2(8n+1)-log_2(n+6))', '3', ['definicja-logarytmu']],
+        'potega-iloczynu': ['potegi-log', 'lp', ['potęga iloczynu', 'mnożenie potęg', 'dodawanie wykładników', 'nawias do potęgi'], 'lim n→∞ ((3n+1)^2(4n+5))/((2n+3)^2(3n+4))', '3', ['potega-ilorazu', 'granica-najwyzsza-potega']],
         'potega-ilorazu': ['potegi-log', 'lp', ['potęga ilorazu', 'potęga ułamka', 'działania na potęgach'], 'lim n→∞ (n+3)^(2n^2+12n)/(n^2+6n)^(n^2+6n)', 'e⁹', ['e']],
         sinu: ['granice', 'st', ['sinus', 'granica specjalna', 'sin x przez x'], 'lim x→0 sin(3x)/x', '3', ['tgu', 'arcsinu', 'arctgu', 'lhospital']],
         ln1u: ['granice', 'st', ['logarytm naturalny', 'granica specjalna', 'ln'], 'lim x→0 ln(1+2x)/x', '2', ['eu', 'e']],

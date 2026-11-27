@@ -711,5 +711,13 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
         && st.math.includes('(4n³ + 5n² + 20n + 25 − (4n³ + 2n² + 2n + 1))/') && st.math.endsWith('= (3n² + 18n + 24)/((2n + 1) · (4n + 5))'), st.math);
 }
 
+// ── partia 2a-2, zadanie 5: iloczyn potęg (S8) ──
+{
+    const st = S.run('lim n→∞ ((2n^2+3)^2(5n+2)^5(n+6))/((4n^3+5)^3(3n+7)^2)').explain.steps.find(x => /z każdego nawiasu$/.test(x.label)) || {};
+    const rows = (st.math || '').split('\n');
+    ok('2a-2 S8: każdy czynnik osobno i suma wykładników', rows.includes('(2n² + 3)² = (n²(2 + 3/n²))² = n⁴(2 + 3/n²)²') && rows.includes('n + 6 = n(1 + 6/n)')
+        && rows.includes('n⁴ · n⁵ · n = n¹⁰') && rows.includes('n² · n⁹ = n¹¹'), rows);
+}
+
 console.log(`math-limits: ${pass} OK, ${fail} błędów`);
 process.exit(fail ? 1 : 0);
