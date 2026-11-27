@@ -475,6 +475,14 @@
         if (sq !== out[out.length - 1]) { out.push(sq); try { var c2 = plugSums(plugValues(K.parse(sq))), s2 = astText(c2); if (bare(s2) !== bare(sq)) out.push(s2); } catch (x) { /* zostaje */ } }
         var twice = out[out.length - 1].replace(/√(\d+) \+ √\1(?!\d)/g, '2√$1'); // [EN] √2 + √2 = 2√2
         if (twice !== out[out.length - 1]) out.push(twice);
+        // [EN] √8 = 2√2 wewnątrz zapisu: 12√2/(2√8) = 12√2/(4√2), dopiero potem wynik
+        var simp = out[out.length - 1].replace(/(\d*)√(\d+)(?![\d(])/g, function (m0, c0, k0) {
+            var k = Number(k0), a = 1;
+            for (var d = Math.floor(Math.sqrt(k)); d > 1; d--) if (k % (d * d) === 0) { a = d; break; }
+            if (a === 1 || k / (a * a) === 1) return m0;
+            return (Number(c0 || 1) * a) + '√' + (k / (a * a));
+        });
+        if (simp !== out[out.length - 1]) out.push(simp);
         var q2 = /^(−?)(\d+)\/\((\d+)√(\d+)\)$/.exec(out[out.length - 1]); // [EN] 12/(2√3) = 6/√3
         if (q2 && Number(q2[2]) % Number(q2[3]) === 0) out.push(q2[1] + (Number(q2[2]) / Number(q2[3])) + '/√' + q2[4]);
         var m = /^(−?)(\d*)\/√(\d+)$/.exec(out[out.length - 1]); // [EN] 1/√3 = √3/(√3 · √3) = √3/3: skąd √3 na górze
@@ -605,12 +613,12 @@
                 if (_pulls && rootSym && r.n === 1n && !K.isZero(inner.p) && a.s.length > 1) {
                     var under = rootSym + '(' + pulledText(v, sign, inner) + ')', uo = uText(v, sign, K.mul(inner.p, r)), out = uo + (/[√∛∜]/.test(uo) ? ' · ' : '') + rootSym + C.paren(inner.rest).replace(/^(?!\()(.*)$/, '($1)');
                     var row = C.show(C.cPow([C.term(ONE, [{ b: a, e: ONE }])], r)) + ' = ' + under + ' = ' + out;
-                    if (_pulls.indexOf(row) < 0) _pulls.push(row);
+                    if (!_pulls.some(function (x) { return x.row === row; })) _pulls.push({ kind: 'root', row: row });
                 }
                 if (_pulls && many && K.isInt(r) && r.n > 0n && !K.isZero(inner.p)) {
                     var pw = K.mul(inner.p, r), one = K.eq(r, ONE), bracket = C.paren(inner.rest);
-                    _pulls.push((one ? C.show(a.s) : C.show(C.cPow([C.term(ONE, [{ b: a, e: ONE }])], r))) + ' = '
-                        + (one ? '' : '(' + pulledText(v, sign, inner) + ')' + K.sup(r.n.toString()) + ' = ') + uText(v, sign, pw) + bracket + (one ? '' : K.sup(r.n.toString())));
+                    _pulls.push({ kind: 'pow', row: (one ? C.show(a.s) : C.show(C.cPow([C.term(ONE, [{ b: a, e: ONE }])], r))) + ' = '
+                        + (one ? '' : '(' + pulledText(v, sign, inner) + ')' + K.sup(r.n.toString()) + ' = ') + uText(v, sign, pw) + bracket + (one ? '' : K.sup(r.n.toString())) });
                     pows.push(pw);
                 }
                 p = K.add(p, K.mul(inner.p, r));
@@ -622,7 +630,7 @@
             var self = C.cPow(C.atomExpr(a), r);
             rest = C.cMul(rest, self); c = C.cMul(c, self);
         });
-        if (_pulls && pows.length > 1) _pulls.push(pows.map(function (q) { return uText(v, sign, q); }).join(' · ') + ' = ' + uText(v, sign, p));
+        if (_pulls && pows.length > 1) _pulls.push({ kind: 'pow', row: pows.map(function (q) { return uText(v, sign, q); }).join(' · ') + ' = ' + uText(v, sign, p) });
         return { p: p, rest: rest, c: c };
     }
     var _pulls = null; // [EN] zbierane przez pullTerm w dominantPower: wiersze kroku „Wyciągamy … spod pierwiastka”
@@ -732,7 +740,7 @@
             var pdWrapped = K.isZero(D.p) ? grp(D.rest) : '(' + pd + ')';
             // [EN] same liczby w nawiasach (−1/n) — nie ma czego wyłączać, krok byłby pusty (6e)
             var expRows = sign > 0 ? exponentRows(fr, N, D, v) : [];
-                        var rootRows = pulls.filter(function (r) { return /^[√∛∜]/.test(r); }), powRows = pulls.filter(function (r) { return !/^[√∛∜]/.test(r); });
+                        var rows = function (k) { return pulls.filter(function (r) { return r.kind === k; }).map(function (r) { return r.row; }); }, rootRows = rows('root'), powRows = rows('pow');
             if (rootRows.length) line(log, 'Wyciągamy ' + v + ' spod pierwiastka', rootRows.join('\n'), 'pierwiastek-iloczynu');
             if (sign < 0) { // [EN] x = −(−x), 3x = −3(−x): skąd minus przy (−x) w następnym kroku (S32)
                 var negRows = [];
