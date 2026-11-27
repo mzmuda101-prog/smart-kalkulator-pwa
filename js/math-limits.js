@@ -616,10 +616,9 @@
                     if (!_pulls.some(function (x) { return x.row === row; })) _pulls.push({ kind: 'root', row: row });
                 }
                 if (_pulls && many && K.isInt(r) && r.n > 0n && !K.isZero(inner.p)) {
-                    var pw = K.mul(inner.p, r), one = K.eq(r, ONE), bracket = C.paren(inner.rest);
-                    _pulls.push({ kind: 'pow', row: (one ? C.show(a.s) : C.show(C.cPow([C.term(ONE, [{ b: a, e: ONE }])], r))) + ' = '
-                        + (one ? '' : '(' + pulledText(v, sign, inner) + ')' + K.sup(r.n.toString()) + ' = ') + uText(v, sign, pw) + bracket + (one ? '' : K.sup(r.n.toString())) });
-                    pows.push(pw);
+                    var one = K.eq(r, ONE), sup = one ? '' : K.sup(r.n.toString());
+                    pows.push({ orig: '(' + C.show(a.s) + ')' + sup, pulled: one ? pulledText(v, sign, inner) : '(' + pulledText(v, sign, inner) + ')' + sup,
+                        each: uText(v, sign, K.mul(inner.p, r)) + C.paren(inner.rest).replace(/^(?!\()(.*)$/, '($1)') + sup, rest: C.paren(inner.rest).replace(/^(?!\()(.*)$/, '($1)') + sup });
                 }
                 p = K.add(p, K.mul(inner.p, r));
                 rest = C.cMul(rest, C.cPow(inner.rest, r));
@@ -630,7 +629,12 @@
             var self = C.cPow(C.atomExpr(a), r);
             rest = C.cMul(rest, self); c = C.cMul(c, self);
         });
-        if (_pulls && pows.length > 1) _pulls.push({ kind: 'pow', row: pows.map(function (q) { return uText(v, sign, q); }).join(' · ') + ' = ' + uText(v, sign, p) });
+        // [EN] jeden wiersz na licznik i jeden na mianownik: (4n + 1)²(3n + 2) = (n(4 + 1/n))² · n(3 + 2/n) = n²(4 + 1/n)² · n(3 + 2/n) = n³(4 + 1/n)²(3 + 2/n)
+        if (_pulls && pows.length > 1) {
+            var chainP = [pows.map(function (q) { return q.orig; }).join(''), pows.map(function (q) { return q.pulled; }).join(' · '),
+                pows.map(function (q) { return q.each; }).join(' · '), uText(v, sign, p) + pows.map(function (q) { return q.rest; }).join('')];
+            _pulls.push({ kind: 'pow', row: chainP.filter(function (x, i) { return !i || x !== chainP[i - 1]; }).join(' = ') });
+        }
         return { p: p, rest: rest, c: c };
     }
     var _pulls = null; // [EN] zbierane przez pullTerm w dominantPower: wiersze kroku „Wyciągamy … spod pierwiastka”

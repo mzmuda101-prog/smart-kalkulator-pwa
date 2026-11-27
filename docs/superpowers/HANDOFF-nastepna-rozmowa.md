@@ -13,6 +13,13 @@ Na start przywitaj się krótko, powiedz, co przeczytałeś, i zaproponuj nastę
 - Granice: podstawienie pokazuje rachunek poziomami (bramka w testach: każde „Podstawiamy” z rachunkiem, bez gołych liczb ujemnych); krok „Dzielimy schematem Hornera” z tabelkami przed rozkładem (bramka: każdy rozkład ma Hornera).
 - Przegląd całego silnika: 224 zadania, 4 działy + stare raporty C, D, E → 91 uwag (10 krytycznych), 14 wzorców lekkiej interaktywności.
 
+## Zrobione (2026-11-27, v1.05.75): partia 2b (pochodne i całki)
+- 12 wierszy (S4, S5, S17, S30, S34, S36, S37, S40, S45, S46, S47, S55), plan: `docs/superpowers/plans/2026-11-27-partia-2b.md`.
+- Reguła łańcuchowa z nazwanym u, wykładniki ułamkowe policzone, sprawdzenie całki z rachunkiem pochodnej,
+  ułamki proste z A i B wstawionymi, przez części z du, v i v · du, sin²/cos² i arctg bez skrótów.
+- Naprawione przy okazji: pochodna iloczynu ze stałą miała fałszywą równość; rdzeń wypisywał (√3)² jako √3
+  (pochodna arctg(x/√3) pokazywała x²/√3); bramka SymPy czyta \sin x jako sinus jednej litery.
+
 ## Zrobione (2026-11-27, v1.05.70): partia 2a-2 (granice algebraiczne)
 - 15 wierszy tabeli skoków (S3, S6–S10, S12–S15, S23, S24, S27, S28, S32), plan: `docs/superpowers/plans/2026-11-27-partia-2a-2.md`.
 - Sprzężenie krok po kroku (linia środkowa, licznik osobno, dzielenie przez ułamek, skracanie), wartości częściowe
@@ -33,9 +40,9 @@ Na start przywitaj się krótko, powiedz, co przeczytałeś, i zaproponuj nastę
 - Pomysł Mateusza na później: „rozumienie zdań” (np. `100m w 5 min to ile km/h`; silnik liczy `100 m / 5 min to km/h`) — osobny etap, uzgodnić z sesją od parsera.
 
 ## Następny krok (do decyzji Mateusza)
-- Zrobione: partia 2a-1 (v1.05.55), rozkład jak w szkole = paczka A sposobów (v1.05.60), partia 2a-2 (v1.05.70).
-- Do wyboru: **partia 2b** (analiza: S4, S5 krytyczne, sprawdzenia całek S17, reguła łańcuchowa S40…) albo
-  **paczka B sposobów** z `docs/superpowers/research/sposoby-katalog.md`. Potem 2c, paczki C–E, etap 4, „interaktywność”.
+- Zrobione: partia 2a-1 (v1.05.55), paczka A sposobów (v1.05.60), partia 2a-2 (v1.05.70), partia 2b (v1.05.75).
+- Do wyboru: **partia 2c** (równania i reszta: S2 krytyczne, S19, S33…) albo **paczka B sposobów**
+  z `docs/superpowers/research/sposoby-katalog.md`. Potem paczki C–E, etap 4, „interaktywność”.
 - Zasady: domyślnie najkrótszy sposób, w przełączniku drugi szkolny (pamięć: methods-order).
 
 ## Jak pracowaliśmy (sprawdziło się)

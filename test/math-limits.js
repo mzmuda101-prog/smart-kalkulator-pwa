@@ -715,8 +715,8 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
 {
     const st = S.run('lim n→∞ ((2n^2+3)^2(5n+2)^5(n+6))/((4n^3+5)^3(3n+7)^2)').explain.steps.find(x => /z każdego nawiasu$/.test(x.label)) || {};
     const rows = (st.math || '').split('\n');
-    ok('2a-2 S8: każdy czynnik osobno i suma wykładników', rows.includes('(2n² + 3)² = (n²(2 + 3/n²))² = n⁴(2 + 3/n²)²') && rows.includes('n + 6 = n(1 + 6/n)')
-        && rows.includes('n⁴ · n⁵ · n = n¹⁰') && rows.includes('n² · n⁹ = n¹¹'), rows);
+    ok('2a-2 S8: jeden wiersz na licznik i mianownik, potęgi zebrane', rows.includes('(2n² + 3)²(5n + 2)⁵(n + 6) = (n²(2 + 3/n²))² · (n(5 + 2/n))⁵ · n(1 + 6/n) = n⁴(2 + 3/n²)² · n⁵(5 + 2/n)⁵ · n(1 + 6/n) = n¹⁰(2 + 3/n²)²(5 + 2/n)⁵(1 + 6/n)')
+        && rows.length === 2 && !rows.some(r => /^n[⁰-⁹]* · n/.test(r)), rows);
 }
 
 // ── partia 2a-2, zadanie 6: trzy pierwiastki (S9) ──
