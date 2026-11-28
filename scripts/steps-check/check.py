@@ -375,6 +375,14 @@ def run(data) -> list:
                         cur = to_expr(body, var, {})
                         if numbers_only and cur.free_symbols and not sols:
                             raise Skip("niewiadoma w równaniu")
+                    except (AttributeError, TypeError) as err:  # SymPy wywraca się na zapisie typu „III − I:  …” — pomijam kawałek, nie całą bramkę
+                        why = "sympy: " + type(err).__name__
+                        reasons[why] = reasons.get(why, 0) + 1
+                        if "-v" in sys.argv:
+                            print("   !", prob["q"][:50], "|", body[:90])
+                        prev = None
+                        skipped += 1
+                        continue
                     except Skip as why:
                         reasons[str(why)] = reasons.get(str(why), 0) + 1
                         if "-v" in sys.argv and str(why).startswith(("parser", "niejedno")):

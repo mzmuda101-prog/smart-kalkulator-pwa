@@ -487,7 +487,7 @@ for (const q of ['rozwiąż x^4-5x^2+4=0', 'rozwiąż x^3-6x^2+11x-6=0']) {
     ok('gauss: x + y + z = 6, x − y + z = 2, x + y − z = 0', T('rozwiąż x+y+z=6, x-y+z=2, x+y-z=0') === 'x = 1, y = 2, z = 3', T('rozwiąż x+y+z=6, x-y+z=2, x+y-z=0'));
     ok('gauss: II − I i III − I', L('rozwiąż x+y+z=6, x-y+z=2, x+y-z=0').some(x => x.label === 'Usuwam x z równań II i III' && x.math === 'II − I:  −2y = −4\nIII − I:  −2z = −6'));
     ok('gauss: mnożenie bez ułamków (2 · II + 3 · I)', T('rozwiąż 2x + y - z = 8, -3x - y + 2z = -11, -2x + y + 2z = -3') === 'x = 2, y = 3, z = −1'
-        && L('rozwiąż 2x + y - z = 8, -3x - y + 2z = -11, -2x + y + 2z = -3').some(x => /^2 · II \+ 3 · I:/.test(x.math)));
+        && L('rozwiąż 2x + y - z = 8, -3x - y + 2z = -11, -2x + y + 2z = -3').some(x => x.math === '2 · II:  −6x − 2y + 4z = −22\n3 · I:  6x + 3y − 3z = 24\n2 · II + 3 · I:  y + z = 2\nIII + I:  2y + z = 5'));
     ok('gauss: zamiana kolejności, gdy brak x w pierwszym', T('rozwiąż y+z=3, x+z=2, x+y=1') === 'x = 0, y = 1, z = 2' && L('rozwiąż y+z=3, x+z=2, x+y=1').some(x => x.label === 'Zamieniam kolejność równań'));
     ok('podstawienie t: 4^x − 3 · 2^x + 2 = 0', T('rozwiąż 4^x - 3*2^x + 2 = 0') === 'x₁ = 0, x₂ = 1', T('rozwiąż 4^x - 3*2^x + 2 = 0'));
     ok('podstawienie t: ujemne t odpada', T('rozwiąż 4^x + 2^x - 6 = 0') === 'x = 1' && L('rozwiąż 4^x + 2^x - 6 = 0').some(x => x.label === 'Odrzucam t spoza warunku t > 0'));

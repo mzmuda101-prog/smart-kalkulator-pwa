@@ -1059,6 +1059,16 @@
                 'Skąd nazwa: to umowa, którą wszyscy stosują, żeby ten sam zapis dawał każdemu ten sam wynik.',
             ],
         },
+        'dzielenie-sumy': {
+            name: 'Dzielenie sumy przez liczbę lub wyraz',
+            tex: '\\frac{a+b}{c}=\\frac{a}{c}+\\frac{b}{c}\\quad(c\\neq 0)',
+            why: 'Gdy w liczniku jest suma, a w mianowniku jeden wyraz, każdy wyraz licznika dzielimy osobno. Potem każdy ułamek skracamy.',
+            level: 'Szkoła podstawowa i liceum: ułamki i wyrażenia',
+            more: [
+                'Przykład: $\\frac{x^{2}+1}{x}=\\frac{x^{2}}{x}+\\frac{1}{x}=x+\\frac{1}{x}$.',
+                'Odwrotnie to nie działa: $\\frac{c}{a+b}$ nie jest równe $\\frac{c}{a}+\\frac{c}{b}$. Rozbijać można tylko licznik.',
+            ],
+        },
         'skracanie-ulamka': {
             name: 'Skracanie ułamka',
             tex: '\\frac{a\\cdot k}{b\\cdot k}=\\frac{a}{b}\\quad(k\\neq 0)',
@@ -1256,6 +1266,7 @@
         'ulamki-proste': ['calki', 'st', ['ułamki proste', 'całka wymierna', 'rozkład ułamka', 'A i B'], 'całka 1/(x^2-1)', 'ln|x − 1|/2 − ln|x + 1|/2 + C', ['tablica-calek', 'dzielenie-z-reszta', 'skladanie-rozkladu']],
         'podstawienie-w-calce': ['calki', 'st', ['podstawienie', 'całka przez podstawienie', 'nowa zmienna', 'wracam do x'], 'całka (2x+1)^3', '(2x + 1)⁴/8 + C', ['pochodna-zlozona', 'liniowosc-calki', 'tablica-calek']],
         'kolejnosc-dzialan': ['liczby', 'lp', ['kolejność działań', 'nawias najpierw', 'potęga przed mnożeniem', 'mnożenie przed dodawaniem'], 'kroki 2 * (3 + 4)^2', '98', ['wspolny-mianownik', 'mnozenie-ulamkow']],
+        'dzielenie-sumy': ['wyrazenia', 'lp', ['dzielenie sumy', 'rozbijanie ułamka', 'każdy wyraz licznika', 'licznik przez mianownik'], 'całka (x^2+1)/x', 'x²/2 + ln|x| + C', ['skracanie-ulamka', 'liniowosc-calki']],
         'skracanie-ulamka': ['wyrazenia', 'lp', ['skracanie ułamka', 'skracanie wyrażenia', 'wspólny czynnik', 'dla x różnego od'], 'uprość (4x^2-1)/(2x-1)', '2x + 1 (dla x ≠ 1/2)', ['nwd-nww', 'roznica-kwadratow', 'skracanie-czynnika-w-granicy']],
         'dzielenie-z-reszta': ['calki', 'st', ['dzielenie wielomianów', 'całość i reszta', 'całka wymierna', 'stopień licznika'], 'całka x^3/(x^2-1)', 'x²/2 + ln|x + 1|/2 + ln|x − 1|/2 + C', ['ulamki-proste', 'schemat-hornera']],
         'pierwiastek-iloczynu': ['wyrazenia', 'lp', ['pierwiastek z iloczynu', 'wyłączanie spod pierwiastka', 'upraszczanie pierwiastka', 'pierwiastek z delty'], 'uprość √8', '2√2', ['delta', 'sprzezenie', 'pierwiastek-z-kwadratu']],

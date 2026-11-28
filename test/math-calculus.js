@@ -166,12 +166,12 @@ pass += 2;
     ok('3g: stała — a · 2t', has('pochodna a * t^2 po t', 'Mnożę przez stałą', 'a · 2t = 2at'), show('pochodna a * t^2 po t'));
     ok('3g: iloraz — licznik wymnożony przed uproszczeniem', st('pochodna (x^2+1)/(x-1)').some(x => x.label === 'Wstawiam do wzoru' && x.math.includes(' = (2x² − 2x − x² − 1)/(x − 1)² = (x² − 2x − 1)/(x − 1)²')), show('pochodna (x^2+1)/(x-1)'));
     ok('3g: iloraz — x/(x+1) z wymnożonym licznikiem', st(Q).some(x => x.label === 'Wstawiam do wzoru' && x.math.endsWith(' = (x + 1 − x)/(x + 1)² = 1/(x + 1)²')), show(Q));
-    ok('3g: całka √x przez x^(1/2)', has('całka √x', 'Całkuję potęgę', '√x = x^(1/2)\n⟦∫ x^(1/2) dx⟧ = x^(1/2 + 1)/(1/2 + 1) = x^(3/2)/(3/2) = 2/3 · x^(3/2) = 2x√x/3'), show('całka √x'));
+    ok('3g: całka √x przez x^(1/2)', has('całka √x', 'Całkuję potęgę', '√x = x^(1/2)\n⟦∫ x^(1/2) dx⟧ = x^(1/2 + 1)/(1/2 + 1) = x^(3/2)/(3/2) = 2/3 · x^(3/2) = 2x√x/3\nx^(3/2) = x · x^(1/2) = x√x'), show('całka √x'));
     ok('3g: całka 1/x² przez x^(−2)', has('całka 1/x^2', 'Całkuję potęgę', '1/x² = x^(−2)\n⟦∫ x^(−2) dx⟧ = x^(−2 + 1)/(−2 + 1) = x^(−1)/(−1) = −1 · x^(−1) = −1/x'), show('całka 1/x^2'));
     ok('3g: ujemny czynnik w nawiasie przy stałej całki', has('całka 3/x^3', 'Mnożę przez wyłączoną stałą', '3 · (−1/(2x²)) = −3/(2x²)'), show('całka 3/x^3'));
     ok('3g: tożsamość — kolor na tym, co wstawiamy', st('całka sin(x)^2').some(x => x.math.startsWith('sin²(x) = ⟦(1 − cos(2x))/2⟧')), show('całka sin(x)^2'));
     // 3h: całki bez skoków (raport E, C1): granice wstawione do F i policzone
-    ok('3h: F(π) − F(0) z wstawieniem', has('całka sin(x) od 0 do π', 'Liczę F(b) − F(a)', 'F(x) = −cos(x)\nF(π) − F(0) = ⟦(−cos(π)) − (−cos(0))⟧ = 1 − (−1) = 2'), show('całka sin(x) od 0 do π'));
+    ok('3h: F(π) − F(0) z wstawieniem', has('całka sin(x) od 0 do π', 'Liczę F(b) − F(a)', 'F(x) = −cos(x)\ncos(π) = −1,  cos(0) = 1\nF(π) − F(0) = ⟦(−cos(π)) − (−cos(0))⟧ = 1 − (−1) = 1 + 1 = 2'), show('całka sin(x) od 0 do π'));
     ok('3h: F(1) − F(0) z wstawieniem', has('całka x^2 od 0 do 1', 'Liczę F(b) − F(a)', 'F(x) = x³/3\nF(1) − F(0) = ⟦1³/3 − 0³/3⟧ = 1/3 − 0 = 1/3'), show('całka x^2 od 0 do 1'));
     ok('3h: liczba przed zmienną dostaje kropkę (2 · 3)', st('całka 2x+1 od 1 do 3').some(x => x.math.includes('⟦(3² + 3) − (1² + 1)⟧')), show('całka 2x+1 od 1 do 3'));
     ok('3h: przez części — minus razy minus od razu', has('całka x*sin(x)', 'Podstawiam do wzoru', 'u · v − ∫ v du = ⟦−x · cos(x) − ∫ −cos(x) · 1 dx⟧ = −x · cos(x) − ∫ −cos(x) dx = −x · cos(x) + ∫ cos(x) dx') && !has('całka x*sin(x)', 'Stałą wyłączam przed całkę'), show('całka x*sin(x)'));
@@ -182,7 +182,7 @@ pass += 2;
     ok('3h: ułamki proste — A i B wyliczone', has('całka 1/(x^2-1)', 'Rozkładam mianownik', 'x² − 1 = (x + 1)(x − 1)')
         && has('całka 1/(x^2-1)', 'Zapisuję ułamki proste', '1/((x + 1)(x − 1)) = A/(x + 1) + B/(x − 1)\n1 = A(x − 1) + B(x + 1)')
         && has('całka 1/(x^2-1)', 'Wyznaczam A i B', 'x = −1:  1 = A(−1 − 1) + B(−1 + 1) = −2A,  A = −1/2\nx = 1:  1 = A(1 − 1) + B(1 + 1) = 2B,  B = 1/2'), show('całka 1/(x^2-1)'));
-    ok('3h: podstawienie — dx = dt/2', st('całka (2x+1)^3').some(x => x.math.startsWith('dt = 2 dx, więc dx = dt/2')), show('całka (2x+1)^3'));
+    ok('3h: podstawienie — dx = dt/2', st('całka (2x+1)^3').some(x => x.math.startsWith('dt = (2x + 1)′ dx = 2 dx, więc dx = dt/2')), show('całka (2x+1)^3'));
     ok('3h: arctg w kształcie wzoru 1/a · arctg(x/a)', st('całka 1/(x^2+4)').some(x => x.math.includes('= ⟦1/2 · arctg(x/2)⟧ = arctg(x/2)/2')), show('całka 1/(x^2+4)'));
     ok('2b S55: dzielenie pokazane: x³ = x · (x² − 1) + x', has('całka x^3/(x^2-1)', 'Dzielę licznik przez mianownik', 'x³ = x · (x² − 1) + x\nx³/(x² − 1) = x + x/(x² − 1)'), show('całka x^3/(x^2-1)'));
     ok('2b S4: każdy ułamek osobno, kolejność z rozkładu', has('całka 1/(x^2-1)', 'Każdy ułamek daje logarytm', '∫ (−1/2)/(x + 1) dx = −ln|x + 1|/2\n∫ (1/2)/(x − 1) dx = ln|x − 1|/2'), show('całka 1/(x^2-1)'));
@@ -190,5 +190,13 @@ pass += 2;
     ok('3e2: etykiety bez wzorów', bad.length === 0, [...new Set(bad)]);
 }
 
+{ // S124: dzielenie licznika przez x, nie wymnażanie
+    const st = q => S.run(q).explain.steps, show = q => st(q).map(x => x.label + ': ' + x.math);
+    const s124 = st('całka (x^2+1)/x').find(x => /^Dzielę każdy wyraz licznika/.test(x.label));
+    ok('S124: (x² + 1)/x = x²/x + 1/x', !!s124 && s124.math === '∫ (x² + 1)/x dx = ∫ (x²/x + 1/x) dx = ∫ (x + 1/x) dx', s124);
+    ok('S125: 8/3 − (−1/3) = 8/3 + 1/3 = 9/3 = 3', st('całka x^2 od -1 do 2').some(x => /8\/3 − \(−1\/3\) = 8\/3 \+ 1\/3 = 9\/3 = 3$/.test(x.math)), show('całka x^2 od -1 do 2'));
+    ok('S123: sprawdzenie bez „A = A” i z (x + 1)′ = 1', (() => { const c = st('całka 1/(x^2+x)').find(x => x.label === 'Sprawdzenie').math.split('\n');
+        return c.includes('(x + 1)′ = 1') && !c.some(r => { const p = r.split(' = '); return p.length === 2 && p[0] === p[1]; }) && !c.includes('(1)′ = 0'); })(), show('całka 1/(x^2+x)'));
+}
 console.log(`math-calculus: ${pass} OK, ${fail} błędów`);
 process.exit(fail ? 1 : 0);

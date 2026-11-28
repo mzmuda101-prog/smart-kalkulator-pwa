@@ -399,6 +399,19 @@ sam, bez „Zrób”** — gdy wzór w ramce jest czytelny, apka go łapie albo 
   przerwa po kilku nieudanych, wyłączenie przy niskiej baterii / `prefers-reduced-data`.
 - Przed decyzją: pomiar zużycia baterii i temperatury na iPhonie w 2–3 min podglądu.
 
+- Przełącznik w ustawieniach (Mateusz, 2026-11-28): „Łap sam” włączone/wyłączone; wyłączone = dzisiejszy przycisk „Zrób”.
+
+### 5.11a Na później: mądrzejsze rozdzielanie — podpunkty a), b) (pomysł Mateusza, 2026-11-28)
+
+Ze zdjęcia z kilkoma podpunktami (np. „a) 2x + 3 = 7   b) x² − 4 = 0”) apka ma rozpoznać, że to osobne zadania,
+a nie jedno długie działanie.
+- Sygnały: oznaczenie na początku (a), b), 1., 2), I.), duża przerwa w poziomie lub nowy wiersz,
+  brak „=” ani znaku działania między kawałkami, każdy kawałek sam jest poprawnym zapisem (`latexToExpr` bez błędu).
+- Wynik: lista „a) …”, „b) …” do wyboru (albo każdy w osobnej linii notatnika), oznaczenie podpunktu nie wchodzi do działania.
+- Dwie drogi: (1) po odczycie — podział zapisu LaTeX po znacznikach a), b) i przerwach (tanio, od razu);
+  (2) przed odczytem — podział obrazu na wiersze i kolumny po pustych pasach (rzut poziomy/pionowy pikseli), każdy kawałek czytany osobno.
+  Zacząć od (1), (2) gdy (1) nie wystarczy. Łączy się z nie-celem „wiele wzorów na stronie” — to jego mała, bezpieczna wersja.
+
 ### 5.12 Na później: wzory w krokach — podświetlenie i dymek (pomysł Mateusza, 2026-11-22)
 
 Gdy krok rozwiązania korzysta ze znanego wzoru (podstawówka, liceum, studia — np. a² − b²,

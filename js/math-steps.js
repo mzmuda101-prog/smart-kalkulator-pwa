@@ -1139,7 +1139,9 @@
                 var pw = Number(q.k / d), c = powR(R(g), Number(q.c));
                 var tPow = pw === 1 ? { k: 'var', v: tv } : { k: 'pow', a: { k: 'var', v: tv }, b: { k: 'num', v: R(BigInt(pw)) } };
                 var as = (pw === 1 ? T : '(' + T + ')' + sup(pw));
-                repl.push({ node: q.node, with: eq(c, ONE) ? tPow : { k: 'mul', a: { k: 'num', v: c }, b: tPow },
+                var tT = { k: 'var', v: pw === 1 ? T : '(' + T + ')' + sup(pw) }; // [EN] zapis przez 2^x przed podstawieniem
+                repl.push({ node: q.node, with: eq(c, ONE) ? tPow : { k: 'mul', a: { k: 'num', v: c }, b: tPow, implicit: true },
+                    withT: eq(c, ONE) ? tT : { k: 'mul', a: { k: 'num', v: c }, b: tT },
                     line: eq(c, ONE) ? as : fmt(c, {}) + ' · ' + as, same: as === show(q.node, {}) && eq(c, ONE) });
             });
             return { kind: 'exp', v: v, tv: tv, T: T, base: g, repl: repl };
@@ -1173,12 +1175,15 @@
         if (isExp && plan.repl.some(function (r) { return !r.same; })) {
             steps.push({ label: 'Zapisuję potęgi przez ' + T, math: plan.repl.filter(function (r) { return !r.same; })
                 .map(function (r) { return show(Object.assign({}, r.node, { paren: false }), ctx) + ' = ⟦' + r.line + '⟧'; })
-                .filter(function (l, i, all) { return all.indexOf(l) === i; }).join('\n'), formula: { id: fid } });
+                .filter(function (l, i, all) { return all.indexOf(l) === i; }).join('\n')
+                + '\n' + (function () { var rT = plan.repl.map(function (r) { return { node: r.node, with: r.withT }; }); return show(replaceNodes(lhs, rT), ctx) + ' = ' + show(replaceNodes(rhs, rT), ctx); })(),
+                formula: { id: fid } });
         }
         var cond = isExp ? tv + ' > 0' : plan.f === 'tan' ? '' : '−1 ≤ ' + tv + ' ≤ 1';
         var poly = c.length === 2 ? polyText([ZERO, c[1]], tv, ctx) + ' = ' + fmt(neg(c[0]), ctx) // [EN] 3t = 12, t² = 4: od razu bez przenoszenia
             : isZero(c[1]) && !isZero(c[0]) ? polyText([ZERO, ZERO, c[2]], tv, ctx) + ' = ' + fmt(neg(c[0]), ctx) : polyText(c, tv, ctx) + ' = 0';
-        steps.push({ label: 'Podstawiam ' + tv + ' w miejsce ' + T, math: tv + ' = ' + T + (cond ? ',  ' + cond : '') + '\n⟦' + poly + '⟧', formula: { id: fid } });
+        var rawT = (show(replaceNodes(lhs, plan.repl), ctx) + ' = ' + show(replaceNodes(rhs, plan.repl), ctx)).replace(new RegExp('(\\d) · ' + tv + '(?![a-z])', 'g'), '$1' + tv); // [EN] 2t + t = 12, potem 3t = 12
+        steps.push({ label: 'Podstawiam ' + tv + ' w miejsce ' + T, math: tv + ' = ' + T + (cond ? ',  ' + cond : '') + (rawT !== poly && isExp ? '\n' + rawT : '') + '\n⟦' + poly + '⟧', formula: { id: fid } });
         var inn = innerSolve(poly);
         steps = steps.concat(inn.steps);
         var fits = function (s) { return isExp ? s.value > 0 : plan.f === 'tan' || Math.abs(s.value) <= 1 + 1e-12; };
@@ -1808,19 +1813,27 @@
         if (tidy !== head[0].math) head.push({ label: 'Porządkuję równania', math: tidy });
         var steps = head.slice(), F = { id: 'gauss' };
         var comb = function (ri, mi, rp, mp) { return rows[ri].map(function (q, j) { return sub(mul(mi, q), mul(mp, rows[rp][j])); }); };
+        var NAME = ROM.slice(); // [EN] po zmianie równanie dostaje prim: II′, III′ (żeby nie mylić z wyjściowym)
         var opText = function (i, mi, p, mp) { // [EN] „II − 2 · I”, „2 · III + I”
             var abs = mp.n < 0n ? neg(mp) : mp;
-            return (eq(mi, ONE) ? '' : fmt(mi, ctx) + ' · ') + ROM[i] + (mp.n < 0n ? ' + ' : ' − ') + (eq(abs, ONE) ? '' : fmt(abs, ctx) + ' · ') + ROM[p];
+            return (eq(mi, ONE) ? '' : fmt(mi, ctx) + ' · ') + NAME[i] + (mp.n < 0n ? ' + ' : ' − ') + (eq(abs, ONE) ? '' : fmt(abs, ctx) + ' · ') + NAME[p];
         };
+        var scaled = function (r, m) { return r.map(function (q) { return mul(q, m); }); };
         var eliminate = function (col, p, targets) { // [EN] usuwam niewiadomą col z wierszy targets wierszem p, bez ułamków
             var lines = [];
             targets.forEach(function (i) {
-                if (isZero(rows[i][col])) { lines.push(ROM[i] + ' bez zmian:  ' + eqText(rows[i])); return; }
+                if (isZero(rows[i][col])) { lines.push(NAME[i] + ' bez zmian:  ' + eqText(rows[i])); return; }
                 var a = rows[p][col], b = rows[i][col], mi, mp;
                 if (eq(a, ONE) || eq(a, neg(ONE))) { mi = ONE; mp = div(b, a); }
                 else { var g = isInt(a) && isInt(b) ? R(gcd(a.n, b.n)) : ONE; mi = div(a, g); mp = div(b, g); if (mi.n < 0n) { mi = neg(mi); mp = neg(mp); } }
+                // [EN] pomnożone równania widać przed dodaniem (słaby uczeń e019): 2 · II, 3 · I, potem wynik
+                if (!eq(mi, ONE)) lines.push(fmt(mi, ctx) + ' · ' + NAME[i] + ':  ' + eqText(scaled(rows[i], mi)));
+                var mpAbs = mp.n < 0n ? neg(mp) : mp;
+                if (!eq(mpAbs, ONE)) lines.push((mp.n < 0n ? '' : '−') + fmt(mpAbs, ctx) + ' · ' + NAME[p] + ':  ' + eqText(scaled(rows[p], neg(mp))));
+                var op = opText(i, mi, p, mp);
                 rows[i] = comb(i, mi, p, mp);
-                lines.push(opText(i, mi, p, mp) + ':  ' + eqText(rows[i]));
+                NAME[i] = ROM[i] + '′';
+                lines.push(op + ':  ' + eqText(rows[i]));
             });
             return lines;
         };
@@ -1837,14 +1850,14 @@
         }
         steps.push({ label: 'Usuwam ' + V[0] + ' z równań II i III', math: eliminate(0, 0, [1, 2]).join('\n'), formula: F });
         var p1 = pickPivot(1, 1);
-        if (p1 !== 1) { var tmp2 = rows[1]; rows[1] = rows[2]; rows[2] = tmp2; }
-        if (!isZero(rows[2][1])) steps.push({ label: 'Usuwam ' + V[1] + ' z równania III', math: eliminate(1, 1, [2]).join('\n'), formula: F });
+        if (p1 !== 1) { var tmp2 = rows[1]; rows[1] = rows[2]; rows[2] = tmp2; var nm = NAME[1]; NAME[1] = NAME[2]; NAME[2] = nm; } // shortcut: zamiana II′ z III′ bez osobnego kroku
+        if (!isZero(rows[2][1])) steps.push({ label: 'Usuwam ' + V[1] + ' z równania ' + NAME[2], math: eliminate(1, 1, [2]).join('\n'), formula: F });
         if (isZero(rows[2][2])) throw new NotSupported();
         steps.push({ label: 'Zapisuję układ schodkowy', math: rows.map(eqText).join('\n'), formula: F });
         var val = [null, null, null];
         val[2] = div(rows[2][3], rows[2][2]);
         var zq = fmt(rows[2][3], ctx) + '/' + fmtParen(rows[2][2], ctx);
-        steps.push({ label: 'Wyliczam ' + V[2] + ' z równania III', math: V[2] + ' = ' + (eq(rows[2][2], ONE) ? '' : zq + ' = ') + fmt(val[2], ctx), formula: F });
+        steps.push({ label: 'Wyliczam ' + V[2] + ' z równania ' + NAME[2], math: V[2] + ' = ' + (eq(rows[2][2], ONE) ? '' : zq + ' = ') + fmt(val[2], ctx), formula: F });
         var put = function (coef, txt, first) {
             if (isZero(coef)) return '';
             var abs = coef.n < 0n ? neg(coef) : coef, body = eq(abs, ONE) ? txt : fmt(abs, ctx) + (/^[\d(]/.test(txt) ? ' · ' : '') + txt;
@@ -1868,8 +1881,8 @@
             if (isZero(rows[i][i])) throw new NotSupported();
             var named = [0, 1, 2].filter(function (j) { return known[j] && j > i && !isZero(rows[i][j]); }).map(function (j) { return V[j] + ' = ' + fmt(val[j], ctx); }).join(', ');
             var withV = backIn(rows[i], known);
-            steps.push(named ? { label: 'Wstawiam ' + named + ' do równania ' + ROM[i], math: withV, formula: F }
-                : { label: 'Wyliczam ' + V[i] + ' z równania ' + ROM[i], math: withV, formula: F }); // [EN] w tym równaniu nie ma już znanych liter
+            steps.push(named ? { label: 'Wstawiam ' + named + ' do równania ' + NAME[i], math: withV, formula: F }
+                : { label: 'Wyliczam ' + V[i] + ' z równania ' + NAME[i], math: withV, formula: F }); // [EN] w tym równaniu nie ma już znanych liter
             var rest = ZERO;
             for (var j = i + 1; j < 3; j++) rest = add(rest, mul(rows[i][j], val[j]));
             val[i] = div(sub(rows[i][3], rest), rows[i][i]);

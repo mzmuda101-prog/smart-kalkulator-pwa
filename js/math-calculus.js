@@ -304,14 +304,17 @@
         var many = (q !== 1n && downs.length > 0) || downs.length > 1 || /^[a-z][²³⁴⁵⁶⁷⁸⁹]*√/.test(bottom);
         return top + '/' + (many ? '(' + bottom + ')' : bottom);
     }
-    function show(e) {
+    function viewOrder(e) { // [EN] kolejność jak na ekranie: bez minusa na początku, gdy jest wyraz dodatni: 15 − 8x, √(n² + n) − n
         var list = sortedTerms(e);
-        if (!list.length) return '0';
-        // [EN] bez minusa na początku, gdy jest wyraz dodatni: 15 − 8x, √(n² + n) − n (jak w zeszycie)
-        if (list[0].c.n < 0n) {
+        if (list.length && list[0].c.n < 0n) {
             var pos = list.findIndex(function (t) { return t.c.n > 0n; });
             if (pos > 0) list = [list[pos]].concat(list.slice(0, pos), list.slice(pos + 1));
         }
+        return list;
+    }
+    function show(e) {
+        var list = viewOrder(e);
+        if (!list.length) return '0';
         return list.map(function (t, i) {
             var negative = t.c.n < 0n;
             if (!i) return (negative ? '−' : '') + showTerm(t);
@@ -397,7 +400,7 @@
     function dExpr(e, v, log) {
         if (!hasVar(e, v)) return [];
         if (e.length === 1) return dTerm(e[0], v, log);
-        var list = sortedTerms(e);
+        var list = viewOrder(e); // [EN] ta sama kolejność co w zapisie funkcji (S123)
         if (list.every(function (t) { return isSimplePower(t, v); })) {
             var res = [], rows = [];
             list.forEach(function (t) {
@@ -479,7 +482,15 @@
         if (plain) { line(log, 'Korzystam z tablicy pochodnych', '⟦(' + name + ')′⟧ = ' + show(outer), 'tablica-pochodnych'); return outer; }
         // [EN] funkcja zewnętrzna nazwana: u = 3x + 1, (u⁵)′ = 5u⁴ (S30)
         var U = inU ? inU(v === 'u' ? 't' : 'u') : null;
-        line(log, 'Liczę pochodną złożoną', (U ? U[2] + ' = ' + showInner(u) + ',  (' + U[0] + ')′ = ' + U[1] + '\n' : '')
+        // [EN] wstawienie u do wzoru, gdy u jest w potędze: 1/(u² + 1) z u = x/2 → 1/((x/2)² + 1) = 1/(x²/4 + 1) = 4/(x² + 4) (S120)
+        var putU = '';
+        if (U && new RegExp(U[2] + '[²³⁴]').test(U[1])) {
+            var inner = showInner(u), withU = U[1].replace(new RegExp(U[2] + '(?![a-z])', 'g'), '(' + inner + ')');
+            var fr = /^([a-z])\/(\d+|√\d+)$/.exec(inner), mid = '';
+            if (fr) { var c2 = /^√/.test(fr[2]) ? fr[2].slice(1) : String(Number(fr[2]) * Number(fr[2])); mid = U[1].replace(new RegExp(U[2] + '²', 'g'), fr[1] + '²/' + c2); }
+            if (withU !== show(outer)) putU = U[1] + ' = ' + withU + (mid && mid !== show(outer) ? ' = ' + mid : '') + ' = ' + show(outer) + '\n';
+        }
+        line(log, 'Liczę pochodną złożoną', (U ? U[2] + ' = ' + showInner(u) + ',  (' + U[0] + ')′ = ' + U[1] + '\n' + putU : '')
             + '(' + name + ')′ = ⟦' + show(outer) + ' · (' + showInner(u) + ')′⟧', 'pochodna-zlozona', U ? U[2] + ' = ' + showInner(u) : null);
         if (log && U) log[log.length - 1].outer = U[0];
         var mine = [], d = dExpr(u, v, mine);
@@ -669,7 +680,11 @@
             var n1 = add(f.e, ONE), plus = v + '^(' + signed(f.e) + ' + 1)/(' + signed(f.e) + ' + 1)', inv = div(ONE, n1);
             var coefT = (inv.n < 0n ? '−' : '') + fmt(inv.n < 0n ? neg(inv) : inv) + ' · ' + pw(n1);
             line(log, label, (asWritten !== pw(f.e) ? asWritten + ' = ' + pw(f.e) + '\n' : '') + '⟦∫ ' + pw(f.e) + ' d' + v + '⟧ = ' + plus + ' = '
-                + pw(n1) + '/' + (isInt(n1) && n1.n > 0n ? n1t : '(' + n1t + ')') + ' = ' + coefT + (coefT === show(res) ? '' : ' = ' + show(res)), fid);
+                + pw(n1) + '/' + (isInt(n1) && n1.n > 0n ? n1t : '(' + n1t + ')') + ' = ' + coefT + (coefT === show(res) ? '' : ' = ' + show(res))
+                + (n1.d === 2n && n1.n > 1n && /√/.test(show(res)) ? (function () { // [EN] x^(3/2) = x · x^(1/2) = x√x (S126)
+                    var k = (n1.n - 1n) / 2n, xk = k === 1n ? v : v + K.sup(String(k));
+                    return '\n' + pw(n1) + ' = ' + xk + ' · ' + v + '^(1/2) = ' + xk + '√' + v;
+                })() : ''), fid);
         } else line(log, label, '⟦' + integralText(e, v) + '⟧ = ' + show(res), fid);
         return res;
     }
@@ -716,7 +731,7 @@
             if (!solved) continue;
             // [EN] dt = 2 dx, więc dx = dt/2 — skąd dzielenie przez 2 (raport E, C6)
             var solveFor = dg.length === 1 && !eq(dg[0].c, ONE) ? ', więc ' + (dg[0].fs.length ? show([term(ONE, dg[0].fs)]) + ' ' : '') + 'd' + v + ' = d' + tv + '/' + (isInt(dg[0].c) && dg[0].c.n > 0n ? fmt(dg[0].c) : '(' + fmt(dg[0].c) + ')') : '';
-            line(log, 'Podstawienie: ' + tv + ' = ' + key, 'd' + tv + ' = ' + paren(dg) + ' d' + v + solveFor + '\n' + integralText(e, v) + ' = ' + integralText(inT, tv));
+            line(log, 'Podstawienie: ' + tv + ' = ' + key, 'd' + tv + ' = (' + key + ')′ d' + v + ' = ' + paren(dg) + ' d' + v + solveFor + '\n' + integralText(e, v) + ' = ' + integralText(inT, tv));
             inner.forEach(function (s) { log.push(s); });
             var back = mapExpr(solved, function (a) { return a.k === 'var' && a.v === tv ? g : null; });
             line(log, 'Wracam do zmiennej ' + v, show(back));
@@ -851,7 +866,12 @@
     function expanded(e, v, depth, log) {
         var open = expandExpr(e);
         if (show(open) === show(e)) return null;
-        line(log, 'Wymnażam nawiasy', integralText(e, v) + ' = ' + integralText(open, v));
+        // [EN] (x² + 1)/x: to dzielenie każdego wyrazu licznika, nie wymnażanie (S124)
+        var fr = /^\(([^()]+)\)\/(\w+|\([^()]+\))$/.exec(show(e));
+        if (fr) {
+            var pieces = fr[1].split(/ (?=[+−] )/).map(function (q, i) { return (i ? ' ' + q.slice(0, 2) + q.slice(2) : q) + '/' + fr[2]; }).join('');
+            line(log, 'Dzielę każdy wyraz licznika przez ' + fr[2], integralText(e, v) + ' = ∫ (' + pieces + ') d' + v + ' = ' + integralText(open, v), 'dzielenie-sumy');
+        } else line(log, 'Wymnażam nawiasy', integralText(e, v) + ' = ' + integralText(open, v));
         return integ(open, v, depth + 1, log);
     }
 
@@ -942,10 +962,18 @@
                 });
             });
             if (F.length > 1 && rowsD.length) { // [EN] na końcu suma pochodnych składników, która się redukuje do funkcji spod całki
-                var partsD = sortedTerms(F).map(function (t) { return grpT(dTerm(t, v, null)); });
+                var partsD = viewOrder(F).map(function (t) { return grpT(dTerm(t, v, null)); });
                 rowsD.push(partsD.map(function (x, i) { return !i ? x : x[0] === '−' ? ' − ' + x.slice(1) : ' + ' + x; }).join('') + ' = ' + show(dF));
             }
             if (rowsD.length && show(dF) !== show(e)) rowsD.push(show(dF) + ' = ' + show(e));
+            // [EN] (x)′ = 1, (1)′ = 0, (x + 1)′ = 1 + 0 = 1 → jeden wiersz (x + 1)′ = 1; bez wierszy „A = A” (S123)
+            var SUMD = /^(\([^()]*\)′) = −?\d+(?: [+−] \d+)+ = (−?\d+)$/, TRIV = /^\((−?\d+|[a-z])\)′ = [01]$/;
+            rowsD = rowsD.filter(function (r) { var sd = r.split(' = '); return !(sd.length === 2 && sd[0] === sd[1]); });
+            rowsD = rowsD.filter(function (r, i) { // [EN] trywialne wiersze tuż przed zwiniętą sumą znikają
+                if (!TRIV.test(r)) return true;
+                for (var j = i + 1; j < rowsD.length && TRIV.test(rowsD[j]); j++);
+                return !(j < rowsD.length && SUMD.test(rowsD[j]));
+            }).map(function (r) { return r.replace(SUMD, '$1 = $2'); });
         } catch (x) { rowsD = []; }
         if (rowsD.length > 99) rowsD = []; // shortcut: bardzo długie sprawdzenie zostaje jednym wierszem, rozwinąć przy przeglądzie ucznia
         steps.push({ label: 'Sprawdzenie', math: (rowsD.length ? rowsD.join('\n') + '\n' : '') + '(' + show(F) + ')′ = ' + show(e) + ' ✓' });
@@ -965,10 +993,19 @@
         var exact = a && b ? sub(b, a) : null;
         var whole = Math.abs(value - Math.round(value)) < 1e-11; // [EN] ∫ sin(x) od 0 do π to dokładnie 2
         var res = exact ? fmt(exact) : (whole ? fmt(R(Math.round(value))) : '≈ ' + K.fmtApprox(value));
+        // [EN] wartości z tablicy przed odejmowaniem: cos(π) = −1, cos(0) = 1 (S125)
+        var TAB = { sin: { '0': '0', 'π/6': '1/2', 'π/4': '√2/2', 'π/3': '√3/2', 'π/2': '1', 'π': '0', '2π': '0' },
+            cos: { '0': '1', 'π/6': '√3/2', 'π/4': '√2/2', 'π/3': '1/2', 'π/2': '0', 'π': '−1', '2π': '1' } };
+        var putHi = putIn(F, v, hi.text), putLo = putIn(F, v, lo.text), vals = [];
+        (putHi + ' ' + putLo).replace(/(sin|cos)\(([^()]*)\)/g, function (m, f, x) { var t = TAB[f][x]; if (t && vals.indexOf(m + ' = ' + t) < 0) vals.push(m + ' = ' + t); return m; });
+        var bT = b ? fmt(b) : K.fmtApprox(evalExpr(F, atHi)), aT = (a ? fmt(a) : K.fmtApprox(evalExpr(F, atLo)));
+        // [EN] odejmowanie liczby ujemnej rozpisane: 8/3 − (−1/3) = 8/3 + 1/3 (S125)
+        var minusNeg = /^−/.test(aT) && !/^≈/.test(res) ? ' = ' + bT + ' + ' + aT.slice(1) : '';
+        if (minusNeg && a && b && a.d === b.d && b.d > 1n && fmt(R(b.n - a.n, b.d)) !== fmt(R(b.n - a.n)) ) minusNeg += ' = ' + (b.n - a.n) + '/' + b.d; // [EN] 8/3 + 1/3 = 9/3 = 3
         steps.push({
             label: 'Liczę F(b) − F(a)', formula: { id: 'newton-leibniz' },
-            math: 'F(' + v + ') = ' + show(F) + '\nF(' + hi.text + ') − F(' + lo.text + ') = ⟦' + putIn(F, v, hi.text) + ' − ' + putIn(F, v, lo.text) + '⟧ = '
-                + (b ? fmt(b) : K.fmtApprox(evalExpr(F, atHi))) + ' − ' + (a ? fmt(a) : K.fmtApprox(evalExpr(F, atLo))).replace(/^−(.*)$/, '(−$1)') + (/^≈/.test(res) ? ' ' : ' = ') + res
+            math: 'F(' + v + ') = ' + show(F) + (vals.length ? '\n' + vals.join(',  ') : '') + '\nF(' + hi.text + ') − F(' + lo.text + ') = ⟦' + putHi + ' − ' + putLo + '⟧ = '
+                + bT + ' − ' + aT.replace(/^−(.*)$/, '(−$1)') + minusNeg + (/^≈/.test(res) ? ' ' : ' = ') + res
         });
         steps.push({ label: 'Wynik', math: res });
         return K.done('Całka oznaczona', res, value, steps);

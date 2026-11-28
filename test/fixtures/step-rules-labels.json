@@ -275,9 +275,6 @@
   "^Wyliczam [a-z]$ → okresowosc": [
     "Wyliczam v"
   ],
-  "^Wymnażam nawiasy$ → opuszczanie-nawiasow": [
-    "Wymnażam nawiasy"
-  ],
   "^Wyznaczam miejsca zerowe$ → iloczyn-rowny-zero": [
     "Wyznaczam miejsca zerowe"
   ],
