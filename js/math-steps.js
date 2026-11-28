@@ -1741,7 +1741,13 @@
         var exprAst = parseTokens(tokenize(expr.replace(/−/g, '-'), {}));
         var back = show(plugIn(exprAst, O, oVal), ctx);
         var subSteps = head.concat([
-            { label: 'Wyznaczam ' + W + ' z ' + ord[I] + ' równania', math: W + ' = ' + expr },
+            { label: 'Wyznaczam ' + W + ' z ' + ord[I] + ' równania', math: (function () { // [EN] 3y = 12 − 2x → y = (12 − 2x)/3 = 4 − (2/3)x (S150)
+                var we = {}; we[W] = 1;
+                var rest = [{ c: row.c, e: {} }, { c: neg(row[oKey]), e: oe }].filter(function (t) { return !isZero(t.c); });
+                var restT = rest.length ? showTerms(rest, ctx, true) : '0', left = showTerms([{ c: kw, e: we }], ctx, true);
+                if (eq(kw, ONE)) return (restT === expr ? '' : W + ' = ' + restT + '\n') + W + ' = ' + expr;
+                return left + ' = ' + restT + '\n' + W + ' = (' + restT + ')/' + fmtParen(kw, ctx) + ' = ' + expr;
+            })() },
             { label: 'Podstawiam do ' + ord[1 - I] + ' równania', math: subst.replace(/^(.*?) = /, '⟦$1⟧ = '), formula: { id: 'uklad-podstawianie' } }
         ], inner(subst), [
             { label: 'Wstawiam ' + O + ' = ' + fmt(oVal, ctx), math: W + ' = ' + back + (back === fmt(wVal, ctx) ? '' : ' = ' + fmt(wVal, ctx)) },

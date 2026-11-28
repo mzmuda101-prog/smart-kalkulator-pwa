@@ -481,6 +481,8 @@ for (const q of ['rozwiąż x^4-5x^2+4=0', 'rozwiąż x^3-6x^2+11x-6=0']) {
     w3('uprość (x^2-0.25)/(x-0.5)', 'x + 0,5 (dla x ≠ 0,5)');
 }
 
+// S150: wyznaczanie niewiadomej z rachunkiem, nie od razu z ułamkiem
+ok('S150: 3y = 12 − 2x, potem dzielenie przez 3', S.run('rozwiąż 2x + 3y = 12; 3x - 2y = 5').explain.methods[0].steps.some(x => x.math === '3y = 12 − 2x\ny = (12 − 2x)/3 = 4 − (2/3)x'));
 // ── paczka B: układ 3×3 metodą Gaussa i podstawienie t ──
 {
     const T = q => { const r = S.run(q); return r && r.text; }, L = q => S.run(q).explain.steps;
