@@ -436,8 +436,8 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     const hosp = q => { const ex = run(q).explain; const mm = ex.methods || [{ label: '', steps: ex.steps }]; const st = (mm.find(x => x.label === "de l'Hospital") || mm[0]).steps.find(x => x.label === "Reguła de l'Hospitala"); return st && st.math; };
     const inOrder = (m, parts) => m && parts.every((p, i) => m.includes(p) && (!i || m.indexOf(p) > m.indexOf(parts[i - 1])));
     const h9 = hosp('lim x→5 (x-5)/(3-sqrt(x+4))'), hg79 = hosp('lim x→1 (∜(x+15)-2)/(x^2-5x+4)');
-    ok('S25: 9a √(x+4) — łańcuchowo, · 1, uproszczenie', inOrder(h9, ['1/(2√(x + 4)) · (x + 4)′', '1/(2√(x + 4)) · 1', '−2√(x + 4)']), h9);
-    ok('S25: ∜(x+15) — łańcuchowo i wyliczony środek', inOrder(hg79, ['(x + 15)′', '1/(4(x + 15)^(3/4)) · 1', '1/(4(2x − 5)']), hg79);
+    ok('S25: 9a √(x+4) — łańcuchowo, · 1, bez ukrytego uproszczenia (S133)', inOrder(h9, ['1/(2√(x + 4)) · (x + 4)′', '1/(2√(x + 4)) · 1', '(−1)/(1/(2√(x + 4)))']), h9);
+    ok('S25: ∜(x+15) — łańcuchowo i wyliczony środek', inOrder(hg79, ['(x + 15)′', '1/(4(x + 15)^(3/4)) · 1', '(1/(4(x + 15)^(3/4)))/(2x − 5)']), hg79);
     const h7 = hosp('lim x→∞ x/sqrt(3x^2+5)');
     ok('S25: 7a — (3x² + 5)′, potem · 6x, potem 3x/√', inOrder(h7, ['1/(2√(3x² + 5)) · (3x² + 5)′', '1/(2√(3x² + 5)) · 6x', '3x/√(3x² + 5)']), h7);
     const h9b = hosp('lim x→3 (x^2-5x+6)/(sqrt(x+6)-x)');
@@ -445,7 +445,15 @@ ok('zestaw: każde zadanie < 300 ms', slowest.ms < 300, slowest);
     const h9d = hosp('lim x→2 (2-sqrt(x+2))/(sqrt(x+7)-x-1)');
     ok('S25: 9d — oba człony łańcuchowo', h9d && /\(x \+ 2\)′/.test(h9d) && /\(x \+ 7\)′/.test(h9d) && /1 − 1\/\(2√\(x \+ 7\)\) · 1/.test(h9d), h9d);
     ok('S25: każda postać w osobnym wierszu', h9 && h9.split('\n').length >= 3 && h9.split('\n').slice(1).every(l => l.startsWith('= ')), h9);
-    ok('S25: bez pierwiastka — krok bez zmian', hosp(A) === 'lim(x→4) ⟦(x² − 6x + 8)′/(3x² − 10x − 8)′⟧\n= lim(x→4) (2x − 6)/(6x − 10)\n= lim(x→4) (x − 3)/(3x − 5)', hosp(A));
+    ok('S25: bez pierwiastka — krok bez zmian', hosp(A) === 'lim(x→4) ⟦(x² − 6x + 8)′/(3x² − 10x − 8)′⟧\n= lim(x→4) (2x − 6)/(6x − 10)', hosp(A));
+    { const hm = S.run('lim x→-2 (x^3-x+6)/(sqrt(x^4-12)+x)').explain.methods.find(m => m.label === "de l'Hospital");
+      ok("S132: de l'Hospital bez kroku ze sprzężenia", !!hm && !hm.steps.some(x => /√\(x⁴ − 12\)\) · \(x³/.test(x.math) && x.label === 'Wyłączam minus przed ułamek'), hm && hm.steps.map(x => x.label)); }
+    { const hd = S.run('lim x→2 (2-sqrt(x+2))/(sqrt(x+7)-x-1)').explain.methods.find(m => m.label === "de l'Hospital"), pd = hd && hd.steps.find(x => /^Podstawiamy/.test(x.label));
+      ok("S133: wstawiam do (1/(2√(x + 2)))/(1 − 1/(2√(x + 7))) bez ukrytego mnożenia", !!pd && pd.math.startsWith('lim(x→2) (1/(2√(x + 2)))/(1 − 1/(2√(x + 7))) = ') && pd.math.endsWith('= 3/10'), pd); }
+    { const st = S.run('lim n→∞ (n+3)^(2n^2+12n)/(n^2+6n)^(n^2+6n)').explain.steps;
+      ok('S140: g048 — 2(n² + 6n) i ((n + 3)²)^(n² + 6n)', st.some(x => x.math.startsWith('2n² + 12n = 2(n² + 6n)\n(n + 3)^(2(n² + 6n)) = ((n + 3)²)^(n² + 6n) = (n² + 6n + 9)^(n² + 6n)')), st.map(x => x.math)); }
+    { const st = S.run('lim n→∞ (5n+∛(n^4+1)+3∜(n)+2)/(3sqrt(2n^2+7)+2n+6∜(n^5+3)+3sqrt(n)+6)').explain.steps, w = st.find(x => /dążą do 0/.test(x.label));
+      ok('S140: g015 — zera wstawione, skąd 1/6', !!w && w.math.includes('(6∜(1 + 0) + 0 + 0 + 0 + 0)') && w.math.endsWith('1/6 · n^(1/12) → +∞'), w); }
     ok('sposoby: ∛ — różnica sześcianów, nie sprzężenie', names('lim x→3 (x^2-8x+15)/(∛(3x-1)-2)')[0] === 'Różnica sześcianów', names('lim x→3 (x^2-8x+15)/(∛(3x-1)-2)'));
     ok('sposoby: bez symbolu nieoznaczonego — jeden sposób, bez przełącznika', names('lim x→2 (x+1)/(x+3)').length === 0);
     // etap 1 sposobów (spec 2026-11-23-sposoby-design.md): 1^∞ — wzór skrócony, ∞/∞ — de l'Hospital

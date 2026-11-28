@@ -266,7 +266,7 @@
                 var bt = n.b.paren ? '(' + astText(n.b) + ')' : astText(n.b, 3);
                 return astText(n.a, 3) + (n.implicit && !/^\d/.test(bt) ? '' : ' · ') + bt;
             }
-            case 'div': return astText(n.a, 3) + '/' + astText(n.b, 4);
+            case 'div': return astText(n.a, n.a.k === 'div' ? 4 : 3) + '/' + astText(n.b, 4); // [EN] (1/4)/(5/6), nie 1/4/(5/6)
             case 'sqrt': return '√' + astGroup(n.a);
             case 'fn': return fnName(n) + '(' + astText(n.a) + ')';
             case 'pow': {
@@ -1179,7 +1179,14 @@
             var P = asAtom(fold(C.expandExpr(C.cPow(A.b.b, kk)))), Q = asAtom(fold(C.expandExpr(B.b.b)));
             var ratio = flip ? C.cMul(P, C.cPow(Q, K.neg(ONE))) : C.cMul(P, Q);
             var combined = C.cMul(C.num(e[0].c), C.cExp(ratio, g));
-            line(log, 'Zapisujemy oba wykładniki tak samo', limHead(v, t) + '⟦' + C.show(combined) + '⟧', 'potega-ilorazu');
+            // [EN] 2n² + 12n = 2(n² + 6n); (n + 3)^(2(n² + 6n)) = ((n + 3)²)^(n² + 6n) = (n² + 6n + 9)^(n² + 6n) (S140, g048)
+            var why = '';
+            if (K.isInt(kk) && kk.n > 1n && kk.n < 10n && !C.show(C.cMul(A.b.x, C.num(A.e))).startsWith('−')) {
+                var gT = C.show(g), kT = K.fmt(kk), bA = C.show(A.b.b), wrapB = A.b.b.length > 1 ? '(' + bA + ')' : bA, gW = g.length > 1 ? '(' + gT + ')' : gT;
+                why = C.show(C.cMul(A.b.x, C.num(A.e))) + ' = ' + kT + gW + '\n'
+                    + wrapB + '^(' + kT + gW + ') = (' + wrapB + K.sup(kT) + ')^' + gW + ' = ' + (P.length === 1 && P[0].fs.length === 1 && P[0].fs[0].b.k === 'sum' ? '(' + C.showInner(P[0].fs[0].b.s) + ')' : C.show(P)) + '^' + gW + '\n';
+            }
+            line(log, 'Zapisujemy oba wykładniki tak samo', why + limHead(v, t) + '⟦' + C.show(combined) + '⟧', 'potega-ilorazu');
             return limitOf(combined, v, t, log, depth);
         }
     };
@@ -1480,10 +1487,23 @@
                     forms.push(form(cN ? cN.inner : C.show(dN), cD ? cD.inner : C.show(dD)));
                 }
                 forms.push(H + raw);
-                if (raw.replace(/[()\s]/g, '') !== simple.replace(/[()\s]/g, '')) forms.push(limOf(v, t, out));
+                // [EN] S133: gdy licznik i mianownik po pochodnych dają się od razu policzyć, wstawiam liczbę do (dN)/(dD), bez ukrytego upraszczania
+                var direct = null;
+                if (t.at != null && isFinite(Number(t.at))) try {
+                    var pt = pointExpr(t), aN = fold(substitute(dN, v, pt)), aD = fold(substitute(dD, v, pt));
+                    var vN = numVal(aN), vD = numVal(aD), atOut = fold(substitute(out, v, pt)), vO = numVal(atOut);
+                    if (!C.hasVar(aN, v) && !C.hasVar(aD, v) && !C.hasVar(atOut, v) && isFinite(vN) && isFinite(vD) && Math.abs(vD) > 1e-12 && isFinite(vO)
+                        && Math.abs(vN / vD - vO) < 1e-9 * (1 + Math.abs(vO))) direct = atOut;
+                } catch (x) { if (!(x instanceof NotSupported)) throw x; direct = null; }
+                if (!direct && raw.replace(/[()\s]/g, '') !== simple.replace(/[()\s]/g, '')) forms.push(limOf(v, t, out));
                 var flat = function (x) { return x.replace(/[()\s]/g, ''); };
                 forms = forms.filter(function (x, i) { return !i || flat(x) !== flat(forms[i - 1]); });
                 line(log, "Reguła de l'Hospitala", H + '⟦(' + C.showInner(fr.N) + ')′/(' + C.showInner(fr.D) + ')′⟧\n= ' + forms.join('\n= '), 'lhospital');
+                if (direct) {
+                    var rawT = C.show(dD) === '1' ? C.show(dN) : raw; // [EN] (3 · cos(3x))/(1) → 3 · cos(3x)
+                    line(log, 'Podstawiamy ' + v + ' = ' + targetText({ at: t.at, src: t.src, side: 0 }), H + rawT + ' = ' + plugSteps(out, v, t, direct, rawT).join(' = '));
+                    return { kind: 'num', e: direct };
+                }
                 return limitOf(out, v, t, log, depth);
             } finally { _lhCount--; }
         }
@@ -1553,6 +1573,14 @@
             if (lb && lb.kind === 'inf') {
                 var h = astText(n) + ' → 0';
                 if (hits.indexOf(h) < 0) hits.push(h);
+                return { k: 'num', v: K.ZERO, paren: n.paren };
+            }
+        }
+        if (n.k === 'div' && astHasVar(n.a, d.v) && /^[√∛∜]?[a-z](\^\(\d+\/\d+\)|[²³⁴⁵])?$/.test(astText(n.b)) && astHasVar(n.b, d.v)) { // [EN] tylko sama potęga zmiennej w mianowniku (szybko) // [EN] 3√(2 + 7/n²)/∜n → 0: góra ma granicę, dół → ∞ (S140, g015)
+            var topHits = [], top = plugInfinity(n.a, d, topHits); // [EN] góra po wstawieniu zer to sama liczba; dół to dodatnia potęga n (→ ∞ przy n → ∞)
+            if (d.target && d.target.at === 'inf' && !astHasVar(top, d.v)) {
+                var h2 = astText(n) + ' → 0';
+                if (hits.indexOf(h2) < 0) hits.push(h2);
                 return { k: 'num', v: K.ZERO, paren: n.paren };
             }
         }
@@ -1777,7 +1805,11 @@
     }
     // [EN] początek drugiego sposobu: krok 1 i ewentualne „Zapisujemy inaczej” z pierwszego
     var REWRITE_LABELS = ['Wyłączam liczbę spod pierwiastka', 'Wyłączam minus przed ułamek', 'Wyłączam liczbę przed nawias', 'Zmieniam znak licznika i mianownika'];
-    function methodStart(steps) { return steps.slice(0, steps.length - 1).filter(function (s, i) { return i === 0 || REWRITE_LABELS.indexOf(s.label) >= 0; }); }
+    function methodStart(steps) { // [EN] tylko przekształcenia zaraz na początku — nie te po sprzężeniu (S132, g083)
+        var out = [steps[0]];
+        for (var i = 1; i < steps.length - 1 && REWRITE_LABELS.indexOf(steps[i].label) >= 0; i++) out.push(steps[i]);
+        return out;
+    }
     // [EN] nazwy sposobów do przełącznika w krokach (pierwszy ruch silnika)
     var METHOD = { factorCancel: 'Rozkład na czynniki', conjugate: 'Sprzężenie', knownLimits: 'Znana granica', commonDenominator: 'Wspólny mianownik',
         eLimit: 'Dorabianie jedynki', eShortcut: 'Wzór skrócony', dominantPower: 'Najwyższa potęga', lHospital: "de l'Hospital" };
