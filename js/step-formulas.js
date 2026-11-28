@@ -246,6 +246,28 @@
                 'Skąd nazwa: takie równanie nazywa się dwukwadratowe, bo $x^{4}$ to kwadrat kwadratu, $(x^{2})^{2}$, więc jest to równanie kwadratowe dwa razy. Litera $t$ to tylko oznaczenie, może być dowolna.',
             ],
         },
+        'podstawienie-t-wykladnicze': {
+            name: 'Podstawienie t w równaniu wykładniczym',
+            tex: '4^{x}=(2^{x})^{2},\\quad t=2^{x}>0\\ \\Rightarrow\\ t^{2}-3t+2=0',
+            why: 'Gdy wszystkie potęgi da się zapisać przez jedną, np. $2^{x}$, podstawiamy $t=2^{x}$. Wychodzi zwykłe równanie kwadratowe albo liniowe względem $t$.',
+            level: 'Liceum, zakres rozszerzony: równania wykładnicze',
+            more: [
+                'Skąd zapis: $4^{x}=(2^{2})^{x}=(2^{x})^{2}$, a $2^{x+1}=2\\cdot 2^{x}$. Tak każdą potęgę wyrażamy przez $t$.',
+                'Przykład: $4^{x}-3\\cdot 2^{x}+2=0$. Podstawiamy $t=2^{x}$ i mamy $t^{2}-3t+2=0$, stąd $t=1$ albo $t=2$. Wracamy do $x$: $2^{x}=1$ daje $x=0$, a $2^{x}=2$ daje $x=1$.',
+                'Uwaga: potęga liczby dodatniej jest zawsze dodatnia, więc $t>0$. Ujemne $t$ odrzucamy, bo $2^{x}$ nigdy nie jest ujemne.',
+            ],
+        },
+        'podstawienie-t-trygonometryczne': {
+            name: 'Podstawienie t w równaniu trygonometrycznym',
+            tex: 't=\\sin x,\\ -1\\le t\\le 1\\ \\Rightarrow\\ 2t^{2}-t-1=0',
+            why: 'Gdy w równaniu jest tylko $\\sin x$ i jego kwadrat, podstawiamy $t=\\sin x$. Wychodzi równanie kwadratowe względem $t$.',
+            level: 'Liceum, zakres rozszerzony: równania trygonometryczne',
+            more: [
+                'Przykład: $2\\sin^{2}x-\\sin x-1=0$. Z $t=\\sin x$ mamy $2t^{2}-t-1=0$, stąd $t=-\\frac{1}{2}$ albo $t=1$. Potem rozwiązujemy $\\sin x=-\\frac{1}{2}$ i $\\sin x=1$.',
+                'Uwaga: sinus i cosinus przyjmują wartości od $-1$ do $1$, więc $t$ spoza tego przedziału odrzucamy. Tangens może być dowolną liczbą.',
+                'Tak samo z $\\cos x$ i $\\operatorname{tg} x$: litera $t$ zastępuje całą funkcję, a na końcu wracamy do $x$.',
+            ],
+        },
         'postac-iloczynowa': {
             name: 'Postać iloczynowa',
             tex: 'ax^{2}+bx+c=a(x-x_{1})(x-x_{2})',
@@ -477,6 +499,17 @@
             more: [
                 'Przykład: $2x+3y=7$, $x-y=1$. $W=2\\cdot(-1)-1\\cdot 3=-5$, $W_{x}=7\\cdot(-1)-1\\cdot 3=-10$, $W_{y}=2\\cdot 1-1\\cdot 7=-5$, więc $x=2$, $y=1$.',
                 'Gdy $W=0$, lewe strony są proporcjonalne: układ jest sprzeczny albo ma nieskończenie wiele rozwiązań.',
+            ],
+        },
+        gauss: {
+            name: 'Układ trzech równań: metoda Gaussa',
+            tex: '\\begin{cases}a_{1}x+b_{1}y+c_{1}z=d_{1}\\\\ \\quad\\ \\ b_{2}^{\\prime}y+c_{2}^{\\prime}z=d_{2}^{\\prime}\\\\ \\qquad\\quad\\ \\ c_{3}^{\\prime\\prime}z=d_{3}^{\\prime\\prime}\\end{cases}',
+            why: 'Odejmujemy od równań wielokrotność pierwszego, aż w drugim nie ma $x$, a w trzecim ani $x$, ani $y$. Taki układ schodkowy rozwiązujemy od dołu: najpierw $z$, potem $y$, na końcu $x$.',
+            level: 'Liceum, zakres rozszerzony, i studia: układy równań',
+            more: [
+                'Przykład: $x+y+z=6$, $x-y+z=2$, $x+y-z=0$. II − I daje $-2y=-4$, III − I daje $-2z=-6$. Stąd $z=3$, $y=2$, a z pierwszego $x=1$.',
+                'Zapis „II − 2 · I” znaczy: od drugiego równania odejmuję pierwsze pomnożone przez 2, lewą stronę od lewej, prawą od prawej. Rozwiązania się nie zmieniają.',
+                'Skąd nazwa: metodę opisał Carl Friedrich Gauss, choć chińscy matematycy znali ją prawie 2000 lat wcześniej.',
             ],
         },
         'iloraz-iloczyn': {
@@ -1148,6 +1181,8 @@
         'roznica-kwadratow': ['wyrazenia', 'lp', ['różnica kwadratów', 'wzory skróconego mnożenia', 'rozkład na czynniki'], 'rozłóż x^2 - 9', '(x − 3)(x + 3)', ['kwadrat-sumy', 'sprzezenie', 'postac-iloczynowa']],
         'wylaczanie-przed-nawias': ['wyrazenia', 'lp', ['wyłączanie przed nawias', 'wspólny czynnik', 'rozkład na czynniki'], 'rozłóż x^3-x', 'x(x − 1)(x + 1)', ['grupowanie-wyrazow', 'roznica-kwadratow', 'postac-iloczynowa']],
         'grupowanie-wyrazow': ['wyrazenia', 'lp', ['grupowanie wyrazów', 'grupowanie', 'rozkład na czynniki', 'wielomian czterowyrazowy'], 'rozłóż x^3-2x^2+x-2', '(x − 2)(x² + 1)', ['wylaczanie-przed-nawias', 'roznica-kwadratow', 'bezout']],
+        'podstawienie-t-wykladnicze': ['potegi-log', 'lr', ['podstawienie t', 'równanie wykładnicze', 'zamiana zmiennej', 'wspólna podstawa'], 'rozwiąż 4^x - 3*2^x + 2 = 0', 'x₁ = 0, x₂ = 1', ['podstawienie-t', 'rownosc-poteg', 'delta']],
+        'podstawienie-t-trygonometryczne': ['trygonometria', 'lr', ['podstawienie t', 'równanie trygonometryczne', 'sinus w kwadracie', 'zamiana zmiennej'], 'rozwiąż 2sin(x)^2 - sin(x) - 1 = 0', 'x = −π/6 + 2kπ lub x = 7π/6 + 2kπ lub x = π/2 + 2kπ, k ∈ ℤ', ['podstawienie-t', 'wartosci-trygonometryczne', 'okresowosc']],
         'podstawienie-t': ['rownania', 'lr', ['podstawienie t', 'równanie dwukwadratowe', 'x do czwartej', 'zamiana zmiennej'], 'rozwiąż x^4-5x^2+4=0', 'x₁ = −2, x₂ = −1, x₃ = 1, x₄ = 2', ['delta', 'wzory-viete', 'postac-iloczynowa']],
         'postac-iloczynowa': ['funkcje', 'lp', ['postać iloczynowa', 'rozkład trójmianu', 'funkcja kwadratowa', 'miejsca zerowe'], 'rozłóż x^2 - 5x + 6', '(x − 2)(x − 3)', ['delta', 'wzory-x12', 'wierzcholek']],
         'kwadrat-sumy': ['wyrazenia', 'lp', ['kwadrat sumy', 'wzory skróconego mnożenia', 'nawias do kwadratu'], 'kroki (x+3)^2', 'x² + 6x + 9', ['roznica-kwadratow', 'wzor-x0', 'kwadrat-roznicy']],
@@ -1179,6 +1214,7 @@
         'wartosci-trygonometryczne': ['trygonometria', 'lp', ['sinus', 'cosinus', 'tangens', 'wartości z tablicy', 'kąty 30 45 60'], 'rozwiąż sin(x) = 1/2', 'x = π/6 + 2kπ lub x = 5π/6 + 2kπ, k ∈ ℤ', ['okresowosc', 'sin-kwadrat']],
         okresowosc: ['trygonometria', 'lp', ['okres', 'okresowość', 'k całkowite', 'seria rozwiązań', 'równanie trygonometryczne'], 'rozwiąż tg(x) = 1', 'x = π/4 + kπ, k ∈ ℤ', ['wartosci-trygonometryczne']],
         'wezyk': ['rownania', 'lr', ['wężyk', 'siatka znaków', 'nierówność wielomianowa', 'krotność'], 'rozwiąż (x-1)(x-2)(x+3) > 0', 'x ∈ (−3, 1) ∪ (2, +∞)', ['nierownosc-kwadratowa', 'schemat-hornera', 'postac-iloczynowa']],
+        gauss: ['rownania', 'lr', ['metoda Gaussa', 'układ trzech równań', 'układ schodkowy', 'eliminacja'], 'rozwiąż x + y + z = 6, x - y + z = 2, x + y - z = 0', 'x = 1, y = 2, z = 3', ['uklad-przeciwne', 'cramer']],
         cramer: ['rownania', 'lr', ['wyznaczniki', 'wzory Cramera', 'układ równań', 'wyznacznik główny'], 'rozwiąż 2x + 3y = 7, x - y = 1', 'x = 2, y = 1', ['uklad-podstawianie', 'uklad-przeciwne']],
         'iloraz-iloczyn': ['rownania', 'lr', ['nierówność wymierna', 'iloraz na iloczyn', 'ułamek nierówność', 'mianownik'], 'rozwiąż (x-1)/(x+2) > 0', 'x ∈ (−∞, −2) ∪ (1, +∞)', ['wezyk', 'dziedzina', 'wspolny-mianownik']],
         'jaki-procent': ['liczby', 'lp', ['ile procent', 'jakim procentem', 'część całości', 'ułamek na procent'], 'kroki ile procent 30 z 120', '25%', ['procent-z-liczby']],

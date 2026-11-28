@@ -481,5 +481,23 @@ for (const q of ['rozwiąż x^4-5x^2+4=0', 'rozwiąż x^3-6x^2+11x-6=0']) {
     w3('uprość (x^2-0.25)/(x-0.5)', 'x + 0,5 (dla x ≠ 0,5)');
 }
 
+// ── paczka B: układ 3×3 metodą Gaussa i podstawienie t ──
+{
+    const T = q => { const r = S.run(q); return r && r.text; }, L = q => S.run(q).explain.steps;
+    ok('gauss: x + y + z = 6, x − y + z = 2, x + y − z = 0', T('rozwiąż x+y+z=6, x-y+z=2, x+y-z=0') === 'x = 1, y = 2, z = 3', T('rozwiąż x+y+z=6, x-y+z=2, x+y-z=0'));
+    ok('gauss: II − I i III − I', L('rozwiąż x+y+z=6, x-y+z=2, x+y-z=0').some(x => x.label === 'Usuwam x z równań II i III' && x.math === 'II − I:  −2y = −4\nIII − I:  −2z = −6'));
+    ok('gauss: mnożenie bez ułamków (2 · II + 3 · I)', T('rozwiąż 2x + y - z = 8, -3x - y + 2z = -11, -2x + y + 2z = -3') === 'x = 2, y = 3, z = −1'
+        && L('rozwiąż 2x + y - z = 8, -3x - y + 2z = -11, -2x + y + 2z = -3').some(x => /^2 · II \+ 3 · I:/.test(x.math)));
+    ok('gauss: zamiana kolejności, gdy brak x w pierwszym', T('rozwiąż y+z=3, x+z=2, x+y=1') === 'x = 0, y = 1, z = 2' && L('rozwiąż y+z=3, x+z=2, x+y=1').some(x => x.label === 'Zamieniam kolejność równań'));
+    ok('podstawienie t: 4^x − 3 · 2^x + 2 = 0', T('rozwiąż 4^x - 3*2^x + 2 = 0') === 'x₁ = 0, x₂ = 1', T('rozwiąż 4^x - 3*2^x + 2 = 0'));
+    ok('podstawienie t: ujemne t odpada', T('rozwiąż 4^x + 2^x - 6 = 0') === 'x = 1' && L('rozwiąż 4^x + 2^x - 6 = 0').some(x => x.label === 'Odrzucam t spoza warunku t > 0'));
+    ok('podstawienie t: 2^(x+1) = 2 · 2^x', T('rozwiąż 2^(x+1) + 2^x = 12') === 'x = 2', T('rozwiąż 2^(x+1) + 2^x = 12'));
+    ok('podstawienie t: 4^x = 2^(x+3) dalej wspólną podstawą', !L('rozwiąż 4^x = 2^(x+3)').some(x => /^Podstawiam/.test(x.label)));
+    ok('podstawienie t: 2sin²x − sin x − 1 = 0', T('rozwiąż 2sin(x)^2 - sin(x) - 1 = 0') === 'x = −π/6 + 2kπ lub x = 7π/6 + 2kπ lub x = π/2 + 2kπ, k ∈ ℤ', T('rozwiąż 2sin(x)^2 - sin(x) - 1 = 0'));
+    ok('podstawienie t: π − (−π/6) w nawiasie', L('rozwiąż 2sin(x)^2 - sin(x) - 1 = 0').some(x => x.math.startsWith('π − (−π/6) = 7π/6')));
+    ok('podstawienie t: tg²x = 3', T('rozwiąż tg(x)^2 = 3') === 'x = −π/3 + kπ lub x = π/3 + kπ, k ∈ ℤ', T('rozwiąż tg(x)^2 = 3'));
+    ok('podstawienie t: sin²x = 4 bez rozwiązań', T('rozwiąż sin(x)^2 = 4') === 'Brak rozwiązań', T('rozwiąż sin(x)^2 = 4'));
+}
+
 console.log(`math-steps: ${pass} OK, ${fail} błędów`);
 process.exit(fail ? 1 : 0);

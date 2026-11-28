@@ -13,15 +13,17 @@ Na start przywitaj się krótko, powiedz, co przeczytałeś, i zaproponuj nastę
 - Granice: podstawienie pokazuje rachunek poziomami (bramka w testach: każde „Podstawiamy” z rachunkiem, bez gołych liczb ujemnych); krok „Dzielimy schematem Hornera” z tabelkami przed rozkładem (bramka: każdy rozkład ma Hornera).
 - Przegląd całego silnika: 224 zadania, 4 działy + stare raporty C, D, E → 91 uwag (10 krytycznych), 14 wzorców lekkiej interaktywności.
 
-## W TOKU (2026-11-28): paczka B sposobów
-- Zrobione: nierówności wielomianowe wężykiem (v1.05.81), nierówności wymierne (v1.05.82), wyznaczniki (Cramer)
-  dla układu 2×2 jako trzeci sposób (v1.05.83). Hasła: wezyk, iloraz-iloczyn, cramer.
-- Zostało z paczki B: **układ 3×3 metodą Gaussa** (dziś `rozwiąż x+y+z=6, x-y+z=2, x+y-z=0` daje null)
-  i **podstawienie t** w wykładniczych (`4^x - 3*2^x + 2 = 0`) i trygonometrycznych (`2sin(x)^2 - sin(x) - 1 = 0`).
-  Kod: `js/math-steps.js` (`solveSystem`, `snakeInequality`, `rationalInequality`).
+## W TOKU (2026-11-28): słaby uczeń na granicach i równaniach, potem S120-S131
+- Paczka B sposobów zamknięta (v1.05.85): wężyk (v1.05.81), nierówności wymierne (v1.05.82), wyznaczniki 2×2 (v1.05.83),
+  **układ 3×3 metodą Gaussa** (`solveSystem3`) i **podstawienie t** w wykładniczych i trygonometrycznych (`substPlan`, `solveSubstT`).
+  Hasła: gauss, podstawienie-t-wykladnicze, podstawienie-t-trygonometryczne.
+- Nie zrobione (na później): 3×3 osobliwy (brak/nieskończenie wiele rozwiązań — dziś „Jeszcze tego nie rozwiążę”),
+  wyznaczniki 3×3 (Sarrus), sin² + cos² w jednym równaniu.
 - Słaby uczeń po partii 2: analiza i reszta przeczytane, uwagi w `skoki-tabela.md` jako S120-S131 (do zrobienia).
-  **Granice i równania niedokończone** (limit użycia przerwał agentów) — puścić ponownie:
-  `node scripts/steps-dump-student.js granice|rownania <plik>`, granice podzielić na dwie części (plik ~600 KB).
+  **Granice i równania niedokończone** — puścić ponownie: `node scripts/steps-dump-student.js granice|rownania <plik>`,
+  granice podzielić na dwie części (plik ~600 KB).
+- Następny etap po tym (pomysł Mateusza 2026-11-28): „=” domyślnie jak w kalkulatorze (wynik do dalszych działań),
+  kroki dopiero po kliknięciu; przełącznik w ustawieniach. Najpierw brainstorming i projekt do akceptacji.
 
 ## Zrobione (2026-11-27, v1.05.80): partia 2c (równania i reszta)
 - 12 wierszy (S2, S19, S33, S35, S41, S42, S48–S51, S56, S57), plan: `docs/superpowers/plans/2026-11-27-partia-2c.md`.

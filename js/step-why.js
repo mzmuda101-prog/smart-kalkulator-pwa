@@ -104,6 +104,12 @@
         [/^Wyłączamy potęgę \w z każdego nawiasu$/, 'Każdy nawias ma swoją najwyższą potęgę. Wyciągam ją z każdego osobno i dodaję wykładniki, żeby wiedzieć, co skrócić.'],
         [/^Dzielimy potęgi: odejmujemy wykładniki$/, 'Każdy wyraz dzielę przez najwyższą potęgę. Przy dzieleniu potęg tej samej liczby wykładniki się odejmuje, także ułamkowe.'],
         [/^Zapisujemy \w przez \(−\w\)$/, 'Dla ujemnej zmiennej wyłączamy dodatnie $-x$, więc każdy wyraz z nieparzystą potęgą zapisujemy przez $-x$ z minusem.'],
+        [/^Zamieniam kolejność równań$/, 'Na górę daję równanie z najprostszą liczbą przy pierwszej niewiadomej, żeby odejmować bez ułamków.'],
+        [/^Usuwam \w z równań II i III$/, 'Od równań odejmuję pierwsze pomnożone przez taką liczbę, żeby ta niewiadoma się skróciła.'],
+        [/^Usuwam \w z równania III$/, 'Tak samo drugim równaniem usuwam następną niewiadomą z trzeciego. Zostaje w nim jedna litera.'],
+        [/^Zapisuję układ schodkowy$/, 'Każde kolejne równanie ma o jedną niewiadomą mniej, więc rozwiązuję od dołu.'],
+        [/^Wyliczam \w z równania (II|III|I)$/, 'W tym równaniu została jedna niewiadoma, więc dzielę przez liczbę, która przy niej stoi.'],
+        [/^Wstawiam .* do równania (II|I)$/, 'Znane już liczby wpisuję w miejsce liter. Zostaje równanie z jedną niewiadomą.'],
         [/^Liczę wyznacznik główny W$/, 'Biorę tylko liczby stojące przy niewiadomych. Gdy wynik nie jest zerem, wiem, że rozwiązanie jest jedno.'],
         [/^Liczę W\w i W\w$/, 'Tak samo mnożę po przekątnych, tylko jedną kolumnę wymieniam na wyrazy wolne.'],
         [/^Dzielę przez W$/, 'Każdą niewiadomą dostaję, dzieląc jej wyznacznik przez wyznacznik główny: x = Wx : W, y = Wy : W.'],
@@ -304,8 +310,13 @@
         [/^Rozkładam (różnicę|sumę) sześcianów$/, 'Liczbę zapisuję jako trzecią potęgę, więc od razu widzę, co wstawić za $a$ i $b$.'],
         [/^Grupuję wyrazy w pary$/, 'Patrzę na pierwsze dwa i ostatnie dwa wyrazy osobno: po wyjęciu z nich czegoś zostaje ten sam nawias.'],
         [/^Wyłączam wspólny nawias$/, 'Oba składniki mają ten sam nawias, więc wyciągam go przed nawias jak zwykłą liczbę.'],
-        [/^Podstawiam [tu] w miejsce /, 'Tu największa potęga to podwojona środkowa, więc po zamianie zostaje trójmian, który już umiem rozłożyć.'],
-        [/^Wracam do [a-z]$/, 'Zamiast litery pomocniczej wpisuję z powrotem potęgę, bo wynik ma być zapisany przez wyjściową zmienną.'],
+        [/^Zapisuję potęgi przez /, 'Każdą potęgę wyrażam przez tę jedną, bo wtedy po podstawieniu zostanie równanie z jedną literą.'],
+        [/^Podstawiam [tu] w miejsce /, (s) => /\^|sin|cos|tg/.test(s.label) ? 'Całe wyrażenie zastępuję jedną literą. Zostaje zwykłe równanie, a warunek mówi, jakie wartości ta litera może mieć.'
+            : 'Tu największa potęga to podwojona środkowa, więc po zamianie zostaje trójmian, który już umiem rozłożyć.'],
+        [/^(Sprawdzam warunek|Odrzucam [tu] spoza warunku) /, (s) => /> 0/.test(s.label) ? 'Potęga liczby dodatniej jest zawsze dodatnia, więc liczba ujemna albo zero odpada.'
+            : 'Sinus i cosinus przyjmują wartości tylko od −1 do 1, więc liczba spoza tego przedziału odpada.'],
+        [/^Wracam do [a-z]$/, (s) => /\^|sin|cos|tg/.test(s.math) ? 'Litera pomocnicza to nie wynik. Wpisuję z powrotem wyrażenie i rozwiązuję każde równanie osobno.'
+            : 'Zamiast litery pomocniczej wpisuję z powrotem potęgę, bo wynik ma być zapisany przez wyjściową zmienną.'],
         [/^Wciągam liczbę do nawiasu$/, 'Zamiast ułamka w nawiasie wolę liczby całkowite, bo tak zapisuje się czynniki.'],
         [/^Porządkuję czynniki$/, (s) => {
             const [l, r] = s.math.split(' = '), lead = (/** @type {string} */ t) => (/^[^(a-z]*/.exec(t) || [''])[0];
